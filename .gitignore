@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Production build outputs
+dist/
+build/
+out/
+.next/
+
+# Environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data & In-app file uploads
+storage/
+uploads/
+*.sqlite
+*.sqlite3
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# IDE & OS files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# TypeScript / Build cache
+*.tsbuildinfo
+.eslintcache
+.cache/
+
+#.md files
+AGENTS.md
+instructions.md
+project_scope.md
+
+#agents
+*.agents
