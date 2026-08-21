@@ -1,0 +1,20 @@
+{
+  "app_name": "Unified Dental Platform",
+  "welcome": "Welcome to Unified Dental Platform",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "edit": "Edit",
+  "create": "Create",
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "suspended": "Suspended"
+  },
+  "modules": {
+    "clinic": "Dental Clinic",
+    "lab": "Dental Laboratory",
+    "radiology": "Radiology & Imaging"
+  }
+}

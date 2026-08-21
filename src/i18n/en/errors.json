@@ -1,0 +1,11 @@
+{
+  "tenant_not_found": "Tenant organization not found",
+  "branch_not_found": "Branch not found",
+  "user_not_found": "User not found",
+  "email_already_exists": "A user with this email address already exists",
+  "slug_already_exists": "Tenant subdomain slug is already taken",
+  "role_not_found": "Role not found",
+  "permission_denied": "You lack the required permissions to perform this action",
+  "file_not_found": "Requested file not found or access denied",
+  "invalid_file_type": "Unsupported file format. Please upload allowed document or image types."
+}

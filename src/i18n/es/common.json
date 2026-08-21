@@ -1,0 +1,20 @@
+{
+  "app_name": "Plataforma Dental Unificada",
+  "welcome": "Bienvenido a la Plataforma Dental Unificada",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "delete": "Eliminar",
+  "edit": "Editar",
+  "create": "Crear",
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "pending": "Pendiente",
+    "suspended": "Suspendido"
+  },
+  "modules": {
+    "clinic": "Clínica Dental",
+    "lab": "Laboratorio Dental",
+    "radiology": "Radiología e Imagenología"
+  }
+}

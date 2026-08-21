@@ -1,0 +1,6 @@
+{
+  "welcome_title": "¡Bienvenido a la Plataforma Dental Unificada!",
+  "welcome_body": "Su cuenta ha sido creada. Comience configurando sus sucursales y servicios.",
+  "branch_created": "Se ha creado una nueva sucursal '{name}'.",
+  "user_invited": "El usuario {name} ha sido invitado a la organización."
+}

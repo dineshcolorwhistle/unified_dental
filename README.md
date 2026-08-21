@@ -91,16 +91,15 @@ Modules are independent siblings sharing a common core:
 
 ## 🗺 Phased Implementation Roadmap
 
-Development is organized into **6 sequential phases** (detailed in [project_scope.md](file:///d:/Projects/unified_dental/project_scope.md)):
+Development is organized into **5 sequential phases** (detailed in [project_scope.md](file:///d:/Projects/unified_dental/project_scope.md)):
 
 | Phase | Description | Status |
 |---|---|---|
-| **Phase 1** | **Shared Core & Platform Foundation**<br>• Tenancy (subdomains) & Branch management<br>• Native Auth (JWT, Passport.js, bcrypt)<br>• RBAC & Permission system<br>• Audit logging, In-App file uploads, Notifications<br>• Monolith layout (NestJS serving React SPA) | 🟡 *Ready to start* |
-| **Phase 2** | **Lab Module**<br>• Prosthesis & Process master data<br>• Work Orders & Process State Machine<br>• Internal & External Verifications<br>• QR Public Tracking & Interest Collection<br>• Deliveries & Lab Dashboard | ⚪ *Planned* |
-| **Phase 3** | **Clinic Module**<br>• Patient profiles & Medical history<br>• Appointment scheduling & Calendar views<br>• Dental charts & Treatment plans<br>• Prescriptions & Invoicing/Billing<br>• Clinic Dashboard | ⚪ *Planned* |
+| **Phase 1** | **Shared Core, Platform Foundation & i18n**<br>• Tenancy (subdomains) & Branch management<br>• **Dynamic System Modules Management (`/modules`)**: Create, Edit, Delete, and Toggle status without hardcoded seeds<br>• **Subscription Plans CRUD (`/plans`)**: Dynamic module checkboxes & custom plans<br>• **Tenant-Plan-Module Flow (`/tenants`)**: Selecting a plan dynamically displays included modules as non-editable and auto-provisions them<br>• Native Auth (JWT, Passport.js, bcrypt)<br>• RBAC & Permission system<br>• Mail Service (SMTP, BullMQ async queue, templates)<br>• Audit logging, In-App file uploads, Notifications<br>• **Bilingual i18n Foundation (EN/ES)** with Header Language Switcher<br>• Monolith layout (NestJS serving React SPA) | 🟢 **Completed** |
+| **Phase 2** | **Lab Module (Bilingual EN/ES)**<br>• Prosthesis & Process master data<br>• Work Orders & Process State Machine<br>• Internal & External Verifications (email alerts)<br>• QR Public Tracking & Interest Collection<br>• Deliveries & Lab Dashboard | 🟡 *Next Phase* |
+| **Phase 3** | **Clinic Module (Bilingual EN/ES)**<br>• Patient profiles & Medical history<br>• Appointment scheduling & Reminder emails<br>• Dental charts & Treatment plans<br>• Prescriptions & Invoicing/Billing with PDF receipts<br>• Clinic Dashboard | ⚪ *Planned* |
 | **Phase 4** | **Cross-Module Integration**<br>• Shared patient linking<br>• Clinic → Lab Request workflow<br>• Doctor identity linking<br>• Cross-module notifications & unified dashboards | ⚪ *Planned* |
-| **Phase 5** | **Internationalization & Multi-Region**<br>• Full English & Spanish translations (UI & API)<br>• Multi-region deployment configuration<br>• Tenant/User locale preferences | ⚪ *Planned* |
-| **Phase 6** | **Production Hardening & Observability**<br>• Security audit & penetration testing<br>• Performance tuning & indexing<br>• Logging, monitoring, and health checks<br>• CI/CD pipeline & automated deployment | ⚪ *Planned* |
+| **Phase 5** | **Production Hardening & Observability**<br>• Security audit & penetration testing<br>• Performance tuning & indexing<br>• Logging, monitoring, and health checks<br>• Hostinger VPS deployment, Let's Encrypt Wildcard SSL & automated backups | ⚪ *Planned* |
 
 > 📌 **Rule for Agents & Developers:** Whenever a phase or module is implemented, update the status and details in this section!
 

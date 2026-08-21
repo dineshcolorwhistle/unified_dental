@@ -1,0 +1,11 @@
+{
+  "tenant_not_found": "Organización no encontrada",
+  "branch_not_found": "Sucursal no encontrada",
+  "user_not_found": "Usuario no encontrado",
+  "email_already_exists": "Ya existe un usuario con esta dirección de correo electrónico",
+  "slug_already_exists": "El subdominio ya está en uso",
+  "role_not_found": "Rol no encontrado",
+  "permission_denied": "No tiene los permisos necesarios para realizar esta acción",
+  "file_not_found": "Archivo solicitado no encontrado o acceso denegado",
+  "invalid_file_type": "Formato de archivo no compatible. Suba tipos de documentos o imágenes permitidos."
+}

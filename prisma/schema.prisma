@@ -1,0 +1,322 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  INVITED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Tenant {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  status      TenantStatus   @default(ACTIVE)
+  settings    Json?          @default("{}")
+  planId      String?        @map("plan_id")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  plan         SubscriptionPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
+  modules      TenantModule[]
+  branches     Branch[]
+  memberships  TenantMembership[]
+  moduleAccess UserModuleAccess[]
+  roles        Role[]
+  userRoles    UserRole[]
+  auditLogs    AuditLog[]
+  files        FileRecord[]
+  notifications Notification[]
+
+  @@map("tenants")
+}
+
+model SystemModule {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  isEnabled   Boolean  @default(true) @map("is_enabled")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_modules")
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  modules     String[]
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenants     Tenant[]
+
+  @@map("subscription_plans")
+}
+
+model TenantModule {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  moduleKey  String    @map("module_key")
+  isEnabled  Boolean   @default(true) @map("is_enabled")
+  enabledAt  DateTime? @default(now()) @map("enabled_at")
+  config     Json?     @default("{}")
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleKey])
+  @@map("tenant_modules")
+}
+
+model Branch {
+  id         String        @id @default(uuid())
+  tenantId   String        @map("tenant_id")
+  name       String
+  code       String?
+  address    String?
+  phone      String?
+  email      String?
+  isDefault  Boolean       @default(false) @map("is_default")
+  status     BranchStatus  @default(ACTIVE)
+  settings   Json?         @default("{}")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userBranches UserBranch[]
+  userRoles   UserRole[]
+  auditLogs   AuditLog[]
+  files       FileRecord[]
+
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model User {
+  id           String             @id @default(uuid())
+  email        String             @unique
+  passwordHash String             @map("password_hash")
+  name         String
+  phone        String?
+  avatarUrl    String?            @map("avatar_url")
+  status       UserStatus         @default(ACTIVE)
+  isSuperAdmin Boolean            @default(false) @map("is_super_admin")
+  locale       String             @default("en")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  memberships   TenantMembership[]
+  userBranches  UserBranch[]
+  moduleAccess  UserModuleAccess[]
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  uploadedFiles FileRecord[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model TenantMembership {
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  tenantId  String     @map("tenant_id")
+  status    UserStatus @default(ACTIVE)
+  isOwner   Boolean    @default(false) @map("is_owner")
+  joinedAt  DateTime   @default(now()) @map("joined_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("tenant_memberships")
+}
+
+model UserBranch {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  branchId  String   @map("branch_id")
+  isDefault Boolean  @default(false) @map("is_default")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@map("user_branches")
+}
+
+model UserModuleAccess {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tenantId  String   @map("tenant_id")
+  moduleKey String   @map("module_key")
+  isActive  Boolean  @default(true) @map("is_active")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, moduleKey])
+  @@map("user_module_access")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String?  @map("tenant_id") // Null for global system-level roles
+  moduleKey   String?  @map("module_key") // Null for global/shared roles
+  name        String
+  slug        String
+  isSystem    Boolean  @default(false) @map("is_system")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([tenantId, slug])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  moduleKey   String?  @map("module_key") // Null for shared platform/core permissions
+  key         String   @unique // e.g. "tenant.view", "branch.manage", "work_order.create"
+  name        String
+  group       String   // e.g. "Tenancy", "Branches", "Lab Operations", "Clinical"
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id       String  @id @default(uuid())
+  userId   String  @map("user_id")
+  tenantId String  @map("tenant_id")
+  branchId String? @map("branch_id") // Null means tenant-wide role
+  roleId   String  @map("role_id")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  role   Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, branchId, roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  revoked   Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  tenantId     String?  @map("tenant_id")
+  branchId     String?  @map("branch_id")
+  moduleKey    String?  @map("module_key")
+  userId       String?  @map("user_id")
+  action       String   // e.g. "CREATE", "UPDATE", "DELETE", "LOGIN", "ENABLE_MODULE"
+  resourceType String   @map("resource_type") // e.g. "BRANCH", "TENANT", "USER"
+  resourceId   String?  @map("resource_id")
+  oldValues    Json?    @map("old_values")
+  newValues    Json?    @map("new_values")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model FileRecord {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  branchId     String?  @map("branch_id")
+  moduleKey    String?  @map("module_key")
+  resourceType String   @map("resource_type") // e.g. "AVATAR", "ATTACHMENT", "IMPRESSION"
+  resourceId   String?  @map("resource_id")
+  storagePath  String   @map("storage_path")
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  uploadedBy   String?  @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@map("files")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  tenantId  String?   @map("tenant_id")
+  userId    String    @map("user_id")
+  moduleKey String?   @map("module_key")
+  type      String    // e.g. "SYSTEM", "WORK_ORDER", "APPOINTMENT", "SECURITY"
+  title     String
+  body      String
+  data      Json?     @default("{}")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([tenantId])
+  @@map("notifications")
+}

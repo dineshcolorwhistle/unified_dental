@@ -1,0 +1,6 @@
+{
+  "welcome_title": "Welcome to Unified Dental!",
+  "welcome_body": "Your account has been created. Start configuring your branches and services.",
+  "branch_created": "A new branch '{name}' has been created.",
+  "user_invited": "User {name} has been invited to the organization."
+}
