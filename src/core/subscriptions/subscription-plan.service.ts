@@ -74,6 +74,9 @@ export class SubscriptionPlanService {
       code,
       description: dto.description?.trim() || null,
       moduleCount: dto.moduleCount !== undefined ? Number(dto.moduleCount) : 1,
+      branchCount: dto.branchCount !== undefined ? Number(dto.branchCount) : 3,
+      memberCount: dto.memberCount !== undefined ? Number(dto.memberCount) : 10,
+      maxUploadFileSizeMb: dto.maxUploadFileSizeMb !== undefined ? Number(dto.maxUploadFileSizeMb) : 25,
       modules: dto.modules || [],
       isActive: dto.isActive !== undefined ? dto.isActive : true,
     };
@@ -107,6 +110,9 @@ export class SubscriptionPlanService {
       name: dto.name !== undefined ? dto.name.trim() : existing.name,
       description: dto.description !== undefined ? dto.description.trim() : existing.description,
       moduleCount: dto.moduleCount !== undefined ? Number(dto.moduleCount) : (existing as any).moduleCount || 1,
+      branchCount: dto.branchCount !== undefined ? Number(dto.branchCount) : (existing as any).branchCount || 3,
+      memberCount: dto.memberCount !== undefined ? Number(dto.memberCount) : (existing as any).memberCount || 10,
+      maxUploadFileSizeMb: dto.maxUploadFileSizeMb !== undefined ? Number(dto.maxUploadFileSizeMb) : (existing as any).maxUploadFileSizeMb || 25,
       modules: dto.modules !== undefined ? dto.modules : existing.modules,
       isActive: dto.isActive !== undefined ? dto.isActive : existing.isActive,
     };

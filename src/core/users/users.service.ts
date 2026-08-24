@@ -100,6 +100,35 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(dto.password || 'Welcome@123456', 10);
 
     return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({
+        where: { id: targetTenantId },
+        include: { plan: true },
+      });
+
+      if (!tenant) {
+        throw new NotFoundException(`Tenant with ID ${targetTenantId} not found`);
+      }
+
+      const currentMemberCount = await tx.tenantMembership.count({
+        where: {
+          tenantId: targetTenantId,
+          isOwner: false,
+        },
+      });
+
+      const effectiveMaxMembers =
+        tenant.maxMembers !== null && tenant.maxMembers !== undefined
+          ? Number(tenant.maxMembers)
+          : tenant.plan?.memberCount !== null && tenant.plan?.memberCount !== undefined
+          ? Number(tenant.plan.memberCount)
+          : 10;
+
+      if (currentMemberCount >= effectiveMaxMembers) {
+        throw new BadRequestException(
+          `Organization has reached the maximum allowed limit of ${effectiveMaxMembers} team member(s) (excluding tenant admin). Please upgrade your subscription plan or contact administrator for a limit override.`,
+        );
+      }
+
       let user = existing;
       if (!user) {
         user = await tx.user.create({

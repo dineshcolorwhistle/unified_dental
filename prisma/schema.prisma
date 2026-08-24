@@ -25,14 +25,18 @@ enum BranchStatus {
 }
 
 model Tenant {
-  id          String         @id @default(uuid())
-  name        String
-  slug        String         @unique
-  status      TenantStatus   @default(ACTIVE)
-  settings    Json?          @default("{}")
-  planId      String?        @map("plan_id")
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  id                  String         @id @default(uuid())
+  name                String
+  slug                String         @unique
+  status              TenantStatus   @default(ACTIVE)
+  settings            Json?          @default("{}")
+  planId              String?        @map("plan_id")
+  maxBranches         Int?           @map("max_branches")
+  maxMembers          Int?           @map("max_members")
+  maxUploadFileSizeMb Int?           @map("max_upload_file_size_mb")
+  maxModules          Int?           @map("max_modules")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
 
   // Relations
   plan         SubscriptionPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
@@ -62,15 +66,18 @@ model SystemModule {
 }
 
 model SubscriptionPlan {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  name        String
-  description String?
-  moduleCount Int      @default(1) @map("module_count")
-  modules     String[] @default([])
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  code                String   @unique
+  name                String
+  description         String?
+  moduleCount         Int      @default(1) @map("module_count")
+  branchCount         Int      @default(3) @map("branch_count")
+  memberCount         Int      @default(10) @map("member_count")
+  maxUploadFileSizeMb Int      @default(25) @map("max_upload_file_size_mb")
+  modules             String[] @default([])
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   tenants     Tenant[]
 

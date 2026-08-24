@@ -18,6 +18,10 @@ import {
   MapPin,
   User,
   ShieldCheck,
+  HardDrive,
+  Users,
+  Sliders,
+  Info,
 } from 'lucide-react';
 
 function nameToSlug(name: string): string {
@@ -46,6 +50,11 @@ export const TenantsPage: React.FC = () => {
   const [editStatus, setEditStatus] = useState<string>('ACTIVE');
   const [editPlanId, setEditPlanId] = useState('');
   const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
+  const [editOverrideLimits, setEditOverrideLimits] = useState(false);
+  const [editMaxModules, setEditMaxModules] = useState<number | string>('');
+  const [editMaxBranches, setEditMaxBranches] = useState<number | string>('');
+  const [editMaxMembers, setEditMaxMembers] = useState<number | string>('');
+  const [editMaxUploadFileSizeMb, setEditMaxUploadFileSizeMb] = useState<number | string>('');
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Delete Tenant Modal State
@@ -58,9 +67,14 @@ export const TenantsPage: React.FC = () => {
     slug: '',
     planId: '',
     modules: [] as string[],
-    branchName: 'Main Branch',
     adminEmail: '',
     adminName: '',
+    // Limit overrides
+    overrideLimits: false,
+    maxModules: '' as number | string,
+    maxBranches: '' as number | string,
+    maxMembers: '' as number | string,
+    maxUploadFileSizeMb: '' as number | string,
   });
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
@@ -109,11 +123,16 @@ export const TenantsPage: React.FC = () => {
     });
   };
 
-  const handlePlanChange = (planId: string) => {
+  const getEffectiveModuleLimit = (planId: string, overrideActive: boolean, overrideVal: number | string) => {
+    if (overrideActive && overrideVal !== '') {
+      return Number(overrideVal) || 1;
+    }
     const targetPlan = plans.find((p) => p.id === planId);
-    const maxAllowed = targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
-    
-    // Auto trim selected modules if exceeds newly selected plan limit
+    return targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
+  };
+
+  const handlePlanChange = (planId: string) => {
+    const maxAllowed = getEffectiveModuleLimit(planId, formData.overrideLimits, formData.maxModules);
     const trimmedModules = formData.modules.slice(0, maxAllowed);
     setFormData({
       ...formData,
@@ -123,8 +142,7 @@ export const TenantsPage: React.FC = () => {
   };
 
   const handleToggleModuleSelection = (moduleCode: string) => {
-    const selectedPlan = plans.find((p) => p.id === formData.planId);
-    const maxAllowed = selectedPlan ? (selectedPlan.moduleCount || 1) : systemModules.length;
+    const maxAllowed = getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules);
     const isChecked = formData.modules.includes(moduleCode);
 
     if (isChecked) {
@@ -145,15 +163,13 @@ export const TenantsPage: React.FC = () => {
   };
 
   const handleEditPlanChange = (planId: string) => {
-    const targetPlan = plans.find((p) => p.id === planId);
-    const maxAllowed = targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
+    const maxAllowed = getEffectiveModuleLimit(planId, editOverrideLimits, editMaxModules);
     setEditPlanId(planId);
     setEditSelectedModules((prev) => prev.slice(0, maxAllowed));
   };
 
   const handleToggleEditModuleSelection = (moduleCode: string) => {
-    const targetPlan = plans.find((p) => p.id === editPlanId);
-    const maxAllowed = targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
+    const maxAllowed = getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules);
     const isChecked = editSelectedModules.includes(moduleCode);
 
     if (isChecked) {
@@ -176,7 +192,16 @@ export const TenantsPage: React.FC = () => {
 
     try {
       await api.post('/tenants', {
-        ...formData,
+        name: formData.name,
+        slug: formData.slug,
+        planId: formData.planId || undefined,
+        modules: formData.modules,
+        adminEmail: formData.adminEmail || undefined,
+        adminName: formData.adminName || undefined,
+        maxModules: formData.overrideLimits && formData.maxModules !== '' ? Number(formData.maxModules) : null,
+        maxBranches: formData.overrideLimits && formData.maxBranches !== '' ? Number(formData.maxBranches) : null,
+        maxMembers: formData.overrideLimits && formData.maxMembers !== '' ? Number(formData.maxMembers) : null,
+        maxUploadFileSizeMb: formData.overrideLimits && formData.maxUploadFileSizeMb !== '' ? Number(formData.maxUploadFileSizeMb) : null,
         locale: i18n.language,
       });
       setShowModal(false);
@@ -185,9 +210,13 @@ export const TenantsPage: React.FC = () => {
         slug: '',
         planId: '',
         modules: [],
-        branchName: 'Main Branch',
         adminEmail: '',
         adminName: '',
+        overrideLimits: false,
+        maxModules: '',
+        maxBranches: '',
+        maxMembers: '',
+        maxUploadFileSizeMb: '',
       });
       setSlugManuallyEdited(false);
       fetchTenantsAndPlans();
@@ -218,6 +247,18 @@ export const TenantsPage: React.FC = () => {
       .filter((m: any) => m.isEnabled)
       .map((m: any) => m.moduleKey);
     setEditSelectedModules(enabledMods);
+
+    const hasOverrides =
+      tenant.maxModules !== null && tenant.maxModules !== undefined ||
+      tenant.maxBranches !== null && tenant.maxBranches !== undefined ||
+      tenant.maxMembers !== null && tenant.maxMembers !== undefined ||
+      tenant.maxUploadFileSizeMb !== null && tenant.maxUploadFileSizeMb !== undefined;
+
+    setEditOverrideLimits(hasOverrides);
+    setEditMaxModules(tenant.maxModules !== null && tenant.maxModules !== undefined ? tenant.maxModules : '');
+    setEditMaxBranches(tenant.maxBranches !== null && tenant.maxBranches !== undefined ? tenant.maxBranches : '');
+    setEditMaxMembers(tenant.maxMembers !== null && tenant.maxMembers !== undefined ? tenant.maxMembers : '');
+    setEditMaxUploadFileSizeMb(tenant.maxUploadFileSizeMb !== null && tenant.maxUploadFileSizeMb !== undefined ? tenant.maxUploadFileSizeMb : '');
   };
 
   const handleUpdateTenant = async (e: React.FormEvent) => {
@@ -236,6 +277,10 @@ export const TenantsPage: React.FC = () => {
         status: editStatus,
         planId: editPlanId || null,
         modules: editSelectedModules,
+        maxModules: editOverrideLimits && editMaxModules !== '' ? Number(editMaxModules) : null,
+        maxBranches: editOverrideLimits && editMaxBranches !== '' ? Number(editMaxBranches) : null,
+        maxMembers: editOverrideLimits && editMaxMembers !== '' ? Number(editMaxMembers) : null,
+        maxUploadFileSizeMb: editOverrideLimits && editMaxUploadFileSizeMb !== '' ? Number(editMaxUploadFileSizeMb) : null,
       });
       setEditingTenant(null);
       fetchTenantsAndPlans();
@@ -282,6 +327,21 @@ export const TenantsPage: React.FC = () => {
   const selectedPlan = plans.find((p) => p.id === formData.planId);
   const selectedEditPlan = plans.find((p) => p.id === editPlanId);
 
+  const getEffectiveLimits = (tenant: any) => {
+    const plan = tenant.plan;
+    const maxModules = tenant.maxModules !== null && tenant.maxModules !== undefined ? tenant.maxModules : (plan?.moduleCount || 1);
+    const maxBranches = tenant.maxBranches !== null && tenant.maxBranches !== undefined ? tenant.maxBranches : (plan?.branchCount || 3);
+    const maxMembers = tenant.maxMembers !== null && tenant.maxMembers !== undefined ? tenant.maxMembers : (plan?.memberCount || 10);
+    const maxUploadFileSizeMb = tenant.maxUploadFileSizeMb !== null && tenant.maxUploadFileSizeMb !== undefined ? tenant.maxUploadFileSizeMb : (plan?.maxUploadFileSizeMb || 25);
+    const hasOverride =
+      tenant.maxModules !== null && tenant.maxModules !== undefined ||
+      tenant.maxBranches !== null && tenant.maxBranches !== undefined ||
+      tenant.maxMembers !== null && tenant.maxMembers !== undefined ||
+      tenant.maxUploadFileSizeMb !== null && tenant.maxUploadFileSizeMb !== undefined;
+
+    return { maxModules, maxBranches, maxMembers, maxUploadFileSizeMb, hasOverride };
+  };
+
   return (
     <div>
       {/* Header */}
@@ -327,9 +387,13 @@ export const TenantsPage: React.FC = () => {
               slug: '',
               planId: '',
               modules: [],
-              branchName: 'Main Branch',
               adminEmail: '',
               adminName: '',
+              overrideLimits: false,
+              maxModules: '',
+              maxBranches: '',
+              maxMembers: '',
+              maxUploadFileSizeMb: '',
             });
             setSlugManuallyEdited(false);
             setShowModal(true);
@@ -403,6 +467,10 @@ export const TenantsPage: React.FC = () => {
             ) : (
               tenants.map((tItem) => {
                 const plan = tItem.plan;
+                const limits = getEffectiveLimits(tItem);
+                const branchCount = tItem._count?.branches || tItem.branches?.length || 0;
+                const memberCount = tItem._count?.memberships || 0;
+
                 return (
                   <tr key={tItem.id}>
                     <td>
@@ -443,19 +511,40 @@ export const TenantsPage: React.FC = () => {
                     </td>
                     <td>
                       {plan ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--badge-primary-bg)',
-                              color: 'var(--badge-primary-text)',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                            }}
-                          >
-                            {plan.name} ({plan.moduleCount || 1} Mod{(plan.moduleCount || 1) === 1 ? '' : 's'})
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                backgroundColor: 'var(--badge-primary-bg)',
+                                color: 'var(--badge-primary-text)',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {plan.name}
+                            </span>
+                            {limits.hasOverride && (
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 800,
+                                  backgroundColor: 'var(--bg-surface-hover)',
+                                  color: 'var(--primary-600)',
+                                  border: '1px solid var(--primary-600)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                }}
+                                title="Tenant has customized limit overrides"
+                              >
+                                {t('tenants.customOverride')}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {limits.maxUploadFileSizeMb} MB upload limit
+                          </div>
                         </div>
                       ) : (
                         <button
@@ -482,14 +571,31 @@ export const TenantsPage: React.FC = () => {
                             </button>
                           ))
                         ) : (
-                          <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                             {t('tenants.noActiveModules')}
                           </span>
                         )}
                       </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '4px' }}>
+                        {tItem.modules?.filter((m: any) => m.isEnabled).length || 0} / {limits.maxModules} max
+                      </div>
                     </td>
-                    <td>{tItem._count?.branches || tItem.branches?.length || 0}</td>
-                    <td>{tItem._count?.memberships || 0}</td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: branchCount >= limits.maxBranches ? '#dc2626' : 'var(--text-main)' }}>
+                        {branchCount} / {limits.maxBranches}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                        {limits.maxBranches - branchCount > 0 ? `${limits.maxBranches - branchCount} remaining` : 'Limit reached'}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: memberCount > limits.maxMembers ? '#dc2626' : 'var(--text-main)' }}>
+                        {memberCount} / {limits.maxMembers}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                        {t('tenants.adminExcludedNotice')}
+                      </div>
+                    </td>
                     <td>
                       <span className={`badge ${tItem.status === 'ACTIVE' ? 'badge-success' : tItem.status === 'PENDING' ? 'badge-warning' : 'badge-danger'}`}>
                         {tItem.status}
@@ -546,7 +652,7 @@ export const TenantsPage: React.FC = () => {
       {/* Provision Tenant Modal */}
       {showModal && (
         <div className="modal-backdrop">
-          <div className="modal-dialog" style={{ maxWidth: '580px' }}>
+          <div className="modal-dialog" style={{ maxWidth: '620px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Building2 size={20} style={{ color: 'var(--primary-600)' }} />
@@ -636,10 +742,136 @@ export const TenantsPage: React.FC = () => {
                       .filter((p) => p.isActive)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({p.code}) — {p.moduleCount || 1} Module{(p.moduleCount || 1) === 1 ? '' : 's'} Allowed
+                          {p.name} ({p.code}) — {p.moduleCount || 1} Mod, {p.branchCount || 3} Br, {p.memberCount || 10} Mem, {p.maxUploadFileSizeMb || 25}MB
                         </option>
                       ))}
                   </select>
+                </div>
+
+                {/* Plan Limits & Capacity Display Box */}
+                {selectedPlan && (
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: 'var(--bg-surface-hover)',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Layers size={14} style={{ color: 'var(--primary-600)' }} />
+                      <span>{t('tenants.planLimitsSummary')} ({selectedPlan.name})</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <Layers size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.moduleLimit')}:</strong> {selectedPlan.moduleCount || 1}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <MapPin size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.branchLimit')}:</strong> {selectedPlan.branchCount || 3}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <Users size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.memberLimit')}:</strong> {selectedPlan.memberCount || 10}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <HardDrive size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.uploadLimit')}:</strong> {selectedPlan.maxUploadFileSizeMb || 25} MB</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Organization Limit Overrides Accordion/Section */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: formData.overrideLimits ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sliders size={16} style={{ color: 'var(--primary-600)' }} />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                          {t('tenants.limitOverridesTitle')}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {t('tenants.limitOverridesDesc')}
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.overrideLimits}
+                      onChange={(e) => setFormData({ ...formData, overrideLimits: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-600)' }}
+                    />
+                  </label>
+
+                  {formData.overrideLimits && (
+                    <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideModuleCount')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          className="input"
+                          placeholder={selectedPlan ? String(selectedPlan.moduleCount || 1) : '1'}
+                          value={formData.maxModules}
+                          onChange={(e) => setFormData({ ...formData, maxModules: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideBranchCount')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          className="input"
+                          placeholder={selectedPlan ? String(selectedPlan.branchCount || 3) : '3'}
+                          value={formData.maxBranches}
+                          onChange={(e) => setFormData({ ...formData, maxBranches: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideMemberCount')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={500}
+                          className="input"
+                          placeholder={selectedPlan ? String(selectedPlan.memberCount || 10) : '10'}
+                          value={formData.maxMembers}
+                          onChange={(e) => setFormData({ ...formData, maxMembers: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideUploadSize')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={500}
+                          className="input"
+                          placeholder={selectedPlan ? String(selectedPlan.maxUploadFileSizeMb || 25) : '25'}
+                          value={formData.maxUploadFileSizeMb}
+                          onChange={(e) => setFormData({ ...formData, maxUploadFileSizeMb: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Dynamic Module Selection */}
@@ -656,20 +888,20 @@ export const TenantsPage: React.FC = () => {
                           padding: '3px 8px',
                           borderRadius: '6px',
                           backgroundColor:
-                            formData.modules.length === (selectedPlan.moduleCount || 1)
+                            formData.modules.length === getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules)
                               ? '#dcfce7'
-                              : formData.modules.length > (selectedPlan.moduleCount || 1)
+                              : formData.modules.length > getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules)
                               ? '#fee2e2'
                               : '#f1f5f9',
                           color:
-                            formData.modules.length === (selectedPlan.moduleCount || 1)
+                            formData.modules.length === getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules)
                               ? '#166534'
-                              : formData.modules.length > (selectedPlan.moduleCount || 1)
+                              : formData.modules.length > getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules)
                               ? '#991b1b'
                               : '#475569',
                         }}
                       >
-                        {t('tenants.selectedModulesCount', { count: formData.modules.length, max: selectedPlan.moduleCount || 1 })}
+                        {t('tenants.selectedModulesCount', { count: formData.modules.length, max: getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules) })}
                       </span>
                     )}
                   </div>
@@ -707,7 +939,7 @@ export const TenantsPage: React.FC = () => {
                         .filter((mod) => mod.isEnabled)
                         .map((mod) => {
                         const isChecked = formData.modules.includes(mod.code);
-                        const maxAllowed = selectedPlan ? (selectedPlan.moduleCount || 1) : systemModules.length;
+                        const maxAllowed = getEffectiveModuleLimit(formData.planId, formData.overrideLimits, formData.maxModules);
                         const isLimitReached = !isChecked && formData.modules.length >= maxAllowed;
 
                         return (
@@ -787,20 +1019,6 @@ export const TenantsPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Initial Branch Name */}
-                <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-hover)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <MapPin size={15} style={{ color: 'var(--primary-600)' }} /> {t('tenants.initialBranchTitle')}
-                  </div>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder={t('tenants.branchName')}
-                    value={formData.branchName}
-                    onChange={(e) => setFormData({ ...formData, branchName: e.target.value })}
-                  />
-                </div>
-
                 {/* Initial Tenant Admin */}
                 <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-hover)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -866,7 +1084,7 @@ export const TenantsPage: React.FC = () => {
       {/* Edit Tenant Modal */}
       {editingTenant && (
         <div className="modal-backdrop">
-          <div className="modal-dialog" style={{ maxWidth: '560px' }}>
+          <div className="modal-dialog" style={{ maxWidth: '620px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Building2 size={20} style={{ color: 'var(--primary-600)' }} />
@@ -920,10 +1138,136 @@ export const TenantsPage: React.FC = () => {
                       .filter((p) => p.isActive || p.id === editPlanId)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({p.code}) — {p.moduleCount || 1} Module{(p.moduleCount || 1) === 1 ? '' : 's'} Allowed {!p.isActive ? '(Inactive)' : ''}
+                          {p.name} ({p.code}) — {p.moduleCount || 1} Mod, {p.branchCount || 3} Br, {p.memberCount || 10} Mem, {p.maxUploadFileSizeMb || 25}MB {!p.isActive ? '(Inactive)' : ''}
                         </option>
                       ))}
                   </select>
+                </div>
+
+                {/* Plan Limits & Capacity Display Box in Edit */}
+                {selectedEditPlan && (
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: 'var(--bg-surface-hover)',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Layers size={14} style={{ color: 'var(--primary-600)' }} />
+                      <span>{t('tenants.planLimitsSummary')} ({selectedEditPlan.name})</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <Layers size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.moduleLimit')}:</strong> {selectedEditPlan.moduleCount || 1}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <MapPin size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.branchLimit')}:</strong> {selectedEditPlan.branchCount || 3}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <Users size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.memberLimit')}:</strong> {selectedEditPlan.memberCount || 10}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <HardDrive size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('tenants.uploadLimit')}:</strong> {selectedEditPlan.maxUploadFileSizeMb || 25} MB</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Organization Limit Overrides in Edit */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: editOverrideLimits ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sliders size={16} style={{ color: 'var(--primary-600)' }} />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                          {t('tenants.limitOverridesTitle')}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {t('tenants.limitOverridesDesc')}
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editOverrideLimits}
+                      onChange={(e) => setEditOverrideLimits(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-600)' }}
+                    />
+                  </label>
+
+                  {editOverrideLimits && (
+                    <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideModuleCount')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          className="input"
+                          placeholder={selectedEditPlan ? String(selectedEditPlan.moduleCount || 1) : '1'}
+                          value={editMaxModules}
+                          onChange={(e) => setEditMaxModules(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideBranchCount')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          className="input"
+                          placeholder={selectedEditPlan ? String(selectedEditPlan.branchCount || 3) : '3'}
+                          value={editMaxBranches}
+                          onChange={(e) => setEditMaxBranches(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideMemberCount')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={500}
+                          className="input"
+                          placeholder={selectedEditPlan ? String(selectedEditPlan.memberCount || 10) : '10'}
+                          value={editMaxMembers}
+                          onChange={(e) => setEditMaxMembers(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label" style={{ fontSize: '11px', marginBottom: '3px' }}>
+                          {t('tenants.overrideUploadSize')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={500}
+                          className="input"
+                          placeholder={selectedEditPlan ? String(selectedEditPlan.maxUploadFileSizeMb || 25) : '25'}
+                          value={editMaxUploadFileSizeMb}
+                          onChange={(e) => setEditMaxUploadFileSizeMb(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Dynamic Modules Selection for Edit */}
@@ -940,20 +1284,20 @@ export const TenantsPage: React.FC = () => {
                           padding: '3px 8px',
                           borderRadius: '6px',
                           backgroundColor:
-                            editSelectedModules.length === (selectedEditPlan.moduleCount || 1)
+                            editSelectedModules.length === getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules)
                               ? '#dcfce7'
-                              : editSelectedModules.length > (selectedEditPlan.moduleCount || 1)
+                              : editSelectedModules.length > getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules)
                               ? '#fee2e2'
                               : '#f1f5f9',
                           color:
-                            editSelectedModules.length === (selectedEditPlan.moduleCount || 1)
+                            editSelectedModules.length === getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules)
                               ? '#166534'
-                              : editSelectedModules.length > (selectedEditPlan.moduleCount || 1)
+                              : editSelectedModules.length > getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules)
                               ? '#991b1b'
                               : '#475569',
                         }}
                       >
-                        {t('tenants.selectedModulesCount', { count: editSelectedModules.length, max: selectedEditPlan.moduleCount || 1 })}
+                        {t('tenants.selectedModulesCount', { count: editSelectedModules.length, max: getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules) })}
                       </span>
                     )}
                   </div>
@@ -963,7 +1307,7 @@ export const TenantsPage: React.FC = () => {
                       .filter((mod) => mod.isEnabled || editSelectedModules.includes(mod.code))
                       .map((mod) => {
                       const isChecked = editSelectedModules.includes(mod.code);
-                      const maxAllowed = selectedEditPlan ? (selectedEditPlan.moduleCount || 1) : systemModules.length;
+                      const maxAllowed = getEffectiveModuleLimit(editPlanId, editOverrideLimits, editMaxModules);
                       const isLimitReached = !isChecked && editSelectedModules.length >= maxAllowed;
 
                       return (

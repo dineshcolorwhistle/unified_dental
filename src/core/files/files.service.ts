@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -29,6 +30,30 @@ export class FilesService {
 
   async saveFile(params: UploadFileParams) {
     const { tenantId, branchId, moduleKey, resourceType, resourceId, file, uploadedBy } = params;
+
+    if (!file) {
+      throw new BadRequestException('No file provided for upload');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { plan: true },
+    });
+
+    const effectiveMaxFileSizeMb =
+      tenant?.maxUploadFileSizeMb !== null && tenant?.maxUploadFileSizeMb !== undefined
+        ? Number(tenant.maxUploadFileSizeMb)
+        : tenant?.plan?.maxUploadFileSizeMb !== null && tenant?.plan?.maxUploadFileSizeMb !== undefined
+        ? Number(tenant.plan.maxUploadFileSizeMb)
+        : 25;
+
+    const maxBytes = effectiveMaxFileSizeMb * 1024 * 1024;
+    if (file.size > maxBytes) {
+      const actualSizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      throw new BadRequestException(
+        `File size (${actualSizeMb} MB) exceeds the maximum allowed upload limit of ${effectiveMaxFileSizeMb} MB.`,
+      );
+    }
 
     const tenantDir = path.join(this.uploadBaseDir, tenantId);
     if (!fs.existsSync(tenantDir)) {

@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unified Dental Platform — Architecture & Process Flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #0f172a 0%, #080d1a 100%);
+      --canvas-bg: #0b1120;
+      --card-bg: rgba(17, 24, 39, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      
+      --platform-accent: #6366f1;
+      --platform-glow: rgba(99, 102, 241, 0.25);
+      
+      --tenant-accent: #3b82f6;
+      --tenant-glow: rgba(59, 130, 246, 0.25);
+      
+      --lab-accent: #a855f7;
+      --lab-subtle: rgba(168, 85, 247, 0.12);
+      --lab-border: rgba(168, 85, 247, 0.35);
+      --lab-glow: rgba(168, 85, 247, 0.25);
+      
+      --clinic-accent: #10b981;
+      --clinic-subtle: rgba(16, 185, 129, 0.12);
+      --clinic-border: rgba(16, 185, 129, 0.35);
+      --clinic-glow: rgba(16, 185, 129, 0.25);
+
+      --rule-accent: #f59e0b;
+      --rule-subtle: rgba(245, 158, 11, 0.12);
+      --rule-border: rgba(245, 158, 11, 0.35);
+    }
+
+    [data-theme="light"] {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #f8fafc 0%, #e2e8f0 100%);
+      --canvas-bg: #f1f5f9;
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-border: rgba(15, 23, 42, 0.1);
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-subtle: #94a3b8;
+      
+      --lab-subtle: rgba(168, 85, 247, 0.08);
+      --clinic-subtle: rgba(16, 185, 129, 0.08);
+      --rule-subtle: rgba(245, 158, 11, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--canvas-bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1.5rem 4rem;
+      overflow-x: auto;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Grid Background Accent */
+    .bg-grid-pattern {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    [data-theme="light"] .bg-grid-pattern {
+      background-image: 
+        linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1380px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Header Bar */
+    .header-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-title h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-title p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-main);
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    /* Diagram Canvas */
+    .flow-canvas {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Node Cards */
+    .node-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(16px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 2;
+    }
+
+    .node-card:hover {
+      transform: translateY(-3px);
+    }
+
+    /* Platform Admin Node */
+    .platform-admin-node {
+      width: 360px;
+      text-align: center;
+      border-color: rgba(99, 102, 241, 0.4);
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.12) 0%, var(--card-bg) 100%);
+      box-shadow: 0 0 35px var(--platform-glow);
+    }
+
+    .platform-admin-node:hover {
+      border-color: var(--platform-accent);
+      box-shadow: 0 0 45px var(--platform-glow);
+    }
+
+    /* Tenant Node */
+    .tenant-node {
+      width: 440px;
+      text-align: center;
+      border-color: rgba(59, 130, 246, 0.4);
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.12) 0%, var(--card-bg) 100%);
+      box-shadow: 0 0 35px var(--tenant-glow);
+    }
+
+    .tenant-node:hover {
+      border-color: var(--tenant-accent);
+      box-shadow: 0 0 45px var(--tenant-glow);
+    }
+
+    .node-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      margin-bottom: 0.5rem;
+    }
+
+    .badge-platform {
+      background: rgba(99, 102, 241, 0.18);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+    }
+
+    .badge-tenant {
+      background: rgba(59, 130, 246, 0.18);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+
+    .badge-lab {
+      background: var(--lab-subtle);
+      color: #d8b4fe;
+      border: 1px solid var(--lab-border);
+    }
+
+    .badge-clinic {
+      background: var(--clinic-subtle);
+      color: #6ee7b7;
+      border: 1px solid var(--clinic-border);
+    }
+
+    .node-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.35rem;
+      color: var(--text-main);
+    }
+
+    .node-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .node-features {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+
+    .tag {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Vertical Connectors */
+    .connector-v {
+      width: 2px;
+      height: 48px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%);
+      position: relative;
+    }
+
+    .connector-v::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid rgba(255,255,255,0.5);
+    }
+
+    /* Rule Annotations */
+    .rule-callout {
+      position: absolute;
+      background: var(--rule-subtle);
+      border: 1px solid var(--rule-border);
+      border-radius: 10px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);
+      z-index: 10;
+      max-width: 260px;
+    }
+
+    .rule-callout-top {
+      right: calc(50% - 370px);
+      top: 130px;
+    }
+
+    .rule-callout-middle {
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: center;
+      background: var(--card-bg);
+      border: 1px dashed var(--card-border);
+      color: var(--text-muted);
+      max-width: 200px;
+    }
+
+    /* Split Grid for Modules */
+    .modules-container {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5rem;
+      margin-top: 1.5rem;
+      position: relative;
+    }
+
+    /* Branch SVG Bridge */
+    .split-branch-svg {
+      width: 100%;
+      height: 60px;
+      overflow: visible;
+    }
+
+    .module-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      position: relative;
+    }
+
+    /* Module Pillar Cards */
+    .module-card {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .lab-theme {
+      border-color: var(--lab-border);
+      background: linear-gradient(180deg, var(--lab-subtle) 0%, var(--card-bg) 100%);
+    }
+
+    .lab-theme:hover {
+      box-shadow: 0 0 35px var(--lab-glow);
+    }
+
+    .clinic-theme {
+      border-color: var(--clinic-border);
+      background: linear-gradient(180deg, var(--clinic-subtle) 0%, var(--card-bg) 100%);
+    }
+
+    .clinic-theme:hover {
+      box-shadow: 0 0 35px var(--clinic-glow);
+    }
+
+    /* Step Section within Module */
+    .flow-step-card {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 14px;
+      padding: 1.25rem 1.4rem;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .lab-color { color: var(--lab-accent); }
+    .clinic-color { color: var(--clinic-accent); }
+
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.6rem;
+    }
+
+    .item-pill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      transition: all 0.2s ease;
+    }
+
+    .item-pill:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .item-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .item-desc {
+      font-size: 0.7rem;
+      color: var(--text-subtle);
+    }
+
+    /* Workflow Cards */
+    .workflow-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .workflow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .num-lab {
+      background: rgba(168, 85, 247, 0.2);
+      color: #d8b4fe;
+      border: 1px solid var(--lab-border);
+    }
+
+    .num-clinic {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border: 1px solid var(--clinic-border);
+    }
+
+    .step-content h4 {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 0.15rem;
+    }
+
+    .step-content p {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Cross Module Bridge (Phase 4 integration) */
+    .cross-module-bridge {
+      width: 100%;
+      margin-top: 2.5rem;
+      padding: 1.25rem 1.5rem;
+      border-radius: 16px;
+      background: linear-gradient(90deg, rgba(168, 85, 247, 0.1) 0%, rgba(59, 130, 246, 0.1) 50%, rgba(16, 185, 129, 0.1) 100%);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      text-align: center;
+    }
+
+    .cross-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .cross-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin: 0 auto;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 0;
+      }
+      .bg-grid-pattern, .actions-bar {
+        display: none !important;
+      }
+      .node-card {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+      }
+      .item-pill, .workflow-step {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .rule-callout {
+        background: #fffbeb !important;
+        border: 1px solid #fde68a !important;
+        color: #92400e !important;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .modules-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+      .rule-callout-top {
+        position: static;
+        margin: 0.75rem 0;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="bg-grid-pattern"></div>
+
+  <div class="container">
+    <!-- Top Action Bar -->
+    <header class="header-bar">
+      <div class="header-title">
+        <h1>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          Unified Dental Platform
+        </h1>
+        <p>Enterprise Multi-Tenant Hierarchy, Scoped Roles & Module Process Flows</p>
+      </div>
+
+      <div class="actions-bar">
+        <button class="btn" onclick="toggleTheme()" id="themeBtn">
+          <span id="themeIcon">☀️</span> <span id="themeText">Light Mode</span>
+        </button>
+        <button class="btn" onclick="window.print()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <path d="M6 14h12v8H6z"/>
+          </svg>
+          Print / Export PDF
+        </button>
+      </div>
+    </header>
+
+    <!-- Flow Diagram Canvas -->
+    <main class="flow-canvas">
+
+      <!-- 1. PLATFORM ADMIN LEVEL -->
+      <div class="node-card platform-admin-node">
+        <span class="node-badge badge-platform">Platform Hierarchy • Global Scope</span>
+        <h2 class="node-title">Platform Admin (Super Admin)</h2>
+        <p class="node-desc">System-wide infrastructure, dynamic module catalog, tenant provisioning, global subscription plans & limits enforcement.</p>
+        <div class="node-features">
+          <span class="tag">Tenant Onboarding</span>
+          <span class="tag">Plans & Capacity Limits</span>
+          <span class="tag">Global Audit</span>
+        </div>
+      </div>
+
+      <!-- Connector 1 -->
+      <div class="connector-v"></div>
+
+      <!-- 2. TENANT / OWNER LEVEL -->
+      <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 100%;">
+        <div class="node-card tenant-node">
+          <span class="node-badge badge-tenant">Tenant Hierarchy • Subdomain Context</span>
+          <h2 class="node-title">Tenant / Organization Owner</h2>
+          <p class="node-desc">Subdomain-isolated tenant organization (`tenant.app.example.com`). Manages organization settings, billing, subscriptions, and module enablement.</p>
+          <div class="node-features">
+            <span class="tag">Enabled Modules: Lab / Clinic</span>
+            <span class="tag">Branch Allocation</span>
+            <span class="tag">User Seat Management</span>
+          </div>
+        </div>
+
+        <!-- Annotation: Owner can manage selected modules -->
+        <aside class="rule-callout rule-callout-top">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <div>
+            <strong>Tenant Scope:</strong> Owner has full governance across all subscribed modules & branches.
+          </div>
+        </aside>
+      </div>
+
+      <!-- Module Split SVGs -->
+      <svg class="split-branch-svg" viewBox="0 0 1000 60" fill="none">
+        <path d="M500 0 V25 M500 25 H250 V60 M500 25 H750 V60" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-dasharray="4 4" />
+        <circle cx="500" cy="25" r="4" fill="#38bdf8" />
+        <circle cx="250" cy="60" r="4" fill="#a855f7" />
+        <circle cx="750" cy="60" r="4" fill="#10b981" />
+      </svg>
+
+      <!-- 3. INDEPENDENT SIBLING MODULES & WORKFLOWS -->
+      <div class="modules-container">
+
+        <!-- ================= LEFT COLUMN: DENTAL LAB ================= -->
+        <div class="module-column">
+          
+          <!-- Module Header Card -->
+          <div class="node-card module-card lab-theme">
+            <span class="node-badge badge-lab">Sibling Module 01</span>
+            <h3 class="node-title" style="color: #c084fc;">Dental Laboratory Module</h3>
+            <p class="node-desc">Manufacturing prosthetic appliances, custom dental restorations, multi-step stage state machines, verification gates & deliveries.</p>
+          </div>
+
+          <div class="connector-v" style="height: 28px;"></div>
+
+          <!-- Lab Branches Card -->
+          <div class="node-card flow-step-card">
+            <div class="step-header">
+              <span class="step-label lab-color">Lab Branch Scoping</span>
+              <span class="tag">Branch Multi-tenancy</span>
+            </div>
+            <div class="items-grid">
+              <div class="item-pill">
+                <span class="item-name">Central Milling Lab</span>
+                <span class="item-desc">High capacity CAD/CAM center</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Regional Branch</span>
+                <span class="item-desc">Ceramics, acrylics & finishing</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="connector-v" style="height: 28px;"></div>
+
+          <!-- Lab Roles Card -->
+          <div class="node-card flow-step-card">
+            <div class="step-header">
+              <span class="step-label lab-color">Module Roles (Granular RBAC)</span>
+              <span class="tag">Scoped Permissions</span>
+            </div>
+            <div class="items-grid">
+              <div class="item-pill">
+                <span class="item-name">Lab Manager</span>
+                <span class="item-desc">Operations & order oversight</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Master Technician</span>
+                <span class="item-desc">CAD/CAM & precision design</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Lab Technician</span>
+                <span class="item-desc">Stage execution & fabrication</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">QC Inspector</span>
+                <span class="item-desc">Internal/External verification</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Delivery Courier</span>
+                <span class="item-desc">QR scanning & logistics dispatch</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="connector-v" style="height: 28px;"></div>
+
+          <!-- Lab Workflows Card -->
+          <div class="node-card flow-step-card">
+            <div class="step-header">
+              <span class="step-label lab-color">Lab Production Workflows</span>
+              <span class="tag">State Machine</span>
+            </div>
+            <div class="workflow-list">
+              <div class="workflow-step">
+                <div class="step-num num-lab">1</div>
+                <div class="step-content">
+                  <h4>Work Order Intake & Prescription</h4>
+                  <p>Receive digital scan/model, register prosthesis specs, shade guide, teeth matrix & due dates.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-lab">2</div>
+                <div class="step-content">
+                  <h4>Production Stages State Machine</h4>
+                  <p>Sequenced stages (Model → CAD/CAM → Casting → Opaque/Ceramics → Glaze → Polishing) with technician assignment.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-lab">3</div>
+                <div class="step-content">
+                  <h4>Internal & External Verification</h4>
+                  <p>QC checkpoint inspection. External doctor try-in review gates triggered with automated notifications.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-lab">4</div>
+                <div class="step-content">
+                  <h4>QR Barcode Traceability & Public Tracking</h4>
+                  <p>QR label generated on job bag for live station check-in/out and client public tracking portal.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-lab">5</div>
+                <div class="step-content">
+                  <h4>Packaging, Invoicing & Delivery Dispatch</h4>
+                  <p>Generate delivery voucher, courier manifest, automated lab fee invoice and clinic handover verification.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+        <!-- ================= RIGHT COLUMN: DENTAL CLINIC ================= -->
+        <div class="module-column">
+          
+          <!-- Module Header Card -->
+          <div class="node-card module-card clinic-theme">
+            <span class="node-badge badge-clinic">Sibling Module 02</span>
+            <h3 class="node-title" style="color: #34d399;">Dental Clinic Module</h3>
+            <p class="node-desc">Comprehensive patient electronic health records (EHR), dental odontogram charting, treatment plans, appointments & financial billing.</p>
+          </div>
+
+          <div class="connector-v" style="height: 28px;"></div>
+
+          <!-- Clinic Branches Card -->
+          <div class="node-card flow-step-card">
+            <div class="step-header">
+              <span class="step-label clinic-color">Clinic Branch Scoping</span>
+              <span class="tag">Branch Multi-tenancy</span>
+            </div>
+            <div class="items-grid">
+              <div class="item-pill">
+                <span class="item-name">Main Dental Clinic</span>
+                <span class="item-desc">Comprehensive surgeries & ops</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Satellite Clinic</span>
+                <span class="item-desc">Consultations & hygiene center</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="connector-v" style="height: 28px;"></div>
+
+          <!-- Clinic Roles Card -->
+          <div class="node-card flow-step-card">
+            <div class="step-header">
+              <span class="step-label clinic-color">Module Roles (Granular RBAC)</span>
+              <span class="tag">Scoped Permissions</span>
+            </div>
+            <div class="items-grid">
+              <div class="item-pill">
+                <span class="item-name">Clinic Director</span>
+                <span class="item-desc">Branch ops & financial oversight</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Dentist / Doctor</span>
+                <span class="item-desc">Clinical charts, RX & treatments</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Dental Assistant</span>
+                <span class="item-desc">Chairside notes & vitals intake</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Receptionist</span>
+                <span class="item-desc">Appointments & patient check-in</span>
+              </div>
+              <div class="item-pill">
+                <span class="item-name">Billing Specialist</span>
+                <span class="item-desc">Invoicing, insurance & receipts</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="connector-v" style="height: 28px;"></div>
+
+          <!-- Clinic Workflows Card -->
+          <div class="node-card flow-step-card">
+            <div class="step-header">
+              <span class="step-label clinic-color">Clinical Practice Workflows</span>
+              <span class="tag">Patient Journey</span>
+            </div>
+            <div class="workflow-list">
+              <div class="workflow-step">
+                <div class="step-num num-clinic">1</div>
+                <div class="step-content">
+                  <h4>Patient Intake & Medical Profile</h4>
+                  <p>Register demographic details, medical history, allergies, emergency contacts & insurance policies.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-clinic">2</div>
+                <div class="step-content">
+                  <h4>Appointment Scheduling & Reminders</h4>
+                  <p>Multi-doctor calendar, chair scheduling, SMS/Email reminder notifications and check-in queue.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-clinic">3</div>
+                <div class="step-content">
+                  <h4>Interactive Odontogram Charting</h4>
+                  <p>Visual tooth condition mapping (caries, crowns, missing, implants, periodontal pockets & diagnostics).</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-clinic">4</div>
+                <div class="step-content">
+                  <h4>Treatment Plan Execution & RX</h4>
+                  <p>Staged clinical procedures, clinical notes, digital prescriptions & lab order dispatch.</p>
+                </div>
+              </div>
+              <div class="workflow-step">
+                <div class="step-num num-clinic">5</div>
+                <div class="step-content">
+                  <h4>Invoicing, Copayments & PDF Receipts</h4>
+                  <p>Itemized invoices based on procedure codes, payment installment plans, insurance claims & receipts.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Isolation & Scope Enforcement Rule Card -->
+      <div style="margin-top: 2rem; width: 100%; max-width: 780px;">
+        <div class="rule-callout" style="position: static; max-width: 100%; justify-content: center; padding: 0.85rem 1.25rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <div style="text-align: left;">
+            <strong>RBAC Scope Isolation Rule:</strong> Users & Roles are bound strictly to their assigned module and branch permissions. Clinic staff cannot access Lab internal operations, and Lab technicians cannot access Clinic EHR/billing records unless explicitly multi-assigned by the Tenant Owner.
+          </div>
+        </div>
+      </div>
+
+      <!-- Cross-Module Integration Bridge (Phase 4) -->
+      <section class="cross-module-bridge">
+        <h4 class="cross-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+          Cross-Module Interoperability Bridge (Unified Clinic + Lab Tenants)
+        </h4>
+        <p class="cross-desc">
+          When a tenant subscribes to <strong>both</strong> Clinic and Lab modules, Clinic Doctors can dispatch Lab Work Orders directly from the patient treatment chart. The Lab manufactures the prosthesis, sends live status callbacks, and attaches the completed restoration back into the patient's clinic record.
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const body = document.body;
+      const themeBtn = document.getElementById('themeBtn');
+      const themeIcon = document.getElementById('themeIcon');
+      const themeText = document.getElementById('themeText');
+
+      if (body.getAttribute('data-theme') === 'dark') {
+        body.setAttribute('data-theme', 'light');
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Dark Mode';
+      } else {
+        body.setAttribute('data-theme', 'dark');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Light Mode';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -197,14 +197,19 @@ export class ModulesService {
         where: { id: tenantId },
         include: { plan: true, modules: true },
       });
-      if (tenant && tenant.plan) {
-        const allowedCount = Number((tenant.plan as any).moduleCount) || 1;
+      if (tenant) {
+        const allowedCount =
+          tenant.maxModules !== null && tenant.maxModules !== undefined
+            ? Number(tenant.maxModules)
+            : tenant.plan?.moduleCount !== null && tenant.plan?.moduleCount !== undefined
+            ? Number(tenant.plan.moduleCount)
+            : 1;
         const currentlyActiveCount = tenant.modules.filter(
           (m) => m.isEnabled && m.moduleKey !== moduleKey,
         ).length;
         if (currentlyActiveCount + 1 > allowedCount) {
           throw new BadRequestException(
-            `Cannot enable module '${moduleKey}'. Subscription plan '${tenant.plan.name}' allows a maximum of ${allowedCount} module(s). Upgrade the plan to enable more modules.`,
+            `Cannot enable module '${moduleKey}'. Organization is limited to a maximum of ${allowedCount} module(s). Please upgrade the subscription plan or request a limit override.`,
           );
         }
       }

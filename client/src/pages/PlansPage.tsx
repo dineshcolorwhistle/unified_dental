@@ -15,6 +15,9 @@ import {
   Search,
   AlertCircle,
   Package,
+  MapPin,
+  Users,
+  HardDrive,
 } from 'lucide-react';
 
 interface SystemModule {
@@ -31,6 +34,9 @@ interface SubscriptionPlan {
   name: string;
   description: string | null;
   moduleCount: number;
+  branchCount: number;
+  memberCount: number;
+  maxUploadFileSizeMb: number;
   modules?: string[];
   isActive: boolean;
   createdAt: string;
@@ -63,6 +69,9 @@ export const PlansPage: React.FC = () => {
     code: '',
     description: '',
     moduleCount: 1,
+    branchCount: 3,
+    memberCount: 10,
+    maxUploadFileSizeMb: 25,
     isActive: true,
   });
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
@@ -104,6 +113,9 @@ export const PlansPage: React.FC = () => {
       code: '',
       description: '',
       moduleCount: 1,
+      branchCount: 3,
+      memberCount: 10,
+      maxUploadFileSizeMb: 25,
       isActive: true,
     });
     setCodeManuallyEdited(false);
@@ -117,6 +129,9 @@ export const PlansPage: React.FC = () => {
       code: plan.code,
       description: plan.description || '',
       moduleCount: plan.moduleCount || 1,
+      branchCount: plan.branchCount || 3,
+      memberCount: plan.memberCount || 10,
+      maxUploadFileSizeMb: plan.maxUploadFileSizeMb || 25,
       isActive: plan.isActive,
     });
     setCodeManuallyEdited(true);
@@ -158,12 +173,18 @@ export const PlansPage: React.FC = () => {
           name: formData.name,
           description: formData.description,
           moduleCount: Number(formData.moduleCount),
+          branchCount: Number(formData.branchCount),
+          memberCount: Number(formData.memberCount),
+          maxUploadFileSizeMb: Number(formData.maxUploadFileSizeMb),
           isActive: formData.isActive,
         });
       } else {
         await api.post('/plans', {
           ...formData,
           moduleCount: Number(formData.moduleCount),
+          branchCount: Number(formData.branchCount),
+          memberCount: Number(formData.memberCount),
+          maxUploadFileSizeMb: Number(formData.maxUploadFileSizeMb),
         });
       }
       setShowModal(false);
@@ -404,7 +425,7 @@ export const PlansPage: React.FC = () => {
                   {plan.description || <span style={{ fontStyle: 'italic', color: 'var(--text-subtle)' }}>No description provided</span>}
                 </p>
 
-                {/* Allowed Module Capacity */}
+                {/* Allowed Capacity & Limits */}
                 <div style={{ marginBottom: '20px' }}>
                   <div
                     style={{
@@ -424,27 +445,100 @@ export const PlansPage: React.FC = () => {
 
                   <div
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
                       gap: '8px',
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      backgroundColor: 'var(--badge-primary-bg)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--primary-600)',
-                      fontSize: '13px',
-                      fontWeight: 700,
                     }}
                   >
-                    <CheckCircle2 size={16} style={{ color: 'var(--primary-600)' }} />
-                    <span>
-                      {(plan.moduleCount || 1) === 1
-                        ? t('plans.modulesAllowed', { count: plan.moduleCount || 1 })
-                        : t('plans.modulesAllowedPlural', { count: plan.moduleCount || 1 })}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                    {t('plans.allowedDesc', { count: plan.moduleCount || 1 })}
+                    {/* Modules */}
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--badge-primary-bg)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--primary-600)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Layers size={14} />
+                      <span>
+                        {(plan.moduleCount || 1) === 1
+                          ? t('plans.modulesAllowed', { count: plan.moduleCount || 1 })
+                          : t('plans.modulesAllowedPlural', { count: plan.moduleCount || 1 })}
+                      </span>
+                    </div>
+
+                    {/* Branches */}
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--bg-surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-main)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <MapPin size={14} style={{ color: 'var(--primary-600)' }} />
+                      <span>
+                        {(plan.branchCount || 3) === 1
+                          ? t('plans.branchesAllowed', { count: plan.branchCount || 3 })
+                          : t('plans.branchesAllowedPlural', { count: plan.branchCount || 3 })}
+                      </span>
+                    </div>
+
+                    {/* Members */}
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--bg-surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-main)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Users size={14} style={{ color: 'var(--primary-600)' }} />
+                      <span>
+                        {(plan.memberCount || 10) === 1
+                          ? t('plans.membersAllowed', { count: plan.memberCount || 10 })
+                          : t('plans.membersAllowedPlural', { count: plan.memberCount || 10 })}
+                      </span>
+                    </div>
+
+                    {/* Upload Limit */}
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--bg-surface-hover)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-main)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <HardDrive size={14} style={{ color: 'var(--primary-600)' }} />
+                      <span>
+                        {t('plans.uploadLimitAllowed', { count: plan.maxUploadFileSizeMb || 25 })}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -564,52 +658,131 @@ export const PlansPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Allowed Module Count Input */}
-                <div>
-                  <label className="label" style={{ marginBottom: '6px', display: 'block' }}>
-                    {t('plans.moduleCount')} <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      required
-                      className="input"
-                      style={{ width: '110px', fontWeight: 700, fontSize: '15px' }}
-                      value={formData.moduleCount}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          moduleCount: Math.max(1, parseInt(e.target.value) || 1),
-                        })
-                      }
-                    />
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {[1, 2, 3].map((cnt) => (
-                        <button
-                          key={cnt}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, moduleCount: cnt })}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            border: formData.moduleCount === cnt ? '1.5px solid var(--primary-600)' : '1px solid var(--border-color)',
-                            backgroundColor: formData.moduleCount === cnt ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
-                            color: formData.moduleCount === cnt ? 'var(--primary-600)' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {cnt === 1 ? t('plans.modulesAllowed', { count: cnt }) : t('plans.modulesAllowedPlural', { count: cnt })}
-                        </button>
-                      ))}
+                {/* Limits Config Section */}
+                <div
+                  style={{
+                    padding: '14px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--bg-surface-hover)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: 'var(--text-heading)',
+                      marginBottom: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Layers size={15} style={{ color: 'var(--primary-600)' }} />
+                    {t('plans.limitsTitle')}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    {/* Module Count */}
+                    <div>
+                      <label className="label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        {t('plans.moduleCount')} <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        required
+                        className="input"
+                        style={{ fontWeight: 700 }}
+                        value={formData.moduleCount}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            moduleCount: Math.max(1, parseInt(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        {t('plans.moduleCountHelp')}
+                      </div>
+                    </div>
+
+                    {/* Branch Count */}
+                    <div>
+                      <label className="label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        {t('plans.branchCount')} <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        required
+                        className="input"
+                        style={{ fontWeight: 700 }}
+                        value={formData.branchCount}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            branchCount: Math.max(1, parseInt(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        {t('plans.branchCountHelp')}
+                      </div>
+                    </div>
+
+                    {/* Member Count */}
+                    <div>
+                      <label className="label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        {t('plans.memberCount')} <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={500}
+                        required
+                        className="input"
+                        style={{ fontWeight: 700 }}
+                        value={formData.memberCount}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            memberCount: Math.max(1, parseInt(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        {t('plans.memberCountHelp')}
+                      </div>
+                    </div>
+
+                    {/* Upload File Size (MB) */}
+                    <div>
+                      <label className="label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        {t('plans.maxUploadFileSizeMb')} <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={500}
+                        required
+                        className="input"
+                        style={{ fontWeight: 700 }}
+                        value={formData.maxUploadFileSizeMb}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            maxUploadFileSizeMb: Math.max(1, parseInt(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        {t('plans.maxUploadFileSizeMbHelp')}
+                      </div>
                     </div>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-                    {t('plans.moduleCountHelp')}
-                  </p>
                 </div>
 
                 {/* Active Status */}

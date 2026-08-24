@@ -112,17 +112,25 @@ export class TenancyService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       let modulesToEnable = dto.modules || [];
+      let plan: any = null;
       if (dto.planId) {
-        const plan = await tx.subscriptionPlan.findUnique({ where: { id: dto.planId } });
+        plan = await tx.subscriptionPlan.findUnique({ where: { id: dto.planId } });
         if (!plan) {
           throw new NotFoundException(`Subscription plan with ID '${dto.planId}' not found`);
         }
-        const maxAllowed = Number((plan as any).moduleCount) || 1;
-        if (modulesToEnable.length > maxAllowed) {
-          throw new BadRequestException(
-            `Selected ${modulesToEnable.length} module(s), but subscription plan '${plan.name}' allows at most ${maxAllowed} module(s).`,
-          );
-        }
+      }
+
+      const effectiveMaxModules =
+        dto.maxModules !== undefined && dto.maxModules !== null
+          ? Number(dto.maxModules)
+          : plan
+          ? Number((plan as any).moduleCount) || 1
+          : 1;
+
+      if (modulesToEnable.length > effectiveMaxModules) {
+        throw new BadRequestException(
+          `Selected ${modulesToEnable.length} module(s), but maximum allowed is ${effectiveMaxModules} module(s).`,
+        );
       }
 
       if (modulesToEnable.length > 0) {
@@ -138,7 +146,7 @@ export class TenancyService {
         }
       }
 
-      // 1. Create tenant with planId
+      // 1. Create tenant with planId and overrides
       const tenant = await tx.tenant.create({
         data: {
           name: dto.name,
@@ -146,6 +154,10 @@ export class TenancyService {
           status: dto.status || TenantStatus.ACTIVE,
           settings: dto.settings || {},
           planId: dto.planId || undefined,
+          maxBranches: dto.maxBranches !== undefined ? (dto.maxBranches === null ? null : Number(dto.maxBranches)) : undefined,
+          maxMembers: dto.maxMembers !== undefined ? (dto.maxMembers === null ? null : Number(dto.maxMembers)) : undefined,
+          maxUploadFileSizeMb: dto.maxUploadFileSizeMb !== undefined ? (dto.maxUploadFileSizeMb === null ? null : Number(dto.maxUploadFileSizeMb)) : undefined,
+          maxModules: dto.maxModules !== undefined ? (dto.maxModules === null ? null : Number(dto.maxModules)) : undefined,
         },
       });
 
@@ -284,16 +296,26 @@ export class TenancyService {
       ? dto.modules
       : tenant.modules.filter((m) => m.isEnabled).map((m) => m.moduleKey);
 
+    let plan: any = null;
     if (targetPlanId) {
-      const plan = await this.prisma.subscriptionPlan.findUnique({
+      plan = await this.prisma.subscriptionPlan.findUnique({
         where: { id: targetPlanId },
       });
-      const maxAllowed = Number((plan as any)?.moduleCount) || 1;
-      if (plan && targetModules.length > maxAllowed) {
-        throw new BadRequestException(
-          `Tenant cannot have ${targetModules.length} enabled module(s). Subscription plan '${plan.name}' allows at most ${maxAllowed} module(s).`,
-        );
-      }
+    }
+
+    const effectiveMaxModules =
+      dto.maxModules !== undefined && dto.maxModules !== null
+        ? Number(dto.maxModules)
+        : tenant.maxModules !== null && tenant.maxModules !== undefined && dto.maxModules === undefined
+        ? Number(tenant.maxModules)
+        : plan
+        ? Number((plan as any)?.moduleCount) || 1
+        : 1;
+
+    if (targetModules.length > effectiveMaxModules) {
+      throw new BadRequestException(
+        `Tenant cannot have ${targetModules.length} enabled module(s). Maximum allowed is ${effectiveMaxModules} module(s).`,
+      );
     }
 
     // If explicit modules array is provided, synchronize tenant modules
@@ -322,6 +344,10 @@ export class TenancyService {
         status: dto.status,
         planId: dto.planId !== undefined ? dto.planId : undefined,
         settings: dto.settings ? { ...(tenant.settings as object || {}), ...dto.settings } : undefined,
+        maxBranches: dto.maxBranches !== undefined ? (dto.maxBranches === null ? null : Number(dto.maxBranches)) : undefined,
+        maxMembers: dto.maxMembers !== undefined ? (dto.maxMembers === null ? null : Number(dto.maxMembers)) : undefined,
+        maxUploadFileSizeMb: dto.maxUploadFileSizeMb !== undefined ? (dto.maxUploadFileSizeMb === null ? null : Number(dto.maxUploadFileSizeMb)) : undefined,
+        maxModules: dto.maxModules !== undefined ? (dto.maxModules === null ? null : Number(dto.maxModules)) : undefined,
       },
       include: {
         plan: true,

@@ -51,6 +51,32 @@ export class BranchesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({
+        where: { id: tenantId },
+        include: { plan: true },
+      });
+
+      if (!tenant) {
+        throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
+      }
+
+      const currentBranchCount = await tx.branch.count({
+        where: { tenantId },
+      });
+
+      const effectiveMaxBranches =
+        tenant.maxBranches !== null && tenant.maxBranches !== undefined
+          ? Number(tenant.maxBranches)
+          : tenant.plan?.branchCount !== null && tenant.plan?.branchCount !== undefined
+          ? Number(tenant.plan.branchCount)
+          : 3;
+
+      if (currentBranchCount >= effectiveMaxBranches) {
+        throw new BadRequestException(
+          `Organization has reached the maximum allowed limit of ${effectiveMaxBranches} branch(es). Please upgrade your subscription plan or contact administrator for a limit override.`,
+        );
+      }
+
       // If marking as default, unset other defaults
       if (dto.isDefault) {
         await tx.branch.updateMany({

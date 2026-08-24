@@ -20,6 +20,18 @@ export class UpdateTenantDto {
   modules?: string[];
 
   @IsOptional()
+  maxBranches?: number | null;
+
+  @IsOptional()
+  maxMembers?: number | null;
+
+  @IsOptional()
+  maxUploadFileSizeMb?: number | null;
+
+  @IsOptional()
+  maxModules?: number | null;
+
+  @IsOptional()
   @IsObject()
   settings?: Record<string, any>;
 }
