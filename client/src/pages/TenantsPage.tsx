@@ -22,6 +22,7 @@ import {
   Users,
   Sliders,
   Info,
+  Loader2,
 } from 'lucide-react';
 
 function nameToSlug(name: string): string {
@@ -77,6 +78,7 @@ export const TenantsPage: React.FC = () => {
     maxUploadFileSizeMb: '' as number | string,
   });
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [creatingTenant, setCreatingTenant] = useState(false);
 
   const fetchTenantsAndPlans = async () => {
     try {
@@ -185,12 +187,15 @@ export const TenantsPage: React.FC = () => {
 
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creatingTenant) return;
+
     if (formData.planId && formData.modules.length === 0) {
       alert(t('tenants.alerts.selectAtLeastOne'));
       return;
     }
 
     try {
+      setCreatingTenant(true);
       await api.post('/tenants', {
         name: formData.name,
         slug: formData.slug,
@@ -219,9 +224,11 @@ export const TenantsPage: React.FC = () => {
         maxUploadFileSizeMb: '',
       });
       setSlugManuallyEdited(false);
-      fetchTenantsAndPlans();
+      await fetchTenantsAndPlans();
     } catch (err: any) {
       alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.createFailed'));
+    } finally {
+      setCreatingTenant(false);
     }
   };
 
@@ -661,11 +668,21 @@ export const TenantsPage: React.FC = () => {
                 </h3>
               </div>
               <button
+                type="button"
+                disabled={creatingTenant}
                 onClick={() => {
-                  setShowModal(false);
-                  setSlugManuallyEdited(false);
+                  if (!creatingTenant) {
+                    setShowModal(false);
+                    setSlugManuallyEdited(false);
+                  }
                 }}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: creatingTenant ? 'not-allowed' : 'pointer',
+                  color: 'var(--text-muted)',
+                  opacity: creatingTenant ? 0.5 : 1,
+                }}
               >
                 <X size={20} />
               </button>
@@ -1064,6 +1081,7 @@ export const TenantsPage: React.FC = () => {
               <div className="modal-footer">
                 <button
                   type="button"
+                  disabled={creatingTenant}
                   onClick={() => {
                     setShowModal(false);
                     setSlugManuallyEdited(false);
@@ -1072,8 +1090,20 @@ export const TenantsPage: React.FC = () => {
                 >
                   {t('common.cancel')}
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {t('tenants.createBtn')}
+                <button
+                  type="submit"
+                  disabled={creatingTenant}
+                  className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {creatingTenant ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>{t('tenants.provisioning')}</span>
+                    </>
+                  ) : (
+                    t('tenants.createBtn')
+                  )}
                 </button>
               </div>
             </form>

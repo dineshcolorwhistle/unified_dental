@@ -277,8 +277,9 @@ export class TenancyService {
           dto.name,
           resetToken,
           dto.locale,
+          slug,
         );
-        this.logger.log(`✉️ Welcome email sent to tenant admin: ${result.adminEmail} (locale: ${dto.locale || 'en'})`);
+        this.logger.log(`✉️ Welcome email sent to tenant admin: ${result.adminEmail} (locale: ${dto.locale || 'en'}, slug: ${slug})`);
       } catch (error) {
         this.logger.warn(`Failed to send welcome email to ${result.adminEmail}: ${error.message}`);
         // Don't fail tenant creation if email fails

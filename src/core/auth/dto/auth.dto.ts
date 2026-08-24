@@ -33,6 +33,10 @@ export class ForgotPasswordDto {
   @IsOptional()
   @IsString()
   locale?: string;
+
+  @IsOptional()
+  @IsString()
+  tenantSlug?: string;
 }
 
 export class ResetPasswordDto {

@@ -362,8 +362,15 @@ export class AuthService {
    * Generate a password reset token for a user and send the reset email.
    * Returns a generic success message regardless of whether the email exists (to prevent user enumeration).
    */
-  async forgotPassword(email: string, locale?: string) {
-    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
+  async forgotPassword(email: string, locale?: string, tenantSlug?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      include: {
+        memberships: {
+          include: { tenant: true },
+        },
+      },
+    });
 
     if (user) {
       // Invalidate any existing unused reset tokens for this user
@@ -390,11 +397,20 @@ export class AuthService {
         },
       });
 
+      // Determine effective tenant slug for subdomain reset URL
+      const effectiveSlug =
+        tenantSlug ||
+        (!user.isSuperAdmin && user.memberships?.length > 0
+          ? user.memberships[0]?.tenant?.slug
+          : undefined);
+
       // Send reset email (fire and forget — don't block the response)
       const effectiveLocale = locale || user.locale || 'en';
-      this.mailService.sendPasswordReset(user.email, user.name, rawToken, effectiveLocale).catch(() => {
-        // Logged internally by MailService
-      });
+      this.mailService
+        .sendPasswordReset(user.email, user.name, rawToken, effectiveLocale, effectiveSlug)
+        .catch(() => {
+          // Logged internally by MailService
+        });
     }
 
     // Don't leak user existence

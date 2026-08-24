@@ -64,7 +64,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Request password reset email' })
   forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
     const locale = dto.locale || (req.headers['x-custom-lang'] as string) || (req.headers['accept-language'] as string);
-    return this.authService.forgotPassword(dto.email, locale);
+    return this.authService.forgotPassword(dto.email, locale, dto.tenantSlug);
   }
 
   @Public()

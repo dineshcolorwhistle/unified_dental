@@ -86,15 +86,67 @@ export class MailService {
   }
 
   /**
+   * Resolve the base URL for a given tenant subdomain or fallback to the primary platform domain.
+   * - In local dev (e.g. localhost:5173 or localhost:3000): returns http(s)://{slug}.localhost:5173
+   * - In production with BASE_DOMAIN (e.g. app.example.com): returns http(s)://{slug}.app.example.com
+   * - If no tenantSlug is passed: returns the primary platform admin domain
+   */
+  getTenantBaseUrl(tenantSlug?: string): string {
+    const rawAppUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      this.configService.get<string>('APP_URL') ||
+      process.env.FRONTEND_URL ||
+      process.env.APP_URL ||
+      'http://localhost:5173';
+
+    if (!tenantSlug) {
+      return rawAppUrl.replace(/\/+$/, '');
+    }
+
+    const cleanSlug = tenantSlug.toLowerCase().trim();
+
+    try {
+      const parsed = new URL(rawAppUrl);
+      const protocol = parsed.protocol; // e.g. 'http:' or 'https:'
+      const port = parsed.port ? `:${parsed.port}` : '';
+      const hostname = parsed.hostname; // e.g. 'localhost' or 'app.example.com'
+
+      const baseDomain =
+        this.configService.get<string>('BASE_DOMAIN') ||
+        process.env.BASE_DOMAIN;
+
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost')) {
+        return `${protocol}//${cleanSlug}.localhost${port}`;
+      } else if (baseDomain && !baseDomain.includes('localhost')) {
+        return `${protocol}//${cleanSlug}.${baseDomain}${port}`;
+      } else {
+        // If hostname has app. or www. prefix, strip it when prepending slug
+        const strippedHost = hostname.replace(/^(app\.|www\.)/, '');
+        return `${protocol}//${cleanSlug}.${strippedHost}${port}`;
+      }
+    } catch {
+      return `http://${cleanSlug}.localhost:5173`;
+    }
+  }
+
+  /**
    * Send welcome invite email to a new tenant admin.
-   * Includes a "Set Your Password" link using a password reset token.
+   * Includes a "Set Your Password" link on the tenant's subdomain URL.
    * Supports multilingual content (EN/ES) based on locale.
    */
-  async sendWelcomeInvite(to: string, name: string, tenantName: string, resetToken?: string, locale?: string) {
-    const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  async sendWelcomeInvite(
+    to: string,
+    name: string,
+    tenantName: string,
+    resetToken?: string,
+    locale?: string,
+    tenantSlug?: string,
+  ) {
+    const tenantBaseUrl = this.getTenantBaseUrl(tenantSlug);
     const setPasswordUrl = resetToken
-      ? `${appUrl}/reset-password?token=${resetToken}`
-      : `${appUrl}/login`;
+      ? `${tenantBaseUrl}/reset-password?token=${resetToken}`
+      : `${tenantBaseUrl}/login`;
+    const loginUrl = `${tenantBaseUrl}/login`;
 
     const isSpanish = locale?.toLowerCase().startsWith('es');
     const subject = isSpanish
@@ -109,19 +161,30 @@ export class MailService {
       context: {
         name,
         tenantName,
+        tenantSlug,
+        subdomainUrl: tenantBaseUrl,
         setPasswordUrl,
         hasResetToken: !!resetToken,
-        loginUrl: `${appUrl}/login`,
+        loginUrl,
       },
     });
   }
 
   /**
    * Send password reset email with a secure, time-limited reset link.
+   * Links to the tenant's isolated subdomain URL.
    * Supports multilingual content (EN/ES) based on locale.
    */
-  async sendPasswordReset(to: string, name: string, resetToken: string, locale?: string) {
-    const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  async sendPasswordReset(
+    to: string,
+    name: string,
+    resetToken: string,
+    locale?: string,
+    tenantSlug?: string,
+  ) {
+    const tenantBaseUrl = this.getTenantBaseUrl(tenantSlug);
+    const resetUrl = `${tenantBaseUrl}/reset-password?token=${resetToken}`;
+    const loginUrl = `${tenantBaseUrl}/login`;
 
     const isSpanish = locale?.toLowerCase().startsWith('es');
     const subject = isSpanish
@@ -135,7 +198,9 @@ export class MailService {
       locale,
       context: {
         name,
-        resetUrl: `${appUrl}/reset-password?token=${resetToken}`,
+        resetUrl,
+        loginUrl,
+        subdomainUrl: tenantBaseUrl,
       },
     });
   }
