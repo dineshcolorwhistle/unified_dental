@@ -36,11 +36,13 @@ export const BranchSwitcher: React.FC = () => {
           padding: '6px 14px',
           borderRadius: '8px',
           fontWeight: 600,
-          border: '1px solid #e2e8f0',
-          backgroundColor: '#f8fafc',
+          border: '1px solid var(--border-color)',
+          backgroundColor: 'var(--bg-surface)',
+          color: 'var(--text-main)',
+          transition: 'all 0.15s ease',
         }}
       >
-        <Building2 size={15} style={{ color: '#0f766e' }} />
+        <Building2 size={15} style={{ color: 'var(--primary-600)' }} />
         <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {activeBranch ? activeBranch.name : t('header.selectBranch')}
         </span>
@@ -49,7 +51,7 @@ export const BranchSwitcher: React.FC = () => {
             {activeBranch.code}
           </span>
         )}
-        <ChevronDown size={14} style={{ color: '#94a3b8' }} />
+        <ChevronDown size={14} style={{ color: 'var(--text-subtle)' }} />
       </button>
 
       {open && (
@@ -59,47 +61,58 @@ export const BranchSwitcher: React.FC = () => {
             top: '110%',
             left: 0,
             width: '240px',
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--bg-dropdown)',
             borderRadius: '10px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-            border: '1px solid #e2e8f0',
+            boxShadow: 'var(--shadow-lg)',
+            border: '1px solid var(--border-color)',
             padding: '6px',
             zIndex: 60,
+            animation: 'fadeIn 0.15s ease-out',
           }}
         >
-          <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
+          <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
             {t('header.activeBranch')}
           </div>
-          {branches.map((b) => (
-            <button
-              key={b.id}
-              onClick={() => {
-                switchBranch(b.id);
-                setOpen(false);
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 10px',
-                borderRadius: '6px',
-                backgroundColor: b.id === activeBranch?.id ? '#f0fdfa' : 'transparent',
-                color: b.id === activeBranch?.id ? '#0f766e' : '#1e293b',
-                fontSize: '13px',
-                fontWeight: b.id === activeBranch?.id ? 600 : 400,
-                textAlign: 'left',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <div>
-                <div>{b.name}</div>
-                {b.code && <div style={{ fontSize: '11px', color: '#94a3b8' }}>{b.code}</div>}
-              </div>
-              {b.id === activeBranch?.id && <Check size={14} style={{ color: '#0f766e' }} />}
-            </button>
-          ))}
+          {branches.map((b) => {
+            const isActive = b.id === activeBranch?.id;
+            return (
+              <button
+                key={b.id}
+                onClick={() => {
+                  switchBranch(b.id);
+                  setOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: isActive ? 'var(--bg-surface-hover)' : 'transparent',
+                  color: isActive ? 'var(--primary-600)' : 'var(--text-main)',
+                  fontSize: '13px',
+                  fontWeight: isActive ? 600 : 400,
+                  textAlign: 'left',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <div>
+                  <div style={{ color: isActive ? 'var(--primary-600)' : 'var(--text-main)' }}>{b.name}</div>
+                  {b.code && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{b.code}</div>}
+                </div>
+                {isActive && <Check size={14} style={{ color: 'var(--primary-600)' }} />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

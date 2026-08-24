@@ -199,20 +199,20 @@ export const ModulesPage: React.FC = () => {
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                backgroundColor: 'var(--badge-primary-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#0f766e',
+                color: 'var(--primary-600)',
               }}
             >
               <Layers size={20} />
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
               {t('modules.title')}
             </h1>
           </div>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
             {t('modules.subtitle')}
           </p>
         </div>
@@ -242,8 +242,8 @@ export const ModulesPage: React.FC = () => {
               width: '44px',
               height: '44px',
               borderRadius: '12px',
-              backgroundColor: '#f0fdf4',
-              color: '#16a34a',
+              backgroundColor: 'var(--badge-success-bg)',
+              color: 'var(--badge-success-text)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -252,10 +252,10 @@ export const ModulesPage: React.FC = () => {
             <PackageCheck size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Total Modules
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
               {modules.length}
             </div>
           </div>
@@ -267,8 +267,8 @@ export const ModulesPage: React.FC = () => {
               width: '44px',
               height: '44px',
               borderRadius: '12px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
+              backgroundColor: 'var(--badge-info-bg)',
+              color: 'var(--badge-info-text)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -277,10 +277,10 @@ export const ModulesPage: React.FC = () => {
             <Zap size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Active Modules
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#2563eb', marginTop: '2px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--sky-500)', marginTop: '2px' }}>
               {activeCount}
             </div>
           </div>
@@ -292,8 +292,8 @@ export const ModulesPage: React.FC = () => {
               width: '44px',
               height: '44px',
               borderRadius: '12px',
-              backgroundColor: '#fef2f2',
-              color: '#dc2626',
+              backgroundColor: 'var(--badge-danger-bg)',
+              color: 'var(--badge-danger-text)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -302,10 +302,10 @@ export const ModulesPage: React.FC = () => {
             <XCircle size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Disabled Modules
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#64748b', marginTop: '2px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-muted)', marginTop: '2px' }}>
               {disabledCount}
             </div>
           </div>
@@ -326,7 +326,7 @@ export const ModulesPage: React.FC = () => {
         <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
           <Search
             size={18}
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }}
           />
           <input
             type="text"
@@ -337,14 +337,14 @@ export const ModulesPage: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
           {t('modules.showingCount', { shown: filteredModules.length, total: modules.length })}
         </div>
       </div>
 
       {/* Module Grid */}
       {loading ? (
-        <div style={{ padding: '60px 0', textAlign: 'center', color: '#0f766e', fontWeight: 600 }}>
+        <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--primary-600)', fontWeight: 600 }}>
           {t('common.loading')}
         </div>
       ) : filteredModules.length === 0 ? (
@@ -354,8 +354,8 @@ export const ModulesPage: React.FC = () => {
               width: '64px',
               height: '64px',
               borderRadius: '20px',
-              backgroundColor: 'rgba(15, 118, 110, 0.1)',
-              color: '#0f766e',
+              backgroundColor: 'var(--badge-primary-bg)',
+              color: 'var(--primary-600)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -364,10 +364,10 @@ export const ModulesPage: React.FC = () => {
           >
             <Layers size={32} />
           </div>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>
             {t('modules.noModulesFound')}
           </h3>
-          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '420px', margin: '0 auto 20px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 20px' }}>
             {search
               ? t('modules.noModulesSearch')
               : t('modules.noModulesEmpty')}
@@ -396,8 +396,8 @@ export const ModulesPage: React.FC = () => {
                 justifyContent: 'space-between',
                 padding: '24px',
                 borderRadius: '16px',
-                border: mod.isEnabled ? '1px solid #e2e8f0' : '1px dashed #cbd5e1',
-                backgroundColor: mod.isEnabled ? '#ffffff' : '#f8fafc',
+                border: mod.isEnabled ? '1px solid var(--border-color)' : '1px dashed var(--border-hover)',
+                backgroundColor: mod.isEnabled ? 'var(--bg-card)' : 'var(--bg-surface-hover)',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -408,29 +408,21 @@ export const ModulesPage: React.FC = () => {
                     <span
                       style={{
                         padding: '4px 10px',
-                        backgroundColor: '#f1f5f9',
-                        color: '#0f172a',
+                        backgroundColor: 'var(--bg-surface-hover)',
+                        color: 'var(--text-main)',
                         fontSize: '11px',
                         fontWeight: 800,
                         fontFamily: 'monospace',
                         borderRadius: '6px',
                         letterSpacing: '0.05em',
+                        border: '1px solid var(--border-subtle)',
                       }}
                     >
                       {mod.code}
                     </span>
                     <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        borderRadius: '6px',
-                        backgroundColor: mod.isEnabled ? '#dcfce7' : '#fee2e2',
-                        color: mod.isEnabled ? '#166534' : '#991b1b',
-                      }}
+                      className={`badge ${mod.isEnabled ? 'badge-success' : 'badge-danger'}`}
+                      style={{ fontSize: '11px' }}
                     >
                       {mod.isEnabled ? (
                         <>
@@ -463,7 +455,7 @@ export const ModulesPage: React.FC = () => {
                 </div>
 
                 {/* Module Name */}
-                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', marginBottom: '8px' }}>
                   {mod.name}
                 </h3>
 
@@ -471,13 +463,13 @@ export const ModulesPage: React.FC = () => {
                 <p
                   style={{
                     fontSize: '13px',
-                    color: '#64748b',
+                    color: 'var(--text-muted)',
                     lineHeight: '1.5',
                     minHeight: '40px',
                     marginBottom: '20px',
                   }}
                 >
-                  {mod.description || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>No description provided</span>}
+                  {mod.description || <span style={{ fontStyle: 'italic', color: 'var(--text-subtle)' }}>No description provided</span>}
                 </p>
               </div>
 
@@ -488,10 +480,10 @@ export const ModulesPage: React.FC = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   paddingTop: '16px',
-                  borderTop: '1px solid #f1f5f9',
+                  borderTop: '1px solid var(--border-subtle)',
                 }}
               >
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
                   {new Date(mod.createdAt).toLocaleDateString()}
                 </div>
 
@@ -512,9 +504,9 @@ export const ModulesPage: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      border: '1px solid #fecaca',
+                      backgroundColor: 'var(--badge-danger-bg)',
+                      color: 'var(--badge-danger-text)',
+                      border: '1px solid var(--border-color)',
                       cursor: 'pointer',
                       fontWeight: 600,
                     }}
@@ -534,14 +526,14 @@ export const ModulesPage: React.FC = () => {
           <div className="modal-dialog" style={{ maxWidth: '520px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Layers size={20} color="#0f766e" />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <Layers size={20} style={{ color: 'var(--primary-600)' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
                   {editingModule ? t('modules.modalTitleEdit') : t('modules.modalTitleCreate')}
                 </h3>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X size={20} />
               </button>
@@ -600,16 +592,16 @@ export const ModulesPage: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '14px 16px',
-                    backgroundColor: '#f8fafc',
+                    backgroundColor: 'var(--bg-surface-hover)',
                     borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid var(--border-color)',
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
                       {t('modules.activeStatus')}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       {t('modules.activeStatusHelp')}
                     </div>
                   </div>
@@ -617,7 +609,7 @@ export const ModulesPage: React.FC = () => {
                     type="checkbox"
                     checked={formData.isEnabled}
                     onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0f766e' }}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-600)' }}
                   />
                 </div>
               </div>
@@ -645,30 +637,30 @@ export const ModulesPage: React.FC = () => {
         <div className="modal-backdrop">
           <div className="modal-dialog" style={{ maxWidth: '440px' }}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rose-500)' }}>
                 <AlertCircle size={20} />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>{t('modules.deleteModalTitle')}</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--rose-500)' }}>{t('modules.deleteModalTitle')}</h3>
               </div>
               <button
                 onClick={() => setDeletingModule(null)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X size={20} />
               </button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: '1.5' }}>
                 {t('modules.deleteModalConfirm', { name: deletingModule.name, code: deletingModule.code })}
               </p>
               <div
                 style={{
                   marginTop: '12px',
                   padding: '10px 14px',
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
+                  backgroundColor: 'var(--badge-danger-bg)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  color: '#991b1b',
+                  color: 'var(--badge-danger-text)',
                 }}
               >
                 {t('modules.deleteModalWarning')}

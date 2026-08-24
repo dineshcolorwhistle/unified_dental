@@ -302,20 +302,20 @@ export const TenantsPage: React.FC = () => {
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                backgroundColor: 'var(--badge-primary-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#0f766e',
+                color: 'var(--primary-600)',
               }}
             >
               <Building2 size={20} />
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
               {t('tenants.title')}
             </h1>
           </div>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
             {t('tenants.subtitle')}
           </p>
         </div>
@@ -356,7 +356,7 @@ export const TenantsPage: React.FC = () => {
         <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
           <Search
             size={18}
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }}
           />
           <input
             type="text"
@@ -367,7 +367,7 @@ export const TenantsPage: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
           {t('tenants.totalOrganizations')}: <strong>{tenants.length}</strong>
         </div>
       </div>
@@ -390,13 +390,13 @@ export const TenantsPage: React.FC = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#0f766e' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
                   {t('common.loading')}
                 </td>
               </tr>
             ) : tenants.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   {t('tenants.noTenants')}
                 </td>
               </tr>
@@ -406,8 +406,8 @@ export const TenantsPage: React.FC = () => {
                 return (
                   <tr key={tItem.id}>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{tItem.name}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{tItem.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
                         {new Date(tItem.createdAt).toLocaleDateString()}
                       </div>
                     </td>
@@ -416,12 +416,13 @@ export const TenantsPage: React.FC = () => {
                         <span
                           style={{
                             fontFamily: 'monospace',
-                            backgroundColor: '#f1f5f9',
+                            backgroundColor: 'var(--bg-surface-hover)',
                             padding: '3px 8px',
                             borderRadius: '6px',
                             fontSize: '12px',
-                            color: '#0f766e',
+                            color: 'var(--primary-600)',
                             fontWeight: 700,
+                            border: '1px solid var(--border-subtle)',
                           }}
                         >
                           {tItem.slug}
@@ -430,12 +431,12 @@ export const TenantsPage: React.FC = () => {
                           onClick={() => handleCopyUrl(tItem.slug)}
                           className="btn-icon"
                           title={t('tenants.copyUrlTooltip')}
-                          style={{ padding: '3px 6px' }}
+                          style={{ padding: '3px 6px', background: 'none', border: 'none', cursor: 'pointer' }}
                         >
                           {copiedSlug === tItem.slug ? (
-                            <Check size={12} color="#10b981" />
+                            <Check size={12} style={{ color: 'var(--emerald-500)' }} />
                           ) : (
-                            <Copy size={12} color="#64748b" />
+                            <Copy size={12} style={{ color: 'var(--text-muted)' }} />
                           )}
                         </button>
                       </div>
@@ -447,8 +448,8 @@ export const TenantsPage: React.FC = () => {
                             style={{
                               padding: '4px 8px',
                               borderRadius: '6px',
-                              backgroundColor: 'rgba(15, 118, 110, 0.08)',
-                              color: '#0f766e',
+                              backgroundColor: 'var(--badge-primary-bg)',
+                              color: 'var(--badge-primary-text)',
                               fontSize: '12px',
                               fontWeight: 700,
                             }}
@@ -548,8 +549,8 @@ export const TenantsPage: React.FC = () => {
           <div className="modal-dialog" style={{ maxWidth: '580px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Building2 size={20} color="#0f766e" />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <Building2 size={20} style={{ color: 'var(--primary-600)' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
                   {t('tenants.modalTitle')}
                 </h3>
               </div>
@@ -558,7 +559,7 @@ export const TenantsPage: React.FC = () => {
                   setShowModal(false);
                   setSlugManuallyEdited(false);
                 }}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X size={20} />
               </button>
@@ -597,15 +598,15 @@ export const TenantsPage: React.FC = () => {
                     <div
                       style={{
                         fontSize: '12px',
-                        color: '#0f766e',
+                        color: 'var(--primary-600)',
                         marginTop: '6px',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        backgroundColor: '#f0fdfa',
+                        backgroundColor: 'var(--badge-primary-bg)',
                         padding: '8px 12px',
                         borderRadius: '8px',
-                        border: '1px solid #99f6e4',
+                        border: '1px solid var(--border-color)',
                       }}
                     >
                       <Globe size={14} />
@@ -614,7 +615,7 @@ export const TenantsPage: React.FC = () => {
                       </span>
                     </div>
                   )}
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                     {t('tenants.slugHelp')}
                   </div>
                 </div>
@@ -677,11 +678,11 @@ export const TenantsPage: React.FC = () => {
                     <div
                       style={{
                         padding: '16px',
-                        backgroundColor: '#f8fafc',
+                        backgroundColor: 'var(--bg-surface-hover)',
                         borderRadius: '10px',
-                        border: '1px dashed #cbd5e1',
+                        border: '1px dashed var(--border-color)',
                         fontSize: '12px',
-                        color: '#64748b',
+                        color: 'var(--text-muted)',
                         textAlign: 'center',
                       }}
                     >
@@ -691,11 +692,11 @@ export const TenantsPage: React.FC = () => {
                     <div
                       style={{
                         padding: '14px',
-                        backgroundColor: '#fffbeb',
-                        border: '1px solid #fef3c7',
+                        backgroundColor: 'var(--badge-warning-bg)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '10px',
                         fontSize: '13px',
-                        color: '#92400e',
+                        color: 'var(--badge-warning-text)',
                       }}
                     >
                       {t('tenants.noActiveModules')}
@@ -720,15 +721,15 @@ export const TenantsPage: React.FC = () => {
                               padding: '12px 14px',
                               borderRadius: '10px',
                               border: isChecked
-                                ? '1.5px solid #0f766e'
+                                ? '1.5px solid var(--primary-600)'
                                 : isLimitReached
-                                ? '1px solid #e2e8f0'
-                                : '1px solid #cbd5e1',
+                                ? '1px solid var(--border-subtle)'
+                                : '1px solid var(--border-color)',
                               backgroundColor: isChecked
-                                ? 'rgba(15, 118, 110, 0.04)'
+                                ? 'var(--badge-primary-bg)'
                                 : isLimitReached
-                                ? '#f8fafc'
-                                : '#ffffff',
+                                ? 'var(--bg-surface-hover)'
+                                : 'var(--bg-surface)',
                               cursor: isLimitReached ? 'not-allowed' : 'pointer',
                               opacity: isLimitReached ? 0.6 : 1,
                               transition: 'all 0.15s ease',
@@ -744,13 +745,13 @@ export const TenantsPage: React.FC = () => {
                                 height: '18px',
                                 marginTop: '2px',
                                 cursor: isLimitReached ? 'not-allowed' : 'pointer',
-                                accentColor: '#0f766e',
+                                accentColor: 'var(--primary-600)',
                               }}
                             />
                             <div style={{ flex: 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                                  <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
                                     {mod.name}
                                   </span>
                                   <span
@@ -758,8 +759,8 @@ export const TenantsPage: React.FC = () => {
                                       fontSize: '10px',
                                       fontWeight: 700,
                                       fontFamily: 'monospace',
-                                      color: '#64748b',
-                                      backgroundColor: '#f1f5f9',
+                                      color: 'var(--text-muted)',
+                                      backgroundColor: 'var(--bg-surface-hover)',
                                       padding: '2px 6px',
                                       borderRadius: '4px',
                                     }}
@@ -768,13 +769,13 @@ export const TenantsPage: React.FC = () => {
                                   </span>
                                 </div>
                                 {isLimitReached && (
-                                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
+                                  <span style={{ fontSize: '11px', color: 'var(--text-subtle)', fontWeight: 600 }}>
                                     {t('tenants.limitReached')}
                                   </span>
                                 )}
                               </div>
                               {mod.description && (
-                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                                   {mod.description}
                                 </div>
                               )}
@@ -787,9 +788,9 @@ export const TenantsPage: React.FC = () => {
                 </div>
 
                 {/* Initial Branch Name */}
-                <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <MapPin size={15} color="#0f766e" /> {t('tenants.initialBranchTitle')}
+                <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-hover)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <MapPin size={15} style={{ color: 'var(--primary-600)' }} /> {t('tenants.initialBranchTitle')}
                   </div>
                   <input
                     type="text"
@@ -801,9 +802,9 @@ export const TenantsPage: React.FC = () => {
                 </div>
 
                 {/* Initial Tenant Admin */}
-                <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={15} color="#0f766e" /> {t('tenants.initialAdminTitle')}
+                <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-hover)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={15} style={{ color: 'var(--primary-600)' }} /> {t('tenants.initialAdminTitle')}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input
@@ -827,11 +828,11 @@ export const TenantsPage: React.FC = () => {
                 <div
                   style={{
                     fontSize: '12px',
-                    color: '#0f766e',
-                    backgroundColor: '#f0fdfa',
+                    color: 'var(--primary-600)',
+                    backgroundColor: 'var(--badge-primary-bg)',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    border: '1px solid #99f6e4',
+                    border: '1px solid var(--border-color)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -868,12 +869,12 @@ export const TenantsPage: React.FC = () => {
           <div className="modal-dialog" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Building2 size={20} color="#0f766e" />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <Building2 size={20} style={{ color: 'var(--primary-600)' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
                   {t('tenants.editModalTitle', { name: editingTenant.name })}
                 </h3>
               </div>
-              <button onClick={() => setEditingTenant(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+              <button onClick={() => setEditingTenant(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={20} />
               </button>
             </div>
@@ -976,15 +977,15 @@ export const TenantsPage: React.FC = () => {
                             padding: '12px 14px',
                             borderRadius: '10px',
                             border: isChecked
-                              ? '1.5px solid #0f766e'
+                              ? '1.5px solid var(--primary-600)'
                               : isLimitReached
-                              ? '1px solid #e2e8f0'
-                              : '1px solid #cbd5e1',
+                              ? '1px solid var(--border-subtle)'
+                              : '1px solid var(--border-color)',
                             backgroundColor: isChecked
-                              ? 'rgba(15, 118, 110, 0.04)'
+                              ? 'var(--badge-primary-bg)'
                               : isLimitReached
-                              ? '#f8fafc'
-                              : '#ffffff',
+                              ? 'var(--bg-surface-hover)'
+                              : 'var(--bg-surface)',
                             cursor: isLimitReached ? 'not-allowed' : 'pointer',
                             opacity: isLimitReached ? 0.6 : 1,
                             transition: 'all 0.15s ease',
@@ -1000,12 +1001,12 @@ export const TenantsPage: React.FC = () => {
                               height: '18px',
                               marginTop: '2px',
                               cursor: isLimitReached ? 'not-allowed' : 'pointer',
-                              accentColor: '#0f766e',
+                              accentColor: 'var(--primary-600)',
                             }}
                           />
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
                                 {mod.name}
                               </span>
                               <span
@@ -1013,8 +1014,8 @@ export const TenantsPage: React.FC = () => {
                                   fontSize: '10px',
                                   fontWeight: 700,
                                   fontFamily: 'monospace',
-                                  color: '#64748b',
-                                  backgroundColor: '#f1f5f9',
+                                  color: 'var(--text-muted)',
+                                  backgroundColor: 'var(--bg-surface-hover)',
                                   padding: '2px 6px',
                                   borderRadius: '4px',
                                 }}
@@ -1023,7 +1024,7 @@ export const TenantsPage: React.FC = () => {
                               </span>
                             </div>
                             {mod.description && (
-                              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                                 {mod.description}
                               </div>
                             )}
@@ -1068,17 +1069,17 @@ export const TenantsPage: React.FC = () => {
             </div>
 
             <div className="modal-body">
-              <p style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5, marginTop: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.5, marginTop: 0 }}>
                 {t('tenants.deleteModalConfirm', { name: deletingTenant.name, slug: deletingTenant.slug })}
               </p>
               <div
                 style={{
                   padding: '12px 14px',
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
+                  backgroundColor: 'var(--badge-danger-bg)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  color: '#991b1b',
+                  color: 'var(--badge-danger-text)',
                   lineHeight: 1.4,
                 }}
               >

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../core/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
+import { ThemeSwitcher } from '../components/layout/ThemeSwitcher';
 import { Shield, Building2, AlertTriangle } from 'lucide-react';
 import { getTenantSlug, isPlatformDomain } from '../core/utils/tenantContext';
 import api from '../services/api';
@@ -66,10 +67,11 @@ export const LoginPage: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0f172a',
+        backgroundColor: 'var(--bg-app)',
         padding: '24px',
         position: 'relative',
         overflow: 'hidden',
+        transition: 'background-color 0.2s ease',
       }}
     >
       {/* Background ambient lighting */}
@@ -82,9 +84,10 @@ export const LoginPage: React.FC = () => {
           height: '500px',
           borderRadius: '50%',
           background: isPlatform
-            ? 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, rgba(15, 23, 42, 0) 70%)'
-            : 'radial-gradient(circle, rgba(15, 118, 110, 0.35) 0%, rgba(15, 23, 42, 0) 70%)',
+            ? 'radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(15, 118, 110, 0.2) 0%, transparent 70%)',
           filter: 'blur(40px)',
+          pointerEvents: 'none',
         }}
       />
       <div
@@ -96,27 +99,41 @@ export const LoginPage: React.FC = () => {
           height: '500px',
           borderRadius: '50%',
           background: isPlatform
-            ? 'radial-gradient(circle, rgba(234, 88, 12, 0.2) 0%, rgba(15, 23, 42, 0) 70%)'
-            : 'radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(15, 23, 42, 0) 70%)',
+            ? 'radial-gradient(circle, rgba(234, 88, 12, 0.15) 0%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%)',
           filter: 'blur(40px)',
+          pointerEvents: 'none',
         }}
       />
 
-      {/* Language Switcher in top right */}
-      <div style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 10 }}>
+      {/* Top right utility bar: Language Switcher & Theme Switcher */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
         <LanguageSwitcher />
+        <ThemeSwitcher />
       </div>
 
       <div
         style={{
           width: '100%',
           maxWidth: '440px',
-          background: 'rgba(255, 255, 255, 0.98)',
+          background: 'var(--bg-card)',
           borderRadius: '20px',
           padding: '36px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          boxShadow: 'var(--shadow-xl)',
+          border: '1px solid var(--border-color)',
           position: 'relative',
           zIndex: 1,
+          transition: 'all 0.2s ease',
         }}
       >
         {/* Brand Header */}
@@ -145,28 +162,28 @@ export const LoginPage: React.FC = () => {
           {/* Title changes based on context */}
           {isPlatform ? (
             <>
-              <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)' }}>
                 Platform Admin Login
               </h1>
-              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 Unified Dental Platform — Super Admin Access
               </p>
             </>
           ) : tenantNotFound ? (
             <>
-              <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#dc2626' }}>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--rose-500)' }}>
                 Organization Not Found
               </h1>
-              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 The organization <strong>"{tenantSlug}"</strong> does not exist.
               </p>
             </>
           ) : (
             <>
-              <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)' }}>
                 {tenantInfo ? tenantInfo.name : 'Loading...'}
               </h1>
-              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 Sign in to your organization workspace
               </p>
             </>
@@ -177,9 +194,9 @@ export const LoginPage: React.FC = () => {
         {tenantNotFound ? (
           <div
             style={{
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#991b1b',
+              backgroundColor: 'var(--badge-danger-bg)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--badge-danger-text)',
               padding: '16px',
               borderRadius: '10px',
               fontSize: '13px',
@@ -200,9 +217,9 @@ export const LoginPage: React.FC = () => {
             {error && (
               <div
                 style={{
-                  backgroundColor: '#ffe4e6',
-                  border: '1px solid #fecdd3',
-                  color: '#be123c',
+                  backgroundColor: 'var(--badge-danger-bg)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--badge-danger-text)',
                   padding: '10px 14px',
                   borderRadius: '8px',
                   fontSize: '13px',
@@ -221,12 +238,12 @@ export const LoginPage: React.FC = () => {
             {!isPlatform && tenantInfo && (
               <div
                 style={{
-                  backgroundColor: '#f0fdfa',
-                  border: '1px solid #99f6e4',
+                  backgroundColor: 'var(--badge-primary-bg)',
+                  border: '1px solid var(--border-color)',
                   padding: '8px 12px',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  color: '#0f766e',
+                  color: 'var(--badge-primary-text)',
                   marginBottom: '18px',
                   display: 'flex',
                   alignItems: 'center',
@@ -236,7 +253,7 @@ export const LoginPage: React.FC = () => {
                 <Building2 size={14} />
                 <span>
                   Signing in to <strong>{tenantInfo.name}</strong>{' '}
-                  <span style={{ color: '#64748b', fontFamily: 'monospace' }}>
+                  <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                     ({tenantInfo.slug})
                   </span>
                 </span>
@@ -264,7 +281,7 @@ export const LoginPage: React.FC = () => {
                     to="/forgot-password"
                     style={{
                       fontSize: '12px',
-                      color: '#0f766e',
+                      color: 'var(--primary-600)',
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -295,8 +312,8 @@ export const LoginPage: React.FC = () => {
         )}
 
         {/* Footer context info */}
-        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
             🦷 Unified Dental Platform
           </span>
         </div>

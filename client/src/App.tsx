@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './core/context/AuthContext';
 import { NotificationProvider } from './core/context/NotificationContext';
+import { ThemeProvider } from './core/context/ThemeContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -20,8 +21,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; superAdminOnly?: boo
 
   if (loading) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-        <div style={{ fontSize: '15px', color: '#0f766e', fontWeight: 600 }}>Loading workspace...</div>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-app)' }}>
+        <div style={{ fontSize: '15px', color: 'var(--primary-600)', fontWeight: 600 }}>Loading workspace...</div>
       </div>
     );
   }
@@ -39,8 +40,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; superAdminOnly?: boo
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <NotificationProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <NotificationProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -87,5 +89,6 @@ export const App: React.FC = () => {
         </BrowserRouter>
       </NotificationProvider>
     </AuthProvider>
-  );
+  </ThemeProvider>
+);
 };

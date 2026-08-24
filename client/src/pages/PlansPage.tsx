@@ -221,20 +221,20 @@ export const PlansPage: React.FC = () => {
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                backgroundColor: 'var(--badge-primary-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#0f766e',
+                color: 'var(--primary-600)',
               }}
             >
               <CreditCard size={20} />
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
               {t('plans.title')}
             </h1>
           </div>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
             {t('plans.subtitle')}
           </p>
         </div>
@@ -263,7 +263,7 @@ export const PlansPage: React.FC = () => {
         <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
           <Search
             size={18}
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }}
           />
           <input
             type="text"
@@ -274,14 +274,14 @@ export const PlansPage: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
           {t('plans.showingCount', { shown: filteredPlans.length, total: plans.length })}
         </div>
       </div>
 
       {/* Plans List */}
       {loading ? (
-        <div style={{ padding: '60px 0', textAlign: 'center', color: '#0f766e', fontWeight: 600 }}>
+        <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--primary-600)', fontWeight: 600 }}>
           {t('common.loading')}
         </div>
       ) : filteredPlans.length === 0 ? (
@@ -291,8 +291,8 @@ export const PlansPage: React.FC = () => {
               width: '64px',
               height: '64px',
               borderRadius: '20px',
-              backgroundColor: 'rgba(15, 118, 110, 0.1)',
-              color: '#0f766e',
+              backgroundColor: 'var(--badge-primary-bg)',
+              color: 'var(--primary-600)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -301,10 +301,10 @@ export const PlansPage: React.FC = () => {
           >
             <CreditCard size={32} />
           </div>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>
             {t('plans.noPlansFound')}
           </h3>
-          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '420px', margin: '0 auto 20px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 20px' }}>
             {search ? t('plans.noPlansSearch') : t('plans.noPlansEmpty')}
           </p>
           {!search && (
@@ -331,8 +331,8 @@ export const PlansPage: React.FC = () => {
                 justifyContent: 'space-between',
                 padding: '24px',
                 borderRadius: '16px',
-                border: plan.isActive ? '1px solid #e2e8f0' : '1px dashed #cbd5e1',
-                backgroundColor: plan.isActive ? '#ffffff' : '#f8fafc',
+                border: plan.isActive ? '1px solid var(--border-color)' : '1px dashed var(--border-hover)',
+                backgroundColor: plan.isActive ? 'var(--bg-card)' : 'var(--bg-surface-hover)',
               }}
             >
               <div>
@@ -342,29 +342,21 @@ export const PlansPage: React.FC = () => {
                     <span
                       style={{
                         padding: '4px 10px',
-                        backgroundColor: '#f1f5f9',
-                        color: '#0f172a',
+                        backgroundColor: 'var(--bg-surface-hover)',
+                        color: 'var(--text-main)',
                         fontSize: '11px',
                         fontWeight: 800,
                         fontFamily: 'monospace',
                         borderRadius: '6px',
                         letterSpacing: '0.05em',
+                        border: '1px solid var(--border-subtle)',
                       }}
                     >
                       {plan.code}
                     </span>
                     <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        borderRadius: '6px',
-                        backgroundColor: plan.isActive ? '#dcfce7' : '#fee2e2',
-                        color: plan.isActive ? '#166534' : '#991b1b',
-                      }}
+                      className={`badge ${plan.isActive ? 'badge-success' : 'badge-danger'}`}
+                      style={{ fontSize: '11px' }}
                     >
                       {plan.isActive ? (
                         <>
@@ -381,9 +373,9 @@ export const PlansPage: React.FC = () => {
                   <span
                     style={{
                       fontSize: '12px',
-                      color: '#0f766e',
+                      color: 'var(--primary-600)',
                       fontWeight: 700,
-                      backgroundColor: 'rgba(15, 118, 110, 0.08)',
+                      backgroundColor: 'var(--badge-primary-bg)',
                       padding: '4px 10px',
                       borderRadius: '8px',
                     }}
@@ -395,7 +387,7 @@ export const PlansPage: React.FC = () => {
                 </div>
 
                 {/* Plan Name */}
-                <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-heading)', marginBottom: '6px' }}>
                   {plan.name}
                 </h3>
 
@@ -403,13 +395,13 @@ export const PlansPage: React.FC = () => {
                 <p
                   style={{
                     fontSize: '13px',
-                    color: '#64748b',
+                    color: 'var(--text-muted)',
                     lineHeight: '1.5',
                     minHeight: '38px',
                     marginBottom: '20px',
                   }}
                 >
-                  {plan.description || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>No description provided</span>}
+                  {plan.description || <span style={{ fontStyle: 'italic', color: 'var(--text-subtle)' }}>No description provided</span>}
                 </p>
 
                 {/* Allowed Module Capacity */}
@@ -420,14 +412,14 @@ export const PlansPage: React.FC = () => {
                       fontWeight: 700,
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
-                      color: '#475569',
+                      color: 'var(--text-muted)',
                       marginBottom: '10px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
                     }}
                   >
-                    <Layers size={13} color="#0f766e" /> {t('plans.allowedCapacity')}
+                    <Layers size={13} style={{ color: 'var(--primary-600)' }} /> {t('plans.allowedCapacity')}
                   </div>
 
                   <div
@@ -437,21 +429,21 @@ export const PlansPage: React.FC = () => {
                       gap: '8px',
                       padding: '8px 14px',
                       borderRadius: '10px',
-                      backgroundColor: '#f0fdfa',
-                      border: '1px solid #ccfbf1',
-                      color: '#0f766e',
+                      backgroundColor: 'var(--badge-primary-bg)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--primary-600)',
                       fontSize: '13px',
                       fontWeight: 700,
                     }}
                   >
-                    <CheckCircle2 size={16} color="#0f766e" />
+                    <CheckCircle2 size={16} style={{ color: 'var(--primary-600)' }} />
                     <span>
                       {(plan.moduleCount || 1) === 1
                         ? t('plans.modulesAllowed', { count: plan.moduleCount || 1 })
                         : t('plans.modulesAllowedPlural', { count: plan.moduleCount || 1 })}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
                     {t('plans.allowedDesc', { count: plan.moduleCount || 1 })}
                   </div>
                 </div>
@@ -464,10 +456,10 @@ export const PlansPage: React.FC = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   paddingTop: '16px',
-                  borderTop: '1px solid #f1f5f9',
+                  borderTop: '1px solid var(--border-subtle)',
                 }}
               >
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
                   {new Date(plan.createdAt).toLocaleDateString()}
                 </div>
 
@@ -488,9 +480,9 @@ export const PlansPage: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      border: '1px solid #fecaca',
+                      backgroundColor: 'var(--badge-danger-bg)',
+                      color: 'var(--badge-danger-text)',
+                      border: '1px solid var(--border-color)',
                       cursor: 'pointer',
                       fontWeight: 600,
                     }}
@@ -510,14 +502,14 @@ export const PlansPage: React.FC = () => {
           <div className="modal-dialog" style={{ maxWidth: '580px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CreditCard size={20} color="#0f766e" />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <CreditCard size={20} style={{ color: 'var(--primary-600)' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
                   {editingPlan ? t('plans.modalTitleEdit') : t('plans.modalTitleCreate')}
                 </h3>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X size={20} />
               </button>
@@ -604,9 +596,9 @@ export const PlansPage: React.FC = () => {
                             borderRadius: '8px',
                             fontSize: '12px',
                             fontWeight: 700,
-                            border: formData.moduleCount === cnt ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
-                            backgroundColor: formData.moduleCount === cnt ? 'rgba(15, 118, 110, 0.08)' : '#f8fafc',
-                            color: formData.moduleCount === cnt ? '#0f766e' : '#64748b',
+                            border: formData.moduleCount === cnt ? '1.5px solid var(--primary-600)' : '1px solid var(--border-color)',
+                            backgroundColor: formData.moduleCount === cnt ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
+                            color: formData.moduleCount === cnt ? 'var(--primary-600)' : 'var(--text-muted)',
                             cursor: 'pointer',
                           }}
                         >
@@ -615,7 +607,7 @@ export const PlansPage: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
                     {t('plans.moduleCountHelp')}
                   </p>
                 </div>
@@ -627,16 +619,16 @@ export const PlansPage: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '12px 16px',
-                    backgroundColor: '#f8fafc',
+                    backgroundColor: 'var(--bg-surface-hover)',
                     borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid var(--border-color)',
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
                       {t('plans.activeStatus')}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       {t('plans.activeStatusHelp')}
                     </div>
                   </div>
@@ -644,7 +636,7 @@ export const PlansPage: React.FC = () => {
                     type="checkbox"
                     checked={formData.isActive}
                     onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#0f766e' }}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-600)' }}
                   />
                 </div>
               </div>
@@ -672,30 +664,30 @@ export const PlansPage: React.FC = () => {
         <div className="modal-backdrop">
           <div className="modal-dialog" style={{ maxWidth: '440px' }}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rose-500)' }}>
                 <AlertCircle size={20} />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>{t('plans.deleteModalTitle')}</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--rose-500)' }}>{t('plans.deleteModalTitle')}</h3>
               </div>
               <button
                 onClick={() => setDeletingPlan(null)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X size={20} />
               </button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: '1.5' }}>
                 {t('plans.deleteModalConfirm', { name: deletingPlan.name, code: deletingPlan.code })}
               </p>
               <div
                 style={{
                   marginTop: '12px',
                   padding: '10px 14px',
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
+                  backgroundColor: 'var(--badge-danger-bg)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  color: '#991b1b',
+                  color: 'var(--badge-danger-text)',
                 }}
               >
                 {t('plans.deleteModalWarning')}

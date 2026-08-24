@@ -4,14 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { BranchSwitcher } from './BranchSwitcher';
 import { NotificationDropdown } from './NotificationDropdown';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import {
-  User,
   LogOut,
   Shield,
   Stethoscope,
   FlaskConical,
   ChevronDown,
-  Building,
 } from 'lucide-react';
 
 interface AppHeaderProps {
@@ -65,18 +64,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               {tenant.name.substring(0, 2).toUpperCase()}
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a', lineHeight: 1.2 }}>
+              <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.2 }}>
                 {tenant.name}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>
-                <span style={{ color: '#0f766e', fontWeight: 600 }}>{tenant.slug}</span>.app.example.com
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                <span style={{ color: 'var(--primary-600)', fontWeight: 600 }}>{tenant.slug}</span>.app.example.com
               </div>
             </div>
           </div>
         ) : user?.isSuperAdmin ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Shield size={18} style={{ color: '#0f766e' }} />
-            <span style={{ fontWeight: 700, fontSize: '14px' }}>Platform Super Admin</span>
+            <Shield size={18} style={{ color: 'var(--primary-600)' }} />
+            <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Platform Super Admin</span>
           </div>
         ) : null}
 
@@ -84,16 +83,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {tenant && <BranchSwitcher />}
       </div>
 
-      {/* Header Right: Module Selector, Language Switcher, Notifications, Profile */}
+      {/* Header Right: Module Selector, Language Switcher, Theme Switcher, Notifications, Profile */}
       <div className="header-right">
         {/* Module Mode Pills */}
         <div
           style={{
             display: 'flex',
-            backgroundColor: '#f1f5f9',
+            backgroundColor: 'var(--bg-surface-hover)',
             padding: '3px',
             borderRadius: '8px',
             gap: '2px',
+            border: '1px solid var(--border-color)',
           }}
         >
           {user?.isSuperAdmin && (
@@ -109,9 +109,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 borderRadius: '6px',
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: activeModuleMode === 'PLATFORM' ? '#ffffff' : 'transparent',
-                color: activeModuleMode === 'PLATFORM' ? '#0f172a' : '#64748b',
-                boxShadow: activeModuleMode === 'PLATFORM' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                backgroundColor: activeModuleMode === 'PLATFORM' ? 'var(--bg-surface)' : 'transparent',
+                color: activeModuleMode === 'PLATFORM' ? 'var(--text-main)' : 'var(--text-muted)',
+                boxShadow: activeModuleMode === 'PLATFORM' ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               <Shield size={13} /> {t('header.platformAdmin')}
@@ -131,9 +132,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 borderRadius: '6px',
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: activeModuleMode === 'CLINIC' ? '#ffffff' : 'transparent',
-                color: activeModuleMode === 'CLINIC' ? '#0f766e' : '#64748b',
-                boxShadow: activeModuleMode === 'CLINIC' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                backgroundColor: activeModuleMode === 'CLINIC' ? 'var(--bg-surface)' : 'transparent',
+                color: activeModuleMode === 'CLINIC' ? 'var(--primary-600)' : 'var(--text-muted)',
+                boxShadow: activeModuleMode === 'CLINIC' ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               <Stethoscope size={13} /> {t('header.clinicModule')}
@@ -153,9 +155,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 borderRadius: '6px',
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: activeModuleMode === 'LAB' ? '#ffffff' : 'transparent',
-                color: activeModuleMode === 'LAB' ? '#0f766e' : '#64748b',
-                boxShadow: activeModuleMode === 'LAB' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                backgroundColor: activeModuleMode === 'LAB' ? 'var(--bg-surface)' : 'transparent',
+                color: activeModuleMode === 'LAB' ? 'var(--primary-600)' : 'var(--text-muted)',
+                boxShadow: activeModuleMode === 'LAB' ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               <FlaskConical size={13} /> {t('header.labModule')}
@@ -165,6 +168,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* Language Switcher */}
         <LanguageSwitcher />
+
+        {/* Theme Switcher */}
+        <ThemeSwitcher />
 
         {/* Notifications */}
         <NotificationDropdown />
@@ -179,9 +185,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               gap: '8px',
               padding: '5px 10px',
               borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-surface)',
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
             <div
@@ -189,7 +196,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 width: '28px',
                 height: '28px',
                 borderRadius: '50%',
-                backgroundColor: '#0f766e',
+                backgroundColor: 'var(--primary-700)',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
@@ -201,14 +208,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               {user?.name.charAt(0).toUpperCase()}
             </div>
             <div style={{ textAlign: 'left', maxWidth: '120px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user?.name}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 {user?.roles[0] || 'User'}
               </div>
             </div>
-            <ChevronDown size={14} style={{ color: '#94a3b8' }} />
+            <ChevronDown size={14} style={{ color: 'var(--text-subtle)' }} />
           </button>
 
           {profileOpen && (
@@ -218,17 +225,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 top: '110%',
                 right: 0,
                 width: '220px',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-dropdown)',
                 borderRadius: '10px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-                border: '1px solid #e2e8f0',
+                boxShadow: 'var(--shadow-lg)',
+                border: '1px solid var(--border-color)',
                 padding: '6px',
                 zIndex: 60,
+                animation: 'fadeIn 0.15s ease-out',
               }}
             >
-              <div style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{user?.name}</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>{user?.email}</div>
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{user?.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user?.email}</div>
               </div>
               <button
                 onClick={logout}
@@ -240,12 +248,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   padding: '8px 10px',
                   borderRadius: '6px',
                   backgroundColor: 'transparent',
-                  color: '#e11d48',
+                  color: 'var(--rose-500)',
                   fontSize: '13px',
                   fontWeight: 600,
                   border: 'none',
                   cursor: 'pointer',
                   marginTop: '4px',
+                  transition: 'background-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--badge-danger-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
                 <LogOut size={14} /> {t('nav.logout')}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
+import { ThemeSwitcher } from '../components/layout/ThemeSwitcher';
 import { KeyRound, ArrowLeft, CheckCircle, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 
@@ -60,10 +61,11 @@ export const ResetPasswordPage: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0f172a',
+        backgroundColor: 'var(--bg-app)',
         padding: '24px',
         position: 'relative',
         overflow: 'hidden',
+        transition: 'background-color 0.2s ease',
       }}
     >
       {/* Background ambient lighting */}
@@ -75,8 +77,9 @@ export const ResetPasswordPage: React.FC = () => {
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(15, 118, 110, 0.35) 0%, rgba(15, 23, 42, 0) 70%)',
+          background: 'radial-gradient(circle, rgba(15, 118, 110, 0.2) 0%, transparent 70%)',
           filter: 'blur(40px)',
+          pointerEvents: 'none',
         }}
       />
       <div
@@ -87,26 +90,40 @@ export const ResetPasswordPage: React.FC = () => {
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(15, 23, 42, 0) 70%)',
+          background: 'radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%)',
           filter: 'blur(40px)',
+          pointerEvents: 'none',
         }}
       />
 
-      {/* Language Switcher */}
-      <div style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 10 }}>
+      {/* Top right utility bar: Language Switcher & Theme Switcher */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
         <LanguageSwitcher />
+        <ThemeSwitcher />
       </div>
 
       <div
         style={{
           width: '100%',
           maxWidth: '440px',
-          background: 'rgba(255, 255, 255, 0.98)',
+          background: 'var(--bg-card)',
           borderRadius: '20px',
           padding: '36px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          boxShadow: 'var(--shadow-xl)',
+          border: '1px solid var(--border-color)',
           position: 'relative',
           zIndex: 1,
+          transition: 'all 0.2s ease',
         }}
       >
         {/* Header */}
@@ -131,10 +148,10 @@ export const ResetPasswordPage: React.FC = () => {
           >
             {success ? <CheckCircle size={26} color="#fff" /> : <KeyRound size={26} color="#fff" />}
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)' }}>
             {success ? 'Password Updated!' : 'Set New Password'}
           </h1>
-          <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
             {success
               ? 'Redirecting you to the login page...'
               : 'Choose a strong password for your account'}
@@ -146,9 +163,9 @@ export const ResetPasswordPage: React.FC = () => {
           <div>
             <div
               style={{
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#991b1b',
+                backgroundColor: 'var(--badge-danger-bg)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--badge-danger-text)',
                 padding: '16px',
                 borderRadius: '10px',
                 fontSize: '13px',
@@ -186,9 +203,9 @@ export const ResetPasswordPage: React.FC = () => {
           <div>
             <div
               style={{
-                backgroundColor: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                color: '#166534',
+                backgroundColor: 'var(--badge-success-bg)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--badge-success-text)',
                 padding: '16px',
                 borderRadius: '10px',
                 fontSize: '14px',
@@ -226,9 +243,9 @@ export const ResetPasswordPage: React.FC = () => {
             {error && (
               <div
                 style={{
-                  backgroundColor: '#ffe4e6',
-                  border: '1px solid #fecdd3',
-                  color: '#be123c',
+                  backgroundColor: 'var(--badge-danger-bg)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--badge-danger-text)',
                   padding: '10px 14px',
                   borderRadius: '8px',
                   fontSize: '13px',
@@ -269,7 +286,7 @@ export const ResetPasswordPage: React.FC = () => {
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: '#94a3b8',
+                      color: 'var(--text-subtle)',
                       padding: '4px',
                     }}
                   >
@@ -302,7 +319,7 @@ export const ResetPasswordPage: React.FC = () => {
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: '#94a3b8',
+                      color: 'var(--text-subtle)',
                       padding: '4px',
                     }}
                   >
@@ -316,7 +333,7 @@ export const ResetPasswordPage: React.FC = () => {
                 <div
                   style={{
                     fontSize: '12px',
-                    color: newPassword === confirmPassword ? '#16a34a' : '#dc2626',
+                    color: newPassword === confirmPassword ? 'var(--emerald-500)' : 'var(--rose-500)',
                     marginBottom: '12px',
                     display: 'flex',
                     alignItems: 'center',
@@ -348,7 +365,7 @@ export const ResetPasswordPage: React.FC = () => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: '#0f766e',
+                  color: 'var(--primary-600)',
                   fontSize: '13px',
                   fontWeight: 600,
                   textDecoration: 'none',
@@ -362,8 +379,8 @@ export const ResetPasswordPage: React.FC = () => {
         )}
 
         {/* Footer */}
-        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
             🦷 Unified Dental Platform
           </span>
         </div>

@@ -78,8 +78,8 @@ export const BranchesPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', color: '#0f172a' }}>{t('branches.title')}</h1>
-          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '2px' }}>{t('branches.subtitle')}</p>
+          <h1 style={{ fontSize: '24px', color: 'var(--text-heading)' }}>{t('branches.title')}</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>{t('branches.subtitle')}</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn btn-primary">
           <Plus size={16} /> {t('branches.createBtn')}
@@ -95,11 +95,11 @@ export const BranchesPage: React.FC = () => {
         }}
       >
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', gridColumn: '1 / -1', color: '#94a3b8' }}>
+          <div style={{ textAlign: 'center', padding: '40px', gridColumn: '1 / -1', color: 'var(--primary-600)' }}>
             {t('common.loading')}
           </div>
         ) : branches.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', gridColumn: '1 / -1', color: '#94a3b8' }}>
+          <div style={{ textAlign: 'center', padding: '40px', gridColumn: '1 / -1', color: 'var(--text-muted)' }}>
             No branches found.
           </div>
         ) : (
@@ -113,8 +113,8 @@ export const BranchesPage: React.FC = () => {
                         width: '40px',
                         height: '40px',
                         borderRadius: '10px',
-                        backgroundColor: '#ccfbf1',
-                        color: '#0f766e',
+                        backgroundColor: 'var(--badge-primary-bg)',
+                        color: 'var(--primary-600)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -123,7 +123,7 @@ export const BranchesPage: React.FC = () => {
                       <Building2 size={20} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '16px', color: '#0f172a' }}>{b.name}</h3>
+                      <h3 style={{ fontSize: '16px', color: 'var(--text-main)' }}>{b.name}</h3>
                       {b.code && (
                         <span className="badge badge-info" style={{ fontSize: '10px', marginTop: '2px' }}>
                           {b.code}
@@ -147,20 +147,20 @@ export const BranchesPage: React.FC = () => {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', fontSize: '13px', color: '#475569' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', fontSize: '13px', color: 'var(--text-muted)' }}>
                   {b.address && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <MapPin size={14} style={{ color: '#94a3b8' }} /> {b.address}
+                      <MapPin size={14} style={{ color: 'var(--text-subtle)' }} /> {b.address}
                     </div>
                   )}
                   {b.phone && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Phone size={14} style={{ color: '#94a3b8' }} /> {b.phone}
+                      <Phone size={14} style={{ color: 'var(--text-subtle)' }} /> {b.phone}
                     </div>
                   )}
                   {b.email && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Mail size={14} style={{ color: '#94a3b8' }} /> {b.email}
+                      <Mail size={14} style={{ color: 'var(--text-subtle)' }} /> {b.email}
                     </div>
                   )}
                 </div>
@@ -170,15 +170,15 @@ export const BranchesPage: React.FC = () => {
                 style={{
                   marginTop: '20px',
                   paddingTop: '12px',
-                  borderTop: '1px solid #f1f5f9',
+                  borderTop: '1px solid var(--border-subtle)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   fontSize: '12px',
-                  color: '#64748b',
+                  color: 'var(--text-muted)',
                 }}
               >
-                <span>Status: <strong style={{ color: '#059669' }}>{b.status}</strong></span>
+                <span>Status: <strong style={{ color: 'var(--emerald-500)' }}>{b.status}</strong></span>
                 <span>{b._count?.userBranches || 0} Staff assigned</span>
               </div>
             </div>

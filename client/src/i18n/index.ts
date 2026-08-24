@@ -39,6 +39,11 @@ const resources = {
         markAllRead: 'Mark all as read',
         noNotifications: 'No notifications',
         profile: 'Profile',
+        themeLight: 'Light Mode',
+        themeDark: 'Dark Mode',
+        switchToDark: 'Switch to Dark Mode',
+        switchToLight: 'Switch to Light Mode',
+        switchTheme: 'Toggle Theme',
       },
       dashboard: {
         welcomeTitle: 'Welcome back, {{name}}',
@@ -297,6 +302,11 @@ const resources = {
         markAllRead: 'Marcar todo leído',
         noNotifications: 'Sin notificaciones',
         profile: 'Perfil',
+        themeLight: 'Modo Claro',
+        themeDark: 'Modo Oscuro',
+        switchToDark: 'Cambiar a Modo Oscuro',
+        switchToLight: 'Cambiar a Modo Claro',
+        switchTheme: 'Cambiar Tema',
       },
       dashboard: {
         welcomeTitle: 'Bienvenido de nuevo, {{name}}',

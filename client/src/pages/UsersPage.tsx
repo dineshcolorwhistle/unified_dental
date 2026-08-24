@@ -81,8 +81,8 @@ export const UsersPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', color: '#0f172a' }}>{t('users.title')}</h1>
-          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '2px' }}>{t('users.subtitle')}</p>
+          <h1 style={{ fontSize: '24px', color: 'var(--text-heading)' }}>{t('users.title')}</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>{t('users.subtitle')}</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn btn-primary">
           <Plus size={16} /> {t('users.createBtn')}
@@ -91,7 +91,7 @@ export const UsersPage: React.FC = () => {
 
       {/* Search Bar */}
       <div className="card" style={{ padding: '14px 20px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <Search size={16} style={{ color: '#94a3b8' }} />
+        <Search size={16} style={{ color: 'var(--text-subtle)' }} />
         <input
           type="text"
           className="form-input"
@@ -118,13 +118,13 @@ export const UsersPage: React.FC = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   No users found in this organization.
                 </td>
               </tr>
@@ -143,7 +143,7 @@ export const UsersPage: React.FC = () => {
                             width: '32px',
                             height: '32px',
                             borderRadius: '50%',
-                            backgroundColor: '#0f766e',
+                            backgroundColor: 'var(--primary-700)',
                             color: '#ffffff',
                             display: 'flex',
                             alignItems: 'center',
@@ -155,14 +155,14 @@ export const UsersPage: React.FC = () => {
                           {u.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{u.name}</div>
-                          {u.phone && <div style={{ fontSize: '11px', color: '#64748b' }}>{u.phone}</div>}
+                          <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{u.name}</div>
+                          {u.phone && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{u.phone}</div>}
                         </div>
                       </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                        <Mail size={13} style={{ color: '#94a3b8' }} /> {u.email}
+                        <Mail size={13} style={{ color: 'var(--text-subtle)' }} /> {u.email}
                       </div>
                     </td>
                     <td>
@@ -172,7 +172,7 @@ export const UsersPage: React.FC = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                        <Building size={13} style={{ color: '#94a3b8' }} /> {assignedBranches}
+                        <Building size={13} style={{ color: 'var(--text-subtle)' }} /> {assignedBranches}
                       </div>
                     </td>
                     <td>

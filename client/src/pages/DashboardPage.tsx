@@ -67,20 +67,20 @@ export const DashboardPage: React.FC = () => {
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                backgroundColor: 'var(--badge-primary-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#0f766e',
+                color: 'var(--primary-600)',
               }}
             >
               <LayoutDashboard size={20} />
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
               {t('dashboard.welcomeTitle', { name: user?.name || 'Platform Administrator' })}
             </h1>
           </div>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
             Unified Dental Platform — Super Admin Control Center
           </p>
         </div>
@@ -102,8 +102,8 @@ export const DashboardPage: React.FC = () => {
               width: '48px',
               height: '48px',
               borderRadius: '12px',
-              backgroundColor: '#ccfbf1',
-              color: '#0f766e',
+              backgroundColor: 'var(--badge-primary-bg)',
+              color: 'var(--primary-600)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -112,10 +112,10 @@ export const DashboardPage: React.FC = () => {
             <Building2 size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Total Organizations
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
               {loading ? '...' : tenants.length}
             </div>
           </div>
@@ -128,8 +128,8 @@ export const DashboardPage: React.FC = () => {
               width: '48px',
               height: '48px',
               borderRadius: '12px',
-              backgroundColor: '#e0f2fe',
-              color: '#0284c7',
+              backgroundColor: 'var(--badge-info-bg)',
+              color: 'var(--sky-500)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -138,10 +138,10 @@ export const DashboardPage: React.FC = () => {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Active Tenants
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
               {loading ? '...' : activeTenantsCount}
             </div>
           </div>
@@ -154,8 +154,8 @@ export const DashboardPage: React.FC = () => {
               width: '48px',
               height: '48px',
               borderRadius: '12px',
-              backgroundColor: '#fef3c7',
-              color: '#d97706',
+              backgroundColor: 'var(--badge-warning-bg)',
+              color: 'var(--amber-500)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -164,10 +164,10 @@ export const DashboardPage: React.FC = () => {
             <ShieldCheck size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               Platform Role
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
               Platform Super Admin
             </div>
           </div>
@@ -182,7 +182,7 @@ export const DashboardPage: React.FC = () => {
           <div
             className="card"
             style={{
-              background: 'linear-gradient(135deg, #0f766e, #115e59)',
+              background: 'linear-gradient(135deg, var(--primary-800), var(--primary-700))',
               color: '#ffffff',
               border: 'none',
               position: 'relative',
@@ -226,7 +226,7 @@ export const DashboardPage: React.FC = () => {
 
           {/* Quick Actions Card */}
           <div className="card">
-            <h3 style={{ fontSize: '16px', marginBottom: '16px', color: '#0f172a' }}>
+            <h3 style={{ fontSize: '16px', marginBottom: '16px', color: 'var(--text-heading)' }}>
               {t('dashboard.quickActions')}
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
@@ -238,7 +238,7 @@ export const DashboardPage: React.FC = () => {
               </Link>
               <Link to="/tenants" className="btn btn-secondary" style={{ justifyContent: 'space-between', padding: '12px 16px' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Building2 size={16} style={{ color: '#0f766e' }} /> View Organizations ({tenants.length})
+                  <Building2 size={16} style={{ color: 'var(--primary-600)' }} /> View Organizations ({tenants.length})
                 </span>
                 <ArrowRight size={14} />
               </Link>
@@ -249,13 +249,13 @@ export const DashboardPage: React.FC = () => {
         {/* Right Column: Recent Activity Feed */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Activity size={18} style={{ color: '#0f766e' }} />
-            <h3 style={{ fontSize: '16px', color: '#0f172a' }}>{t('dashboard.recentActivity')}</h3>
+            <Activity size={18} style={{ color: 'var(--primary-600)' }} />
+            <h3 style={{ fontSize: '16px', color: 'var(--text-heading)' }}>{t('dashboard.recentActivity')}</h3>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
             {recentLogs.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '30px', color: '#94a3b8', fontSize: '13px' }}>
+              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-subtle)', fontSize: '13px' }}>
                 No recent activity recorded yet.
               </div>
             ) : (
@@ -265,22 +265,22 @@ export const DashboardPage: React.FC = () => {
                   style={{
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #f1f5f9',
+                    backgroundColor: 'var(--bg-surface-hover)',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="badge badge-info" style={{ fontSize: '10px' }}>
                       {log.action}
                     </span>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', gap: '3px' }}>
                       <Clock size={10} /> {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a', marginTop: '4px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginTop: '4px' }}>
                     {log.resourceType} {log.resourceId ? `(#${log.resourceId.substring(0, 8)})` : ''}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     By: {log.user?.name || 'Platform Admin'}
                   </div>
                 </div>

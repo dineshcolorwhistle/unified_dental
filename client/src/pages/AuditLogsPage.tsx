@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { History, Clock, User, Building, Eye } from 'lucide-react';
+import { Clock, User, Building, Eye } from 'lucide-react';
 
 export const AuditLogsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,8 +32,8 @@ export const AuditLogsPage: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', color: '#0f172a' }}>{t('audit.title')}</h1>
-        <p style={{ color: '#64748b', fontSize: '13px', marginTop: '2px' }}>{t('audit.subtitle')}</p>
+        <h1 style={{ fontSize: '24px', color: 'var(--text-heading)' }}>{t('audit.title')}</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>{t('audit.subtitle')}</p>
       </div>
 
       {/* Audit Table */}
@@ -52,13 +52,13 @@ export const AuditLogsPage: React.FC = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
                   {t('common.loading')}
                 </td>
               </tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   No audit records found.
                 </td>
               </tr>
@@ -71,25 +71,25 @@ export const AuditLogsPage: React.FC = () => {
                     </span>
                   </td>
                   <td>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{log.resourceType}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{log.resourceType}</div>
                     {log.resourceId && (
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>#{log.resourceId.substring(0, 8)}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>#{log.resourceId.substring(0, 8)}</div>
                     )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <User size={13} style={{ color: '#94a3b8' }} />
+                      <User size={13} style={{ color: 'var(--text-subtle)' }} />
                       <span>{log.user?.name || log.user?.email || 'System'}</span>
                     </div>
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Building size={13} style={{ color: '#94a3b8' }} />
+                      <Building size={13} style={{ color: 'var(--text-subtle)' }} />
                       <span>{log.branch?.name || 'Organization-wide'}</span>
                     </div>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
                       <Clock size={12} />
                       {new Date(log.createdAt).toLocaleString()}
                     </div>
@@ -120,7 +120,7 @@ export const AuditLogsPage: React.FC = () => {
           >
             Previous
           </button>
-          <span style={{ fontSize: '13px', display: 'flex', alignItems: 'center', padding: '0 12px' }}>
+          <span style={{ fontSize: '13px', display: 'flex', alignItems: 'center', padding: '0 12px', color: 'var(--text-main)' }}>
             Page {page} of {totalPages}
           </span>
           <button
@@ -138,13 +138,13 @@ export const AuditLogsPage: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '640px' }}>
             <div className="modal-header">
-              <h3 style={{ fontSize: '16px' }}>
+              <h3 style={{ fontSize: '16px', color: 'var(--text-heading)' }}>
                 Audit Detail: {selectedLog.action} ({selectedLog.resourceType})
               </h3>
               <button onClick={() => setSelectedLog(null)} className="btn-secondary btn-sm">✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '13px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-main)' }}>
                 <div><strong>User:</strong> {selectedLog.user?.name || 'System'}</div>
                 <div><strong>Branch:</strong> {selectedLog.branch?.name || 'Tenant Scope'}</div>
                 <div><strong>IP Address:</strong> {selectedLog.ipAddress || 'Internal'}</div>
@@ -153,17 +153,18 @@ export const AuditLogsPage: React.FC = () => {
 
               {selectedLog.oldValues && (
                 <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#be123c', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--rose-500)', marginBottom: '4px' }}>
                     Old Values (Before):
                   </div>
                   <pre
                     style={{
-                      backgroundColor: '#fff1f2',
+                      backgroundColor: 'var(--badge-danger-bg)',
+                      color: 'var(--badge-danger-text)',
                       padding: '10px',
                       borderRadius: '8px',
                       fontSize: '11px',
                       overflowX: 'auto',
-                      border: '1px solid #fecdd3',
+                      border: '1px solid var(--border-color)',
                     }}
                   >
                     {JSON.stringify(selectedLog.oldValues, null, 2)}
@@ -173,17 +174,18 @@ export const AuditLogsPage: React.FC = () => {
 
               {selectedLog.newValues && (
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f766e', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-600)', marginBottom: '4px' }}>
                     New Values (After):
                   </div>
                   <pre
                     style={{
-                      backgroundColor: '#f0fdfa',
+                      backgroundColor: 'var(--badge-primary-bg)',
+                      color: 'var(--badge-primary-text)',
                       padding: '10px',
                       borderRadius: '8px',
                       fontSize: '11px',
                       overflowX: 'auto',
-                      border: '1px solid #ccfbf1',
+                      border: '1px solid var(--border-color)',
                     }}
                   >
                     {JSON.stringify(selectedLog.newValues, null, 2)}

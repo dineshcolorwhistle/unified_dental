@@ -23,16 +23,18 @@ export const LanguageSwitcher: React.FC = () => {
         fontWeight: 600,
         padding: '6px 12px',
         borderRadius: '8px',
-        backgroundColor: '#ffffff',
-        border: '1px solid #e2e8f0',
+        backgroundColor: 'var(--bg-surface)',
+        border: '1px solid var(--border-color)',
+        color: 'var(--text-main)',
+        transition: 'all 0.15s ease',
       }}
       title="Switch Language / Cambiar Idioma"
     >
-      <Globe size={15} style={{ color: '#0f766e' }} />
+      <Globe size={15} style={{ color: 'var(--primary-600)' }} />
       <span style={{ fontSize: '12px', letterSpacing: '0.04em' }}>
         {currentLang.startsWith('es') ? 'ES' : 'EN'}
       </span>
-      <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '2px' }}>
+      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '2px' }}>
         ({currentLang.startsWith('es') ? 'Español' : 'English'})
       </span>
     </button>
