@@ -3,6 +3,7 @@ import { useAuth } from '../core/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import {
+  LayoutDashboard,
   Building2,
   ShieldCheck,
   Sparkles,
@@ -48,14 +49,41 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div>
-      {/* Top Banner */}
-      <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '26px', color: '#0f172a' }}>
-          {t('dashboard.welcomeTitle', { name: user?.name || 'Platform Administrator' })}
-        </h1>
-        <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>
-          Unified Dental Platform — Super Admin Control Center
-        </p>
+      {/* Page Header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+          flexWrap: 'wrap',
+          gap: '16px',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#0f766e',
+              }}
+            >
+              <LayoutDashboard size={20} />
+            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              {t('dashboard.welcomeTitle', { name: user?.name || 'Platform Administrator' })}
+            </h1>
+          </div>
+          <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+            Unified Dental Platform — Super Admin Control Center
+          </p>
+        </div>
       </div>
 
       {/* Metrics Row */}
