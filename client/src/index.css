@@ -477,6 +477,36 @@ button {
   letter-spacing: 0.03em;
 }
 
+.sidebar-logout-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(244, 63, 94, 0.18);
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.35);
+  transform: scale(1.08);
+}
+
+.sidebar-collapsed-footer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
 .sidebar-collapsed-user-wrapper {
   position: relative;
   display: flex;
@@ -503,6 +533,34 @@ button {
 .sidebar-user-avatar-collapsed:hover {
   transform: scale(1.06);
   box-shadow: 0 4px 12px rgba(6, 182, 212, 0.5);
+}
+
+.sidebar-collapsed-logout-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-collapsed-logout-btn:hover {
+  background: rgba(244, 63, 94, 0.18);
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.35);
+  transform: scale(1.08);
+}
+
+.app-sidebar.collapsed .sidebar-collapsed-logout-btn:hover .sidebar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
 }
 
 /* Cards */

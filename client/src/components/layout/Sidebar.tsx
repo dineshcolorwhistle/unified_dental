@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Shield,
   User as UserIcon,
+  LogOut,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -55,7 +56,7 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('ud_sidebar_collapsed') === 'true';
   });
@@ -194,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
         )}
       </nav>
 
-      {/* Sidebar Footer: User Login Profile & Expand Action */}
+      {/* Sidebar Footer: User Login Profile & Logout Action */}
       <div className="sidebar-footer">
         {!isCollapsed ? (
           <div className="sidebar-user-card">
@@ -213,34 +214,56 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 <span>{roleName}</span>
               </div>
             </div>
+            <button
+              onClick={logout}
+              className="sidebar-logout-btn"
+              title={t('nav.logout')}
+              aria-label={t('nav.logout')}
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         ) : (
-          <div className="sidebar-collapsed-user-wrapper">
-            <div className="sidebar-user-avatar-collapsed" onClick={toggleCollapse}>
-              {userInitial}
+          <div className="sidebar-collapsed-footer-container">
+            <div className="sidebar-collapsed-user-wrapper">
+              <div className="sidebar-user-avatar-collapsed" onClick={toggleCollapse}>
+                {userInitial}
+              </div>
+              <div className="sidebar-tooltip user-tooltip" role="tooltip">
+                <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '13px' }}>
+                  {user?.name || 'Administrator'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                  {user?.email}
+                </div>
+                <div
+                  style={{
+                    fontSize: '10px',
+                    color: '#2dd4bf',
+                    fontWeight: 600,
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <Shield size={10} /> {roleName}
+                </div>
+              </div>
             </div>
-            <div className="sidebar-tooltip user-tooltip" role="tooltip">
-              <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '13px' }}>
-                {user?.name || 'Administrator'}
+
+            <button
+              onClick={logout}
+              className="sidebar-collapsed-logout-btn"
+              title={t('nav.logout')}
+              aria-label={t('nav.logout')}
+            >
+              <LogOut size={16} />
+              <div className="sidebar-tooltip" role="tooltip">
+                {t('nav.logout')}
               </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                {user?.email}
-              </div>
-              <div
-                style={{
-                  fontSize: '10px',
-                  color: '#2dd4bf',
-                  fontWeight: 600,
-                  marginTop: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  textTransform: 'uppercase',
-                }}
-              >
-                <Shield size={10} /> {roleName}
-              </div>
-            </div>
+            </button>
           </div>
         )}
       </div>
