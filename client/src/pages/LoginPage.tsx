@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../core/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
@@ -258,7 +258,20 @@ export const LoginPage: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">{t('auth.passwordLabel')}</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="form-label">{t('auth.passwordLabel')}</label>
+                  <Link
+                    to="/forgot-password"
+                    style={{
+                      fontSize: '12px',
+                      color: '#0f766e',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <input
                   type="password"
                   className="form-input"

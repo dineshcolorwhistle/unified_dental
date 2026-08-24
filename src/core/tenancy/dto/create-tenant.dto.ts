@@ -32,6 +32,10 @@ export class CreateTenantDto {
 
   @IsOptional()
   @IsString()
+  branchName?: string;
+
+  @IsOptional()
+  @IsString()
   adminEmail?: string;
 
   @IsOptional()
@@ -41,4 +45,8 @@ export class CreateTenantDto {
   @IsOptional()
   @IsString()
   adminPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  locale?: string;
 }

@@ -29,6 +29,10 @@ export class ForgotPasswordDto {
   @IsNotEmpty()
   @IsEmail()
   email: string;
+
+  @IsOptional()
+  @IsString()
+  locale?: string;
 }
 
 export class ResetPasswordDto {

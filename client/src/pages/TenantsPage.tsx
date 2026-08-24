@@ -6,16 +6,18 @@ import {
   Plus,
   Search,
   ExternalLink,
-  CheckCircle2,
-  XCircle,
   Globe,
   Copy,
   Check,
   CreditCard,
   Layers,
   Edit2,
+  Trash2,
   X,
-  Sparkles,
+  AlertTriangle,
+  MapPin,
+  User,
+  ShieldCheck,
 } from 'lucide-react';
 
 function nameToSlug(name: string): string {
@@ -29,7 +31,7 @@ function nameToSlug(name: string): string {
 }
 
 export const TenantsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [tenants, setTenants] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [systemModules, setSystemModules] = useState<any[]>([]);
@@ -40,19 +42,25 @@ export const TenantsPage: React.FC = () => {
 
   // Edit Tenant Modal State
   const [editingTenant, setEditingTenant] = useState<any | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStatus, setEditStatus] = useState<string>('ACTIVE');
   const [editPlanId, setEditPlanId] = useState('');
   const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Form State
+  // Delete Tenant Modal State
+  const [deletingTenant, setDeletingTenant] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Form State for Provisioning
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
     planId: '',
     modules: [] as string[],
+    branchName: 'Main Branch',
     adminEmail: '',
     adminName: '',
-    adminPassword: '',
   });
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
@@ -167,16 +175,19 @@ export const TenantsPage: React.FC = () => {
     }
 
     try {
-      await api.post('/tenants', formData);
+      await api.post('/tenants', {
+        ...formData,
+        locale: i18n.language,
+      });
       setShowModal(false);
       setFormData({
         name: '',
         slug: '',
         planId: '',
         modules: [],
+        branchName: 'Main Branch',
         adminEmail: '',
         adminName: '',
-        adminPassword: '',
       });
       setSlugManuallyEdited(false);
       fetchTenantsAndPlans();
@@ -200,6 +211,8 @@ export const TenantsPage: React.FC = () => {
 
   const handleOpenEditModal = (tenant: any) => {
     setEditingTenant(tenant);
+    setEditName(tenant.name || '');
+    setEditStatus(tenant.status || 'ACTIVE');
     setEditPlanId(tenant.planId || '');
     const enabledMods = (tenant.modules || [])
       .filter((m: any) => m.isEnabled)
@@ -207,7 +220,7 @@ export const TenantsPage: React.FC = () => {
     setEditSelectedModules(enabledMods);
   };
 
-  const handleUpdateTenantPlan = async (e: React.FormEvent) => {
+  const handleUpdateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTenant) return;
 
@@ -219,6 +232,8 @@ export const TenantsPage: React.FC = () => {
     try {
       setSavingEdit(true);
       await api.patch(`/tenants/${editingTenant.id}`, {
+        name: editName,
+        status: editStatus,
         planId: editPlanId || null,
         modules: editSelectedModules,
       });
@@ -228,6 +243,21 @@ export const TenantsPage: React.FC = () => {
       alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.updateFailed'));
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteTenant = async () => {
+    if (!deletingTenant) return;
+
+    try {
+      setDeleting(true);
+      await api.delete(`/tenants/${deletingTenant.id}`);
+      setDeletingTenant(null);
+      fetchTenantsAndPlans();
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.deleteFailed'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -297,9 +327,9 @@ export const TenantsPage: React.FC = () => {
               slug: '',
               planId: '',
               modules: [],
+              branchName: 'Main Branch',
               adminEmail: '',
               adminName: '',
-              adminPassword: '',
             });
             setSlugManuallyEdited(false);
             setShowModal(true);
@@ -354,7 +384,7 @@ export const TenantsPage: React.FC = () => {
               <th>{t('tenants.branchesCount')}</th>
               <th>{t('tenants.membersCount')}</th>
               <th>{t('tenants.status')}</th>
-              <th>{t('tenants.actions')}</th>
+              <th style={{ textAlign: 'right' }}>{t('tenants.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -425,14 +455,6 @@ export const TenantsPage: React.FC = () => {
                           >
                             {plan.name} ({plan.moduleCount || 1} Mod{(plan.moduleCount || 1) === 1 ? '' : 's'})
                           </span>
-                          <button
-                            onClick={() => handleOpenEditModal(tItem)}
-                            className="btn-icon"
-                            title={t('tenants.updatePlanModalTitle', { name: tItem.name })}
-                            style={{ padding: '2px 4px', color: '#64748b' }}
-                          >
-                            <Edit2 size={12} />
-                          </button>
                         </div>
                       ) : (
                         <button
@@ -468,22 +490,49 @@ export const TenantsPage: React.FC = () => {
                     <td>{tItem._count?.branches || tItem.branches?.length || 0}</td>
                     <td>{tItem._count?.memberships || 0}</td>
                     <td>
-                      <span className={`badge ${tItem.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>
+                      <span className={`badge ${tItem.status === 'ACTIVE' ? 'badge-success' : tItem.status === 'PENDING' ? 'badge-warning' : 'badge-danger'}`}>
                         {tItem.status}
                       </span>
                     </td>
                     <td>
-                      <button
-                        onClick={() => {
-                          const { protocol, port } = window.location;
-                          const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
-                          window.open(`${protocol}//${tItem.slug}.localhost${portSuffix}/login`, '_blank');
-                        }}
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '11px', padding: '4px 8px' }}
-                      >
-                        <ExternalLink size={12} /> {t('tenants.openPortal')}
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                        {/* Open Portal */}
+                        <button
+                          onClick={() => {
+                            const { protocol, port } = window.location;
+                            const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
+                            window.open(`${protocol}//${tItem.slug}.localhost${portSuffix}/login`, '_blank');
+                          }}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          title={t('tenants.openPortal')}
+                        >
+                          <ExternalLink size={12} />
+                          <span>{t('tenants.openPortal')}</span>
+                        </button>
+
+                        {/* Edit Organization */}
+                        <button
+                          onClick={() => handleOpenEditModal(tItem)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          title={t('tenants.editBtn')}
+                        >
+                          <Edit2 size={12} color="#0f766e" />
+                          <span>{t('common.edit')}</span>
+                        </button>
+
+                        {/* Delete Organization */}
+                        <button
+                          onClick={() => setDeletingTenant(tItem)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: '#dc2626', borderColor: '#fecaca' }}
+                          title={t('tenants.deleteBtn')}
+                        >
+                          <Trash2 size={12} color="#dc2626" />
+                          <span>{t('common.delete')}</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -577,6 +626,7 @@ export const TenantsPage: React.FC = () => {
                   </label>
                   <select
                     className="input"
+                    required
                     value={formData.planId}
                     onChange={(e) => handlePlanChange(e.target.value)}
                   >
@@ -736,10 +786,24 @@ export const TenantsPage: React.FC = () => {
                   )}
                 </div>
 
+                {/* Initial Branch Name */}
+                <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <MapPin size={15} color="#0f766e" /> {t('tenants.initialBranchTitle')}
+                  </div>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder={t('tenants.branchName')}
+                    value={formData.branchName}
+                    onChange={(e) => setFormData({ ...formData, branchName: e.target.value })}
+                  />
+                </div>
+
                 {/* Initial Tenant Admin */}
                 <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>
-                    {t('tenants.initialAdminTitle')}
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={15} color="#0f766e" /> {t('tenants.initialAdminTitle')}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input
@@ -756,14 +820,25 @@ export const TenantsPage: React.FC = () => {
                       value={formData.adminEmail}
                       onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
                     />
-                    <input
-                      type="password"
-                      className="input"
-                      placeholder={t('tenants.adminPassword')}
-                      value={formData.adminPassword}
-                      onChange={(e) => setFormData({ ...formData, adminPassword: e.target.value })}
-                    />
                   </div>
+                </div>
+
+                {/* Setup Notice */}
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#0f766e',
+                    backgroundColor: '#f0fdfa',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #99f6e4',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <ShieldCheck size={16} style={{ flexShrink: 0 }} />
+                  <span>{t('tenants.initialSetupNotice')}</span>
                 </div>
               </div>
 
@@ -787,15 +862,15 @@ export const TenantsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Tenant Plan Modal */}
+      {/* Edit Tenant Modal */}
       {editingTenant && (
         <div className="modal-backdrop">
-          <div className="modal-dialog" style={{ maxWidth: '520px' }}>
+          <div className="modal-dialog" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CreditCard size={20} color="#0f766e" />
+                <Building2 size={20} color="#0f766e" />
                 <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
-                  {t('tenants.updatePlanModalTitle', { name: editingTenant.name })}
+                  {t('tenants.editModalTitle', { name: editingTenant.name })}
                 </h3>
               </div>
               <button onClick={() => setEditingTenant(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
@@ -803,8 +878,35 @@ export const TenantsPage: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateTenantPlan}>
+            <form onSubmit={handleUpdateTenant}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Organization Name */}
+                <div>
+                  <label className="label">{t('tenants.name')}</label>
+                  <input
+                    type="text"
+                    className="input"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                </div>
+
+                {/* Organization Status */}
+                <div>
+                  <label className="label">{t('tenants.status')}</label>
+                  <select
+                    className="input"
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                  >
+                    <option value="ACTIVE">{t('common.statusActive')} (ACTIVE)</option>
+                    <option value="SUSPENDED">Suspended (SUSPENDED)</option>
+                    <option value="PENDING">Pending (PENDING)</option>
+                  </select>
+                </div>
+
+                {/* Subscription Plan */}
                 <div>
                   <label className="label">{t('tenants.subscriptionPlan')}</label>
                   <select
@@ -938,10 +1040,72 @@ export const TenantsPage: React.FC = () => {
                   {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={savingEdit}>
-                  {savingEdit ? t('common.loading') : t('tenants.updatePlanBtn')}
+                  {savingEdit ? t('tenants.saving') : t('tenants.saveChanges')}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Tenant Modal */}
+      {deletingTenant && (
+        <div className="modal-backdrop">
+          <div className="modal-dialog" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={20} color="#dc2626" />
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#dc2626' }}>
+                  {t('tenants.deleteModalTitle')}
+                </h3>
+              </div>
+              <button
+                onClick={() => setDeletingTenant(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p style={{ fontSize: '14px', color: '#334155', lineHeight: 1.5, marginTop: 0 }}>
+                {t('tenants.deleteModalConfirm', { name: deletingTenant.name, slug: deletingTenant.slug })}
+              </p>
+              <div
+                style={{
+                  padding: '12px 14px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  color: '#991b1b',
+                  lineHeight: 1.4,
+                }}
+              >
+                {t('tenants.deleteModalWarning')}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setDeletingTenant(null)}
+                className="btn btn-secondary"
+                disabled={deleting}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTenant}
+                className="btn btn-danger"
+                disabled={deleting}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#dc2626', color: '#fff', border: 'none' }}
+              >
+                <Trash2 size={16} />
+                <span>{deleting ? t('tenants.deleting') : t('tenants.confirmDelete')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

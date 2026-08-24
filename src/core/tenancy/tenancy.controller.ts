@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -69,4 +70,15 @@ export class TenancyController {
   ) {
     return this.tenancyService.update(id, updateTenantDto, user?.id);
   }
+
+  @Delete(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a tenant organization (Platform Super Admin)' })
+  delete(
+    @Param('id') id: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    return this.tenancyService.delete(id, user?.id);
+  }
 }
+

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Unified Dental</title>
+  <title>Bienvenido a Unified Dental</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
     .card { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0; }
@@ -20,33 +20,33 @@
 <body>
   <div class="card">
     <div class="header">
-      <div class="logo-text">🦷 Unified Dental Platform</div>
+      <div class="logo-text">🦷 Plataforma Dental Unificada</div>
     </div>
-    <h2>Welcome, {{name}}!</h2>
-    <p>You have been invited to join <strong>{{tenantName}}</strong> on the Unified Dental Platform. Your administrator account has been created and is ready to use.</p>
+    <h2>¡Bienvenido, {{name}}!</h2>
+    <p>Ha sido invitado a unirse a <strong>{{tenantName}}</strong> en la Plataforma Dental Unificada. Su cuenta de administrador ha sido creada y está lista para su uso.</p>
 
     <div class="info-box">
-      <strong>Organization:</strong> {{tenantName}}<br>
-      <strong>Role:</strong> Tenant Administrator
+      <strong>Organización:</strong> {{tenantName}}<br>
+      <strong>Rol:</strong> Administrador de Organización
     </div>
 
     {{#if hasResetToken}}
-    <p>To get started, please set your password by clicking the button below:</p>
+    <p>Para comenzar, por favor establezca su contraseña haciendo clic en el siguiente botón:</p>
     <div style="text-align: center;">
-      <a href="{{setPasswordUrl}}" class="btn">Set Your Password</a>
+      <a href="{{setPasswordUrl}}" class="btn">Establecer su Contraseña</a>
     </div>
-    <p style="font-size: 13px; color: #64748b;">This link will expire in 24 hours. If it expires, you can request a new one from the login page using "Forgot Password".</p>
+    <p style="font-size: 13px; color: #64748b;">Este enlace expirará en 24 horas. Si expira, puede solicitar uno nuevo desde la página de inicio de sesión utilizando "¿Olvidó su contraseña?".</p>
     <hr class="divider">
     {{/if}}
 
-    <p>Once your password is set, you can log in to your organization workspace:</p>
+    <p>Una vez establecida su contraseña, puede acceder a su espacio de trabajo:</p>
     <div style="text-align: center;">
-      <a href="{{loginUrl}}" class="btn-secondary">Go to Login Page</a>
+      <a href="{{loginUrl}}" class="btn-secondary">Ir a Iniciar Sesión</a>
     </div>
 
-    <p>If you have any questions, reach out to your organization administrator.</p>
+    <p>Si tiene alguna pregunta, comuníquese con el administrador del sistema.</p>
     <div class="footer">
-      &copy; 2026 Unified Dental SaaS Platform. All rights reserved.
+      &copy; 2026 Plataforma Dental Unificada. Todos los derechos reservados.
     </div>
   </div>
 </body>

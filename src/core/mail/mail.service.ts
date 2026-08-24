@@ -10,6 +10,7 @@ export interface SendMailOptions {
   subject: string;
   template: 'welcome' | 'reset-password';
   context: Record<string, any>;
+  locale?: string;
 }
 
 @Injectable()
@@ -24,18 +25,25 @@ export class MailService {
       '"Unified Dental" <no-reply@unifieddental.com>';
 
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST') || 'smtp.example.com',
+      host: this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com',
       port: Number(this.configService.get<number>('SMTP_PORT')) || 587,
       secure: this.configService.get<string>('SMTP_SECURE') === 'true',
       auth: {
-        user: this.configService.get<string>('SMTP_USER') || 'no-reply@unifieddental.com',
-        pass: this.configService.get<string>('SMTP_PASS') || 'secret',
+        user: this.configService.get<string>('SMTP_USER') || '',
+        pass: this.configService.get<string>('SMTP_PASS') || '',
       },
     });
   }
 
-  private renderTemplate(templateName: string, context: Record<string, any>): string {
+  private renderTemplate(templateName: string, context: Record<string, any>, locale?: string): string {
+    const isSpanish = locale?.toLowerCase().startsWith('es');
+    const localizedTemplateName = isSpanish ? `${templateName}_es` : templateName;
+
     const candidates = [
+      path.join(__dirname, 'templates', `${localizedTemplateName}.hbs`),
+      path.join(process.cwd(), 'src', 'core', 'mail', 'templates', `${localizedTemplateName}.hbs`),
+      path.join(process.cwd(), 'dist', 'src', 'core', 'mail', 'templates', `${localizedTemplateName}.hbs`),
+      // Fallbacks
       path.join(__dirname, 'templates', `${templateName}.hbs`),
       path.join(process.cwd(), 'src', 'core', 'mail', 'templates', `${templateName}.hbs`),
       path.join(process.cwd(), 'dist', 'src', 'core', 'mail', 'templates', `${templateName}.hbs`),
@@ -58,12 +66,9 @@ export class MailService {
   }
 
   async sendMail(options: SendMailOptions) {
-    const html = this.renderTemplate(options.template, options.context);
+    const html = this.renderTemplate(options.template, options.context, options.locale);
 
-    // In development or if SMTP fails, log the preview
-    if (process.env.NODE_ENV === 'development') {
-      this.logger.log(`📧 [MOCK EMAIL] To: ${options.to} | Subject: ${options.subject}`);
-    }
+    this.logger.log(`📧 Sending email to: ${options.to} [Locale: ${options.locale || 'en'}] | Subject: ${options.subject}`);
 
     try {
       const info = await this.transporter.sendMail({
@@ -72,35 +77,65 @@ export class MailService {
         subject: options.subject,
         html,
       });
+      this.logger.log(`✅ Email sent successfully. MessageId: ${info.messageId}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      this.logger.warn(`Failed to send real SMTP email (${error.message}). Logged to console in dev mode.`);
-      return { success: true, simulated: true };
+      this.logger.error(`❌ Failed to send email to ${options.to}: ${error.message}`);
+      throw error;
     }
   }
 
-  async sendWelcomeInvite(to: string, name: string, tenantName: string, temporaryPassword?: string) {
+  /**
+   * Send welcome invite email to a new tenant admin.
+   * Includes a "Set Your Password" link using a password reset token.
+   * Supports multilingual content (EN/ES) based on locale.
+   */
+  async sendWelcomeInvite(to: string, name: string, tenantName: string, resetToken?: string, locale?: string) {
+    const appUrl = process.env.APP_URL || 'http://localhost:5173';
+    const setPasswordUrl = resetToken
+      ? `${appUrl}/reset-password?token=${resetToken}`
+      : `${appUrl}/login`;
+
+    const isSpanish = locale?.toLowerCase().startsWith('es');
+    const subject = isSpanish
+      ? `¡Bienvenido a ${tenantName} — Plataforma Dental Unificada!`
+      : `Welcome to ${tenantName} — Unified Dental Platform`;
+
     return this.sendMail({
       to,
-      subject: `Welcome to ${tenantName} — Unified Dental Platform`,
+      subject,
       template: 'welcome',
+      locale,
       context: {
         name,
         tenantName,
-        temporaryPassword: temporaryPassword || 'Welcome@123456',
-        loginUrl: `${process.env.APP_URL || 'http://localhost:3000'}/login`,
+        setPasswordUrl,
+        hasResetToken: !!resetToken,
+        loginUrl: `${appUrl}/login`,
       },
     });
   }
 
-  async sendPasswordReset(to: string, name: string, resetToken: string) {
+  /**
+   * Send password reset email with a secure, time-limited reset link.
+   * Supports multilingual content (EN/ES) based on locale.
+   */
+  async sendPasswordReset(to: string, name: string, resetToken: string, locale?: string) {
+    const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+    const isSpanish = locale?.toLowerCase().startsWith('es');
+    const subject = isSpanish
+      ? 'Restablezca su contraseña — Plataforma Dental Unificada'
+      : 'Reset your password — Unified Dental Platform';
+
     return this.sendMail({
       to,
-      subject: 'Reset your password — Unified Dental Platform',
+      subject,
       template: 'reset-password',
+      locale,
       context: {
         name,
-        resetUrl: `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`,
+        resetUrl: `${appUrl}/reset-password?token=${resetToken}`,
       },
     });
   }

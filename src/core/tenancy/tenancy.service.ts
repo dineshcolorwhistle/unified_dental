@@ -1,18 +1,33 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { AuthService } from '../auth/auth.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantStatus, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class TenancyService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(TenancyService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+    @Inject(forwardRef(() => AuthService))
+    private readonly authService: AuthService,
+  ) {}
+
+
 
   async findAll(search?: string) {
     return this.prisma.tenant.findMany({
@@ -95,7 +110,7 @@ export class TenancyService {
       throw new ConflictException(`Tenant subdomain '${slug}' is already in use`);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       let modulesToEnable = dto.modules || [];
       if (dto.planId) {
         const plan = await tx.subscriptionPlan.findUnique({ where: { id: dto.planId } });
@@ -146,25 +161,29 @@ export class TenancyService {
       }
 
       // 3. Create default branch
+      const branchName = dto.branchName?.trim() || 'Main Branch';
       const defaultBranch = await tx.branch.create({
         data: {
           tenantId: tenant.id,
-          name: 'Main Branch',
+          name: branchName,
           code: 'MAIN-01',
           isDefault: true,
         },
       });
 
       // 4. Create Initial Tenant Admin User if provided
+      let adminUser: { id: string } | null = null;
       if (dto.adminEmail) {
-        const passwordHash = await bcrypt.hash(dto.adminPassword || 'Admin@123456', 10);
-        const adminUser = await tx.user.upsert({
+        const initialPassword = dto.adminPassword?.trim() || uuidv4();
+        const passwordHash = await bcrypt.hash(initialPassword, 10);
+        adminUser = await tx.user.upsert({
           where: { email: dto.adminEmail.toLowerCase().trim() },
           update: {},
           create: {
             email: dto.adminEmail.toLowerCase().trim(),
             passwordHash,
             name: dto.adminName || 'Tenant Administrator',
+            locale: dto.locale || 'en',
             status: UserStatus.ACTIVE,
           },
         });
@@ -228,12 +247,33 @@ export class TenancyService {
             slug: tenant.slug,
             planId: tenant.planId,
             modules: modulesToEnable,
+            branchName,
           },
         },
       });
 
-      return this.findById(tenant.id);
+      return { tenantId: tenant.id, adminUserId: adminUser?.id, adminEmail: dto.adminEmail, adminName: dto.adminName };
     });
+
+    // 6. Send Welcome Email (outside transaction to avoid blocking DB on email delivery)
+    if (result.adminUserId && result.adminEmail) {
+      try {
+        const resetToken = await this.authService.generatePasswordResetToken(result.adminUserId);
+        await this.mailService.sendWelcomeInvite(
+          result.adminEmail,
+          result.adminName || 'Tenant Administrator',
+          dto.name,
+          resetToken,
+          dto.locale,
+        );
+        this.logger.log(`✉️ Welcome email sent to tenant admin: ${result.adminEmail} (locale: ${dto.locale || 'en'})`);
+      } catch (error) {
+        this.logger.warn(`Failed to send welcome email to ${result.adminEmail}: ${error.message}`);
+        // Don't fail tenant creation if email fails
+      }
+    }
+
+    return this.findById(result.tenantId);
   }
 
   async update(id: string, dto: UpdateTenantDto, userId?: string) {
@@ -304,4 +344,35 @@ export class TenancyService {
 
     return updated;
   }
+
+  async delete(id: string, userId?: string) {
+    const tenant = await this.findById(id);
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: id,
+        userId,
+        action: 'DELETE_TENANT',
+        resourceType: 'TENANT',
+        resourceId: id,
+        oldValues: {
+          name: tenant.name,
+          slug: tenant.slug,
+          status: tenant.status,
+          planId: tenant.planId,
+        },
+      },
+    });
+
+    // Delete tenant (cascades to branches, memberships, modules, etc. per Prisma schema)
+    await this.prisma.tenant.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      message: `Tenant '${tenant.name}' has been deleted successfully`,
+    };
+  }
 }
+

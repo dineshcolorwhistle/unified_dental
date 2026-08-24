@@ -128,14 +128,15 @@ model User {
   createdAt    DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")
 
-  memberships   TenantMembership[]
-  userBranches  UserBranch[]
-  moduleAccess  UserModuleAccess[]
-  userRoles     UserRole[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  uploadedFiles FileRecord[]
-  notifications Notification[]
+  memberships         TenantMembership[]
+  userBranches        UserBranch[]
+  moduleAccess        UserModuleAccess[]
+  userRoles           UserRole[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+  uploadedFiles       FileRecord[]
+  notifications       Notification[]
 
   @@map("users")
 }
@@ -320,4 +321,18 @@ model Notification {
   @@index([userId, readAt])
   @@index([tenantId])
   @@map("notifications")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
