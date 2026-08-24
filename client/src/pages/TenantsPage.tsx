@@ -41,6 +41,7 @@ export const TenantsPage: React.FC = () => {
   // Edit Tenant Modal State
   const [editingTenant, setEditingTenant] = useState<any | null>(null);
   const [editPlanId, setEditPlanId] = useState('');
+  const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Form State
@@ -48,6 +49,7 @@ export const TenantsPage: React.FC = () => {
     name: '',
     slug: '',
     planId: '',
+    modules: [] as string[],
     adminEmail: '',
     adminName: '',
     adminPassword: '',
@@ -99,8 +101,71 @@ export const TenantsPage: React.FC = () => {
     });
   };
 
+  const handlePlanChange = (planId: string) => {
+    const targetPlan = plans.find((p) => p.id === planId);
+    const maxAllowed = targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
+    
+    // Auto trim selected modules if exceeds newly selected plan limit
+    const trimmedModules = formData.modules.slice(0, maxAllowed);
+    setFormData({
+      ...formData,
+      planId,
+      modules: trimmedModules,
+    });
+  };
+
+  const handleToggleModuleSelection = (moduleCode: string) => {
+    const selectedPlan = plans.find((p) => p.id === formData.planId);
+    const maxAllowed = selectedPlan ? (selectedPlan.moduleCount || 1) : systemModules.length;
+    const isChecked = formData.modules.includes(moduleCode);
+
+    if (isChecked) {
+      setFormData({
+        ...formData,
+        modules: formData.modules.filter((m) => m !== moduleCode),
+      });
+    } else {
+      if (formData.modules.length >= maxAllowed) {
+        alert(t('tenants.alerts.planLimitAlert', { max: maxAllowed }));
+        return;
+      }
+      setFormData({
+        ...formData,
+        modules: [...formData.modules, moduleCode],
+      });
+    }
+  };
+
+  const handleEditPlanChange = (planId: string) => {
+    const targetPlan = plans.find((p) => p.id === planId);
+    const maxAllowed = targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
+    setEditPlanId(planId);
+    setEditSelectedModules((prev) => prev.slice(0, maxAllowed));
+  };
+
+  const handleToggleEditModuleSelection = (moduleCode: string) => {
+    const targetPlan = plans.find((p) => p.id === editPlanId);
+    const maxAllowed = targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
+    const isChecked = editSelectedModules.includes(moduleCode);
+
+    if (isChecked) {
+      setEditSelectedModules((prev) => prev.filter((m) => m !== moduleCode));
+    } else {
+      if (editSelectedModules.length >= maxAllowed) {
+        alert(t('tenants.alerts.planLimitAlert', { max: maxAllowed }));
+        return;
+      }
+      setEditSelectedModules((prev) => [...prev, moduleCode]);
+    }
+  };
+
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.planId && formData.modules.length === 0) {
+      alert(t('tenants.alerts.selectAtLeastOne'));
+      return;
+    }
+
     try {
       await api.post('/tenants', formData);
       setShowModal(false);
@@ -108,6 +173,7 @@ export const TenantsPage: React.FC = () => {
         name: '',
         slug: '',
         planId: '',
+        modules: [],
         adminEmail: '',
         adminName: '',
         adminPassword: '',
@@ -115,7 +181,7 @@ export const TenantsPage: React.FC = () => {
       setSlugManuallyEdited(false);
       fetchTenantsAndPlans();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to create tenant organization');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.createFailed'));
     }
   };
 
@@ -128,28 +194,38 @@ export const TenantsPage: React.FC = () => {
       });
       fetchTenantsAndPlans();
     } catch (err: any) {
-      console.error('Failed to toggle module:', err);
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.toggleFailed'));
     }
   };
 
   const handleOpenEditModal = (tenant: any) => {
     setEditingTenant(tenant);
     setEditPlanId(tenant.planId || '');
+    const enabledMods = (tenant.modules || [])
+      .filter((m: any) => m.isEnabled)
+      .map((m: any) => m.moduleKey);
+    setEditSelectedModules(enabledMods);
   };
 
   const handleUpdateTenantPlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTenant) return;
 
+    if (editPlanId && editSelectedModules.length === 0) {
+      alert(t('tenants.alerts.selectAtLeastOne'));
+      return;
+    }
+
     try {
       setSavingEdit(true);
       await api.patch(`/tenants/${editingTenant.id}`, {
         planId: editPlanId || null,
+        modules: editSelectedModules,
       });
       setEditingTenant(null);
       fetchTenantsAndPlans();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || 'Failed to update tenant plan');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.updateFailed'));
     } finally {
       setSavingEdit(false);
     }
@@ -220,6 +296,7 @@ export const TenantsPage: React.FC = () => {
               name: '',
               slug: '',
               planId: '',
+              modules: [],
               adminEmail: '',
               adminName: '',
               adminPassword: '',
@@ -261,7 +338,7 @@ export const TenantsPage: React.FC = () => {
           />
         </div>
         <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-          Total Organizations: <strong>{tenants.length}</strong>
+          {t('tenants.totalOrganizations')}: <strong>{tenants.length}</strong>
         </div>
       </div>
 
@@ -270,21 +347,21 @@ export const TenantsPage: React.FC = () => {
         <table className="table">
           <thead>
             <tr>
-              <th>Organization</th>
-              <th>Subdomain URL</th>
-              <th>Subscription Plan</th>
-              <th>Enabled Modules</th>
-              <th>Branches</th>
-              <th>Members</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>{t('tenants.name')}</th>
+              <th>{t('tenants.subdomainUrl')}</th>
+              <th>{t('tenants.subscriptionPlan')}</th>
+              <th>{t('tenants.modules')}</th>
+              <th>{t('tenants.branchesCount')}</th>
+              <th>{t('tenants.membersCount')}</th>
+              <th>{t('tenants.status')}</th>
+              <th>{t('tenants.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#0f766e' }}>
-                  Loading organizations...
+                  {t('common.loading')}
                 </td>
               </tr>
             ) : tenants.length === 0 ? (
@@ -301,7 +378,7 @@ export const TenantsPage: React.FC = () => {
                     <td>
                       <div style={{ fontWeight: 700, color: '#0f172a' }}>{tItem.name}</div>
                       <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                        Created {new Date(tItem.createdAt).toLocaleDateString()}
+                        {new Date(tItem.createdAt).toLocaleDateString()}
                       </div>
                     </td>
                     <td>
@@ -322,7 +399,7 @@ export const TenantsPage: React.FC = () => {
                         <button
                           onClick={() => handleCopyUrl(tItem.slug)}
                           className="btn-icon"
-                          title="Copy direct login URL"
+                          title={t('tenants.copyUrlTooltip')}
                           style={{ padding: '3px 6px' }}
                         >
                           {copiedSlug === tItem.slug ? (
@@ -346,12 +423,12 @@ export const TenantsPage: React.FC = () => {
                               fontWeight: 700,
                             }}
                           >
-                            {plan.name}
+                            {plan.name} ({plan.moduleCount || 1} Mod{(plan.moduleCount || 1) === 1 ? '' : 's'})
                           </span>
                           <button
                             onClick={() => handleOpenEditModal(tItem)}
                             className="btn-icon"
-                            title="Change subscription plan"
+                            title={t('tenants.updatePlanModalTitle', { name: tItem.name })}
                             style={{ padding: '2px 4px', color: '#64748b' }}
                           >
                             <Edit2 size={12} />
@@ -363,7 +440,7 @@ export const TenantsPage: React.FC = () => {
                           className="btn btn-secondary btn-sm"
                           style={{ fontSize: '11px', padding: '3px 8px' }}
                         >
-                          + Assign Plan
+                          {t('tenants.assignPlan')}
                         </button>
                       )}
                     </td>
@@ -383,7 +460,7 @@ export const TenantsPage: React.FC = () => {
                           ))
                         ) : (
                           <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-                            No modules enabled
+                            {t('tenants.noActiveModules')}
                           </span>
                         )}
                       </div>
@@ -405,7 +482,7 @@ export const TenantsPage: React.FC = () => {
                         className="btn btn-secondary btn-sm"
                         style={{ fontSize: '11px', padding: '4px 8px' }}
                       >
-                        <ExternalLink size={12} /> Open Portal
+                        <ExternalLink size={12} /> {t('tenants.openPortal')}
                       </button>
                     </td>
                   </tr>
@@ -456,7 +533,7 @@ export const TenantsPage: React.FC = () => {
 
                 <div>
                   <label className="label">
-                    Subdomain Slug <span style={{ color: '#ef4444' }}>*</span>
+                    {t('tenants.slug')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -484,86 +561,72 @@ export const TenantsPage: React.FC = () => {
                     >
                       <Globe size={14} />
                       <span>
-                        Access URL: <strong style={{ fontFamily: 'monospace' }}>{getPreviewUrl(formData.slug)}</strong>
+                        {t('tenants.accessUrl')}: <strong style={{ fontFamily: 'monospace' }}>{getPreviewUrl(formData.slug)}</strong>
                       </span>
                     </div>
                   )}
                   <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                    Auto-generated from organization name. Editable before creation.
+                    {t('tenants.slugHelp')}
                   </div>
                 </div>
 
                 {/* Subscription Plan Selection Dropdown */}
                 <div>
                   <label className="label">
-                    Subscription Plan <span style={{ color: '#ef4444' }}>*</span>
+                    {t('tenants.subscriptionPlan')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <select
                     className="input"
                     value={formData.planId}
-                    onChange={(e) => setFormData({ ...formData, planId: e.target.value })}
+                    onChange={(e) => handlePlanChange(e.target.value)}
                   >
-                    <option value="">-- Select Subscription Plan --</option>
-                    {plans.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.code}) — {p.description || 'Standard Tier'}
-                      </option>
-                    ))}
+                    <option value="">{t('tenants.selectPlan')}</option>
+                    {plans
+                      .filter((p) => p.isActive)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.code}) — {p.moduleCount || 1} Module{(p.moduleCount || 1) === 1 ? '' : 's'} Allowed
+                        </option>
+                      ))}
                   </select>
                 </div>
 
-                {/* Non-Editable Selected Plan Modules Preview */}
+                {/* Dynamic Module Selection */}
                 <div>
-                  <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <Layers size={14} color="#0f766e" /> Included Modules (From Selected Plan)
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                      <Layers size={14} color="#0f766e" /> {t('tenants.selectModulesTitle')} <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    {selectedPlan && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          backgroundColor:
+                            formData.modules.length === (selectedPlan.moduleCount || 1)
+                              ? '#dcfce7'
+                              : formData.modules.length > (selectedPlan.moduleCount || 1)
+                              ? '#fee2e2'
+                              : '#f1f5f9',
+                          color:
+                            formData.modules.length === (selectedPlan.moduleCount || 1)
+                              ? '#166534'
+                              : formData.modules.length > (selectedPlan.moduleCount || 1)
+                              ? '#991b1b'
+                              : '#475569',
+                        }}
+                      >
+                        {t('tenants.selectedModulesCount', { count: formData.modules.length, max: selectedPlan.moduleCount || 1 })}
+                      </span>
+                    )}
+                  </div>
 
-                  {selectedPlan ? (
+                  {!formData.planId ? (
                     <div
                       style={{
-                        padding: '14px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '10px',
-                        border: '1px solid #e2e8f0',
-                      }}
-                    >
-                      <div style={{ fontSize: '12px', color: '#475569', marginBottom: '10px', fontWeight: 600 }}>
-                        Modules automatically provisioned with <strong>{selectedPlan.name}</strong>:
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {selectedPlan.modules && selectedPlan.modules.length > 0 ? (
-                          selectedPlan.modules.map((mCode: string) => (
-                            <div
-                              key={mCode}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                backgroundColor: '#f0fdfa',
-                                border: '1px solid #ccfbf1',
-                                color: '#0f766e',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                              }}
-                            >
-                              <CheckCircle2 size={14} color="#0f766e" />
-                              <span>{getModuleName(mCode)}</span>
-                              <span style={{ fontSize: '10px', opacity: 0.7, fontFamily: 'monospace' }}>({mCode})</span>
-                            </div>
-                          ))
-                        ) : (
-                          <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-                            No modules assigned to this plan
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        padding: '14px',
+                        padding: '16px',
                         backgroundColor: '#f8fafc',
                         borderRadius: '10px',
                         border: '1px dashed #cbd5e1',
@@ -572,7 +635,103 @@ export const TenantsPage: React.FC = () => {
                         textAlign: 'center',
                       }}
                     >
-                      Select a subscription plan from the dropdown above to view the included modules.
+                      {t('tenants.selectPlanFirst')}
+                    </div>
+                  ) : systemModules.filter((m) => m.isEnabled).length === 0 ? (
+                    <div
+                      style={{
+                        padding: '14px',
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #fef3c7',
+                        borderRadius: '10px',
+                        fontSize: '13px',
+                        color: '#92400e',
+                      }}
+                    >
+                      {t('tenants.noActiveModules')}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {systemModules
+                        .filter((mod) => mod.isEnabled)
+                        .map((mod) => {
+                        const isChecked = formData.modules.includes(mod.code);
+                        const maxAllowed = selectedPlan ? (selectedPlan.moduleCount || 1) : systemModules.length;
+                        const isLimitReached = !isChecked && formData.modules.length >= maxAllowed;
+
+                        return (
+                          <div
+                            key={mod.id}
+                            onClick={() => !isLimitReached && handleToggleModuleSelection(mod.code)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '12px',
+                              padding: '12px 14px',
+                              borderRadius: '10px',
+                              border: isChecked
+                                ? '1.5px solid #0f766e'
+                                : isLimitReached
+                                ? '1px solid #e2e8f0'
+                                : '1px solid #cbd5e1',
+                              backgroundColor: isChecked
+                                ? 'rgba(15, 118, 110, 0.04)'
+                                : isLimitReached
+                                ? '#f8fafc'
+                                : '#ffffff',
+                              cursor: isLimitReached ? 'not-allowed' : 'pointer',
+                              opacity: isLimitReached ? 0.6 : 1,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isLimitReached}
+                              onChange={() => {}}
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                marginTop: '2px',
+                                cursor: isLimitReached ? 'not-allowed' : 'pointer',
+                                accentColor: '#0f766e',
+                              }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                                    {mod.name}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      fontFamily: 'monospace',
+                                      color: '#64748b',
+                                      backgroundColor: '#f1f5f9',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                    }}
+                                  >
+                                    {mod.code}
+                                  </span>
+                                </div>
+                                {isLimitReached && (
+                                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
+                                    {t('tenants.limitReached')}
+                                  </span>
+                                )}
+                              </div>
+                              {mod.description && (
+                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                  {mod.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -580,27 +739,27 @@ export const TenantsPage: React.FC = () => {
                 {/* Initial Tenant Admin */}
                 <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>
-                    Initial Tenant Administrator
+                    {t('tenants.initialAdminTitle')}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input
                       type="text"
                       className="input"
-                      placeholder="Admin Full Name (e.g. Dr. John Doe)"
+                      placeholder={t('tenants.adminName')}
                       value={formData.adminName}
                       onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
                     />
                     <input
                       type="email"
                       className="input"
-                      placeholder="admin@organization.com"
+                      placeholder={t('tenants.adminEmail')}
                       value={formData.adminEmail}
                       onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
                     />
                     <input
                       type="password"
                       className="input"
-                      placeholder="Password (min 6 characters)"
+                      placeholder={t('tenants.adminPassword')}
                       value={formData.adminPassword}
                       onChange={(e) => setFormData({ ...formData, adminPassword: e.target.value })}
                     />
@@ -636,7 +795,7 @@ export const TenantsPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CreditCard size={20} color="#0f766e" />
                 <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
-                  Update Plan: {editingTenant.name}
+                  {t('tenants.updatePlanModalTitle', { name: editingTenant.name })}
                 </h3>
               </div>
               <button onClick={() => setEditingTenant(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
@@ -647,93 +806,139 @@ export const TenantsPage: React.FC = () => {
             <form onSubmit={handleUpdateTenantPlan}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label className="label">Select Subscription Plan</label>
+                  <label className="label">{t('tenants.subscriptionPlan')}</label>
                   <select
                     className="input"
                     value={editPlanId}
-                    onChange={(e) => setEditPlanId(e.target.value)}
+                    onChange={(e) => handleEditPlanChange(e.target.value)}
                   >
-                    <option value="">-- No Plan Assigned --</option>
-                    {plans.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.code}) — {p.description || 'Standard Tier'}
-                      </option>
-                    ))}
+                    <option value="">{t('tenants.noPlanAssigned')}</option>
+                    {plans
+                      .filter((p) => p.isActive || p.id === editPlanId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.code}) — {p.moduleCount || 1} Module{(p.moduleCount || 1) === 1 ? '' : 's'} Allowed {!p.isActive ? '(Inactive)' : ''}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
-                {/* Non-Editable Modules Preview for Edit */}
+                {/* Dynamic Modules Selection for Edit */}
                 <div>
-                  <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <Layers size={14} color="#0f766e" /> Included Modules in Plan
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                      <Layers size={14} color="#0f766e" /> {t('tenants.enabledModulesTitle')}
+                    </label>
+                    {selectedEditPlan && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          backgroundColor:
+                            editSelectedModules.length === (selectedEditPlan.moduleCount || 1)
+                              ? '#dcfce7'
+                              : editSelectedModules.length > (selectedEditPlan.moduleCount || 1)
+                              ? '#fee2e2'
+                              : '#f1f5f9',
+                          color:
+                            editSelectedModules.length === (selectedEditPlan.moduleCount || 1)
+                              ? '#166534'
+                              : editSelectedModules.length > (selectedEditPlan.moduleCount || 1)
+                              ? '#991b1b'
+                              : '#475569',
+                        }}
+                      >
+                        {t('tenants.selectedModulesCount', { count: editSelectedModules.length, max: selectedEditPlan.moduleCount || 1 })}
+                      </span>
+                    )}
+                  </div>
 
-                  {selectedEditPlan ? (
-                    <div
-                      style={{
-                        padding: '14px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '10px',
-                        border: '1px solid #e2e8f0',
-                      }}
-                    >
-                      <div style={{ fontSize: '12px', color: '#475569', marginBottom: '10px', fontWeight: 600 }}>
-                        Modules included in <strong>{selectedEditPlan.name}</strong>:
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {selectedEditPlan.modules && selectedEditPlan.modules.length > 0 ? (
-                          selectedEditPlan.modules.map((mCode: string) => (
-                            <div
-                              key={mCode}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                backgroundColor: '#f0fdfa',
-                                border: '1px solid #ccfbf1',
-                                color: '#0f766e',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                              }}
-                            >
-                              <CheckCircle2 size={14} color="#0f766e" />
-                              <span>{getModuleName(mCode)}</span>
-                              <span style={{ fontSize: '10px', opacity: 0.7, fontFamily: 'monospace' }}>({mCode})</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {systemModules
+                      .filter((mod) => mod.isEnabled || editSelectedModules.includes(mod.code))
+                      .map((mod) => {
+                      const isChecked = editSelectedModules.includes(mod.code);
+                      const maxAllowed = selectedEditPlan ? (selectedEditPlan.moduleCount || 1) : systemModules.length;
+                      const isLimitReached = !isChecked && editSelectedModules.length >= maxAllowed;
+
+                      return (
+                        <div
+                          key={mod.id}
+                          onClick={() => !isLimitReached && handleToggleEditModuleSelection(mod.code)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '12px',
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            border: isChecked
+                              ? '1.5px solid #0f766e'
+                              : isLimitReached
+                              ? '1px solid #e2e8f0'
+                              : '1px solid #cbd5e1',
+                            backgroundColor: isChecked
+                              ? 'rgba(15, 118, 110, 0.04)'
+                              : isLimitReached
+                              ? '#f8fafc'
+                              : '#ffffff',
+                            cursor: isLimitReached ? 'not-allowed' : 'pointer',
+                            opacity: isLimitReached ? 0.6 : 1,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isLimitReached}
+                            onChange={() => {}}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              marginTop: '2px',
+                              cursor: isLimitReached ? 'not-allowed' : 'pointer',
+                              accentColor: '#0f766e',
+                            }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                                {mod.name}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  fontFamily: 'monospace',
+                                  color: '#64748b',
+                                  backgroundColor: '#f1f5f9',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                }}
+                              >
+                                {mod.code}
+                              </span>
                             </div>
-                          ))
-                        ) : (
-                          <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-                            No modules assigned to this plan
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        padding: '14px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '10px',
-                        border: '1px dashed #cbd5e1',
-                        fontSize: '12px',
-                        color: '#64748b',
-                        textAlign: 'center',
-                      }}
-                    >
-                      Select a subscription plan to view its included modules.
-                    </div>
-                  )}
+                            {mod.description && (
+                              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                {mod.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
               <div className="modal-footer">
                 <button type="button" onClick={() => setEditingTenant(null)} className="btn btn-secondary">
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={savingEdit}>
-                  {savingEdit ? 'Saving...' : 'Update Plan'}
+                  {savingEdit ? t('common.loading') : t('tenants.updatePlanBtn')}
                 </button>
               </div>
             </form>

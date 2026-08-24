@@ -192,6 +192,24 @@ export class ModulesService {
   async toggleModule(dto: ToggleModuleDto, userId?: string) {
     const { tenantId, moduleKey, isEnabled, config } = dto;
 
+    if (isEnabled) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { plan: true, modules: true },
+      });
+      if (tenant && tenant.plan) {
+        const allowedCount = Number((tenant.plan as any).moduleCount) || 1;
+        const currentlyActiveCount = tenant.modules.filter(
+          (m) => m.isEnabled && m.moduleKey !== moduleKey,
+        ).length;
+        if (currentlyActiveCount + 1 > allowedCount) {
+          throw new BadRequestException(
+            `Cannot enable module '${moduleKey}'. Subscription plan '${tenant.plan.name}' allows a maximum of ${allowedCount} module(s). Upgrade the plan to enable more modules.`,
+          );
+        }
+      }
+    }
+
     const moduleRecord = await this.prisma.tenantModule.upsert({
       where: {
         tenantId_moduleKey: {

@@ -12,8 +12,9 @@ import { UpdateSubscriptionPlanDto } from './dto/update-plan.dto';
 export class SubscriptionPlanService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(activeOnly = false) {
     return this.prisma.subscriptionPlan.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
       orderBy: { createdAt: 'asc' },
       include: {
         _count: {
@@ -68,14 +69,17 @@ export class SubscriptionPlanService {
       throw new ConflictException(`Subscription plan with code '${code}' already exists`);
     }
 
+    const planData: any = {
+      name: dto.name.trim(),
+      code,
+      description: dto.description?.trim() || null,
+      moduleCount: dto.moduleCount !== undefined ? Number(dto.moduleCount) : 1,
+      modules: dto.modules || [],
+      isActive: dto.isActive !== undefined ? dto.isActive : true,
+    };
+
     const created = await this.prisma.subscriptionPlan.create({
-      data: {
-        name: dto.name.trim(),
-        code,
-        description: dto.description?.trim() || null,
-        modules: dto.modules || [],
-        isActive: dto.isActive !== undefined ? dto.isActive : true,
-      },
+      data: planData,
       include: {
         _count: {
           select: { tenants: true },
@@ -99,14 +103,17 @@ export class SubscriptionPlanService {
   async update(id: string, dto: UpdateSubscriptionPlanDto, userId?: string) {
     const existing = await this.findById(id);
 
+    const updateData: any = {
+      name: dto.name !== undefined ? dto.name.trim() : existing.name,
+      description: dto.description !== undefined ? dto.description.trim() : existing.description,
+      moduleCount: dto.moduleCount !== undefined ? Number(dto.moduleCount) : (existing as any).moduleCount || 1,
+      modules: dto.modules !== undefined ? dto.modules : existing.modules,
+      isActive: dto.isActive !== undefined ? dto.isActive : existing.isActive,
+    };
+
     const updated = await this.prisma.subscriptionPlan.update({
       where: { id },
-      data: {
-        name: dto.name !== undefined ? dto.name.trim() : existing.name,
-        description: dto.description !== undefined ? dto.description.trim() : existing.description,
-        modules: dto.modules !== undefined ? dto.modules : existing.modules,
-        isActive: dto.isActive !== undefined ? dto.isActive : existing.isActive,
-      },
+      data: updateData,
       include: {
         _count: {
           select: { tenants: true },

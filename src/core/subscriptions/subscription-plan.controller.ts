@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SubscriptionPlanService } from './subscription-plan.service';
@@ -22,8 +23,9 @@ export class SubscriptionPlanController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'List all subscription plans' })
-  findAll() {
-    return this.planService.findAll();
+  findAll(@Query('activeOnly') activeOnly?: string) {
+    const isActiveOnly = activeOnly === 'true' || activeOnly === '1';
+    return this.planService.findAll(isActiveOnly);
   }
 
   @Public()

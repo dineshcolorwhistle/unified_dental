@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateSubscriptionPlanDto {
   @IsNotEmpty()
@@ -14,6 +14,11 @@ export class CreateSubscriptionPlanDto {
   description?: string;
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  moduleCount?: number;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   modules?: string[];
@@ -22,3 +27,4 @@ export class CreateSubscriptionPlanDto {
   @IsBoolean()
   isActive?: boolean;
 }
+

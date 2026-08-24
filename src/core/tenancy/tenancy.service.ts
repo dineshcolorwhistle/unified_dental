@@ -96,12 +96,30 @@ export class TenancyService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // If planId provided and modules not explicitly passed, pull modules from plan
       let modulesToEnable = dto.modules || [];
-      if (dto.planId && (!dto.modules || dto.modules.length === 0)) {
+      if (dto.planId) {
         const plan = await tx.subscriptionPlan.findUnique({ where: { id: dto.planId } });
-        if (plan && plan.modules) {
-          modulesToEnable = plan.modules;
+        if (!plan) {
+          throw new NotFoundException(`Subscription plan with ID '${dto.planId}' not found`);
+        }
+        const maxAllowed = Number((plan as any).moduleCount) || 1;
+        if (modulesToEnable.length > maxAllowed) {
+          throw new BadRequestException(
+            `Selected ${modulesToEnable.length} module(s), but subscription plan '${plan.name}' allows at most ${maxAllowed} module(s).`,
+          );
+        }
+      }
+
+      if (modulesToEnable.length > 0) {
+        const activeSystemModules = await tx.systemModule.findMany({
+          where: { code: { in: modulesToEnable }, isEnabled: true },
+        });
+        const activeCodes = activeSystemModules.map((m) => m.code);
+        const disabledModules = modulesToEnable.filter((m) => !activeCodes.includes(m));
+        if (disabledModules.length > 0) {
+          throw new BadRequestException(
+            `Cannot activate disabled system module(s): ${disabledModules.join(', ')}. Enable them in System Modules first.`,
+          );
         }
       }
 
@@ -221,19 +239,39 @@ export class TenancyService {
   async update(id: string, dto: UpdateTenantDto, userId?: string) {
     const tenant = await this.findById(id);
 
-    // If plan changed, enable the modules included in the new plan
-    if (dto.planId && dto.planId !== tenant.planId) {
+    const targetPlanId = dto.planId !== undefined ? dto.planId : tenant.planId;
+    let targetModules = dto.modules !== undefined
+      ? dto.modules
+      : tenant.modules.filter((m) => m.isEnabled).map((m) => m.moduleKey);
+
+    if (targetPlanId) {
       const plan = await this.prisma.subscriptionPlan.findUnique({
-        where: { id: dto.planId },
+        where: { id: targetPlanId },
       });
-      if (plan && plan.modules && plan.modules.length > 0) {
-        for (const mod of plan.modules) {
-          await this.prisma.tenantModule.upsert({
-            where: { tenantId_moduleKey: { tenantId: id, moduleKey: mod } },
-            update: { isEnabled: true },
-            create: { tenantId: id, moduleKey: mod, isEnabled: true },
+      const maxAllowed = Number((plan as any)?.moduleCount) || 1;
+      if (plan && targetModules.length > maxAllowed) {
+        throw new BadRequestException(
+          `Tenant cannot have ${targetModules.length} enabled module(s). Subscription plan '${plan.name}' allows at most ${maxAllowed} module(s).`,
+        );
+      }
+    }
+
+    // If explicit modules array is provided, synchronize tenant modules
+    if (dto.modules !== undefined) {
+      for (const existingMod of tenant.modules) {
+        if (!dto.modules.includes(existingMod.moduleKey) && existingMod.isEnabled) {
+          await this.prisma.tenantModule.update({
+            where: { id: existingMod.id },
+            data: { isEnabled: false },
           });
         }
+      }
+      for (const modKey of dto.modules) {
+        await this.prisma.tenantModule.upsert({
+          where: { tenantId_moduleKey: { tenantId: id, moduleKey: modKey } },
+          update: { isEnabled: true },
+          create: { tenantId: id, moduleKey: modKey, isEnabled: true },
+        });
       }
     }
 

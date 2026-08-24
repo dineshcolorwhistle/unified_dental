@@ -30,7 +30,8 @@ interface SubscriptionPlan {
   code: string;
   name: string;
   description: string | null;
-  modules: string[];
+  moduleCount: number;
+  modules?: string[];
   isActive: boolean;
   createdAt: string;
   _count?: {
@@ -61,7 +62,7 @@ export const PlansPage: React.FC = () => {
     name: '',
     code: '',
     description: '',
-    modules: [] as string[],
+    moduleCount: 1,
     isActive: true,
   });
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
@@ -102,7 +103,7 @@ export const PlansPage: React.FC = () => {
       name: '',
       code: '',
       description: '',
-      modules: [],
+      moduleCount: 1,
       isActive: true,
     });
     setCodeManuallyEdited(false);
@@ -115,7 +116,7 @@ export const PlansPage: React.FC = () => {
       name: plan.name,
       code: plan.code,
       description: plan.description || '',
-      modules: [...(plan.modules || [])],
+      moduleCount: plan.moduleCount || 1,
       isActive: plan.isActive,
     });
     setCodeManuallyEdited(true);
@@ -138,22 +139,15 @@ export const PlansPage: React.FC = () => {
     });
   };
 
-  const handleModuleCheckbox = (moduleCode: string) => {
-    setFormData((prev) => {
-      const exists = prev.modules.includes(moduleCode);
-      return {
-        ...prev,
-        modules: exists
-          ? prev.modules.filter((m) => m !== moduleCode)
-          : [...prev.modules, moduleCode],
-      };
-    });
-  };
-
   const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
-      alert('Plan name and code are required.');
+      alert(t('plans.alerts.nameCodeRequired'));
+      return;
+    }
+
+    if (formData.moduleCount < 1) {
+      alert(t('plans.alerts.countMinOne'));
       return;
     }
 
@@ -163,16 +157,19 @@ export const PlansPage: React.FC = () => {
         await api.patch(`/plans/${editingPlan.id}`, {
           name: formData.name,
           description: formData.description,
-          modules: formData.modules,
+          moduleCount: Number(formData.moduleCount),
           isActive: formData.isActive,
         });
       } else {
-        await api.post('/plans', formData);
+        await api.post('/plans', {
+          ...formData,
+          moduleCount: Number(formData.moduleCount),
+        });
       }
       setShowModal(false);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to save subscription plan');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('plans.alerts.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -186,7 +183,7 @@ export const PlansPage: React.FC = () => {
       setDeletingPlan(null);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to delete plan');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('plans.alerts.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -234,11 +231,11 @@ export const PlansPage: React.FC = () => {
               <CreditCard size={20} />
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Subscription Plans
+              {t('plans.title')}
             </h1>
           </div>
           <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
-            Manage tier packages, pricing plans, and assign included system modules
+            {t('plans.subtitle')}
           </p>
         </div>
 
@@ -248,7 +245,7 @@ export const PlansPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
         >
           <Plus size={18} />
-          <span>Create New Plan</span>
+          <span>{t('plans.createBtn')}</span>
         </button>
       </div>
 
@@ -272,20 +269,20 @@ export const PlansPage: React.FC = () => {
             type="text"
             className="input"
             style={{ paddingLeft: '38px', borderRadius: '10px' }}
-            placeholder="Search plans by name, code or description..."
+            placeholder={t('plans.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-          Showing {filteredPlans.length} of {plans.length} plans
+          {t('plans.showingCount', { shown: filteredPlans.length, total: plans.length })}
         </div>
       </div>
 
       {/* Plans List */}
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: '#0f766e', fontWeight: 600 }}>
-          Loading subscription plans...
+          {t('common.loading')}
         </div>
       ) : filteredPlans.length === 0 ? (
         <div className="card" style={{ padding: '60px 20px', textAlign: 'center' }}>
@@ -305,16 +302,14 @@ export const PlansPage: React.FC = () => {
             <CreditCard size={32} />
           </div>
           <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
-            No Subscription Plans Found
+            {t('plans.noPlansFound')}
           </h3>
           <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '420px', margin: '0 auto 20px' }}>
-            {search
-              ? 'No plans matched your search query.'
-              : 'No subscription plans have been created yet. Click below to add your first plan.'}
+            {search ? t('plans.noPlansSearch') : t('plans.noPlansEmpty')}
           </p>
           {!search && (
             <button onClick={handleOpenCreateModal} className="btn btn-primary" style={{ borderRadius: '10px' }}>
-              <Plus size={16} /> Create First Plan
+              <Plus size={16} /> {t('plans.createFirst')}
             </button>
           )}
         </div>
@@ -373,11 +368,11 @@ export const PlansPage: React.FC = () => {
                     >
                       {plan.isActive ? (
                         <>
-                          <CheckCircle2 size={12} /> Active
+                          <CheckCircle2 size={12} /> {t('common.statusActive')}
                         </>
                       ) : (
                         <>
-                          <XCircle size={12} /> Inactive
+                          <XCircle size={12} /> {t('common.statusInactive')}
                         </>
                       )}
                     </span>
@@ -393,7 +388,9 @@ export const PlansPage: React.FC = () => {
                       borderRadius: '8px',
                     }}
                   >
-                    {plan._count?.tenants || 0} Tenant{plan._count?.tenants === 1 ? '' : 's'}
+                    {(plan._count?.tenants || 0) === 1
+                      ? t('plans.tenantsCount', { count: plan._count?.tenants || 0 })
+                      : t('plans.tenantsCountPlural', { count: plan._count?.tenants || 0 })}
                   </span>
                 </div>
 
@@ -415,7 +412,7 @@ export const PlansPage: React.FC = () => {
                   {plan.description || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>No description provided</span>}
                 </p>
 
-                {/* Included Modules Section */}
+                {/* Allowed Module Capacity */}
                 <div style={{ marginBottom: '20px' }}>
                   <div
                     style={{
@@ -430,36 +427,32 @@ export const PlansPage: React.FC = () => {
                       gap: '6px',
                     }}
                   >
-                    <Layers size={13} color="#0f766e" /> Included Modules ({plan.modules?.length || 0})
+                    <Layers size={13} color="#0f766e" /> {t('plans.allowedCapacity')}
                   </div>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {plan.modules && plan.modules.length > 0 ? (
-                      plan.modules.map((mCode) => (
-                        <div
-                          key={mCode}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            backgroundColor: '#f0fdfa',
-                            border: '1px solid #ccfbf1',
-                            color: '#0f766e',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          <CheckCircle2 size={13} color="#0f766e" />
-                          <span>{getModuleName(mCode)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-                        No modules assigned to this plan
-                      </span>
-                    )}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: '#f0fdfa',
+                      border: '1px solid #ccfbf1',
+                      color: '#0f766e',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    <CheckCircle2 size={16} color="#0f766e" />
+                    <span>
+                      {(plan.moduleCount || 1) === 1
+                        ? t('plans.modulesAllowed', { count: plan.moduleCount || 1 })
+                        : t('plans.modulesAllowedPlural', { count: plan.moduleCount || 1 })}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                    {t('plans.allowedDesc', { count: plan.moduleCount || 1 })}
                   </div>
                 </div>
               </div>
@@ -475,7 +468,7 @@ export const PlansPage: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  Created {new Date(plan.createdAt).toLocaleDateString()}
+                  {new Date(plan.createdAt).toLocaleDateString()}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -484,7 +477,7 @@ export const PlansPage: React.FC = () => {
                     className="btn btn-secondary"
                     style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    <Edit2 size={13} /> Edit Plan
+                    <Edit2 size={13} /> {t('plans.editBtn')}
                   </button>
                   <button
                     onClick={() => setDeletingPlan(plan)}
@@ -502,7 +495,7 @@ export const PlansPage: React.FC = () => {
                       fontWeight: 600,
                     }}
                   >
-                    <Trash2 size={13} /> Delete
+                    <Trash2 size={13} /> {t('plans.deleteBtn')}
                   </button>
                 </div>
               </div>
@@ -519,7 +512,7 @@ export const PlansPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CreditCard size={20} color="#0f766e" />
                 <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
-                  {editingPlan ? 'Edit Subscription Plan' : 'Create New Subscription Plan'}
+                  {editingPlan ? t('plans.modalTitleEdit') : t('plans.modalTitleCreate')}
                 </h3>
               </div>
               <button
@@ -535,13 +528,13 @@ export const PlansPage: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label className="label">
-                      Plan Name <span style={{ color: '#ef4444' }}>*</span>
+                      {t('plans.name')} <span style={{ color: '#ef4444' }}>*</span>
                     </label>
                     <input
                       type="text"
                       required
                       className="input"
-                      placeholder="e.g. Basic, Professional, Complete"
+                      placeholder={t('plans.namePlaceholder')}
                       value={formData.name}
                       onChange={(e) => handleNameChange(e.target.value)}
                     />
@@ -549,7 +542,7 @@ export const PlansPage: React.FC = () => {
 
                   <div>
                     <label className="label">
-                      Plan Code (Unique) <span style={{ color: '#ef4444' }}>*</span>
+                      {t('plans.code')} <span style={{ color: '#ef4444' }}>*</span>
                     </label>
                     <input
                       type="text"
@@ -561,7 +554,7 @@ export const PlansPage: React.FC = () => {
                         fontWeight: 700,
                         backgroundColor: editingPlan ? '#f1f5f9' : '#ffffff',
                       }}
-                      placeholder="e.g. BASIC, PRO_CLINIC_LAB"
+                      placeholder={t('plans.codePlaceholder')}
                       value={formData.code}
                       onChange={(e) => handleCodeChange(e.target.value)}
                     />
@@ -569,96 +562,62 @@ export const PlansPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="label">Description</label>
+                  <label className="label">{t('plans.description')}</label>
                   <textarea
                     rows={2}
                     className="input"
-                    placeholder="Short description of who this plan is tailored for..."
+                    placeholder={t('plans.descriptionPlaceholder')}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
 
-                {/* Module Selection Checkboxes */}
+                {/* Allowed Module Count Input */}
                 <div>
-                  <label className="label" style={{ marginBottom: '8px', display: 'block' }}>
-                    Select Enabled Modules for this Plan
+                  <label className="label" style={{ marginBottom: '6px', display: 'block' }}>
+                    {t('plans.moduleCount')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  {availableModules.length === 0 ? (
-                    <div
-                      style={{
-                        padding: '16px',
-                        backgroundColor: '#fffbeb',
-                        border: '1px solid #fef3c7',
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        color: '#92400e',
-                      }}
-                    >
-                      No system modules found. Please create modules in the <strong>Modules</strong> page first.
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      required
+                      className="input"
+                      style={{ width: '110px', fontWeight: 700, fontSize: '15px' }}
+                      value={formData.moduleCount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          moduleCount: Math.max(1, parseInt(e.target.value) || 1),
+                        })
+                      }
+                    />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[1, 2, 3].map((cnt) => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, moduleCount: cnt })}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            border: formData.moduleCount === cnt ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
+                            backgroundColor: formData.moduleCount === cnt ? 'rgba(15, 118, 110, 0.08)' : '#f8fafc',
+                            color: formData.moduleCount === cnt ? '#0f766e' : '#64748b',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {cnt === 1 ? t('plans.modulesAllowed', { count: cnt }) : t('plans.modulesAllowedPlural', { count: cnt })}
+                        </button>
+                      ))}
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {availableModules.map((mod) => {
-                        const isChecked = formData.modules.includes(mod.code);
-                        return (
-                          <div
-                            key={mod.id}
-                            onClick={() => handleModuleCheckbox(mod.code)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              gap: '12px',
-                              padding: '12px 14px',
-                              borderRadius: '10px',
-                              border: isChecked ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
-                              backgroundColor: isChecked ? 'rgba(15, 118, 110, 0.04)' : '#ffffff',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {}} // Handled by parent div
-                              style={{
-                                width: '18px',
-                                height: '18px',
-                                marginTop: '2px',
-                                cursor: 'pointer',
-                                accentColor: '#0f766e',
-                              }}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                                  {mod.name}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    fontFamily: 'monospace',
-                                    color: '#64748b',
-                                    backgroundColor: '#f1f5f9',
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                  }}
-                                >
-                                  {mod.code}
-                                </span>
-                              </div>
-                              {mod.description && (
-                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                  {mod.description}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+                    {t('plans.moduleCountHelp')}
+                  </p>
                 </div>
 
                 {/* Active Status */}
@@ -675,10 +634,10 @@ export const PlansPage: React.FC = () => {
                 >
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
-                      Plan Active Status
+                      {t('plans.activeStatus')}
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>
-                      Active plans can be assigned to new and existing tenants.
+                      {t('plans.activeStatusHelp')}
                     </div>
                   </div>
                   <input
@@ -697,10 +656,10 @@ export const PlansPage: React.FC = () => {
                   className="btn btn-secondary"
                   disabled={saving}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Saving...' : editingPlan ? 'Update Plan' : 'Create Plan'}
+                  {saving ? t('plans.saving') : editingPlan ? t('plans.modalTitleEdit') : t('plans.modalTitleCreate')}
                 </button>
               </div>
             </form>
@@ -715,7 +674,7 @@ export const PlansPage: React.FC = () => {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
                 <AlertCircle size={20} />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>Delete Plan</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>{t('plans.deleteModalTitle')}</h3>
               </div>
               <button
                 onClick={() => setDeletingPlan(null)}
@@ -726,8 +685,7 @@ export const PlansPage: React.FC = () => {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>
-                Are you sure you want to delete the plan <strong>{deletingPlan.name}</strong> (
-                <code>{deletingPlan.code}</code>)?
+                {t('plans.deleteModalConfirm', { name: deletingPlan.name, code: deletingPlan.code })}
               </p>
               <div
                 style={{
@@ -740,7 +698,7 @@ export const PlansPage: React.FC = () => {
                   color: '#991b1b',
                 }}
               >
-                Note: Plans currently assigned to tenants cannot be deleted until those tenants are reassigned.
+                {t('plans.deleteModalWarning')}
               </div>
             </div>
             <div className="modal-footer">
@@ -750,7 +708,7 @@ export const PlansPage: React.FC = () => {
                 className="btn btn-secondary"
                 disabled={deleting}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -766,7 +724,7 @@ export const PlansPage: React.FC = () => {
                 }}
                 disabled={deleting}
               >
-                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                {deleting ? t('plans.deleting') : t('plans.confirmDelete')}
               </button>
             </div>
           </div>

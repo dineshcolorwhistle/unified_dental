@@ -120,7 +120,7 @@ export const ModulesPage: React.FC = () => {
   const handleSaveModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
-      alert('Module name and unique code are required.');
+      alert(t('modules.alerts.nameCodeRequired'));
       return;
     }
 
@@ -138,7 +138,7 @@ export const ModulesPage: React.FC = () => {
       setShowModal(false);
       fetchModules();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to save module');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -151,7 +151,7 @@ export const ModulesPage: React.FC = () => {
       });
       fetchModules();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || 'Failed to toggle module status');
+      alert(err.response?.data?.error?.message || t('modules.alerts.toggleFailed'));
     }
   };
 
@@ -163,7 +163,7 @@ export const ModulesPage: React.FC = () => {
       setDeletingModule(null);
       fetchModules();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to delete module');
+      alert(err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -209,11 +209,11 @@ export const ModulesPage: React.FC = () => {
               <Layers size={20} />
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              System Modules
+              {t('modules.title')}
             </h1>
           </div>
           <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
-            Configure and manage available application modules across the SaaS ecosystem
+            {t('modules.subtitle')}
           </p>
         </div>
 
@@ -223,7 +223,7 @@ export const ModulesPage: React.FC = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
         >
           <Plus size={18} />
-          <span>Create New Module</span>
+          <span>{t('modules.createBtn')}</span>
         </button>
       </div>
 
@@ -332,20 +332,20 @@ export const ModulesPage: React.FC = () => {
             type="text"
             className="input"
             style={{ paddingLeft: '38px', borderRadius: '10px' }}
-            placeholder="Search modules by name, code or description..."
+            placeholder={t('modules.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-          Showing {filteredModules.length} of {modules.length} modules
+          {t('modules.showingCount', { shown: filteredModules.length, total: modules.length })}
         </div>
       </div>
 
       {/* Module Grid */}
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: '#0f766e', fontWeight: 600 }}>
-          Loading system modules...
+          {t('common.loading')}
         </div>
       ) : filteredModules.length === 0 ? (
         <div className="card" style={{ padding: '60px 20px', textAlign: 'center' }}>
@@ -365,16 +365,16 @@ export const ModulesPage: React.FC = () => {
             <Layers size={32} />
           </div>
           <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
-            No Modules Found
+            {t('modules.noModulesFound')}
           </h3>
           <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '420px', margin: '0 auto 20px' }}>
             {search
-              ? 'No modules matched your search query. Try adjusting your keywords.'
-              : 'No modules have been configured in the system yet. Click below to add your first module.'}
+              ? t('modules.noModulesSearch')
+              : t('modules.noModulesEmpty')}
           </p>
           {!search && (
             <button onClick={handleOpenCreateModal} className="btn btn-primary" style={{ borderRadius: '10px' }}>
-              <Plus size={16} /> Create First Module
+              <Plus size={16} /> {t('modules.createFirst')}
             </button>
           )}
         </div>
@@ -434,11 +434,11 @@ export const ModulesPage: React.FC = () => {
                     >
                       {mod.isEnabled ? (
                         <>
-                          <CheckCircle2 size={12} /> Active
+                          <CheckCircle2 size={12} /> {t('common.statusActive')}
                         </>
                       ) : (
                         <>
-                          <XCircle size={12} /> Disabled
+                          <XCircle size={12} /> {t('common.statusInactive')}
                         </>
                       )}
                     </span>
@@ -492,7 +492,7 @@ export const ModulesPage: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  Created {new Date(mod.createdAt).toLocaleDateString()}
+                  {new Date(mod.createdAt).toLocaleDateString()}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -501,7 +501,7 @@ export const ModulesPage: React.FC = () => {
                     className="btn btn-secondary"
                     style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    <Edit2 size={13} /> Edit
+                    <Edit2 size={13} /> {t('modules.editBtn')}
                   </button>
                   <button
                     onClick={() => setDeletingModule(mod)}
@@ -519,7 +519,7 @@ export const ModulesPage: React.FC = () => {
                       fontWeight: 600,
                     }}
                   >
-                    <Trash2 size={13} /> Delete
+                    <Trash2 size={13} /> {t('modules.deleteBtn')}
                   </button>
                 </div>
               </div>
@@ -536,7 +536,7 @@ export const ModulesPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Layers size={20} color="#0f766e" />
                 <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>
-                  {editingModule ? 'Edit Module' : 'Create New System Module'}
+                  {editingModule ? t('modules.modalTitleEdit') : t('modules.modalTitleCreate')}
                 </h3>
               </div>
               <button
@@ -551,13 +551,13 @@ export const ModulesPage: React.FC = () => {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
                   <label className="label">
-                    Module Name <span style={{ color: '#ef4444' }}>*</span>
+                    {t('modules.name')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
                     required
                     className="input"
-                    placeholder="e.g. Dental Clinic, Dental Laboratory, Radiology"
+                    placeholder={t('modules.namePlaceholder')}
                     value={formData.name}
                     onChange={(e) => handleNameChange(e.target.value)}
                   />
@@ -565,7 +565,7 @@ export const ModulesPage: React.FC = () => {
 
                 <div>
                   <label className="label">
-                    Module Code (Unique Identifier) <span style={{ color: '#ef4444' }}>*</span>
+                    {t('modules.code')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -577,23 +577,18 @@ export const ModulesPage: React.FC = () => {
                       fontWeight: 700,
                       backgroundColor: editingModule ? '#f1f5f9' : '#ffffff',
                     }}
-                    placeholder="e.g. CLINIC, LAB, RADIOLOGY"
+                    placeholder={t('modules.codePlaceholder')}
                     value={formData.code}
                     onChange={(e) => handleCodeChange(e.target.value)}
                   />
-                  <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
-                    {editingModule
-                      ? 'Module code is permanent and cannot be modified.'
-                      : 'Uppercase letters and numbers only. Used for routing and permission binding.'}
-                  </span>
                 </div>
 
                 <div>
-                  <label className="label">Description</label>
+                  <label className="label">{t('modules.description')}</label>
                   <textarea
                     rows={3}
                     className="input"
-                    placeholder="Brief description of the features and workflows supported by this module..."
+                    placeholder={t('modules.descriptionPlaceholder')}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
@@ -612,10 +607,10 @@ export const ModulesPage: React.FC = () => {
                 >
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
-                      Active Status
+                      {t('modules.activeStatus')}
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>
-                      When enabled, this module can be assigned to subscription plans and tenants.
+                      {t('modules.activeStatusHelp')}
                     </div>
                   </div>
                   <input
@@ -634,10 +629,10 @@ export const ModulesPage: React.FC = () => {
                   className="btn btn-secondary"
                   disabled={saving}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Saving...' : editingModule ? 'Update Module' : 'Create Module'}
+                  {saving ? t('modules.saving') : editingModule ? t('modules.modalTitleEdit') : t('modules.modalTitleCreate')}
                 </button>
               </div>
             </form>
@@ -652,7 +647,7 @@ export const ModulesPage: React.FC = () => {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
                 <AlertCircle size={20} />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>Delete Module</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>{t('modules.deleteModalTitle')}</h3>
               </div>
               <button
                 onClick={() => setDeletingModule(null)}
@@ -663,8 +658,7 @@ export const ModulesPage: React.FC = () => {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>
-                Are you sure you want to delete the module <strong>{deletingModule.name}</strong> (
-                <code>{deletingModule.code}</code>)?
+                {t('modules.deleteModalConfirm', { name: deletingModule.name, code: deletingModule.code })}
               </p>
               <div
                 style={{
@@ -677,7 +671,7 @@ export const ModulesPage: React.FC = () => {
                   color: '#991b1b',
                 }}
               >
-                Note: Modules actively used by tenants cannot be deleted until disabled or unassigned.
+                {t('modules.deleteModalWarning')}
               </div>
             </div>
             <div className="modal-footer">
@@ -687,7 +681,7 @@ export const ModulesPage: React.FC = () => {
                 className="btn btn-secondary"
                 disabled={deleting}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -703,7 +697,7 @@ export const ModulesPage: React.FC = () => {
                 }}
                 disabled={deleting}
               >
-                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                {deleting ? t('modules.deleting') : t('modules.confirmDelete')}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
 import { TenantStatus } from '@prisma/client';
 
 export class UpdateTenantDto {
@@ -15,6 +15,12 @@ export class UpdateTenantDto {
   planId?: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  modules?: string[];
+
+  @IsOptional()
   @IsObject()
   settings?: Record<string, any>;
 }
+
