@@ -16,6 +16,7 @@ import { AuditModule } from './core/audit/audit.module';
 import { FilesModule } from './core/files/files.module';
 import { MailModule } from './core/mail/mail.module';
 import { NotificationsModule } from './core/notifications/notifications.module';
+import { QueueModule } from './core/queue/queue.module';
 import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
 
 @Module({
@@ -59,6 +60,7 @@ import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
     RbacModule,
     AuditModule,
     FilesModule,
+    QueueModule,
     MailModule,
     NotificationsModule,
   ],
