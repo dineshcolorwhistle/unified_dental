@@ -8,22 +8,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const host = configService.get<string>('REDIS_HOST', 'localhost');
-        const port = Number(configService.get<number>('REDIS_PORT', 6379));
-        const password = configService.get<string>('REDIS_PASSWORD');
-
-        return {
-          connection: {
-            host,
-            port,
-            ...(password ? { password } : {}),
-            maxRetriesPerRequest: null,
-          },
-        };
-      },
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST', 'localhost'),
+          port: Number(configService.get<string>('REDIS_PORT', '6379')),
+          password: configService.get<string>('REDIS_PASSWORD'),
+          db: Number(configService.get<string>('REDIS_DB', '0')),
+          maxRetriesPerRequest: null,
+        },
+        prefix: configService.get<string>('REDIS_PREFIX', 'unified'),
+      }),
     }),
   ],
   exports: [BullModule],
 })
-export class QueueModule {}
+export class QueueModule { }
