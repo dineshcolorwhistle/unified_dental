@@ -1,8 +1,6 @@
-import { Global, Logger, Module, OnModuleInit } from '@nestjs/common';
-import { BullModule, InjectQueue } from '@nestjs/bullmq';
+import { Global, Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Queue } from 'bullmq';
-import { TestQueueProcessor } from './test.processor';
 
 @Global()
 @Module({
@@ -21,35 +19,7 @@ import { TestQueueProcessor } from './test.processor';
         prefix: configService.get<string>('REDIS_PREFIX', 'unified'),
       }),
     }),
-    BullModule.registerQueue({
-      name: 'test-queue',
-    }),
   ],
-  providers: [TestQueueProcessor],
   exports: [BullModule],
 })
-export class QueueModule implements OnModuleInit {
-  private readonly logger = new Logger(QueueModule.name);
-
-  constructor(@InjectQueue('test-queue') private readonly testQueue: Queue) {}
-
-  async onModuleInit() {
-    try {
-      this.logger.log('🧪 Dispatching test job to BullMQ queue [test-queue]...');
-      const job = await this.testQueue.add(
-        'ping-test',
-        {
-          message: 'BullMQ + Redis integration is fully active!',
-          sentAt: new Date().toISOString(),
-        },
-        {
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      );
-      this.logger.log(`📥 Test job enqueued with Job ID: ${job.id}`);
-    } catch (error) {
-      this.logger.error(`❌ Failed to enqueue test job: ${error.message}`);
-    }
-  }
-}
+export class QueueModule {}

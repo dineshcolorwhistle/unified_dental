@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import * as nodemailer from 'nodemailer';
 import * as handlebars from 'handlebars';
 import * as fs from 'fs';
@@ -19,7 +21,10 @@ export class MailService {
   private transporter: nodemailer.Transporter;
   private readonly fromAddress: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectQueue('mail') private readonly mailQueue: Queue,
+  ) {
     this.fromAddress =
       this.configService.get<string>('SMTP_FROM') ||
       '"Unified Dental" <no-reply@unifieddental.com>';
@@ -65,7 +70,10 @@ export class MailService {
     return compiled(context);
   }
 
-  async sendMail(options: SendMailOptions) {
+  /**
+   * Execute direct SMTP email sending (used by BullMQ Worker).
+   */
+  async sendDirectMail(options: SendMailOptions) {
     const html = this.renderTemplate(options.template, options.context, options.locale);
 
     this.logger.log(`📧 Sending email to: ${options.to} [Locale: ${options.locale || 'en'}] | Subject: ${options.subject}`);
@@ -77,11 +85,34 @@ export class MailService {
         subject: options.subject,
         html,
       });
-      this.logger.log(`✅ Email sent successfully. MessageId: ${info.messageId}`);
+      this.logger.log(`✅ Email delivered successfully. MessageId: ${info.messageId}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
       this.logger.error(`❌ Failed to send email to ${options.to}: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Asynchronously queue an email with BullMQ (with automatic retries & exponential backoff).
+   * Gracefully falls back to direct send if the queue is unavailable.
+   */
+  async sendMail(options: SendMailOptions) {
+    try {
+      const job = await this.mailQueue.add('send-mail', options, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 3000, // 3s, 6s, 12s
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      });
+      this.logger.log(`📥 Email job enqueued successfully. Job ID: ${job.id} -> ${options.to}`);
+      return { success: true, queued: true, jobId: job.id };
+    } catch (queueError) {
+      this.logger.warn(`⚠️ BullMQ queue dispatch failed (${queueError.message}). Falling back to direct sending...`);
+      return this.sendDirectMail(options);
     }
   }
 
