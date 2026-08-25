@@ -1,0 +1,111 @@
+name: Deploy Staging (Unified Dental)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      seed_db:
+        description: 'Run database seed (Platform Admin) on staging?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-and-test:
+    name: Build & Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Backend Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build Backend (NestJS)
+        run: npm run build:server
+
+      - name: Install Frontend Dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build Frontend (Vite SPA)
+        working-directory: ./client
+        run: npm run build
+
+  deploy-staging:
+    name: Deploy to Staging Server
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: unified-staging
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: GITHUB_SHA,GITHUB_REF_NAME
+          script: |
+            echo "🚀 Starting Staging Deployment for Unified Dental Platform..."
+            TARGET_DIR="/home/sarvadent-staging-unified/htdocs/staging-unified.sarvadent.com/unified_dental"
+
+            if [ ! -d "$TARGET_DIR" ]; then
+              echo "❌ Error: Target directory $TARGET_DIR does not exist."
+              exit 1
+            fi
+
+            cd "$TARGET_DIR"
+
+            echo "📦 Fetching latest code from origin ($GITHUB_REF_NAME)..."
+            git fetch --all
+            git checkout $GITHUB_REF_NAME || git checkout staging || git checkout main
+            git pull origin $GITHUB_REF_NAME || git pull
+
+            echo "📥 Installing Backend Dependencies..."
+            npm install --include=dev
+
+            echo "📥 Installing Frontend Dependencies and Building Client..."
+            cd client
+            npm install
+            npm run build
+            cd ..
+
+            echo "🔄 Generating Prisma Client..."
+            npx prisma generate
+
+            echo "🗄️ Applying Database Schema Migrations..."
+            npx prisma db push --skip-generate
+
+            ${{ github.event.inputs.seed_db == 'true' && 'echo "🌱 Seeding Database..." && npx prisma db seed' || 'echo "⏭️ Skipping DB seed"' }}
+
+            echo "🏗️ Building NestJS Backend..."
+            npm run build:server
+
+            echo "♻️ Reloading Application via PM2..."
+            if pm2 list | grep -q "unified-dental-staging"; then
+              pm2 reload unified-dental-staging --update-env
+            elif [ -f "ecosystem.config.cjs" ]; then
+              pm2 start ecosystem.config.cjs --env staging
+            elif [ -f "ecosystem.config.js" ]; then
+              pm2 start ecosystem.config.js --env staging
+            else
+              pm2 start dist/src/main.js --name "unified-dental-staging"
+            fi
+
+            pm2 save
+
+            echo "✅ Deployment to staging completed successfully!"
