@@ -1,26 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '../core/context/ToastContext';
+import { Pagination } from '../components/common/Pagination';
 import {
   Building2,
   Plus,
   Search,
-  ExternalLink,
-  Globe,
-  Copy,
-  Check,
-  CreditCard,
-  Layers,
+  CheckCircle2,
+  XCircle,
   Edit2,
   Trash2,
+  Copy,
+  ExternalLink,
+  Shield,
+  Layers,
+  Sparkles,
+  Save,
   X,
-  AlertTriangle,
-  MapPin,
+  CreditCard,
+  Sliders,
+  Check,
+  Building,
+  Users,
   User,
+  Globe,
   ShieldCheck,
   HardDrive,
-  Users,
-  Sliders,
+  MapPin,
+  AlertTriangle,
   Info,
   Loader2,
 } from 'lucide-react';
@@ -37,6 +45,7 @@ function nameToSlug(name: string): string {
 
 export const TenantsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { toast } = useToast();
   const [tenants, setTenants] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [systemModules, setSystemModules] = useState<any[]>([]);
@@ -45,10 +54,14 @@ export const TenantsPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Edit Tenant Modal State
   const [editingTenant, setEditingTenant] = useState<any | null>(null);
   const [editName, setEditName] = useState('');
-  const [editStatus, setEditStatus] = useState<string>('ACTIVE');
+  const [editStatus, setEditStatus] = useState('ACTIVE');
   const [editPlanId, setEditPlanId] = useState('');
   const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
   const [editOverrideLimits, setEditOverrideLimits] = useState(false);
@@ -58,11 +71,13 @@ export const TenantsPage: React.FC = () => {
   const [editMaxUploadFileSizeMb, setEditMaxUploadFileSizeMb] = useState<number | string>('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Delete Tenant Modal State
+  // Delete State
   const [deletingTenant, setDeletingTenant] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Form State for Provisioning
+  // Create Tenant Modal State
+  const [creatingTenant, setCreatingTenant] = useState(false);
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -70,21 +85,18 @@ export const TenantsPage: React.FC = () => {
     modules: [] as string[],
     adminEmail: '',
     adminName: '',
-    // Limit overrides
     overrideLimits: false,
     maxModules: '' as number | string,
     maxBranches: '' as number | string,
     maxMembers: '' as number | string,
     maxUploadFileSizeMb: '' as number | string,
   });
-  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
-  const [creatingTenant, setCreatingTenant] = useState(false);
 
   const fetchTenantsAndPlans = async () => {
     try {
       setLoading(true);
       const [tenantsRes, plansRes, modulesRes] = await Promise.allSettled([
-        api.get('/tenants', { params: { search: search || undefined } }),
+        api.get('/tenants'),
         api.get('/plans'),
         api.get('/modules?all=true'),
       ]);
@@ -99,7 +111,7 @@ export const TenantsPage: React.FC = () => {
         setSystemModules(modulesRes.value.data || []);
       }
     } catch (e) {
-      console.error('Failed to load tenants or plans:', e);
+      console.error('Failed to load tenants data:', e);
     } finally {
       setLoading(false);
     }
@@ -107,14 +119,32 @@ export const TenantsPage: React.FC = () => {
 
   useEffect(() => {
     fetchTenantsAndPlans();
-  }, [search]);
+  }, []);
+
+  const handlePlanChange = (planId: string) => {
+    const selectedPlan = plans.find((p) => p.id === planId);
+    const maxAllowed = getEffectiveModuleLimit(planId, formData.overrideLimits, formData.maxModules);
+
+    let defaultMods: string[] = [];
+    if (selectedPlan && selectedPlan.modules && selectedPlan.modules.length > 0) {
+      defaultMods = selectedPlan.modules.slice(0, maxAllowed);
+    } else if (systemModules.length > 0) {
+      defaultMods = systemModules.slice(0, maxAllowed).map((m) => m.code);
+    }
+
+    setFormData({
+      ...formData,
+      planId,
+      modules: defaultMods,
+    });
+  };
 
   const handleNameChange = (name: string) => {
-    const newFormData = { ...formData, name };
+    const newForm = { ...formData, name };
     if (!slugManuallyEdited) {
-      newFormData.slug = nameToSlug(name);
+      newForm.slug = nameToSlug(name);
     }
-    setFormData(newFormData);
+    setFormData(newForm);
   };
 
   const handleSlugChange = (slug: string) => {
@@ -125,22 +155,12 @@ export const TenantsPage: React.FC = () => {
     });
   };
 
-  const getEffectiveModuleLimit = (planId: string, overrideActive: boolean, overrideVal: number | string) => {
-    if (overrideActive && overrideVal !== '') {
-      return Number(overrideVal) || 1;
+  const getEffectiveModuleLimit = (planId: string, overrideLimits: boolean, maxModules: number | string) => {
+    if (overrideLimits && maxModules !== '' && maxModules !== null && maxModules !== undefined) {
+      return Number(maxModules);
     }
-    const targetPlan = plans.find((p) => p.id === planId);
-    return targetPlan ? (targetPlan.moduleCount || 1) : systemModules.length;
-  };
-
-  const handlePlanChange = (planId: string) => {
-    const maxAllowed = getEffectiveModuleLimit(planId, formData.overrideLimits, formData.maxModules);
-    const trimmedModules = formData.modules.slice(0, maxAllowed);
-    setFormData({
-      ...formData,
-      planId,
-      modules: trimmedModules,
-    });
+    const plan = plans.find((p) => p.id === planId);
+    return plan?.moduleCount || 1;
   };
 
   const handleToggleModuleSelection = (moduleCode: string) => {
@@ -154,7 +174,7 @@ export const TenantsPage: React.FC = () => {
       });
     } else {
       if (formData.modules.length >= maxAllowed) {
-        alert(t('tenants.alerts.planLimitAlert', { max: maxAllowed }));
+        toast.warning(t('tenants.alerts.planLimitAlert', { max: maxAllowed }), 'Plan Limit Reached');
         return;
       }
       setFormData({
@@ -178,7 +198,7 @@ export const TenantsPage: React.FC = () => {
       setEditSelectedModules((prev) => prev.filter((m) => m !== moduleCode));
     } else {
       if (editSelectedModules.length >= maxAllowed) {
-        alert(t('tenants.alerts.planLimitAlert', { max: maxAllowed }));
+        toast.warning(t('tenants.alerts.planLimitAlert', { max: maxAllowed }), 'Plan Limit Reached');
         return;
       }
       setEditSelectedModules((prev) => [...prev, moduleCode]);
@@ -190,12 +210,12 @@ export const TenantsPage: React.FC = () => {
     if (creatingTenant) return;
 
     if (formData.planId && formData.modules.length === 0) {
-      alert(t('tenants.alerts.selectAtLeastOne'));
+      toast.warning(t('tenants.alerts.selectAtLeastOne'), 'Validation Error');
       return;
     }
 
     if (!formData.adminEmail?.trim() || !formData.adminName?.trim()) {
-      alert(t('tenants.alerts.adminDetailsRequired'));
+      toast.warning(t('tenants.alerts.adminDetailsRequired'), 'Validation Error');
       return;
     }
 
@@ -214,6 +234,7 @@ export const TenantsPage: React.FC = () => {
         maxUploadFileSizeMb: formData.overrideLimits && formData.maxUploadFileSizeMb !== '' ? Number(formData.maxUploadFileSizeMb) : null,
         locale: i18n.language,
       });
+      toast.success(`Organization "${formData.name}" created successfully!`, 'Organization Created');
       setShowModal(false);
       setFormData({
         name: '',
@@ -231,7 +252,8 @@ export const TenantsPage: React.FC = () => {
       setSlugManuallyEdited(false);
       await fetchTenantsAndPlans();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.createFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.createFailed');
+      toast.error(msg, 'Creation Failed');
     } finally {
       setCreatingTenant(false);
     }
@@ -244,9 +266,11 @@ export const TenantsPage: React.FC = () => {
         moduleKey,
         isEnabled: !currentStatus,
       });
+      toast.success('Module access updated', 'Success');
       fetchTenantsAndPlans();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.toggleFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.toggleFailed');
+      toast.error(msg, 'Toggle Failed');
     }
   };
 
@@ -278,7 +302,7 @@ export const TenantsPage: React.FC = () => {
     if (!editingTenant) return;
 
     if (editPlanId && editSelectedModules.length === 0) {
-      alert(t('tenants.alerts.selectAtLeastOne'));
+      toast.warning(t('tenants.alerts.selectAtLeastOne'), 'Validation Error');
       return;
     }
 
@@ -294,10 +318,12 @@ export const TenantsPage: React.FC = () => {
         maxMembers: editOverrideLimits && editMaxMembers !== '' ? Number(editMaxMembers) : null,
         maxUploadFileSizeMb: editOverrideLimits && editMaxUploadFileSizeMb !== '' ? Number(editMaxUploadFileSizeMb) : null,
       });
+      toast.success(`Organization "${editName}" updated successfully`, 'Organization Updated');
       setEditingTenant(null);
       fetchTenantsAndPlans();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.updateFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.updateFailed');
+      toast.error(msg, 'Update Failed');
     } finally {
       setSavingEdit(false);
     }
@@ -309,10 +335,12 @@ export const TenantsPage: React.FC = () => {
     try {
       setDeleting(true);
       await api.delete(`/tenants/${deletingTenant.id}`);
+      toast.success(`Organization "${deletingTenant.name}" deleted successfully`, 'Organization Deleted');
       setDeletingTenant(null);
       fetchTenantsAndPlans();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.deleteFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('tenants.alerts.deleteFailed');
+      toast.error(msg, 'Delete Failed');
     } finally {
       setDeleting(false);
     }
@@ -323,7 +351,8 @@ export const TenantsPage: React.FC = () => {
     const url = `${protocol}//${slug}.${host}/login`;
     navigator.clipboard.writeText(url);
     setCopiedSlug(slug);
-    setTimeout(() => setCopiedSlug(null), 2000);
+    toast.info(`Organization URL copied to clipboard: ${url}`, 'URL Copied');
+    setTimeout(() => setCopiedSlug(null), 2500);
   };
 
   const getPreviewUrl = (slug: string) => {
@@ -354,6 +383,17 @@ export const TenantsPage: React.FC = () => {
     return { maxModules, maxBranches, maxMembers, maxUploadFileSizeMb, hasOverride };
   };
 
+  // Paginated tenants
+  const totalPages = Math.max(1, Math.ceil(tenants.length / pageSize));
+  const paginatedTenants = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return tenants.slice(start, start + pageSize);
+  }, [tenants, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   return (
     <div>
       {/* Header */}
@@ -381,23 +421,22 @@ export const TenantsPage: React.FC = () => {
                 color: 'var(--primary-600)',
               }}
             >
-              <Building2 size={20} />
+              <Building2 size={18} />
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
               {t('tenants.title')}
             </h1>
           </div>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '4px 0 0 0' }}>
             {t('tenants.subtitle')}
           </p>
         </div>
-
         <button
           onClick={() => {
             setFormData({
               name: '',
               slug: '',
-              planId: '',
+              planId: plans.length > 0 ? plans[0].id : '',
               modules: [],
               adminEmail: '',
               adminName: '',
@@ -407,26 +446,23 @@ export const TenantsPage: React.FC = () => {
               maxMembers: '',
               maxUploadFileSizeMb: '',
             });
-            setSlugManuallyEdited(false);
             setShowModal(true);
           }}
           className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
         >
-          <Plus size={18} />
-          <span>{t('tenants.createBtn')}</span>
+          <Plus size={16} /> {t('tenants.createBtn')}
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Search & Counter Bar */}
       <div
-        className="card"
         style={{
-          padding: '14px 20px',
-          marginBottom: '20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginBottom: '16px',
+          gap: '16px',
+          flexWrap: 'wrap',
         }}
       >
         <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
@@ -470,14 +506,14 @@ export const TenantsPage: React.FC = () => {
                   {t('common.loading')}
                 </td>
               </tr>
-            ) : tenants.length === 0 ? (
+            ) : paginatedTenants.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   {t('tenants.noTenants')}
                 </td>
               </tr>
             ) : (
-              tenants.map((tItem) => {
+              paginatedTenants.map((tItem) => {
                 const plan = tItem.plan;
                 const limits = getEffectiveLimits(tItem);
                 const branchCount = tItem._count?.branches || tItem.branches?.length || 0;
@@ -659,6 +695,15 @@ export const TenantsPage: React.FC = () => {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={tenants.length}
+          pageSize={pageSize}
+          pageSizeOptions={[5, 10, 20, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Provision Tenant Modal */}

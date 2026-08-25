@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '../core/context/ToastContext';
 import {
   CreditCard,
   Plus,
@@ -56,6 +57,7 @@ function nameToCode(name: string): string {
 
 export const PlansPage: React.FC = () => {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [availableModules, setAvailableModules] = useState<SystemModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,9 +130,9 @@ export const PlansPage: React.FC = () => {
       name: plan.name,
       code: plan.code,
       description: plan.description || '',
-      moduleCount: plan.moduleCount || 1,
-      branchCount: plan.branchCount || 3,
-      memberCount: plan.memberCount || 10,
+      moduleCount: plan.moduleCount,
+      branchCount: plan.branchCount,
+      memberCount: plan.memberCount,
       maxUploadFileSizeMb: plan.maxUploadFileSizeMb || 25,
       isActive: plan.isActive,
     });
@@ -156,41 +158,25 @@ export const PlansPage: React.FC = () => {
 
   const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.code.trim()) {
-      alert(t('plans.alerts.nameCodeRequired'));
-      return;
-    }
-
-    if (formData.moduleCount < 1) {
-      alert(t('plans.alerts.countMinOne'));
+    if (!formData.name || !formData.code) {
+      toast.warning(t('plans.alerts.nameCodeRequired'), 'Validation Error');
       return;
     }
 
     try {
       setSaving(true);
       if (editingPlan) {
-        await api.patch(`/plans/${editingPlan.id}`, {
-          name: formData.name,
-          description: formData.description,
-          moduleCount: Number(formData.moduleCount),
-          branchCount: Number(formData.branchCount),
-          memberCount: Number(formData.memberCount),
-          maxUploadFileSizeMb: Number(formData.maxUploadFileSizeMb),
-          isActive: formData.isActive,
-        });
+        await api.patch(`/plans/${editingPlan.id}`, formData);
+        toast.success(`Plan "${formData.name}" updated successfully`, 'Plan Updated');
       } else {
-        await api.post('/plans', {
-          ...formData,
-          moduleCount: Number(formData.moduleCount),
-          branchCount: Number(formData.branchCount),
-          memberCount: Number(formData.memberCount),
-          maxUploadFileSizeMb: Number(formData.maxUploadFileSizeMb),
-        });
+        await api.post('/plans', formData);
+        toast.success(`Plan "${formData.name}" created successfully`, 'Plan Created');
       }
       setShowModal(false);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('plans.alerts.saveFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('plans.alerts.saveFailed');
+      toast.error(msg, 'Save Failed');
     } finally {
       setSaving(false);
     }
@@ -201,21 +187,25 @@ export const PlansPage: React.FC = () => {
     try {
       setDeleting(true);
       await api.delete(`/plans/${deletingPlan.id}`);
+      toast.success(`Plan deleted successfully`, 'Plan Deleted');
       setDeletingPlan(null);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('plans.alerts.deleteFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('plans.alerts.deleteFailed');
+      toast.error(msg, 'Delete Failed');
     } finally {
       setDeleting(false);
     }
   };
 
-  const filteredPlans = plans.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.code.toLowerCase().includes(search.toLowerCase()) ||
-      (p.description && p.description.toLowerCase().includes(search.toLowerCase())),
-  );
+  const filteredPlans = useMemo(() => {
+    return plans.filter(
+      (p) =>
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.code.toLowerCase().includes(search.toLowerCase()) ||
+        (p.description && p.description.toLowerCase().includes(search.toLowerCase())),
+    );
+  }, [plans, search]);
 
   const getModuleName = (code: string) => {
     const found = availableModules.find((m) => m.code === code);
@@ -340,6 +330,7 @@ export const PlansPage: React.FC = () => {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
             gap: '24px',
+            marginBottom: '20px',
           }}
         >
           {filteredPlans.map((plan) => (
@@ -350,236 +341,156 @@ export const PlansPage: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                padding: '24px',
+                border: '1px solid var(--border-color)',
                 borderRadius: '16px',
-                border: plan.isActive ? '1px solid var(--border-color)' : '1px dashed var(--border-hover)',
-                backgroundColor: plan.isActive ? 'var(--bg-card)' : 'var(--bg-surface-hover)',
+                padding: '24px',
+                backgroundColor: 'var(--bg-surface)',
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.2s ease',
               }}
             >
               <div>
-                {/* Header Row: Code & Active Status */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
                       style={{
-                        padding: '4px 10px',
-                        backgroundColor: 'var(--bg-surface-hover)',
-                        color: 'var(--text-main)',
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        fontFamily: 'monospace',
-                        borderRadius: '6px',
-                        letterSpacing: '0.05em',
-                        border: '1px solid var(--border-subtle)',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--badge-primary-bg)',
+                        color: 'var(--primary-600)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      {plan.code}
-                    </span>
-                    <span
-                      className={`badge ${plan.isActive ? 'badge-success' : 'badge-danger'}`}
-                      style={{ fontSize: '11px' }}
-                    >
-                      {plan.isActive ? (
-                        <>
-                          <CheckCircle2 size={12} /> {t('common.statusActive')}
-                        </>
-                      ) : (
-                        <>
-                          <XCircle size={12} /> {t('common.statusInactive')}
-                        </>
-                      )}
-                    </span>
+                      <CreditCard size={20} />
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                        {plan.name}
+                      </h4>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                        <span className="badge badge-info" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                          {plan.code}
+                        </span>
+                        <span className={plan.isActive ? 'badge badge-success' : 'badge badge-danger'} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                          {plan.isActive ? t('common.statusActive') : t('common.statusInactive')}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--primary-600)',
-                      fontWeight: 700,
-                      backgroundColor: 'var(--badge-primary-bg)',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                    }}
-                  >
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-600)' }}>
                     {(plan._count?.tenants || 0) === 1
                       ? t('plans.tenantsCount', { count: plan._count?.tenants || 0 })
                       : t('plans.tenantsCountPlural', { count: plan._count?.tenants || 0 })}
-                  </span>
+                  </div>
                 </div>
 
-                {/* Plan Name */}
-                <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-heading)', marginBottom: '6px' }}>
-                  {plan.name}
-                </h3>
+                {plan.description && (
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.4 }}>
+                    {plan.description}
+                  </p>
+                )}
 
-                {/* Plan Description */}
-                <p
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--text-muted)',
-                    lineHeight: '1.5',
-                    minHeight: '38px',
-                    marginBottom: '20px',
-                  }}
-                >
-                  {plan.description || <span style={{ fontStyle: 'italic', color: 'var(--text-subtle)' }}>No description provided</span>}
-                </p>
-
-                {/* Allowed Capacity & Limits */}
-                <div style={{ marginBottom: '20px' }}>
+                {/* Plan Limits Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                   <div
                     style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      color: 'var(--text-muted)',
-                      marginBottom: '10px',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-surface-hover)',
+                      fontSize: '12px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <Layers size={13} style={{ color: 'var(--primary-600)' }} /> {t('plans.allowedCapacity')}
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, 1fr)',
                       gap: '8px',
                     }}
                   >
-                    {/* Modules */}
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        backgroundColor: 'var(--badge-primary-bg)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--primary-600)',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <Layers size={14} />
-                      <span>
-                        {(plan.moduleCount || 1) === 1
-                          ? t('plans.modulesAllowed', { count: plan.moduleCount || 1 })
-                          : t('plans.modulesAllowedPlural', { count: plan.moduleCount || 1 })}
-                      </span>
-                    </div>
-
-                    {/* Branches */}
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        backgroundColor: 'var(--bg-surface-hover)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-main)',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <MapPin size={14} style={{ color: 'var(--primary-600)' }} />
-                      <span>
-                        {(plan.branchCount || 3) === 1
-                          ? t('plans.branchesAllowed', { count: plan.branchCount || 3 })
-                          : t('plans.branchesAllowedPlural', { count: plan.branchCount || 3 })}
-                      </span>
-                    </div>
-
-                    {/* Members */}
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        backgroundColor: 'var(--bg-surface-hover)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-main)',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <Users size={14} style={{ color: 'var(--primary-600)' }} />
-                      <span>
-                        {(plan.memberCount || 10) === 1
-                          ? t('plans.membersAllowed', { count: plan.memberCount || 10 })
-                          : t('plans.membersAllowedPlural', { count: plan.memberCount || 10 })}
-                      </span>
-                    </div>
-
-                    {/* Upload Limit */}
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        backgroundColor: 'var(--bg-surface-hover)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-main)',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <HardDrive size={14} style={{ color: 'var(--primary-600)' }} />
-                      <span>
-                        {t('plans.uploadLimitAllowed', { count: plan.maxUploadFileSizeMb || 25 })}
-                      </span>
-                    </div>
+                    <Layers size={15} style={{ color: 'var(--primary-600)' }} />
+                    <span>
+                      {plan.moduleCount === 1
+                        ? t('plans.modulesAllowed', { count: 1 })
+                        : t('plans.modulesAllowedPlural', { count: plan.moduleCount })}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      padding: '10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-surface-hover)',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <MapPin size={15} style={{ color: 'var(--primary-600)' }} />
+                    <span>
+                      {plan.branchCount === 1
+                        ? t('plans.branchesAllowed', { count: 1 })
+                        : t('plans.branchesAllowedPlural', { count: plan.branchCount })}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      padding: '10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-surface-hover)',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <Users size={15} style={{ color: 'var(--primary-600)' }} />
+                    <span>
+                      {plan.memberCount === 1
+                        ? t('plans.membersAllowed', { count: 1 })
+                        : t('plans.membersAllowedPlural', { count: plan.memberCount })}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      padding: '10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-surface-hover)',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <HardDrive size={15} style={{ color: 'var(--primary-600)' }} />
+                    <span>{plan.maxUploadFileSizeMb} MB</span>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Actions */}
+              {/* Card Footer Actions */}
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  paddingTop: '16px',
+                  paddingTop: '14px',
                   borderTop: '1px solid var(--border-subtle)',
                 }}
               >
-                <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
                   {new Date(plan.createdAt).toLocaleDateString()}
-                </div>
-
+                </span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => handleOpenEditModal(plan)}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '12px' }}
                   >
                     <Edit2 size={13} /> {t('plans.editBtn')}
                   </button>
                   <button
                     onClick={() => setDeletingPlan(plan)}
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      backgroundColor: 'var(--badge-danger-bg)',
-                      color: 'var(--badge-danger-text)',
-                      border: '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--rose-500)' }}
                   >
                     <Trash2 size={13} /> {t('plans.deleteBtn')}
                   </button>

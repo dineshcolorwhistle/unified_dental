@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../core/context/AuthContext';
+import { useToast } from '../core/context/ToastContext';
+import { Pagination } from '../components/common/Pagination';
 import {
   Users,
   Plus,
@@ -16,12 +18,17 @@ import {
 export const UsersPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -56,10 +63,21 @@ export const UsersPage: React.FC = () => {
     loadData();
   }, [user?.activeTenant?.id, search]);
 
+  const totalPages = Math.max(1, Math.ceil(users.length / pageSize));
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return users.slice(start, start + pageSize);
+  }, [users, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await api.post('/users', formData);
+      toast.success(`User "${formData.name}" created and invited successfully`, 'User Created');
       setShowModal(false);
       setFormData({
         name: '',
@@ -72,7 +90,8 @@ export const UsersPage: React.FC = () => {
       });
       loadData();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || 'Failed to create/invite user');
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to create/invite user';
+      toast.error(msg, 'User Creation Failed');
     }
   };
 
@@ -103,98 +122,111 @@ export const UsersPage: React.FC = () => {
       </div>
 
       {/* Users Table */}
-      <div className="table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{t('users.name')}</th>
-              <th>{t('users.email')}</th>
-              <th>{t('users.roles')}</th>
-              <th>{t('users.branch')}</th>
-              <th>{t('users.modules')}</th>
-              <th>{t('users.status')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
-                  {t('common.loading')}
-                </td>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-responsive">
+          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface-hover)' }}>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.name')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.email')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.roles')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.branch')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.modules')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.status')}</th>
               </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No users found in this organization.
-                </td>
-              </tr>
-            ) : (
-              users.map((u) => {
-                const assignedRoles = u.userRoles?.map((ur: any) => ur.role?.name).join(', ') || 'Staff';
-                const assignedBranches = u.userBranches?.map((ub: any) => ub.branch?.name).join(', ') || 'All';
-                const modules = u.moduleAccess?.filter((ma: any) => ma.isActive).map((ma: any) => ma.moduleKey) || [];
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
+                    {t('common.loading')}
+                  </td>
+                </tr>
+              ) : paginatedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    No users found in this organization.
+                  </td>
+                </tr>
+              ) : (
+                paginatedUsers.map((u) => {
+                  const assignedRoles = u.userRoles?.map((ur: any) => ur.role?.name).join(', ') || 'Staff';
+                  const assignedBranches = u.userBranches?.map((ub: any) => ub.branch?.name).join(', ') || 'All';
+                  const modules = u.moduleAccess?.filter((ma: any) => ma.isActive).map((ma: any) => ma.moduleKey) || [];
 
-                return (
-                  <tr key={u.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--primary-700)',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '13px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {u.name?.charAt(0).toUpperCase()}
+                  return (
+                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="table-row-hover">
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--primary-700)',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {u.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{u.name}</div>
+                            {u.phone && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{u.phone}</div>}
+                          </div>
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{u.name}</div>
-                          {u.phone && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{u.phone}</div>}
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
+                          <Mail size={13} style={{ color: 'var(--text-subtle)' }} /> {u.email}
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                        <Mail size={13} style={{ color: 'var(--text-subtle)' }} /> {u.email}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge badge-primary" style={{ fontSize: '11px' }}>
-                        <Shield size={11} /> {assignedRoles}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                        <Building size={13} style={{ color: 'var(--text-subtle)' }} /> {assignedBranches}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        {modules.map((m: string) => (
-                          <span key={m} className="badge badge-info" style={{ fontSize: '10px' }}>
-                            {m}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${u.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}>
-                        {u.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className="badge badge-primary" style={{ fontSize: '11px' }}>
+                          <Shield size={11} /> {assignedRoles}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
+                          <Building size={13} style={{ color: 'var(--text-subtle)' }} /> {assignedBranches}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {modules.map((m: string) => (
+                            <span key={m} className="badge badge-info" style={{ fontSize: '10px' }}>
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className={`badge ${u.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}>
+                          {u.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Global Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={users.length}
+          pageSize={pageSize}
+          pageSizeOptions={[5, 10, 20, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Invite User Modal */}

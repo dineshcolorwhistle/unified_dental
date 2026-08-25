@@ -101,6 +101,7 @@ model TenantModule {
 model Branch {
   id         String        @id @default(uuid())
   tenantId   String        @map("tenant_id")
+  moduleKey  String        @default("CLINIC") @map("module_key")
   name       String
   code       String?
   address    String?
@@ -119,6 +120,7 @@ model Branch {
   files       FileRecord[]
 
   @@index([tenantId])
+  @@index([tenantId, moduleKey])
   @@map("branches")
 }
 

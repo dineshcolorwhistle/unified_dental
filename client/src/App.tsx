@@ -1,13 +1,17 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './core/context/AuthContext';
+import { ModuleProvider } from './core/context/ModuleContext';
 import { NotificationProvider } from './core/context/NotificationContext';
 import { ThemeProvider } from './core/context/ThemeContext';
+import { ToastProvider } from './core/context/ToastContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { BranchesPage } from './pages/BranchesPage';
+import { UsersPage } from './pages/UsersPage';
 import { TenantsPage } from './pages/TenantsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { PlansPage } from './pages/PlansPage';
@@ -41,54 +45,59 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; superAdminOnly?: boo
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <NotificationProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <ToastProvider>
+        <AuthProvider>
+          <ModuleProvider>
+            <NotificationProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<DashboardPage />} />
-              <Route
-                path="tenants"
-                element={
-                  <ProtectedRoute superAdminOnly>
-                    <TenantsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="modules"
-                element={
-                  <ProtectedRoute superAdminOnly>
-                    <ModulesPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="plans"
-                element={
-                  <ProtectedRoute superAdminOnly>
-                    <PlansPage />
-                  </ProtectedRoute>
-                }
-              />
-            </Route>
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<DashboardPage />} />
+                    <Route path="branches" element={<BranchesPage />} />
+                    <Route
+                      path="tenants"
+                      element={
+                        <ProtectedRoute superAdminOnly>
+                          <TenantsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="modules"
+                      element={
+                        <ProtectedRoute superAdminOnly>
+                          <ModulesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="plans"
+                      element={
+                        <ProtectedRoute superAdminOnly>
+                          <PlansPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </NotificationProvider>
-    </AuthProvider>
-  </ThemeProvider>
-);
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </BrowserRouter>
+            </NotificationProvider>
+          </ModuleProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
+  );
 };

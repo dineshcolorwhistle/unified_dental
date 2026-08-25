@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { Pagination } from '../components/common/Pagination';
 import { Clock, User, Building, Eye } from 'lucide-react';
 
 export const AuditLogsPage: React.FC = () => {
@@ -8,15 +9,21 @@ export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
-  const fetchLogs = async (p = 1) => {
+  const fetchLogs = async (p = 1, limit = pageSize) => {
     try {
       setLoading(true);
-      const res = await api.get('/audit-logs', { params: { page: p, limit: 20 } });
-      setLogs(res.data?.logs || []);
-      setTotalPages(res.data?.meta?.totalPages || 1);
+      const res = await api.get('/audit-logs', { params: { page: p, limit } });
+      const receivedLogs = res.data?.logs || (Array.isArray(res.data) ? res.data : []);
+      const total = res.data?.meta?.total || receivedLogs.length;
+      const pages = res.data?.meta?.totalPages || Math.max(1, Math.ceil(total / limit));
+      setLogs(receivedLogs);
+      setTotalItems(total);
+      setTotalPages(pages);
       setPage(p);
     } catch (e) {
       console.error('Failed to load audit logs:', e);
@@ -26,8 +33,17 @@ export const AuditLogsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchLogs(1);
-  }, []);
+    fetchLogs(1, pageSize);
+  }, [pageSize]);
+
+  const handlePageChange = (newPage: number) => {
+    fetchLogs(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    fetchLogs(1, newSize);
+  };
 
   return (
     <div>
@@ -37,101 +53,82 @@ export const AuditLogsPage: React.FC = () => {
       </div>
 
       {/* Audit Table */}
-      <div className="table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{t('audit.action')}</th>
-              <th>{t('audit.resource')}</th>
-              <th>{t('audit.performedBy')}</th>
-              <th>{t('audit.branch')}</th>
-              <th>{t('audit.timestamp')}</th>
-              <th>{t('audit.details')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
-                  {t('common.loading')}
-                </td>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-responsive">
+          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface-hover)' }}>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.action')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.resource')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.performedBy')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.branch')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.timestamp')}</th>
+                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.details')}</th>
               </tr>
-            ) : logs.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  No audit records found.
-                </td>
-              </tr>
-            ) : (
-              logs.map((log) => (
-                <tr key={log.id}>
-                  <td>
-                    <span className="badge badge-info" style={{ fontFamily: 'monospace' }}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{log.resourceType}</div>
-                    {log.resourceId && (
-                      <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>#{log.resourceId.substring(0, 8)}</div>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <User size={13} style={{ color: 'var(--text-subtle)' }} />
-                      <span>{log.user?.name || log.user?.email || 'System'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Building size={13} style={{ color: 'var(--text-subtle)' }} />
-                      <span>{log.branch?.name || 'Organization-wide'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                      <Clock size={12} />
-                      {new Date(log.createdAt).toLocaleString()}
-                    </div>
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => setSelectedLog(log)}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '11px', padding: '4px 8px' }}
-                    >
-                      <Eye size={12} /> Inspect
-                    </button>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
+                    {t('common.loading')}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px' }}>
-          <button
-            disabled={page <= 1}
-            onClick={() => fetchLogs(page - 1)}
-            className="btn btn-secondary btn-sm"
-          >
-            Previous
-          </button>
-          <span style={{ fontSize: '13px', display: 'flex', alignItems: 'center', padding: '0 12px', color: 'var(--text-main)' }}>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => fetchLogs(page + 1)}
-            className="btn btn-secondary btn-sm"
-          >
-            Next
-          </button>
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    No audit records found.
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="table-row-hover">
+                    <td style={{ padding: '12px 16px' }}>
+                      <span className="badge badge-info" style={{ fontSize: '11px' }}>{log.action}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-main)' }}>
+                      {log.resourceType} {log.resourceId ? `(#${log.resourceId.substring(0, 6)})` : ''}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
+                        <User size={13} style={{ color: 'var(--text-subtle)' }} />
+                        {log.user?.name || log.user?.email || 'System'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                      {log.branch?.name || 'Tenant Scope'}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <Clock size={12} />
+                        {new Date(log.createdAt).toLocaleString()}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <button
+                        onClick={() => setSelectedLog(log)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '11px', padding: '4px 8px' }}
+                      >
+                        <Eye size={12} /> Inspect
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      </div>
 
       {/* Inspect Log Details Modal */}
       {selectedLog && (

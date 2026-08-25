@@ -1,17 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppHeader } from './AppHeader';
 import { Sidebar } from './Sidebar';
-import { useAuth } from '../../core/context/AuthContext';
+import { useModule } from '../../core/context/ModuleContext';
 
 export const AppLayout: React.FC = () => {
-  const { user } = useAuth();
-  const [activeModuleMode, setActiveModuleMode] = useState<'PLATFORM' | 'CLINIC' | 'LAB'>(() => {
-    if (user?.isSuperAdmin && !user.activeTenant) return 'PLATFORM';
-    if (user?.activeTenant?.enabledModules.includes('LAB')) return 'LAB';
-    if (user?.activeTenant?.enabledModules.includes('CLINIC')) return 'CLINIC';
-    return 'PLATFORM';
-  });
+  const { activeModuleMode, setActiveModuleMode } = useModule();
 
   return (
     <div className="app-container">

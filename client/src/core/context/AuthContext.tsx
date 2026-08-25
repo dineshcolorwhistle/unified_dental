@@ -21,6 +21,7 @@ export interface UserProfile {
     id: string;
     name: string;
     code?: string;
+    moduleKey?: string;
     isDefault: boolean;
   }[];
   tenants: {

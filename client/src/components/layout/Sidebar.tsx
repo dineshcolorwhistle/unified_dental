@@ -54,6 +54,28 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
   );
 };
 
+function formatTitleCase(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/[-_]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function getBrandInitials(name: string): string {
+  if (!name) return 'UD';
+  const words = name.replace(/[-_]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+  }
+  if (words.length === 1 && words[0].length >= 2) {
+    return words[0].substring(0, 2).toUpperCase();
+  }
+  return (words[0]?.charAt(0) || 'U').toUpperCase();
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
@@ -72,6 +94,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
   const roleName = user?.roles?.[0] || (user?.isSuperAdmin ? 'Super Admin' : 'User');
 
+  const isTenantContext = Boolean(user?.activeTenant);
+  const rawBrandName = isTenantContext ? user!.activeTenant!.name : 'Unified Dental';
+  const brandName = formatTitleCase(rawBrandName);
+  const brandInitials = isTenantContext ? getBrandInitials(rawBrandName) : '🦷';
+
   return (
     <aside className={`app-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       {/* Brand & Collapse Header */}
@@ -81,18 +108,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, overflow: 'hidden' }}>
               <div
                 style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  backgroundColor: '#0f766e',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '9px',
+                  background: 'linear-gradient(135deg, #0f766e, #0d9488)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '18px',
+                  fontSize: isTenantContext ? '13px' : '18px',
                   flexShrink: 0,
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  boxShadow: '0 2px 6px rgba(15, 118, 110, 0.35)',
                 }}
               >
-                🦷
+                {brandInitials}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span
@@ -105,20 +136,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                   }}
+                  title={brandName}
                 >
-                  Unified Dental
+                  {brandName}
                 </span>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    color: '#06b6d4',
-                    fontWeight: 700,
-                    letterSpacing: '0.05em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {t('nav.platformAdmin')}
-                </span>
+                {!isTenantContext && (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      color: '#06b6d4',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {t('nav.platformAdmin')}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -139,13 +173,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               title={t('nav.expandSidebar')}
               aria-label={t('nav.expandSidebar')}
             >
-              <span className="brand-logo-icon">🦷</span>
+              <span className="brand-logo-icon">{brandInitials}</span>
               <span className="expand-overlay-icon">
                 <PanelLeftOpen size={16} />
               </span>
             </button>
             <div className="sidebar-tooltip brand-tooltip" role="tooltip">
-              <div style={{ fontWeight: 700, color: '#ffffff' }}>Unified Dental</div>
+              <div style={{ fontWeight: 700, color: '#ffffff' }}>{brandName}</div>
               <div style={{ fontSize: '11px', color: '#06b6d4', marginTop: '1px' }}>
                 {t('nav.expandSidebar')}
               </div>
@@ -169,6 +203,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
           isCollapsed={isCollapsed}
         />
 
+        {/* Tenant Specific Management Menu Items (Connected to selected module) */}
+        {isTenantContext && (
+          <SidebarNavItem
+            to="/branches"
+            icon={<Building2 size={19} />}
+            label={t('nav.branches')}
+            isCollapsed={isCollapsed}
+          />
+        )}
+
+        {/* Platform Super Admin Items */}
         {user?.isSuperAdmin && (
           <>
             <SidebarNavItem

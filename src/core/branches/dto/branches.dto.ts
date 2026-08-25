@@ -6,6 +6,10 @@ export class CreateBranchDto {
   @IsString()
   tenantId?: string;
 
+  @IsOptional()
+  @IsString()
+  moduleKey?: string;
+
   @IsNotEmpty()
   @IsString()
   name: string;
@@ -40,6 +44,10 @@ export class CreateBranchDto {
 }
 
 export class UpdateBranchDto {
+  @IsOptional()
+  @IsString()
+  moduleKey?: string;
+
   @IsOptional()
   @IsString()
   name?: string;

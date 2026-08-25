@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BranchesService } from './branches.service';
@@ -18,9 +20,12 @@ export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all branches in the active tenant organization' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.branchesService.findAllForTenant(user.activeTenantId);
+  @ApiOperation({ summary: 'Get all branches in the active tenant organization (optionally filtered by moduleKey)' })
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('moduleKey') moduleKey?: string,
+  ) {
+    return this.branchesService.findAllForTenant(user.activeTenantId, moduleKey);
   }
 
   @Get(':id')
@@ -46,5 +51,22 @@ export class BranchesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.branchesService.update(id, dto, user.activeTenantId, user.id);
+  }
+
+  @Post('reset')
+  @ApiOperation({ summary: 'Reset all branches for the active tenant organization' })
+  reset(
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.branchesService.resetBranches(user.activeTenantId, user.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a branch location' })
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.branchesService.remove(id, user.activeTenantId, user.id);
   }
 }

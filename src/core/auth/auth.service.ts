@@ -85,38 +85,17 @@ export class AuthService {
     }
 
     // 2. Resolve Active Branch Context
-    let branchId = dto.branchId;
-    if (!branchId && tenantId) {
-      // Find user's default branch or first branch in tenant
-      const userBranch = await this.prisma.userBranch.findFirst({
-        where: {
-          userId: user.id,
-          branch: { tenantId },
-        },
-        orderBy: { isDefault: 'desc' },
-      });
-
-      if (userBranch) {
-        branchId = userBranch.branchId;
-      } else {
-        const tenantBranch = await this.prisma.branch.findFirst({
-          where: { tenantId, status: 'ACTIVE' },
-          orderBy: { isDefault: 'desc' },
-        });
-        if (tenantBranch) {
-          branchId = tenantBranch.id;
-        }
-      }
-    }
+    let branchId = dto.branchId || 'all';
 
     // 3. Issue Tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.isSuperAdmin, tenantId, branchId);
+    const tokenBranchId = branchId === 'all' ? undefined : branchId;
+    const tokens = await this.generateTokens(user.id, user.email, user.isSuperAdmin, tenantId, tokenBranchId);
 
     // 4. Log Audit
     await this.prisma.auditLog.create({
       data: {
         tenantId,
-        branchId,
+        branchId: tokenBranchId || null,
         userId: user.id,
         action: 'LOGIN',
         resourceType: 'AUTH',
@@ -282,7 +261,7 @@ export class AuthService {
       ? effectiveTenant.branches
       : user.userBranches.map((ub) => ub.branch);
 
-    const effectiveBranchId = activeBranchId || user.userBranches.find((ub) => ub.branch.tenantId === effectiveTenantId && ub.isDefault)?.branchId || availableBranches[0]?.id;
+    const effectiveBranchId = activeBranchId || 'all';
 
     // Compute permissions
     const permissionKeys = new Set<string>();
@@ -322,6 +301,7 @@ export class AuthService {
         id: b.id,
         name: b.name,
         code: b.code,
+        moduleKey: (b as any).moduleKey || 'CLINIC',
         isDefault: b.isDefault,
       })),
       tenants: user.memberships.map((m) => ({
@@ -336,20 +316,25 @@ export class AuthService {
     };
   }
 
-  async switchBranch(userId: string, tenantId: string, branchId: string) {
-    const branch = await this.prisma.branch.findFirst({
-      where: { id: branchId, tenantId },
-    });
+  async switchBranch(userId: string, tenantId: string, branchId?: string) {
+    let targetBranchId: string | undefined = branchId;
+    if (targetBranchId && targetBranchId !== 'all' && targetBranchId !== 'null') {
+      const branch = await this.prisma.branch.findFirst({
+        where: { id: targetBranchId, tenantId },
+      });
 
-    if (!branch) {
-      throw new NotFoundException('Branch not found in this organization');
+      if (!branch) {
+        throw new NotFoundException('Branch not found in this organization');
+      }
+    } else {
+      targetBranchId = undefined;
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const tokens = await this.generateTokens(user.id, user.email, user.isSuperAdmin, tenantId, branchId);
-    const profile = await this.getMe(user.id, tenantId, branchId);
+    const tokens = await this.generateTokens(user.id, user.email, user.isSuperAdmin, tenantId, targetBranchId);
+    const profile = await this.getMe(user.id, tenantId, targetBranchId ? targetBranchId : 'all');
 
     return {
       accessToken: tokens.accessToken,

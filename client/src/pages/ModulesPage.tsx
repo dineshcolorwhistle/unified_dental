@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '../core/context/ToastContext';
 import {
   Layers,
   Plus,
@@ -41,6 +42,7 @@ function nameToCode(name: string): string {
 
 export const ModulesPage: React.FC = () => {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [modules, setModules] = useState<SystemModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -120,25 +122,24 @@ export const ModulesPage: React.FC = () => {
   const handleSaveModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
-      alert(t('modules.alerts.nameCodeRequired'));
+      toast.warning(t('modules.alerts.nameCodeRequired'), 'Validation Error');
       return;
     }
 
     try {
       setSaving(true);
       if (editingModule) {
-        await api.patch(`/modules/${editingModule.id}`, {
-          name: formData.name,
-          description: formData.description,
-          isEnabled: formData.isEnabled,
-        });
+        await api.patch(`/modules/${editingModule.id}`, formData);
+        toast.success(`Module "${formData.name}" updated successfully`, 'Module Updated');
       } else {
         await api.post('/modules', formData);
+        toast.success(`Module "${formData.name}" created successfully`, 'Module Created');
       }
       setShowModal(false);
       fetchModules();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.saveFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.saveFailed');
+      toast.error(msg, 'Save Failed');
     } finally {
       setSaving(false);
     }
@@ -146,12 +147,12 @@ export const ModulesPage: React.FC = () => {
 
   const handleToggleStatus = async (mod: SystemModule) => {
     try {
-      await api.patch(`/modules/${mod.id}/toggle`, {
-        isEnabled: !mod.isEnabled,
-      });
+      await api.patch(`/modules/${mod.id}/toggle-status`, { isEnabled: !mod.isEnabled });
+      toast.success(`Module status updated`, 'Status Changed');
       fetchModules();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || t('modules.alerts.toggleFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.toggleFailed');
+      toast.error(msg, 'Status Update Failed');
     }
   };
 
@@ -160,21 +161,25 @@ export const ModulesPage: React.FC = () => {
     try {
       setDeleting(true);
       await api.delete(`/modules/${deletingModule.id}`);
+      toast.success(`Module deleted successfully`, 'Module Deleted');
       setDeletingModule(null);
       fetchModules();
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.deleteFailed'));
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || t('modules.alerts.deleteFailed');
+      toast.error(msg, 'Delete Failed');
     } finally {
       setDeleting(false);
     }
   };
 
-  const filteredModules = modules.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.code.toLowerCase().includes(search.toLowerCase()) ||
-      (m.description && m.description.toLowerCase().includes(search.toLowerCase())),
-  );
+  const filteredModules = useMemo(() => {
+    return modules.filter(
+      (m) =>
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.code.toLowerCase().includes(search.toLowerCase()) ||
+        (m.description && m.description.toLowerCase().includes(search.toLowerCase())),
+    );
+  }, [modules, search]);
 
   const activeCount = modules.filter((m) => m.isEnabled).length;
   const disabledCount = modules.length - activeCount;
@@ -206,13 +211,13 @@ export const ModulesPage: React.FC = () => {
                 color: 'var(--primary-600)',
               }}
             >
-              <Layers size={20} />
+              <Layers size={18} />
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
               {t('modules.title')}
             </h1>
           </div>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '4px 0 0 0' }}>
             {t('modules.subtitle')}
           </p>
         </div>
@@ -231,7 +236,7 @@ export const ModulesPage: React.FC = () => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: '16px',
           marginBottom: '24px',
         }}
@@ -450,23 +455,31 @@ export const ModulesPage: React.FC = () => {
                       padding: 0,
                     }}
                   >
-                    {mod.isEnabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+                    {mod.isEnabled ? (
+                      <ToggleRight size={28} style={{ color: 'var(--emerald-500)' }} />
+                    ) : (
+                      <ToggleLeft size={28} style={{ color: 'var(--text-subtle)' }} />
+                    )}
                   </button>
                 </div>
 
-                {/* Module Name */}
-                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', marginBottom: '8px' }}>
+                {/* Module Name & Description */}
+                <h3
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: 'var(--text-main)',
+                    margin: '0 0 8px 0',
+                  }}
+                >
                   {mod.name}
                 </h3>
-
-                {/* Description */}
                 <p
                   style={{
                     fontSize: '13px',
                     color: 'var(--text-muted)',
-                    lineHeight: '1.5',
-                    minHeight: '40px',
-                    marginBottom: '20px',
+                    lineHeight: 1.5,
+                    margin: 0,
                   }}
                 >
                   {mod.description || <span style={{ fontStyle: 'italic', color: 'var(--text-subtle)' }}>No description provided</span>}
@@ -490,26 +503,15 @@ export const ModulesPage: React.FC = () => {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => handleOpenEditModal(mod)}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '12px' }}
                   >
                     <Edit2 size={13} /> {t('modules.editBtn')}
                   </button>
                   <button
                     onClick={() => setDeletingModule(mod)}
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      backgroundColor: 'var(--badge-danger-bg)',
-                      color: 'var(--badge-danger-text)',
-                      border: '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--rose-500)' }}
                   >
                     <Trash2 size={13} /> {t('modules.deleteBtn')}
                   </button>

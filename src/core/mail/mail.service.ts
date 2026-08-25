@@ -94,10 +94,22 @@ export class MailService {
   }
 
   /**
-   * Asynchronously queue an email with BullMQ (with automatic retries & exponential backoff).
-   * Gracefully falls back to direct send if the queue is unavailable.
+   * Send email.
+   * - In development mode (NODE_ENV !== 'production') or when ENABLE_DIRECT_MAIL is enabled:
+   *   Sends directly via SMTP so emails arrive immediately in local dev without Redis/worker dependency.
+   * - In production: Queues with BullMQ (with retries & graceful fallback to direct send).
    */
   async sendMail(options: SendMailOptions) {
+    const nodeEnv = this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development';
+    const enableDirectMail = this.configService.get<string>('ENABLE_DIRECT_MAIL') === 'true';
+    const useQueue = this.configService.get<string>('USE_QUEUE') === 'true';
+
+    // In local development or when explicit direct mail is configured, send directly via SMTP
+    if (nodeEnv === 'development' || enableDirectMail || (!useQueue && nodeEnv !== 'production')) {
+      this.logger.log(`⚡ [Direct Send Mode] Sending email directly to ${options.to} (${nodeEnv} environment)...`);
+      return this.sendDirectMail(options);
+    }
+
     try {
       const job = await this.mailQueue.add('send-mail', options, {
         attempts: 3,
