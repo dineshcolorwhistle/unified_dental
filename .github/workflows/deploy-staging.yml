@@ -5,12 +5,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      seed_db:
-        description: 'Run database seed (Platform Admin) on staging?'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   build-and-test:
@@ -72,8 +66,8 @@ jobs:
 
             echo "📦 Fetching latest code from origin ($GITHUB_REF_NAME)..."
             git fetch --all
-            git checkout $GITHUB_REF_NAME || git checkout staging || git checkout main
-            git pull origin $GITHUB_REF_NAME || git pull
+            git checkout main || git checkout $GITHUB_REF_NAME
+            git pull origin main || git pull
 
             echo "📥 Installing Backend Dependencies..."
             npm install --include=dev
@@ -89,8 +83,6 @@ jobs:
 
             echo "🗄️ Applying Database Schema Migrations..."
             npx prisma db push --skip-generate
-
-            ${{ github.event.inputs.seed_db == 'true' && 'echo "🌱 Seeding Database..." && npx prisma db seed' || 'echo "⏭️ Skipping DB seed"' }}
 
             echo "🏗️ Building NestJS Backend..."
             npm run build:server
