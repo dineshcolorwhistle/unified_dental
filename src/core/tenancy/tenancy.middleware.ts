@@ -1,4 +1,5 @@
-import { Injectable, NestMiddleware, NotFoundException } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 
@@ -19,9 +20,29 @@ declare global {
   }
 }
 
+const SYSTEM_SUBDOMAINS = new Set([
+  'www',
+  'api',
+  'app',
+  'admin',
+  'staging',
+  'staging-unified',
+  'dev',
+  'demo',
+  'platform',
+  'portal',
+  'root',
+  'superadmin',
+  'backend',
+  'localhost',
+]);
+
 @Injectable()
 export class TenancyMiddleware implements NestMiddleware {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
     // 1. Try resolving slug from custom header (useful for development / mobile API calls)
@@ -29,14 +50,41 @@ export class TenancyMiddleware implements NestMiddleware {
 
     // 2. If not in header, extract from Host header
     if (!slug && req.headers.host) {
-      const host = req.headers.host.split(':')[0]; // remove port
-      const parts = host.split('.');
+      const host = req.headers.host.split(':')[0].toLowerCase(); // remove port
+      const baseDomain = (
+        this.configService.get<string>('BASE_DOMAIN') ||
+        process.env.BASE_DOMAIN ||
+        ''
+      ).toLowerCase().trim();
 
-      // If host is subdomain.domain.com or subdomain.localhost (parts.length >= 2)
-      if (parts.length > 2 || (parts.length === 2 && parts[1] === 'localhost')) {
-        const sub = parts[0];
-        if (sub !== 'www' && sub !== 'api' && sub !== 'app') {
-          slug = sub.toLowerCase();
+      if (baseDomain) {
+        if (host === baseDomain || host === `www.${baseDomain}`) {
+          slug = undefined;
+        } else if (host.endsWith(`.${baseDomain}`)) {
+          const sub = host.slice(0, -(baseDomain.length + 1));
+          if (!SYSTEM_SUBDOMAINS.has(sub)) {
+            slug = sub;
+          }
+        }
+      }
+
+      if (!slug && !baseDomain) {
+        const parts = host.split('.');
+        if (parts.length >= 2 && parts[parts.length - 1] === 'localhost') {
+          const sub = parts[0];
+          if (!SYSTEM_SUBDOMAINS.has(sub)) {
+            slug = sub;
+          }
+        } else if (parts.length === 3) {
+          const sub = parts[0];
+          if (!SYSTEM_SUBDOMAINS.has(sub)) {
+            slug = sub;
+          }
+        } else if (parts.length >= 4) {
+          const sub = parts[0];
+          if (!SYSTEM_SUBDOMAINS.has(sub)) {
+            slug = sub;
+          }
         }
       }
     }
