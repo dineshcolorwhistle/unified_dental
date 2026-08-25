@@ -253,7 +253,7 @@ export const ModulesPage: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Total Modules
+              {t('modules.totalModules')}
             </div>
             <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
               {modules.length}
@@ -278,7 +278,7 @@ export const ModulesPage: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Active Modules
+              {t('modules.activeModules')}
             </div>
             <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--sky-500)', marginTop: '2px' }}>
               {activeCount}
@@ -303,7 +303,7 @@ export const ModulesPage: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Disabled Modules
+              {t('modules.disabledModules')}
             </div>
             <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-muted)', marginTop: '2px' }}>
               {disabledCount}
