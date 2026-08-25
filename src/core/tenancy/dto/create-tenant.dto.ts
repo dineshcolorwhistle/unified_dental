@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, Matches } from 'class-validator';
+import { IsArray, IsEmail, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, Matches } from 'class-validator';
 import { TenantStatus } from '@prisma/client';
 
 export class CreateTenantDto {
@@ -42,17 +42,13 @@ export class CreateTenantDto {
   @IsObject()
   settings?: Record<string, any>;
 
-  @IsOptional()
-  @IsString()
-  branchName?: string;
+  @IsNotEmpty({ message: 'Initial administrator email is required' })
+  @IsEmail({}, { message: 'Invalid administrator email format' })
+  adminEmail: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'Initial administrator name is required' })
   @IsString()
-  adminEmail?: string;
-
-  @IsOptional()
-  @IsString()
-  adminName?: string;
+  adminName: string;
 
   @IsOptional()
   @IsString()

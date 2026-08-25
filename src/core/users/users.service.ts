@@ -112,7 +112,6 @@ export class UsersService {
       const currentMemberCount = await tx.tenantMembership.count({
         where: {
           tenantId: targetTenantId,
-          isOwner: false,
         },
       });
 
@@ -125,7 +124,7 @@ export class UsersService {
 
       if (currentMemberCount >= effectiveMaxMembers) {
         throw new BadRequestException(
-          `Organization has reached the maximum allowed limit of ${effectiveMaxMembers} team member(s) (excluding tenant admin). Please upgrade your subscription plan or contact administrator for a limit override.`,
+          `Organization has reached the maximum allowed limit of ${effectiveMaxMembers} team member(s) (including tenant admin). Please upgrade your subscription plan or contact administrator for a limit override.`,
         );
       }
 
@@ -211,7 +210,7 @@ export class UsersService {
           data: {
             userId: user.id,
             tenantId: targetTenantId,
-            branchId,
+            branchId: branchId || null,
             roleId: dto.roleId,
           },
         });
@@ -222,7 +221,7 @@ export class UsersService {
             data: {
               userId: user.id,
               tenantId: targetTenantId,
-              branchId,
+              branchId: branchId || null,
               roleId: staffRole.id,
             },
           });

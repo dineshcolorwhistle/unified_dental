@@ -99,8 +99,47 @@ export const BranchesPage: React.FC = () => {
             {t('common.loading')}
           </div>
         ) : branches.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', gridColumn: '1 / -1', color: 'var(--text-muted)' }}>
-            No branches found.
+          <div
+            className="card"
+            style={{
+              textAlign: 'center',
+              padding: '48px 24px',
+              gridColumn: '1 / -1',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+            }}
+          >
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '16px',
+                backgroundColor: 'var(--badge-primary-bg)',
+                color: 'var(--primary-600)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '4px',
+              }}
+            >
+              <Building2 size={28} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+              {t('branches.noBranches')}
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, maxWidth: '440px', lineHeight: 1.5 }}>
+              {t('branches.noBranchesDesc')}
+            </p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn btn-primary"
+              style={{ marginTop: '8px' }}
+            >
+              <Plus size={16} /> {t('branches.createBtn')}
+            </button>
           </div>
         ) : (
           branches.map((b) => (

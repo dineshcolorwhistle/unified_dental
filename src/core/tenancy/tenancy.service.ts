@@ -110,6 +110,13 @@ export class TenancyService {
       throw new ConflictException(`Tenant subdomain '${slug}' is already in use`);
     }
 
+    const adminEmail = dto.adminEmail?.toLowerCase().trim();
+    const adminName = dto.adminName?.trim();
+
+    if (!adminEmail || !adminName) {
+      throw new BadRequestException('Initial administrator name and email are required');
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
       let modulesToEnable = dto.modules || [];
       let plan: any = null;
@@ -172,84 +179,61 @@ export class TenancyService {
         });
       }
 
-      // 3. Create default branch
-      const branchName = dto.branchName?.trim() || 'Main Branch';
-      const defaultBranch = await tx.branch.create({
-        data: {
-          tenantId: tenant.id,
-          name: branchName,
-          code: 'MAIN-01',
-          isDefault: true,
+      // 3. Create Initial Tenant Administrator User
+      const initialPassword = dto.adminPassword?.trim() || uuidv4();
+      const passwordHash = await bcrypt.hash(initialPassword, 10);
+      const adminUser = await tx.user.upsert({
+        where: { email: adminEmail },
+        update: {},
+        create: {
+          email: adminEmail,
+          passwordHash,
+          name: adminName,
+          locale: dto.locale || 'en',
+          status: UserStatus.ACTIVE,
         },
       });
 
-      // 4. Create Initial Tenant Admin User if provided
-      let adminUser: { id: string } | null = null;
-      if (dto.adminEmail) {
-        const initialPassword = dto.adminPassword?.trim() || uuidv4();
-        const passwordHash = await bcrypt.hash(initialPassword, 10);
-        adminUser = await tx.user.upsert({
-          where: { email: dto.adminEmail.toLowerCase().trim() },
-          update: {},
-          create: {
-            email: dto.adminEmail.toLowerCase().trim(),
-            passwordHash,
-            name: dto.adminName || 'Tenant Administrator',
-            locale: dto.locale || 'en',
-            status: UserStatus.ACTIVE,
-          },
-        });
+      // Add Tenant Membership as Owner
+      await tx.tenantMembership.create({
+        data: {
+          userId: adminUser.id,
+          tenantId: tenant.id,
+          isOwner: true,
+          status: UserStatus.ACTIVE,
+        },
+      });
 
-        // Add Tenant Membership as Owner
-        await tx.tenantMembership.create({
+      // Grant access to selected modules
+      for (const mod of modulesToEnable) {
+        await tx.userModuleAccess.create({
           data: {
             userId: adminUser.id,
             tenantId: tenant.id,
-            isOwner: true,
-            status: UserStatus.ACTIVE,
+            moduleKey: mod,
+            isActive: true,
           },
         });
-
-        // Assign default branch
-        await tx.userBranch.create({
-          data: {
-            userId: adminUser.id,
-            branchId: defaultBranch.id,
-            isDefault: true,
-          },
-        });
-
-        // Grant access to selected modules
-        for (const mod of modulesToEnable) {
-          await tx.userModuleAccess.create({
-            data: {
-              userId: adminUser.id,
-              tenantId: tenant.id,
-              moduleKey: mod,
-              isActive: true,
-            },
-          });
-        }
-
-        // Find tenant-admin role
-        const tenantAdminRole = await tx.role.findFirst({ where: { slug: 'tenant-admin' } });
-        if (tenantAdminRole) {
-          await tx.userRole.create({
-            data: {
-              userId: adminUser.id,
-              tenantId: tenant.id,
-              branchId: defaultBranch.id,
-              roleId: tenantAdminRole.id,
-            },
-          });
-        }
       }
 
-      // 5. Audit Log
+      // Find tenant-admin role and assign tenant-wide (branchId: null)
+      const tenantAdminRole = await tx.role.findFirst({ where: { slug: 'tenant-admin' } });
+      if (tenantAdminRole) {
+        await tx.userRole.create({
+          data: {
+            userId: adminUser.id,
+            tenantId: tenant.id,
+            branchId: null,
+            roleId: tenantAdminRole.id,
+          },
+        });
+      }
+
+      // 4. Audit Log
       await tx.auditLog.create({
         data: {
           tenantId: tenant.id,
-          branchId: defaultBranch.id,
+          branchId: null,
           userId: creatorUserId,
           action: 'CREATE_TENANT',
           resourceType: 'TENANT',
@@ -259,21 +243,22 @@ export class TenancyService {
             slug: tenant.slug,
             planId: tenant.planId,
             modules: modulesToEnable,
-            branchName,
+            adminEmail,
+            adminName,
           },
         },
       });
 
-      return { tenantId: tenant.id, adminUserId: adminUser?.id, adminEmail: dto.adminEmail, adminName: dto.adminName };
+      return { tenantId: tenant.id, adminUserId: adminUser.id, adminEmail, adminName };
     });
 
-    // 6. Send Welcome Email (outside transaction to avoid blocking DB on email delivery)
+    // 5. Send Welcome Email (outside transaction to avoid blocking DB on email delivery)
     if (result.adminUserId && result.adminEmail) {
       try {
         const resetToken = await this.authService.generatePasswordResetToken(result.adminUserId);
         await this.mailService.sendWelcomeInvite(
           result.adminEmail,
-          result.adminName || 'Tenant Administrator',
+          result.adminName,
           dto.name,
           resetToken,
           dto.locale,

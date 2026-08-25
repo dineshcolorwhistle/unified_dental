@@ -77,8 +77,10 @@ export class BranchesService {
         );
       }
 
-      // If marking as default, unset other defaults
-      if (dto.isDefault) {
+      // If marking as default or if this is the first branch, set isDefault
+      const isDefaultBranch = dto.isDefault ?? currentBranchCount === 0;
+
+      if (isDefaultBranch) {
         await tx.branch.updateMany({
           where: { tenantId, isDefault: true },
           data: { isDefault: false },
@@ -93,7 +95,7 @@ export class BranchesService {
           address: dto.address,
           phone: dto.phone,
           email: dto.email,
-          isDefault: dto.isDefault || false,
+          isDefault: isDefaultBranch,
           status: dto.status || 'ACTIVE',
           settings: dto.settings || {},
         },
@@ -112,7 +114,7 @@ export class BranchesService {
           create: {
             userId: actorId,
             branchId: branch.id,
-            isDefault: false,
+            isDefault: isDefaultBranch,
           },
         });
       }

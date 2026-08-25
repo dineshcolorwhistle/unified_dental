@@ -194,6 +194,11 @@ export const TenantsPage: React.FC = () => {
       return;
     }
 
+    if (!formData.adminEmail?.trim() || !formData.adminName?.trim()) {
+      alert(t('tenants.alerts.adminDetailsRequired'));
+      return;
+    }
+
     try {
       setCreatingTenant(true);
       await api.post('/tenants', {
@@ -201,8 +206,8 @@ export const TenantsPage: React.FC = () => {
         slug: formData.slug,
         planId: formData.planId || undefined,
         modules: formData.modules,
-        adminEmail: formData.adminEmail || undefined,
-        adminName: formData.adminName || undefined,
+        adminEmail: formData.adminEmail.trim(),
+        adminName: formData.adminName.trim(),
         maxModules: formData.overrideLimits && formData.maxModules !== '' ? Number(formData.maxModules) : null,
         maxBranches: formData.overrideLimits && formData.maxBranches !== '' ? Number(formData.maxBranches) : null,
         maxMembers: formData.overrideLimits && formData.maxMembers !== '' ? Number(formData.maxMembers) : null,
@@ -596,11 +601,11 @@ export const TenantsPage: React.FC = () => {
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600, color: memberCount > limits.maxMembers ? '#dc2626' : 'var(--text-main)' }}>
+                      <div style={{ fontWeight: 600, color: memberCount >= limits.maxMembers ? '#dc2626' : 'var(--text-main)' }}>
                         {memberCount} / {limits.maxMembers}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                        {t('tenants.adminExcludedNotice')}
+                        {limits.maxMembers - memberCount > 0 ? `${limits.maxMembers - memberCount} remaining` : 'Limit reached'}
                       </div>
                     </td>
                     <td>
@@ -1037,25 +1042,37 @@ export const TenantsPage: React.FC = () => {
                 </div>
 
                 {/* Initial Tenant Admin */}
-                <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-hover)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={15} style={{ color: 'var(--primary-600)' }} /> {t('tenants.initialAdminTitle')}
+                <div style={{ padding: '16px', backgroundColor: 'var(--bg-surface-hover)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={15} style={{ color: 'var(--primary-600)' }} /> {t('tenants.initialAdminTitle')} <span style={{ color: '#ef4444' }}>*</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder={t('tenants.adminName')}
-                      value={formData.adminName}
-                      onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
-                    />
-                    <input
-                      type="email"
-                      className="input"
-                      placeholder={t('tenants.adminEmail')}
-                      value={formData.adminEmail}
-                      onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label className="label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        {t('tenants.adminName')} <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input"
+                        required
+                        placeholder={t('tenants.adminNamePlaceholder')}
+                        value={formData.adminName}
+                        onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                        {t('tenants.adminEmail')} <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="email"
+                        className="input"
+                        required
+                        placeholder={t('tenants.adminEmailPlaceholder')}
+                        value={formData.adminEmail}
+                        onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
 
