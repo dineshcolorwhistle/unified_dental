@@ -357,6 +357,39 @@ export class TenancyService {
     return updated;
   }
 
+  async updateSettings(id: string, settings: Record<string, any>, userId?: string) {
+    const tenant = await this.findById(id);
+
+    const currentSettings = (tenant.settings as Record<string, any>) || {};
+    const mergedSettings = { ...currentSettings, ...settings };
+
+    const updated = await this.prisma.tenant.update({
+      where: { id },
+      data: {
+        settings: mergedSettings,
+      },
+      include: {
+        plan: true,
+        modules: true,
+        branches: true,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: id,
+        userId,
+        action: 'UPDATE_TENANT_SETTINGS',
+        resourceType: 'TENANT',
+        resourceId: id,
+        oldValues: currentSettings,
+        newValues: mergedSettings,
+      },
+    });
+
+    return updated;
+  }
+
   async delete(id: string, userId?: string) {
     const tenant = await this.findById(id);
 

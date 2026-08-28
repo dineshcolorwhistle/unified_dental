@@ -14,6 +14,7 @@ import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagg
 import { Response } from 'express';
 import { FilesService } from './files.service';
 import { CurrentUser, AuthenticatedUser } from '../../shared/common/decorators/current-user.decorator';
+import { Public } from '../../shared/common/decorators/public.decorator';
 
 @ApiTags('Files')
 @ApiBearerAuth()
@@ -43,16 +44,17 @@ export class FilesController {
     });
   }
 
+  @Public()
   @Get(':id/download')
   @ApiOperation({ summary: 'Download or stream a file by ID' })
   async downloadFile(
     @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser | undefined,
     @Res() res: Response,
   ) {
     const { record, stream } = await this.filesService.getFile(
       id,
-      user.isSuperAdmin ? undefined : user.activeTenantId,
+      user?.isSuperAdmin ? undefined : user?.activeTenantId,
     );
 
     res.setHeader('Content-Type', record.mimeType);

@@ -18,7 +18,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async validateUser(email: string, pass: string) {
     const user = await this.prisma.user.findUnique({
@@ -129,7 +129,9 @@ export class AuthService {
       branchId,
     };
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    });
     const rawRefreshToken = `${uuidv4()}-${uuidv4()}`;
     const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
 
@@ -290,11 +292,12 @@ export class AuthService {
       locale: user.locale,
       activeTenant: effectiveTenant
         ? {
-            id: effectiveTenant.id,
-            name: effectiveTenant.name,
-            slug: effectiveTenant.slug,
-            enabledModules: effectiveTenant.modules.map((m) => m.moduleKey),
-          }
+          id: effectiveTenant.id,
+          name: effectiveTenant.name,
+          slug: effectiveTenant.slug,
+          settings: (effectiveTenant.settings as Record<string, any>) || {},
+          enabledModules: effectiveTenant.modules.map((m) => m.moduleKey),
+        }
         : null,
       activeBranchId: effectiveBranchId,
       availableBranches: availableBranches.map((b) => ({

@@ -15,13 +15,19 @@ import { UsersPage } from './pages/UsersPage';
 import { TenantsPage } from './pages/TenantsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { PlansPage } from './pages/PlansPage';
+import { TenantSettingsPage } from './pages/TenantSettingsPage';
 import './i18n';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; superAdminOnly?: boolean }> = ({
+const ProtectedRoute: React.FC<{
+  children: React.ReactNode;
+  superAdminOnly?: boolean;
+  tenantAdminOnly?: boolean;
+}> = ({
   children,
   superAdminOnly = false,
+  tenantAdminOnly = false,
 }) => {
-  const { user, loading } = useAuth();
+  const { user, isTenantAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -36,6 +42,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; superAdminOnly?: boo
   }
 
   if (superAdminOnly && !user.isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (tenantAdminOnly && !isTenantAdmin) {
     return <Navigate to="/" replace />;
   }
 
@@ -64,7 +74,22 @@ export const App: React.FC = () => {
                     }
                   >
                     <Route index element={<DashboardPage />} />
-                    <Route path="branches" element={<BranchesPage />} />
+                    <Route
+                      path="branches"
+                      element={
+                        <ProtectedRoute tenantAdminOnly>
+                          <BranchesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="settings"
+                      element={
+                        <ProtectedRoute tenantAdminOnly>
+                          <TenantSettingsPage />
+                        </ProtectedRoute>
+                      }
+                    />
                     <Route
                       path="tenants"
                       element={

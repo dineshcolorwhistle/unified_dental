@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -58,6 +59,20 @@ export class TenancyController {
     @CurrentUser() user?: AuthenticatedUser,
   ) {
     return this.tenancyService.create(createTenantDto, user?.id);
+  }
+
+  @Patch(':id/settings')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update tenant branding and settings (Tenant Admin)' })
+  updateSettings(
+    @Param('id') id: string,
+    @Body('settings') settings: Record<string, any>,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!user.isSuperAdmin && user.activeTenantId !== id) {
+      throw new ForbiddenException('You can only update settings for your active organization');
+    }
+    return this.tenancyService.updateSettings(id, settings || {}, user.id);
   }
 
   @Patch(':id')

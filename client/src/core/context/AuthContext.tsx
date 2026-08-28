@@ -14,6 +14,7 @@ export interface UserProfile {
     id: string;
     name: string;
     slug: string;
+    settings?: Record<string, any>;
     enabledModules: string[];
   } | null;
   activeBranchId?: string;
@@ -38,6 +39,7 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
+  isTenantAdmin: boolean;
   login: (email: string, pass: string, tenantSlug?: string) => Promise<void>;
   logout: () => Promise<void>;
   switchBranch: (branchId: string) => Promise<void>;
@@ -105,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('active_branch_id', profile.activeBranchId);
     }
 
+    localStorage.setItem('ud_last_activity', String(Date.now()));
     setUser(profile);
   };
 
@@ -117,10 +120,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('ud_last_activity');
       setUser(null);
       window.location.href = '/login';
     }
   };
+
+  // Inactivity / Idle Session Tracker (Configurable via VITE_IDLE_TIMEOUT_MINUTES env, default 30 mins)
+  useEffect(() => {
+    if (!user) return;
+
+    const envMinutes = Number(import.meta.env.VITE_IDLE_TIMEOUT_MINUTES);
+    const idleTimeoutMinutes = !isNaN(envMinutes) && envMinutes > 0 ? envMinutes : 30;
+    const IDLE_TIMEOUT_MS = idleTimeoutMinutes * 60 * 1000;
+    const ACTIVITY_STORAGE_KEY = 'ud_last_activity';
+    let lastRecorded = Date.now();
+    localStorage.setItem(ACTIVITY_STORAGE_KEY, String(lastRecorded));
+
+    const recordActivity = () => {
+      const now = Date.now();
+      // Throttle localStorage updates to once every 5 seconds
+      if (now - lastRecorded > 5000) {
+        lastRecorded = now;
+        localStorage.setItem(ACTIVITY_STORAGE_KEY, String(now));
+      }
+    };
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach((evt) => window.addEventListener(evt, recordActivity, { passive: true }));
+
+    const idleInterval = setInterval(() => {
+      const storedLastActivity = Number(localStorage.getItem(ACTIVITY_STORAGE_KEY) || lastRecorded);
+      const idleTime = Date.now() - storedLastActivity;
+
+      if (idleTime >= IDLE_TIMEOUT_MS) {
+        console.warn('User session timed out after 30 minutes of inactivity.');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem(ACTIVITY_STORAGE_KEY);
+        setUser(null);
+        window.location.href = '/login';
+      }
+    }, 15000); // Heartbeat check every 15 seconds
+
+    return () => {
+      events.forEach((evt) => window.removeEventListener(evt, recordActivity));
+      clearInterval(idleInterval);
+    };
+  }, [user]);
 
   const switchBranch = async (branchId: string) => {
     if (!user || !user.activeTenant) return;
@@ -157,11 +204,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user.activeTenant.enabledModules.includes(moduleKey);
   };
 
+  const isTenantAdmin = Boolean(
+    user?.activeTenant &&
+    (
+      user.tenants?.find((t) => t.id === user.activeTenant?.id)?.isOwner ||
+      user.roles?.some((r) => {
+        const lower = r.toLowerCase();
+        return lower === 'tenant-admin' || lower.includes('tenant administrator') || lower.includes('tenant admin');
+      }) ||
+      (user.isSuperAdmin && Boolean(user.activeTenant))
+    )
+  );
+
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
+        isTenantAdmin,
         login,
         logout,
         switchBranch,

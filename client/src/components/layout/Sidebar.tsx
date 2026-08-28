@@ -13,6 +13,7 @@ import {
   Shield,
   User as UserIcon,
   LogOut,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -78,7 +79,7 @@ function getBrandInitials(name: string): string {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, isTenantAdmin, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('ud_sidebar_collapsed') === 'true';
   });
@@ -97,6 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const isTenantContext = Boolean(user?.activeTenant);
   const rawBrandName = isTenantContext ? user!.activeTenant!.name : 'Unified Dental';
   const brandName = formatTitleCase(rawBrandName);
+  const tenantLogoUrl = isTenantContext ? (user?.activeTenant?.settings as any)?.logoUrl : null;
   const brandInitials = isTenantContext ? getBrandInitials(rawBrandName) : '🦷';
 
   return (
@@ -111,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   width: '36px',
                   height: '36px',
                   borderRadius: '9px',
-                  background: 'linear-gradient(135deg, #0f766e, #0d9488)',
+                  background: tenantLogoUrl ? 'var(--bg-surface)' : 'linear-gradient(135deg, #0f766e, #0d9488)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -121,9 +123,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   fontWeight: 800,
                   letterSpacing: '0.04em',
                   boxShadow: '0 2px 6px rgba(15, 118, 110, 0.35)',
+                  border: tenantLogoUrl ? '1px solid var(--border-color)' : 'none',
+                  overflow: 'hidden',
                 }}
               >
-                {brandInitials}
+                {tenantLogoUrl ? (
+                  <img
+                    src={tenantLogoUrl}
+                    alt={brandName}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }}
+                  />
+                ) : (
+                  brandInitials
+                )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span
@@ -173,7 +185,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               title={t('nav.expandSidebar')}
               aria-label={t('nav.expandSidebar')}
             >
-              <span className="brand-logo-icon">{brandInitials}</span>
+              {tenantLogoUrl ? (
+                <img
+                  src={tenantLogoUrl}
+                  alt={brandName}
+                  style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                />
+              ) : (
+                <span className="brand-logo-icon">{brandInitials}</span>
+              )}
               <span className="expand-overlay-icon">
                 <PanelLeftOpen size={16} />
               </span>
@@ -203,8 +223,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
           isCollapsed={isCollapsed}
         />
 
-        {/* Tenant Specific Management Menu Items (Connected to selected module) */}
-        {isTenantContext && (
+        {/* Branches Menu: ONLY accessible for Tenant Admin */}
+        {isTenantAdmin && (
           <SidebarNavItem
             to="/branches"
             icon={<Building2 size={19} />}
@@ -213,8 +233,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
           />
         )}
 
+        {/* Tenant Settings Menu: ONLY accessible for Tenant Admin */}
+        {isTenantAdmin && (
+          <SidebarNavItem
+            to="/settings"
+            icon={<Settings size={19} />}
+            label={t('nav.settings')}
+            isCollapsed={isCollapsed}
+          />
+        )}
+
         {/* Platform Super Admin Items */}
-        {user?.isSuperAdmin && (
+        {user?.isSuperAdmin && !isTenantContext && (
           <>
             <SidebarNavItem
               to="/tenants"

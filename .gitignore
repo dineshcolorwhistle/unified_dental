@@ -56,10 +56,11 @@ Thumbs.db
 .eslintcache
 .cache/
 
-#.md files
+# .md files
 AGENTS.md
 instructions.md
 project_scope.md
+ai_agentic_interface_analysis.md
 
 #agents
 *.agents
