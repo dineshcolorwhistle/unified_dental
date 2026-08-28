@@ -3,6 +3,12 @@ import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { HeaderResolver, I18nModule, QueryResolver } from 'nestjs-i18n';
 import * as path from 'path';
+import * as fs from 'fs';
+
+// Determine i18n path with fallback for production / dist
+const distI18nPath = path.join(__dirname, 'i18n');
+const srcI18nPath = path.join(process.cwd(), 'src', 'i18n');
+const resolvedI18nPath = fs.existsSync(distI18nPath) ? distI18nPath : srcI18nPath;
 
 // Shared & Core Modules
 import { PrismaModule } from './shared/prisma/prisma.module';
@@ -31,8 +37,8 @@ import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
     I18nModule.forRoot({
       fallbackLanguage: 'en',
       loaderOptions: {
-        path: path.join(__dirname, 'i18n/'),
-        watch: true,
+        path: resolvedI18nPath,
+        watch: process.env.NODE_ENV !== 'production',
       },
       resolvers: [
         new HeaderResolver(['x-custom-lang', 'accept-language']),
