@@ -3,7 +3,8 @@ import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
 import { Pagination } from '../components/common/Pagination';
-import { formatDate } from '../core/utils/dateUtils';
+import { formatDate, formatCurrency, getTodayDateString, toInputDateString } from '../core/utils/dateUtils';
+import { SearchableSelect } from '../components/common/SearchableSelect';
 import {
   Building2,
   Plus,
@@ -64,6 +65,9 @@ export const TenantsPage: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editStatus, setEditStatus] = useState('ACTIVE');
   const [editPlanId, setEditPlanId] = useState('');
+  const [editPrice, setEditPrice] = useState<number | string>('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
   const [editSelectedModules, setEditSelectedModules] = useState<string[]>([]);
   const [editOverrideLimits, setEditOverrideLimits] = useState(false);
   const [editMaxModules, setEditMaxModules] = useState<number | string>('');
@@ -83,6 +87,9 @@ export const TenantsPage: React.FC = () => {
     name: '',
     slug: '',
     planId: '',
+    price: '' as number | string,
+    startDate: getTodayDateString(),
+    endDate: '',
     modules: [] as string[],
     adminEmail: '',
     adminName: '',
@@ -136,6 +143,7 @@ export const TenantsPage: React.FC = () => {
     setFormData({
       ...formData,
       planId,
+      price: selectedPlan?.price !== undefined && selectedPlan?.price !== null ? selectedPlan.price : formData.price,
       modules: defaultMods,
     });
   };
@@ -186,8 +194,12 @@ export const TenantsPage: React.FC = () => {
   };
 
   const handleEditPlanChange = (planId: string) => {
+    const selectedPlan = plans.find((p) => p.id === planId);
     const maxAllowed = getEffectiveModuleLimit(planId, editOverrideLimits, editMaxModules);
     setEditPlanId(planId);
+    if (selectedPlan && (editPrice === '' || editPrice === null || editPrice === undefined)) {
+      setEditPrice(selectedPlan.price !== undefined ? selectedPlan.price : '');
+    }
     setEditSelectedModules((prev) => prev.slice(0, maxAllowed));
   };
 
@@ -220,12 +232,25 @@ export const TenantsPage: React.FC = () => {
       return;
     }
 
+    if (!formData.startDate || !formData.endDate) {
+      toast.warning(t('tenants.alerts.datesRequired'), 'Validation Error');
+      return;
+    }
+
+    if (formData.endDate < formData.startDate) {
+      toast.warning(t('tenants.alerts.invalidDateRange'), 'Validation Error');
+      return;
+    }
+
     try {
       setCreatingTenant(true);
       await api.post('/tenants', {
         name: formData.name,
         slug: formData.slug,
         planId: formData.planId || undefined,
+        price: formData.price !== '' ? Number(formData.price) : null,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
         modules: formData.modules,
         adminEmail: formData.adminEmail.trim(),
         adminName: formData.adminName.trim(),
@@ -241,6 +266,9 @@ export const TenantsPage: React.FC = () => {
         name: '',
         slug: '',
         planId: '',
+        price: '',
+        startDate: getTodayDateString(),
+        endDate: '',
         modules: [],
         adminEmail: '',
         adminName: '',
@@ -280,6 +308,9 @@ export const TenantsPage: React.FC = () => {
     setEditName(tenant.name || '');
     setEditStatus(tenant.status || 'ACTIVE');
     setEditPlanId(tenant.planId || '');
+    setEditPrice(tenant.price !== null && tenant.price !== undefined ? tenant.price : (tenant.plan?.price !== undefined ? tenant.plan.price : ''));
+    setEditStartDate(toInputDateString(tenant.startDate));
+    setEditEndDate(toInputDateString(tenant.endDate));
     const enabledMods = (tenant.modules || [])
       .filter((m: any) => m.isEnabled)
       .map((m: any) => m.moduleKey);
@@ -307,12 +338,20 @@ export const TenantsPage: React.FC = () => {
       return;
     }
 
+    if (editStartDate && editEndDate && editEndDate < editStartDate) {
+      toast.warning(t('tenants.alerts.invalidDateRange'), 'Validation Error');
+      return;
+    }
+
     try {
       setSavingEdit(true);
       await api.patch(`/tenants/${editingTenant.id}`, {
         name: editName,
         status: editStatus,
         planId: editPlanId || null,
+        price: editPrice !== '' ? Number(editPrice) : null,
+        startDate: editStartDate || undefined,
+        endDate: editEndDate || undefined,
         modules: editSelectedModules,
         maxModules: editOverrideLimits && editMaxModules !== '' ? Number(editMaxModules) : null,
         maxBranches: editOverrideLimits && editMaxBranches !== '' ? Number(editMaxBranches) : null,
@@ -434,10 +473,14 @@ export const TenantsPage: React.FC = () => {
         </div>
         <button
           onClick={() => {
+            const initialPlan = plans.find((p) => p.isActive) || plans[0];
             setFormData({
               name: '',
               slug: '',
-              planId: plans.length > 0 ? plans[0].id : '',
+              planId: initialPlan ? initialPlan.id : '',
+              price: initialPlan?.price !== undefined && initialPlan?.price !== null ? initialPlan.price : '',
+              startDate: getTodayDateString(),
+              endDate: '',
               modules: [],
               adminEmail: '',
               adminName: '',
@@ -591,9 +634,16 @@ export const TenantsPage: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {limits.maxUploadFileSizeMb} MB upload limit
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                            {formatCurrency(tItem.price ?? plan.price, undefined, i18n.language)}
                           </div>
+                          {(tItem.startDate || tItem.endDate) && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>{formatDate(tItem.startDate, { locale: i18n.language })}</span>
+                              <span>→</span>
+                              <span>{formatDate(tItem.endDate, { locale: i18n.language })}</span>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <button
@@ -799,21 +849,19 @@ export const TenantsPage: React.FC = () => {
                   <label className="label">
                     {t('tenants.subscriptionPlan')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select
-                    className="input"
-                    required
-                    value={formData.planId}
-                    onChange={(e) => handlePlanChange(e.target.value)}
-                  >
-                    <option value="">{t('tenants.selectPlan')}</option>
-                    {plans
+                  <SearchableSelect
+                    options={plans
                       .filter((p) => p.isActive)
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.code}) — {p.moduleCount || 1} Mod, {p.branchCount || 3} Br, {p.memberCount || 10} Mem, {p.maxUploadFileSizeMb || 25}MB
-                        </option>
-                      ))}
-                  </select>
+                      .map((p) => ({
+                        value: p.id,
+                        label: `${p.name} (${p.code})`,
+                        sublabel: `${p.moduleCount || 1} Mod, ${p.branchCount || 3} Br, ${p.memberCount || 10} Mem · ${formatCurrency(p.price, undefined, i18n.language)}`,
+                        badge: formatCurrency(p.price, undefined, i18n.language),
+                      }))}
+                    value={formData.planId}
+                    onChange={(val) => handlePlanChange(val)}
+                    placeholder={t('tenants.selectPlan')}
+                  />
                 </div>
 
                 {/* Plan Limits & Capacity Display Box */}
@@ -831,6 +879,10 @@ export const TenantsPage: React.FC = () => {
                       <span>{t('tenants.planLimitsSummary')} ({selectedPlan.name})</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <CreditCard size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('plans.price')}:</strong> {formatCurrency(selectedPlan.price, undefined, i18n.language)}</span>
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
                         <Layers size={13} style={{ color: 'var(--primary-600)' }} />
                         <span><strong>{t('tenants.moduleLimit')}:</strong> {selectedPlan.moduleCount || 1}</span>
@@ -850,6 +902,83 @@ export const TenantsPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Subscription Price Field */}
+                <div>
+                  <label className="label">
+                    {t('tenants.subscriptionPrice')}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                      }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="input"
+                      style={{ paddingLeft: '28px', fontWeight: 700 }}
+                      placeholder={selectedPlan ? String(selectedPlan.price || 0) : '0.00'}
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          price: e.target.value === '' ? '' : parseFloat(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    {t('tenants.subscriptionPriceHelp')}
+                  </div>
+                </div>
+
+                {/* Subscription Dates: Start Date & End Date */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="label">
+                      {t('tenants.startDate')} <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      className="input"
+                      style={{ fontWeight: 600 }}
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {t('tenants.startDateHelp')}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">
+                      {t('tenants.endDate')} <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={formData.startDate}
+                      className="input"
+                      style={{ fontWeight: 600 }}
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {t('tenants.endDateHelp')}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Organization Limit Overrides Accordion/Section */}
                 <div
@@ -1221,20 +1350,22 @@ export const TenantsPage: React.FC = () => {
                 {/* Subscription Plan */}
                 <div>
                   <label className="label">{t('tenants.subscriptionPlan')}</label>
-                  <select
-                    className="input"
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: t('tenants.noPlanAssigned') },
+                      ...plans
+                        .filter((p) => p.isActive || p.id === editPlanId)
+                        .map((p) => ({
+                          value: p.id,
+                          label: `${p.name} (${p.code})`,
+                          sublabel: `${p.moduleCount || 1} Mod, ${p.branchCount || 3} Br, ${p.memberCount || 10} Mem · ${formatCurrency(p.price, undefined, i18n.language)} ${!p.isActive ? '(Inactive)' : ''}`,
+                          badge: formatCurrency(p.price, undefined, i18n.language),
+                        })),
+                    ]}
                     value={editPlanId}
-                    onChange={(e) => handleEditPlanChange(e.target.value)}
-                  >
-                    <option value="">{t('tenants.noPlanAssigned')}</option>
-                    {plans
-                      .filter((p) => p.isActive || p.id === editPlanId)
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.code}) — {p.moduleCount || 1} Mod, {p.branchCount || 3} Br, {p.memberCount || 10} Mem, {p.maxUploadFileSizeMb || 25}MB {!p.isActive ? '(Inactive)' : ''}
-                        </option>
-                      ))}
-                  </select>
+                    onChange={(val) => handleEditPlanChange(val)}
+                    placeholder={t('tenants.selectPlan')}
+                  />
                 </div>
 
                 {/* Plan Limits & Capacity Display Box in Edit */}
@@ -1252,6 +1383,10 @@ export const TenantsPage: React.FC = () => {
                       <span>{t('tenants.planLimitsSummary')} ({selectedEditPlan.name})</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                        <CreditCard size={13} style={{ color: 'var(--primary-600)' }} />
+                        <span><strong>{t('plans.price')}:</strong> {formatCurrency(selectedEditPlan.price, undefined, i18n.language)}</span>
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
                         <Layers size={13} style={{ color: 'var(--primary-600)' }} />
                         <span><strong>{t('tenants.moduleLimit')}:</strong> {selectedEditPlan.moduleCount || 1}</span>
@@ -1271,6 +1406,76 @@ export const TenantsPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Edit Subscription Price */}
+                <div>
+                  <label className="label">
+                    {t('tenants.subscriptionPrice')}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                      }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      className="input"
+                      style={{ paddingLeft: '28px', fontWeight: 700 }}
+                      placeholder={selectedEditPlan ? String(selectedEditPlan.price || 0) : '0.00'}
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    {t('tenants.subscriptionPriceHelp')}
+                  </div>
+                </div>
+
+                {/* Edit Subscription Dates */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="label">
+                      {t('tenants.startDate')}
+                    </label>
+                    <input
+                      type="date"
+                      className="input"
+                      style={{ fontWeight: 600 }}
+                      value={editStartDate}
+                      onChange={(e) => setEditStartDate(e.target.value)}
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {t('tenants.startDateHelp')}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">
+                      {t('tenants.endDate')}
+                    </label>
+                    <input
+                      type="date"
+                      min={editStartDate}
+                      className="input"
+                      style={{ fontWeight: 600 }}
+                      value={editEndDate}
+                      onChange={(e) => setEditEndDate(e.target.value)}
+                    />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {t('tenants.endDateHelp')}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Organization Limit Overrides in Edit */}
                 <div

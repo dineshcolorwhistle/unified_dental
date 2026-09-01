@@ -263,3 +263,34 @@ export function formatCurrency(
     return `$ ${num.toFixed(2)} ${currency}`;
   }
 }
+
+/**
+ * Returns today's calendar date as a YYYY-MM-DD string in the target business timezone.
+ */
+export function getTodayDateString(timeZone: string = DEFAULT_TIMEZONE): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+/**
+ * Converts a date string or Date object into a YYYY-MM-DD string suitable for HTML <input type="date">.
+ * Preserves the calendar day without UTC/local time drift.
+ */
+export function toInputDateString(date: string | Date | null | undefined): string {
+  if (!date) return '';
+  const d = normalizeCalendarDate(date);
+  if (!d) return '';
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

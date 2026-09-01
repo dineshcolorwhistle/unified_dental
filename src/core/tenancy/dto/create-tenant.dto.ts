@@ -22,6 +22,17 @@ export class CreateTenantDto {
   planId?: string;
 
   @IsOptional()
+  price?: number | null;
+
+  @IsNotEmpty({ message: 'Start date is required' })
+  @IsString()
+  startDate: string;
+
+  @IsNotEmpty({ message: 'End date is required' })
+  @IsString()
+  endDate: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   modules?: string[];

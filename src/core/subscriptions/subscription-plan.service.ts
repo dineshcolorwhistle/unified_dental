@@ -73,6 +73,7 @@ export class SubscriptionPlanService {
       name: dto.name.trim(),
       code,
       description: dto.description?.trim() || null,
+      price: dto.price !== undefined ? Number(dto.price) : 0,
       moduleCount: dto.moduleCount !== undefined ? Number(dto.moduleCount) : 1,
       branchCount: dto.branchCount !== undefined ? Number(dto.branchCount) : 3,
       memberCount: dto.memberCount !== undefined ? Number(dto.memberCount) : 10,
@@ -109,6 +110,7 @@ export class SubscriptionPlanService {
     const updateData: any = {
       name: dto.name !== undefined ? dto.name.trim() : existing.name,
       description: dto.description !== undefined ? dto.description.trim() : existing.description,
+      price: dto.price !== undefined ? Number(dto.price) : (existing as any).price,
       moduleCount: dto.moduleCount !== undefined ? Number(dto.moduleCount) : (existing as any).moduleCount || 1,
       branchCount: dto.branchCount !== undefined ? Number(dto.branchCount) : (existing as any).branchCount || 3,
       memberCount: dto.memberCount !== undefined ? Number(dto.memberCount) : (existing as any).memberCount || 10,

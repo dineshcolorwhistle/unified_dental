@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
-import { formatDate } from '../core/utils/dateUtils';
+import { formatDate, formatCurrency } from '../core/utils/dateUtils';
 import {
   CreditCard,
   Plus,
@@ -35,6 +35,7 @@ interface SubscriptionPlan {
   code: string;
   name: string;
   description: string | null;
+  price: number;
   moduleCount: number;
   branchCount: number;
   memberCount: number;
@@ -71,6 +72,7 @@ export const PlansPage: React.FC = () => {
     name: '',
     code: '',
     description: '',
+    price: '' as number | string,
     moduleCount: 1,
     branchCount: 3,
     memberCount: 10,
@@ -115,6 +117,7 @@ export const PlansPage: React.FC = () => {
       name: '',
       code: '',
       description: '',
+      price: '',
       moduleCount: 1,
       branchCount: 3,
       memberCount: 10,
@@ -131,6 +134,7 @@ export const PlansPage: React.FC = () => {
       name: plan.name,
       code: plan.code,
       description: plan.description || '',
+      price: plan.price !== undefined && plan.price !== null ? plan.price : 0,
       moduleCount: plan.moduleCount,
       branchCount: plan.branchCount,
       memberCount: plan.memberCount,
@@ -164,13 +168,23 @@ export const PlansPage: React.FC = () => {
       return;
     }
 
+    if (formData.price === '' || isNaN(Number(formData.price)) || Number(formData.price) < 0) {
+      toast.warning(t('plans.alerts.priceRequired'), 'Validation Error');
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      price: Number(formData.price),
+    };
+
     try {
       setSaving(true);
       if (editingPlan) {
-        await api.patch(`/plans/${editingPlan.id}`, formData);
+        await api.patch(`/plans/${editingPlan.id}`, payload);
         toast.success(`Plan "${formData.name}" updated successfully`, 'Plan Updated');
       } else {
-        await api.post('/plans', formData);
+        await api.post('/plans', payload);
         toast.success(`Plan "${formData.name}" created successfully`, 'Plan Created');
       }
       setShowModal(false);
@@ -394,6 +408,13 @@ export const PlansPage: React.FC = () => {
                   </p>
                 )}
 
+                {/* Price Display */}
+                <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                  <span style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-heading)', letterSpacing: '-0.5px' }}>
+                    {formatCurrency(plan.price, undefined, i18n.language)}
+                  </span>
+                </div>
+
                 {/* Plan Limits Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                   <div
@@ -568,6 +589,46 @@ export const PlansPage: React.FC = () => {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
+                </div>
+
+                <div>
+                  <label className="label">
+                    {t('plans.price')} <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                      }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      required
+                      className="input"
+                      style={{ paddingLeft: '28px', fontWeight: 700 }}
+                      placeholder={t('plans.pricePlaceholder')}
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          price: e.target.value === '' ? '' : parseFloat(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    {t('plans.priceHelp')}
+                  </div>
                 </div>
 
                 {/* Limits Config Section */}

@@ -15,6 +15,17 @@ export class UpdateTenantDto {
   planId?: string;
 
   @IsOptional()
+  price?: number | null;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   modules?: string[];

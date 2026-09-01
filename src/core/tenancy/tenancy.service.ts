@@ -15,7 +15,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantStatus, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { DEFAULT_TIMEZONE, DEFAULT_CURRENCY } from '../../shared/common/utils/timezone.util';
+import { DEFAULT_TIMEZONE, DEFAULT_CURRENCY, parseCalendarDate } from '../../shared/common/utils/timezone.util';
 
 @Injectable()
 export class TenancyService {
@@ -154,6 +154,24 @@ export class TenancyService {
         }
       }
 
+      if (!dto.startDate || !dto.endDate) {
+        throw new BadRequestException('Subscription start date and end date are both required');
+      }
+
+      const parsedStartDate = parseCalendarDate(dto.startDate);
+      const parsedEndDate = parseCalendarDate(dto.endDate);
+
+      if (parsedEndDate < parsedStartDate) {
+        throw new BadRequestException('Subscription end date cannot be earlier than start date');
+      }
+
+      const effectivePrice =
+        dto.price !== undefined && dto.price !== null
+          ? Number(dto.price)
+          : plan?.price !== undefined && plan?.price !== null
+          ? Number(plan.price)
+          : null;
+
       // 1. Create tenant with planId and overrides
       const tenant = await tx.tenant.create({
         data: {
@@ -168,6 +186,9 @@ export class TenancyService {
             ...(dto.settings || {}),
           },
           planId: dto.planId || undefined,
+          price: effectivePrice !== null ? effectivePrice : undefined,
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
           maxBranches: dto.maxBranches !== undefined ? (dto.maxBranches === null ? null : Number(dto.maxBranches)) : undefined,
           maxMembers: dto.maxMembers !== undefined ? (dto.maxMembers === null ? null : Number(dto.maxMembers)) : undefined,
           maxUploadFileSizeMb: dto.maxUploadFileSizeMb !== undefined ? (dto.maxUploadFileSizeMb === null ? null : Number(dto.maxUploadFileSizeMb)) : undefined,
@@ -330,12 +351,27 @@ export class TenancyService {
       }
     }
 
+    const startDateToSave =
+      dto.startDate !== undefined ? (dto.startDate ? parseCalendarDate(dto.startDate) : null) : undefined;
+    const endDateToSave =
+      dto.endDate !== undefined ? (dto.endDate ? parseCalendarDate(dto.endDate) : null) : undefined;
+
+    const effectiveStart = startDateToSave !== undefined ? startDateToSave : tenant.startDate;
+    const effectiveEnd = endDateToSave !== undefined ? endDateToSave : tenant.endDate;
+
+    if (effectiveStart && effectiveEnd && effectiveEnd < effectiveStart) {
+      throw new BadRequestException('Subscription end date cannot be earlier than start date');
+    }
+
     const updated = await this.prisma.tenant.update({
       where: { id },
       data: {
         name: dto.name,
         status: dto.status,
         planId: dto.planId !== undefined ? dto.planId : undefined,
+        price: dto.price !== undefined ? (dto.price === null ? null : Number(dto.price)) : undefined,
+        startDate: startDateToSave,
+        endDate: endDateToSave,
         settings: dto.settings ? { ...(tenant.settings as object || {}), ...dto.settings } : undefined,
         maxBranches: dto.maxBranches !== undefined ? (dto.maxBranches === null ? null : Number(dto.maxBranches)) : undefined,
         maxMembers: dto.maxMembers !== undefined ? (dto.maxMembers === null ? null : Number(dto.maxMembers)) : undefined,

@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateSubscriptionPlanDto {
   @IsNotEmpty()
@@ -8,6 +8,11 @@ export class CreateSubscriptionPlanDto {
   @IsNotEmpty()
   @IsString()
   code: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  price: number;
 
   @IsOptional()
   @IsString()
