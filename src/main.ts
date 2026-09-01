@@ -1,3 +1,6 @@
+// Force UTC process timezone to avoid server/VPS offset issues
+process.env.TZ = 'UTC';
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';

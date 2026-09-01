@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
+import { formatDate } from '../core/utils/dateUtils';
 import {
   Layers,
   Plus,
@@ -41,7 +42,7 @@ function nameToCode(name: string): string {
 }
 
 export const ModulesPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [modules, setModules] = useState<SystemModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -497,7 +498,7 @@ export const ModulesPage: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                  {new Date(mod.createdAt).toLocaleDateString()}
+                  {formatDate(mod.createdAt, { locale: i18n.language })}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>

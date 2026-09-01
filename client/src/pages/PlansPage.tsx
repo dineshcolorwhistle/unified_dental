@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
+import { formatDate } from '../core/utils/dateUtils';
 import {
   CreditCard,
   Plus,
@@ -56,7 +57,7 @@ function nameToCode(name: string): string {
 }
 
 export const PlansPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [availableModules, setAvailableModules] = useState<SystemModule[]>([]);
@@ -477,7 +478,7 @@ export const PlansPage: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                  {new Date(plan.createdAt).toLocaleDateString()}
+                  {formatDate(plan.createdAt, { locale: i18n.language })}
                 </span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button

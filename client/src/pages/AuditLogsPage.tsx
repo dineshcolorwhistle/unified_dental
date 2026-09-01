@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../core/context/AuthContext';
 import { Pagination } from '../components/common/Pagination';
 import { Clock, User, Building, Eye } from 'lucide-react';
+import { formatDateTime } from '../core/utils/dateUtils';
 
 export const AuditLogsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const tenantTz = user?.activeTenant?.settings?.timezone;
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -100,7 +104,7 @@ export const AuditLogsPage: React.FC = () => {
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
                         <Clock size={12} />
-                        {new Date(log.createdAt).toLocaleString()}
+                        {formatDateTime(log.createdAt, { locale: i18n.language, timeZone: tenantTz })}
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
@@ -145,7 +149,7 @@ export const AuditLogsPage: React.FC = () => {
                 <div><strong>User:</strong> {selectedLog.user?.name || 'System'}</div>
                 <div><strong>Branch:</strong> {selectedLog.branch?.name || 'Tenant Scope'}</div>
                 <div><strong>IP Address:</strong> {selectedLog.ipAddress || 'Internal'}</div>
-                <div><strong>Timestamp:</strong> {new Date(selectedLog.createdAt).toLocaleString()}</div>
+                <div><strong>Timestamp:</strong> {formatDateTime(selectedLog.createdAt, { locale: i18n.language, timeZone: tenantTz })}</div>
               </div>
 
               {selectedLog.oldValues && (

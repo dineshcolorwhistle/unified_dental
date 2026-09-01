@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNotifications } from '../../core/context/NotificationContext';
+import { useAuth } from '../../core/context/AuthContext';
 import { Bell, CheckCheck, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatTime } from '../../core/utils/dateUtils';
 
 export const NotificationDropdown: React.FC = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const tenantTz = user?.activeTenant?.settings?.timezone;
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +136,7 @@ export const NotificationDropdown: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                     <span style={{ fontWeight: 600, fontSize: '12px', color: 'var(--text-main)' }}>{n.title}</span>
                     <span style={{ fontSize: '10px', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <Clock size={10} /> {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <Clock size={10} /> {formatTime(n.createdAt, { locale: i18n.language, timeZone: tenantTz })}
                     </span>
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>{n.body}</div>

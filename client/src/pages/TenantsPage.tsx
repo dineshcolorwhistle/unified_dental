@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
 import { Pagination } from '../components/common/Pagination';
+import { formatDate } from '../core/utils/dateUtils';
 import {
   Building2,
   Plus,
@@ -524,7 +525,7 @@ export const TenantsPage: React.FC = () => {
                     <td>
                       <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{tItem.name}</div>
                       <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                        {new Date(tItem.createdAt).toLocaleDateString()}
+                        {formatDate(tItem.createdAt, { locale: i18n.language })}
                       </div>
                     </td>
                     <td>

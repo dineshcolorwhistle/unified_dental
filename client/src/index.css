@@ -194,8 +194,11 @@ a:hover {
   color: var(--primary-400);
 }
 
-button {
+button, input, select, textarea, optgroup {
   font-family: inherit;
+}
+
+button {
   cursor: pointer;
   border: none;
   outline: none;
@@ -898,4 +901,233 @@ button {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* Universal Application Tooltip (matching Sidebar Tooltip Design) */
+.app-tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-tooltip-bubble {
+  position: absolute;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
+}
+
+.app-tooltip-bubble.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip Positions & Arrows */
+.app-tooltip-top {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+}
+.app-tooltip-top.visible {
+  transform: translateX(-50%) translateY(0);
+}
+.app-tooltip-top::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.app-tooltip-bottom {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+}
+.app-tooltip-bottom.visible {
+  transform: translateX(-50%) translateY(0);
+}
+.app-tooltip-bottom::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.app-tooltip-left {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+}
+.app-tooltip-left.visible {
+  transform: translateY(-50%) translateX(0);
+}
+.app-tooltip-left::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%) translateX(-4px) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.app-tooltip-right {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+}
+.app-tooltip-right.visible {
+  transform: translateY(-50%) translateX(0);
+}
+.app-tooltip-right::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%) translateX(4px) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Searchable Select Component */
+.searchable-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+  text-align: left;
+}
+
+.searchable-select-trigger:hover:not(:disabled) {
+  border-color: var(--border-hover);
+}
+
+.searchable-select-trigger:focus-visible,
+.searchable-select-trigger.open {
+  border-color: var(--primary-600);
+  box-shadow: 0 0 0 3px var(--ring-primary);
+}
+
+.searchable-select-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  z-index: 10000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.15s ease-out forwards;
+}
+
+.searchable-select-search-box {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchable-select-search-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 13px;
+  outline: none;
+}
+
+.searchable-select-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.searchable-select-group-header {
+  padding: 8px 12px 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-subtle);
+}
+
+.searchable-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.searchable-select-item:hover,
+.searchable-select-item.highlighted {
+  background-color: var(--bg-surface-hover);
+}
+
+.searchable-select-item.selected {
+  background-color: rgba(13, 148, 136, 0.1);
+  color: var(--primary-600);
+  font-weight: 600;
 }

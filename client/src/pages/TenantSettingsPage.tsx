@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../core/context/AuthContext';
 import { useToast } from '../core/context/ToastContext';
@@ -16,10 +16,27 @@ import {
   AlertCircle,
   ShieldCheck,
   Info,
+  Clock,
+  Coins,
+  Calendar,
+  Save,
+  CheckCircle2,
 } from 'lucide-react';
+import {
+  SUPPORTED_TIMEZONES,
+  SUPPORTED_CURRENCIES,
+  SUPPORTED_DATE_FORMATS,
+  formatDate,
+  formatTime,
+  formatCurrency,
+  DEFAULT_TIMEZONE,
+  DEFAULT_CURRENCY,
+} from '../core/utils/dateUtils';
+import { SearchableSelect } from '../components/common/SearchableSelect';
+import { Tooltip } from '../components/common/Tooltip';
 
 export const TenantSettingsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, refreshProfile } = useAuth();
   const { toast } = useToast();
 
@@ -36,6 +53,92 @@ export const TenantSettingsPage: React.FC = () => {
   const tenant = user?.activeTenant;
   const tenantName = tenant?.name || 'Dental Organization';
   const tenantSlug = tenant?.slug || '';
+
+  // Regional & Localization State
+  const currentSettings = (tenant?.settings as any) || {};
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(
+    currentSettings.timezone || DEFAULT_TIMEZONE,
+  );
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(
+    currentSettings.currency || DEFAULT_CURRENCY,
+  );
+  const [selectedDateFormat, setSelectedDateFormat] = useState<string>(
+    currentSettings.dateFormat || 'DD/MM/YYYY',
+  );
+  const [savingRegional, setSavingRegional] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (tenant?.settings) {
+      const s = tenant.settings as any;
+      if (s.timezone) setSelectedTimezone(s.timezone);
+      if (s.currency) setSelectedCurrency(s.currency);
+      if (s.dateFormat) setSelectedDateFormat(s.dateFormat);
+    }
+  }, [tenant?.settings]);
+
+  const timezoneOptions = useMemo(
+    () =>
+      SUPPORTED_TIMEZONES.map((tz) => ({
+        value: tz.value,
+        label: tz.label,
+        badge: tz.offset,
+        group:
+          tz.region === 'Mexico'
+            ? '🇲🇽 Mexico (Standard & Regional)'
+            : tz.region === 'Latin America'
+            ? '🌎 Latin America'
+            : tz.region === 'North America'
+            ? '🇺🇸 North America / US'
+            : '🌐 Global Standard',
+      })),
+    [],
+  );
+
+  const currencyOptions = useMemo(
+    () =>
+      SUPPORTED_CURRENCIES.map((c) => ({
+        value: c.code,
+        label: c.label,
+        badge: c.symbol,
+      })),
+    [],
+  );
+
+  const dateFormatOptions = useMemo(
+    () =>
+      SUPPORTED_DATE_FORMATS.map((f) => ({
+        value: f.value,
+        label: f.label,
+      })),
+    [],
+  );
+
+  const handleSaveRegional = async () => {
+    if (!tenant?.id) return;
+    setSavingRegional(true);
+    try {
+      await api.patch(`/tenants/${tenant.id}/settings`, {
+        settings: {
+          timezone: selectedTimezone,
+          currency: selectedCurrency,
+          dateFormat: selectedDateFormat,
+        },
+      });
+      await refreshProfile();
+      toast.success(t('tenantSettings.regionalSaveSuccess'));
+    } catch (err: any) {
+      console.error('Failed to update regional settings:', err);
+      toast.error(err.response?.data?.message || t('tenantSettings.regionalSaveError'));
+    } finally {
+      setSavingRegional(false);
+    }
+  };
 
   // Get current host information for access URL
   const hostname = window.location.hostname;
@@ -246,22 +349,25 @@ export const TenantSettingsPage: React.FC = () => {
                 {t('tenantSettings.brandingCardDesc')}
               </p>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                backgroundColor: 'rgba(15, 118, 110, 0.1)',
-                color: 'var(--primary-600)',
-                fontSize: '11px',
-                fontWeight: 700,
-              }}
-            >
-              <Sparkles size={13} />
-              <span>Branding</span>
-            </div>
+            <Tooltip content="Organization Branding & Logo Controls" position="bottom">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                  color: 'var(--primary-600)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'default',
+                }}
+              >
+                <Sparkles size={13} />
+                <span>Branding</span>
+              </div>
+            </Tooltip>
           </div>
 
           <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -541,7 +647,249 @@ export const TenantSettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. Organization Identity Card (Read-Only) (SECOND) */}
+        {/* 2. Regional & Localization Preferences Card (SECOND) */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-sm)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                {t('tenantSettings.regionalCardTitle')}
+              </h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                {t('tenantSettings.regionalCardDesc')}
+              </p>
+            </div>
+            <Tooltip content="Operational Timezone & Billing Currency" position="bottom">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  color: '#3b82f6',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'default',
+                }}
+              >
+                <Clock size={13} />
+                <span>Timezone & Currency</span>
+              </div>
+            </Tooltip>
+          </div>
+
+          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '22px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+              {/* Organization Timezone */}
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    marginBottom: '6px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {t('tenantSettings.timezoneLabel')}
+                </label>
+                <SearchableSelect
+                  value={selectedTimezone}
+                  onChange={setSelectedTimezone}
+                  options={timezoneOptions}
+                  placeholder={t('tenantSettings.timezoneLabel')}
+                  searchPlaceholder={t('common.search')}
+                />
+                <p style={{ fontSize: '11px', color: 'var(--text-subtle)', margin: '4px 0 0 0' }}>
+                  {t('tenantSettings.timezoneHelp')}
+                </p>
+              </div>
+
+              {/* Default Currency */}
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    marginBottom: '6px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {t('tenantSettings.currencyLabel')}
+                </label>
+                <SearchableSelect
+                  value={selectedCurrency}
+                  onChange={setSelectedCurrency}
+                  options={currencyOptions}
+                  placeholder={t('tenantSettings.currencyLabel')}
+                  searchPlaceholder={t('common.search')}
+                />
+                <p style={{ fontSize: '11px', color: 'var(--text-subtle)', margin: '4px 0 0 0' }}>
+                  {t('tenantSettings.currencyHelp')}
+                </p>
+              </div>
+
+              {/* Calendar Date Format */}
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    marginBottom: '6px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {t('tenantSettings.dateFormatLabel')}
+                </label>
+                <SearchableSelect
+                  value={selectedDateFormat}
+                  onChange={setSelectedDateFormat}
+                  options={dateFormatOptions}
+                  placeholder={t('tenantSettings.dateFormatLabel')}
+                  searchPlaceholder={t('common.search')}
+                />
+                <p style={{ fontSize: '11px', color: 'var(--text-subtle)', margin: '4px 0 0 0' }}>
+                  {t('tenantSettings.dateFormatHelp')}
+                </p>
+              </div>
+            </div>
+
+            {/* Live Localization Preview Box */}
+            <div
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                padding: '16px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={15} style={{ color: 'var(--primary-600)' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {t('tenantSettings.previewBadge')}
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-subtle)', fontFamily: 'monospace' }}>
+                  {selectedTimezone}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '12px',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                    {t('tenantSettings.previewTime')}
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--primary-600)' }}>
+                    {formatTime(currentTime, { timeZone: selectedTimezone, locale: i18n.language })}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                    {t('tenantSettings.previewDate')}
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {formatDate(currentTime, { timeZone: selectedTimezone, locale: i18n.language, format: 'medium' })}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                    {t('tenantSettings.previewCurrency')}
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--emerald-600, #059669)' }}>
+                    {formatCurrency(1250.5, selectedCurrency, i18n.language)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Localization Preferences Button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleSaveRegional}
+                disabled={savingRegional}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: 'var(--primary-600)',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: savingRegional ? 'not-allowed' : 'pointer',
+                  opacity: savingRegional ? 0.7 : 1,
+                  boxShadow: '0 2px 8px rgba(15, 118, 110, 0.3)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Save size={16} />
+                <span>{savingRegional ? t('common.loading') : t('tenantSettings.saveRegionalBtn')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Organization Identity Card (Read-Only) (THIRD) */}
         <div
           style={{
             backgroundColor: 'var(--bg-card)',
@@ -568,22 +916,25 @@ export const TenantSettingsPage: React.FC = () => {
                 {t('tenantSettings.identityCardDesc')}
               </p>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                backgroundColor: 'var(--bg-surface-muted)',
-                color: 'var(--text-muted)',
-                fontSize: '11px',
-                fontWeight: 600,
-              }}
-            >
-              <Lock size={12} />
-              <span>Read-Only</span>
-            </div>
+            <Tooltip content={t('tenantSettings.readOnlyNotice')} position="left">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  backgroundColor: 'var(--bg-surface-muted)',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'default',
+                }}
+              >
+                <Lock size={12} />
+                <span>Read-Only</span>
+              </div>
+            </Tooltip>
           </div>
 
           <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -704,26 +1055,28 @@ export const TenantSettingsPage: React.FC = () => {
                 >
                   {accessUrl}
                 </span>
-                <button
-                  onClick={handleCopyUrl}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: copied ? 'var(--badge-success-bg)' : 'var(--bg-card)',
-                    color: copied ? 'var(--badge-success-text)' : 'var(--text-main)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copied ? 'Copied' : t('tenantSettings.copyUrl')}</span>
-                </button>
+                <Tooltip content={copied ? t('tenantSettings.urlCopied') : t('tenantSettings.copyUrl')} position="top">
+                  <button
+                    onClick={handleCopyUrl}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: copied ? 'var(--badge-success-bg)' : 'var(--bg-card)',
+                      color: copied ? 'var(--badge-success-text)' : 'var(--text-main)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{copied ? 'Copied' : t('tenantSettings.copyUrl')}</span>
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

@@ -15,6 +15,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantStatus, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { DEFAULT_TIMEZONE, DEFAULT_CURRENCY } from '../../shared/common/utils/timezone.util';
 
 @Injectable()
 export class TenancyService {
@@ -159,7 +160,13 @@ export class TenancyService {
           name: dto.name,
           slug,
           status: dto.status || TenantStatus.ACTIVE,
-          settings: dto.settings || {},
+          settings: {
+            timezone: DEFAULT_TIMEZONE,
+            currency: DEFAULT_CURRENCY,
+            dateFormat: 'DD/MM/YYYY',
+            timeFormat: '12h',
+            ...(dto.settings || {}),
+          },
           planId: dto.planId || undefined,
           maxBranches: dto.maxBranches !== undefined ? (dto.maxBranches === null ? null : Number(dto.maxBranches)) : undefined,
           maxMembers: dto.maxMembers !== undefined ? (dto.maxMembers === null ? null : Number(dto.maxMembers)) : undefined,
@@ -361,7 +368,14 @@ export class TenancyService {
     const tenant = await this.findById(id);
 
     const currentSettings = (tenant.settings as Record<string, any>) || {};
-    const mergedSettings = { ...currentSettings, ...settings };
+    const mergedSettings = {
+      timezone: DEFAULT_TIMEZONE,
+      currency: DEFAULT_CURRENCY,
+      dateFormat: 'DD/MM/YYYY',
+      timeFormat: '12h',
+      ...currentSettings,
+      ...settings,
+    };
 
     const updated = await this.prisma.tenant.update({
       where: { id },

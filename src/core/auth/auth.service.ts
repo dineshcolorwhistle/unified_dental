@@ -11,6 +11,7 @@ import { MailService } from '../mail/mail.service';
 import { LoginDto, ResetPasswordDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { DEFAULT_TIMEZONE, DEFAULT_CURRENCY } from '../../shared/common/utils/timezone.util';
 
 @Injectable()
 export class AuthService {
@@ -295,7 +296,13 @@ export class AuthService {
           id: effectiveTenant.id,
           name: effectiveTenant.name,
           slug: effectiveTenant.slug,
-          settings: (effectiveTenant.settings as Record<string, any>) || {},
+          settings: {
+            timezone: DEFAULT_TIMEZONE,
+            currency: DEFAULT_CURRENCY,
+            dateFormat: 'DD/MM/YYYY',
+            timeFormat: '12h',
+            ...((effectiveTenant.settings as Record<string, any>) || {}),
+          },
           enabledModules: effectiveTenant.modules.map((m) => m.moduleKey),
         }
         : null,
