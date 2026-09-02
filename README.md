@@ -39,9 +39,57 @@ The platform is designed to operate as a single unified SaaS application where e
 
 ---
 
-## 🏛 Core Architecture
+## 🏛 Core & High-Level System Architecture
 
-### 1. Multi-Tenant Subdomain Routing
+> 📄 **Detailed Specification**: See [docs/ARCHITECTURE.md](file:///d:/Projects/unified_dental/docs/ARCHITECTURE.md) for the complete architectural specification.  
+> 📊 **Visual Flow Diagrams**:
+> - **Interactive HTML Flow Diagram**: [docs/process-flow-diagram.html](file:///d:/Projects/unified_dental/docs/process-flow-diagram.html)
+> - **Vector Architecture SVG**: [docs/process-flow-diagram.svg](file:///d:/Projects/unified_dental/docs/process-flow-diagram.svg)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   GLOBAL PLATFORM ADMIN                                     │
+│  - System Super Admin          - Global Module Catalog        - Plan & Capacity Enforcement │
+│  - Multi-Tenant Provisioning   - Global Audit Trail           - Global Subscription Engine  │
+└──────────────────────────────────────────────┬──────────────────────────────────────────────┘
+                                               │ Provisions & Governs
+                                               ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                           TENANT / ORGANIZATION BOUNDARY                                    │
+│   Subdomain Scope: {tenant-slug}.app.example.com  |  Tenant Admin  |  Shared Organization DB│
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                  CORE OPERATIONS                                            │
+│   • Dashboard (`/`)      • Branch (`/branches`)  • Settings (`/settings`)                   │
+│   • Finance (`/finance`) • Remainder (`/reminders`) • Inventory (`/inventory`) • Expense  │
+├──────────────────────────────────────────────┬──────────────────────────────────────────────┤
+│                                              │                                              │
+│                     ▼                        │                       ▼                      │
+│   ┌────────────────────────────────────┐     │     ┌────────────────────────────────────┐   │
+│   │         DENTAL LAB MODULE          │     │     │        DENTAL CLINIC MODULE        │   │
+│   ├────────────────────────────────────┤     │     ├────────────────────────────────────┤   │
+│   │ • Lab Branches (Milling, Finish)   │     │     │ • Clinic Branches (Main, Outpost)  │   │
+│   │ • Scoped Roles:                    │     │     │ • Scoped Roles:                    │   │
+│   │   - Lab Manager                    │     │     │   - Clinic Admin                   │   │
+│   │   - Master Technician              │     │     │   - Dentist / Doctor               │   │
+│   │   - Lab Technician                 │     │     │   - Dental Assistant               │   │
+│   │   - QC Inspector (Verification)    │     │     │   - Receptionist / Front Desk      │   │
+│   │   - Delivery Courier               │     │     │   - Billing Specialist             │   │
+│   │ • Menus & Pipelines:               │     │     │ • Menus & Pipelines:               │   │
+│   │   - Users (Admin, Tech, Doctors)   │     │     │   - Users (Admin, Staff, Doctors)  │   │
+│   │   - Work Orders (`/lab/work-orders`)│    │     │   - Patient (`/clinic/patients`)   │   │
+│   │   - Prosthesis (`/lab/prosthesis`) │     │     │   - Appointment (`/clinic/appts`)  │   │
+│   │   - Process (`/lab/processes`)     │     │     │   - Income (`/clinic/income`)      │   │
+│   │   - Process Areas (`/lab/areas`)   │     │     └────────────────────────────────────┘   │
+│   │   - Whatsapp Template (`/lab/wa`)  │                                                    │
+│   └─────────────────┬──────────────────┘                                                    │
+│                     │                                                                       │
+│                     └───────────────► ⟷ CROSS-MODULE BRIDGE ⟷ ◄────────────────────────────┘
+│                                       (Clinic → Lab Orders, Shared Patients,
+│                                        Live QC Status, Unified Invoicing)
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Multi-Tenant Subdomain Isolation
 Each tenant is isolated and accessed via its unique subdomain:
 ```text
 smile-dental.app.example.com  -->  Tenant: "smile-dental"
@@ -50,24 +98,19 @@ precision-lab.app.example.com -->  Tenant: "precision-lab"
 
 ### 2. Sibling Module Independence
 Modules are independent siblings sharing a common core:
-```text
-                     Tenant
-                       │
-         ┌─────────────┼─────────────┐
-         │             │             │
-       Clinic         Lab        Radiology (future)
-         │             │             │
-         └─────────────┼─────────────┘
-                       │
-                  Shared Core
-         (Tenancy, Auth, RBAC, Branches,
-          Audit, Files, Notifications)
-```
+- A tenant can operate in **Lab-Only Mode**, **Clinic-Only Mode**, or **Combined Clinic + Lab Mode**.
+- Zero database-level foreign key locks exist between sibling modules; cross-module communication uses **Application Contracts** and **Domain Events**.
 
 ### 3. Native Authentication & Granular RBAC
 - **Native NestJS Auth**: Passport.js + JWT + bcrypt (no third-party cloud auth lock-in).
 - **Permission-Driven RBAC**: Enforces granular permissions (e.g. `can('work_order.create')`) alongside attribute-based authorization (e.g. Doctor `is_owner`).
-- **Backend Enforced**: Subdomain, tenant, branch, module entitlement, and permissions are validated server-side for every request.
+- **Server-Enforced**: Subdomain context, tenant, branch, module entitlement, and permissions are validated server-side for every API endpoint.
+
+### 4. Single-Expand Accordion & Tree-Line Navigation Standard
+- **Core Operations**: `Dashboard`, `Branch`, `Settings`, `Finance`, `Remainder`, `Inventory`, `Expense`.
+- **Dental Lab**: `Users` (`Lab Admin`, `Technician`, `Doctors`), `Work Orders`, `Prosthesis type`, `Process`, `Process Areas`, `Whatsapp Template`.
+- **Dental Clinic**: `Users` (`Admin`, `Staff`, `Doctors`), `Patient`, `Appointment`, `Income`.
+- Strict route-based active group expansion, single-group expansion enforcement, and visual tree-line indentation hierarchy.
 
 ---
 
