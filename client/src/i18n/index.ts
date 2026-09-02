@@ -62,14 +62,11 @@ const resources = {
         labDeliveries: 'Deliveries',
         labProsthesisTypes: 'Prosthesis Catalog',
         labDoctors: 'Lab Doctors',
-        // Clinic module menu items
-        clinicStaff: 'Clinic Staff & Roles',
         clinicPatientsMenu: 'Patients',
         clinicAppointmentsMenu: 'Appointments',
         clinicTreatments: 'Treatments & Charts',
         clinicPrescriptions: 'Prescriptions',
         clinicBilling: 'Billing & Invoices',
-        clinicDoctors: 'Doctors & Schedules',
       },
       header: {
         activeTenant: 'Organization',
@@ -584,14 +581,11 @@ const resources = {
         labDeliveries: 'Entregas',
         labProsthesisTypes: 'Catálogo de Prótesis',
         labDoctors: 'Doctores del Lab',
-        // Clinic module menu items
-        clinicStaff: 'Personal y Roles de Clínica',
         clinicPatientsMenu: 'Pacientes',
         clinicAppointmentsMenu: 'Citas',
         clinicTreatments: 'Tratamientos y Fichas',
         clinicPrescriptions: 'Recetas',
         clinicBilling: 'Facturación y Cobros',
-        clinicDoctors: 'Doctores y Horarios',
       },
       header: {
         activeTenant: 'Organización',
