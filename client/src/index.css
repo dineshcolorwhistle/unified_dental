@@ -414,6 +414,205 @@ button {
   margin: 6px auto;
 }
 
+.nav-section-module {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+}
+
+/* Accordion Group & Header */
+.nav-accordion-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 6px;
+}
+
+.nav-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  outline: none;
+}
+
+.nav-accordion-header:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.nav-accordion-header.is-open {
+  color: #38bdf8;
+}
+
+.nav-accordion-header.has-active-child {
+  color: #ffffff;
+}
+
+.nav-accordion-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nav-accordion-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accordion-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #64748b;
+}
+
+.nav-accordion-header:hover .accordion-chevron {
+  color: #cbd5e1;
+}
+
+.accordion-chevron.is-open {
+  transform: rotate(180deg);
+  color: #38bdf8;
+}
+
+.nav-accordion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+}
+
+.nav-accordion-content.is-collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.nav-accordion-content.is-expanded {
+  max-height: 850px;
+  opacity: 1;
+}
+
+/* Tree-line guideline for Level 1 items inside accordion group */
+.nav-accordion-content.has-tree-line {
+  margin-left: 14px;
+  padding-left: 10px;
+  border-left: 1.5px solid rgba(56, 189, 248, 0.3);
+}
+
+.app-sidebar.collapsed .nav-accordion-content.has-tree-line {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+}
+
+/* Nested Submenu (Level 1 Parent -> Level 2 items) */
+.nav-sub-group {
+  position: relative;
+  width: 100%;
+}
+
+.nav-sub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.nav-sub-header:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.nav-sub-header.has-active {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+/* Secondary tree-line guideline for Level 2 items */
+.nav-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 16px;
+  padding-left: 12px;
+  border-left: 1.5px solid rgba(56, 189, 248, 0.4);
+  margin-top: 2px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  transition: max-height 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+.nav-sub-list.is-collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  pointer-events: none;
+}
+
+.nav-sub-list.is-expanded {
+  max-height: 400px;
+  opacity: 1;
+}
+
+.nav-sub-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.nav-sub-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.nav-sub-link.active {
+  color: #38bdf8;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.12);
+}
+
 .nav-item-wrapper {
   position: relative;
   width: 100%;

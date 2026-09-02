@@ -16,6 +16,34 @@ import { TenantsPage } from './pages/TenantsPage';
 import { ModulesPage } from './pages/ModulesPage';
 import { PlansPage } from './pages/PlansPage';
 import { TenantSettingsPage } from './pages/TenantSettingsPage';
+import { FinancePage } from './pages/FinancePage';
+import { RemindersPage } from './pages/RemindersPage';
+import { InventoryPage } from './pages/InventoryPage';
+import { ExpensesPage } from './pages/ExpensesPage';
+// Lab Module Pages
+import { LabStaffPage } from './pages/lab/LabStaffPage';
+import { LabUsersAdminPage } from './pages/lab/LabUsersAdminPage';
+import { LabUsersTechniciansPage } from './pages/lab/LabUsersTechniciansPage';
+import { LabUsersDoctorsPage } from './pages/lab/LabUsersDoctorsPage';
+import { LabWorkOrdersPage } from './pages/lab/LabWorkOrdersPage';
+import { LabProcessesPage } from './pages/lab/LabProcessesPage';
+import { LabProcessAreasPage } from './pages/lab/LabProcessAreasPage';
+import { LabWhatsappTemplatesPage } from './pages/lab/LabWhatsappTemplatesPage';
+import { LabDeliveriesPage } from './pages/lab/LabDeliveriesPage';
+import { LabProsthesisPage } from './pages/lab/LabProsthesisPage';
+import { LabDoctorsPage } from './pages/lab/LabDoctorsPage';
+// Clinic Module Pages
+import { ClinicStaffPage } from './pages/clinic/ClinicStaffPage';
+import { ClinicUsersAdminPage } from './pages/clinic/ClinicUsersAdminPage';
+import { ClinicUsersStaffPage } from './pages/clinic/ClinicUsersStaffPage';
+import { ClinicUsersDoctorsPage } from './pages/clinic/ClinicUsersDoctorsPage';
+import { ClinicPatientsPage } from './pages/clinic/ClinicPatientsPage';
+import { ClinicAppointmentsPage } from './pages/clinic/ClinicAppointmentsPage';
+import { ClinicIncomePage } from './pages/clinic/ClinicIncomePage';
+import { ClinicTreatmentsPage } from './pages/clinic/ClinicTreatmentsPage';
+import { ClinicPrescriptionsPage } from './pages/clinic/ClinicPrescriptionsPage';
+import { ClinicBillingPage } from './pages/clinic/ClinicBillingPage';
+import { ClinicDoctorsPage } from './pages/clinic/ClinicDoctorsPage';
 import './i18n';
 
 const ProtectedRoute: React.FC<{
@@ -90,6 +118,66 @@ export const App: React.FC = () => {
                         </ProtectedRoute>
                       }
                     />
+                    <Route
+                      path="finance"
+                      element={
+                        <ProtectedRoute tenantAdminOnly>
+                          <FinancePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="reminders"
+                      element={
+                        <ProtectedRoute tenantAdminOnly>
+                          <RemindersPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="inventory"
+                      element={
+                        <ProtectedRoute tenantAdminOnly>
+                          <InventoryPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="expenses"
+                      element={
+                        <ProtectedRoute tenantAdminOnly>
+                          <ExpensesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Lab Module Routes */}
+                    <Route path="lab/staff" element={<ProtectedRoute><LabStaffPage /></ProtectedRoute>} />
+                    <Route path="lab/users/admin" element={<ProtectedRoute><LabUsersAdminPage /></ProtectedRoute>} />
+                    <Route path="lab/users/technicians" element={<ProtectedRoute><LabUsersTechniciansPage /></ProtectedRoute>} />
+                    <Route path="lab/users/doctors" element={<ProtectedRoute><LabUsersDoctorsPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/processes" element={<ProtectedRoute><LabProcessesPage /></ProtectedRoute>} />
+                    <Route path="lab/process-areas" element={<ProtectedRoute><LabProcessAreasPage /></ProtectedRoute>} />
+                    <Route path="lab/prosthesis-types" element={<ProtectedRoute><LabProsthesisPage /></ProtectedRoute>} />
+                    <Route path="lab/whatsapp-templates" element={<ProtectedRoute><LabWhatsappTemplatesPage /></ProtectedRoute>} />
+                    <Route path="lab/deliveries" element={<ProtectedRoute><LabDeliveriesPage /></ProtectedRoute>} />
+                    <Route path="lab/doctors" element={<ProtectedRoute><LabDoctorsPage /></ProtectedRoute>} />
+
+                    {/* Clinic Module Routes */}
+                    <Route path="clinic/staff" element={<ProtectedRoute><ClinicStaffPage /></ProtectedRoute>} />
+                    <Route path="clinic/users/admin" element={<ProtectedRoute><ClinicUsersAdminPage /></ProtectedRoute>} />
+                    <Route path="clinic/users/staff" element={<ProtectedRoute><ClinicUsersStaffPage /></ProtectedRoute>} />
+                    <Route path="clinic/users/doctors" element={<ProtectedRoute><ClinicUsersDoctorsPage /></ProtectedRoute>} />
+                    <Route path="clinic/patients" element={<ProtectedRoute><ClinicPatientsPage /></ProtectedRoute>} />
+                    <Route path="clinic/appointments" element={<ProtectedRoute><ClinicAppointmentsPage /></ProtectedRoute>} />
+                    <Route path="clinic/income" element={<ProtectedRoute><ClinicIncomePage /></ProtectedRoute>} />
+                    <Route path="clinic/treatments" element={<ProtectedRoute><ClinicTreatmentsPage /></ProtectedRoute>} />
+                    <Route path="clinic/prescriptions" element={<ProtectedRoute><ClinicPrescriptionsPage /></ProtectedRoute>} />
+                    <Route path="clinic/billing" element={<ProtectedRoute><ClinicBillingPage /></ProtectedRoute>} />
+                    <Route path="clinic/doctors" element={<ProtectedRoute><ClinicDoctorsPage /></ProtectedRoute>} />
+
+                    {/* Platform Super Admin Routes */}
                     <Route
                       path="tenants"
                       element={

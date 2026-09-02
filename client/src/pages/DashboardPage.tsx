@@ -10,6 +10,13 @@ import {
   CheckCircle2,
   Stethoscope,
   FlaskConical,
+  ClipboardList,
+  Workflow,
+  Truck,
+  Users,
+  CalendarCheck,
+  HeartPulse,
+  Info,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -42,6 +49,7 @@ export const DashboardPage: React.FC = () => {
 
   const activeTenantsCount = tenants.filter((t) => t.status === 'ACTIVE').length;
   const isLabMode = activeModuleMode === 'LAB';
+  const isClinicMode = activeModuleMode === 'CLINIC';
 
   return (
     <div>
@@ -82,13 +90,15 @@ export const DashboardPage: React.FC = () => {
           </div>
           <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
             {isTenantContext
-              ? `${user?.activeTenant?.name} — ${isLabMode ? t('header.labModule') : t('header.clinicModule')}`
+              ? isLabMode
+                ? t('dashboard.labDashboardSubtitle')
+                : t('dashboard.clinicDashboardSubtitle')
               : t('dashboard.superAdminSubtitle')}
           </p>
         </div>
       </div>
 
-      {/* Platform Super Admin Metric Cards */}
+      {/* ─── Platform Super Admin Metric Cards ─── */}
       {!isTenantContext && user?.isSuperAdmin && (
         <div
           style={{
@@ -176,7 +186,268 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ─── Tenant: Lab Module Dashboard ─── */}
+      {isTenantContext && isLabMode && (
+        <>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px',
+            }}
+          >
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-primary-bg)',
+                  color: 'var(--primary-600)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <ClipboardList size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.labWorkOrders')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-info-bg)',
+                  color: 'var(--sky-500)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Workflow size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.labActiveProcesses')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-success-bg)',
+                  color: 'var(--emerald-500)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Truck size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.labDeliveries')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-warning-bg)',
+                  color: 'var(--amber-500)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Users size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.labStaffCount')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Coming Soon Notice */}
+          <div
+            className="card"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '16px 20px',
+              borderLeft: '4px solid var(--primary-600)',
+            }}
+          >
+            <Info size={18} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+              {t('dashboard.comingSoon')}
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* ─── Tenant: Clinic Module Dashboard ─── */}
+      {isTenantContext && isClinicMode && (
+        <>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px',
+            }}
+          >
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-primary-bg)',
+                  color: 'var(--primary-600)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Users size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.clinicPatients')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-info-bg)',
+                  color: 'var(--sky-500)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CalendarCheck size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.clinicTodayAppointments')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-success-bg)',
+                  color: 'var(--emerald-500)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <HeartPulse size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.clinicTreatments')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--badge-warning-bg)',
+                  color: 'var(--amber-500)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Users size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {t('dashboard.clinicStaffCount')}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginTop: '2px' }}>
+                  0
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Coming Soon Notice */}
+          <div
+            className="card"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '16px 20px',
+              borderLeft: '4px solid var(--primary-600)',
+            }}
+          >
+            <Info size={18} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+              {t('dashboard.comingSoon')}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 };
-

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../core/context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -23,8 +24,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const handleModuleSwitch = (mode: 'PLATFORM' | 'CLINIC' | 'LAB') => {
+    onModuleModeChange(mode);
+    navigate('/');
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -85,7 +92,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             }}
           >
             <button
-              onClick={() => onModuleModeChange('CLINIC')}
+              onClick={() => handleModuleSwitch('CLINIC')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -106,7 +113,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </button>
 
             <button
-              onClick={() => onModuleModeChange('LAB')}
+              onClick={() => handleModuleSwitch('LAB')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
