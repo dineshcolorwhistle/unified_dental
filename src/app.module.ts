@@ -25,6 +25,9 @@ import { NotificationsModule } from './core/notifications/notifications.module';
 import { QueueModule } from './core/queue/queue.module';
 import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
 
+// Domain Modules
+import { LabModule } from './modules/lab/lab.module';
+
 @Module({
   imports: [
     // Configuration
@@ -69,6 +72,9 @@ import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
     QueueModule,
     MailModule,
     NotificationsModule,
+
+    // Domain Modules
+    LabModule,
   ],
 })
 export class AppModule {}

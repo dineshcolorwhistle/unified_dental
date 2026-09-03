@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,51 @@ import { CreateBranchDto, UpdateBranchDto } from './dto/branches.dto';
 @Injectable()
 export class BranchesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Verify that the actor is a Tenant Administrator or Platform Super Admin
+   */
+  async assertTenantAdmin(userId: string, tenantId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: { where: { tenantId } },
+        userRoles: {
+          where: { tenantId },
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new ForbiddenException('User profile not found');
+    }
+
+    if (user.isSuperAdmin) {
+      return;
+    }
+
+    const membership = user.memberships[0];
+    if (membership?.isOwner) {
+      return;
+    }
+
+    const hasAdminRole = user.userRoles.some((ur) => {
+      const lower = ur.role.slug.toLowerCase();
+      return (
+        lower === 'tenant-admin' ||
+        lower === 'admin' ||
+        lower.includes('tenant administrator') ||
+        lower.includes('tenant admin')
+      );
+    });
+
+    if (!hasAdminRole) {
+      throw new ForbiddenException(
+        'Only Tenant Administrators can create or modify branches.',
+      );
+    }
+  }
 
   async findAllForTenant(tenantId: string, moduleKey?: string) {
     const branches = await this.prisma.branch.findMany({
@@ -61,6 +107,10 @@ export class BranchesService {
       throw new BadRequestException('Tenant ID is required to create a branch');
     }
 
+    if (actorId) {
+      await this.assertTenantAdmin(actorId, tenantId);
+    }
+
     const moduleKey = dto.moduleKey ? dto.moduleKey.toUpperCase() : 'CLINIC';
 
     return this.prisma.$transaction(async (tx) => {
@@ -101,6 +151,7 @@ export class BranchesService {
       const branch = await tx.branch.create({
         data: {
           tenantId,
+          moduleKey,
           name: dto.name,
           code: dto.code,
           address: dto.address,
@@ -151,6 +202,11 @@ export class BranchesService {
 
   async update(id: string, dto: UpdateBranchDto, currentTenantId?: string, actorId?: string) {
     const branch = await this.findById(id, currentTenantId);
+
+    if (actorId) {
+      await this.assertTenantAdmin(actorId, branch.tenantId);
+    }
+
     const existingSettings = (branch.settings as object) || {};
 
     return this.prisma.$transaction(async (tx) => {
@@ -178,6 +234,7 @@ export class BranchesService {
           isDefault: dto.isDefault,
           status: dto.status,
           settings: newSettings,
+          moduleKey: dto.moduleKey ? dto.moduleKey.toUpperCase() : undefined,
         },
       });
 
@@ -200,6 +257,10 @@ export class BranchesService {
 
   async remove(id: string, currentTenantId?: string, actorId?: string) {
     const branch = await this.findById(id, currentTenantId);
+
+    if (actorId) {
+      await this.assertTenantAdmin(actorId, branch.tenantId);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // 1. If deleting default branch, assign default to another branch if available
@@ -265,6 +326,10 @@ export class BranchesService {
   }
 
   async resetBranches(tenantId?: string, actorId?: string) {
+    if (actorId && tenantId) {
+      await this.assertTenantAdmin(actorId, tenantId);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       let targetTenantIds: string[] = [];
 

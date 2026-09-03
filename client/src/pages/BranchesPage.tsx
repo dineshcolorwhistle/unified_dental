@@ -5,6 +5,7 @@ import { useAuth } from '../core/context/AuthContext';
 import { useModule } from '../core/context/ModuleContext';
 import { useToast } from '../core/context/ToastContext';
 import { Pagination } from '../components/common/Pagination';
+import { SearchableSelect, SearchableSelectOption } from '../components/common/SearchableSelect';
 import {
   Building2,
   Plus,
@@ -19,6 +20,17 @@ import {
   Search,
   AlertTriangle,
 } from 'lucide-react';
+
+const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
+  { value: '+52', label: '+52' },
+  { value: '+1', label: '+1' },
+  { value: '+51', label: '+51' },
+  { value: '+34', label: '+34' },
+  { value: '+57', label: '+57' },
+  { value: '+54', label: '+54' },
+  { value: '+56', label: '+56' },
+  { value: '+44', label: '+44' },
+];
 
 export const BranchesPage: React.FC = () => {
   const { t } = useTranslation();
@@ -44,11 +56,21 @@ export const BranchesPage: React.FC = () => {
     name: '',
     code: '',
     address: '',
-    phone: '',
+    phoneCountryCode: '+52',
+    phoneNumber: '',
     email: '',
     isDefault: false,
     status: 'ACTIVE',
   });
+
+  const parsePhone = (rawPhone?: string) => {
+    if (!rawPhone) return { code: '+52', number: '' };
+    const match = rawPhone.match(/^(\+\d{1,4})\s*(.*)$/);
+    if (match) {
+      return { code: match[1], number: match[2] };
+    }
+    return { code: '+52', number: rawPhone };
+  };
 
   const fetchBranches = async () => {
     try {
@@ -100,8 +122,17 @@ export const BranchesPage: React.FC = () => {
     e.preventDefault();
     try {
       setActionLoading(true);
+      const phoneVal = formData.phoneNumber.trim()
+        ? `${formData.phoneCountryCode} ${formData.phoneNumber.trim()}`
+        : undefined;
       const payload = {
-        ...formData,
+        name: formData.name.trim(),
+        code: formData.code.trim() || undefined,
+        address: formData.address.trim() || undefined,
+        phone: phoneVal,
+        email: formData.email.trim() || undefined,
+        isDefault: Boolean(formData.isDefault),
+        status: formData.status || 'ACTIVE',
         moduleKey: activeModuleMode !== 'PLATFORM' ? activeModuleMode : 'CLINIC',
       };
       await api.post('/branches', payload);
@@ -111,7 +142,8 @@ export const BranchesPage: React.FC = () => {
         name: '',
         code: '',
         address: '',
-        phone: '',
+        phoneCountryCode: '+52',
+        phoneNumber: '',
         email: '',
         isDefault: false,
         status: 'ACTIVE',
@@ -128,11 +160,13 @@ export const BranchesPage: React.FC = () => {
 
   const openEditModal = (branch: any) => {
     setEditingBranch(branch);
+    const parsed = parsePhone(branch.phone);
     setFormData({
       name: branch.name || '',
       code: branch.code || '',
       address: branch.address || '',
-      phone: branch.phone || '',
+      phoneCountryCode: parsed.code,
+      phoneNumber: parsed.number,
       email: branch.email || '',
       isDefault: Boolean(branch.isDefault),
       status: branch.status || 'ACTIVE',
@@ -144,7 +178,19 @@ export const BranchesPage: React.FC = () => {
     if (!editingBranch) return;
     try {
       setActionLoading(true);
-      await api.patch(`/branches/${editingBranch.id}`, formData);
+      const phoneVal = formData.phoneNumber.trim()
+        ? `${formData.phoneCountryCode} ${formData.phoneNumber.trim()}`
+        : undefined;
+      const payload = {
+        name: formData.name.trim(),
+        code: formData.code.trim() || undefined,
+        address: formData.address.trim() || undefined,
+        phone: phoneVal,
+        email: formData.email.trim() || undefined,
+        isDefault: Boolean(formData.isDefault),
+        status: formData.status || 'ACTIVE',
+      };
+      await api.patch(`/branches/${editingBranch.id}`, payload);
       toast.success(`Branch "${formData.name}" updated successfully`, 'Branch Updated');
       setEditingBranch(null);
       fetchBranches();
@@ -235,7 +281,8 @@ export const BranchesPage: React.FC = () => {
               name: '',
               code: '',
               address: '',
-              phone: '',
+              phoneCountryCode: '+52',
+              phoneNumber: '',
               email: '',
               isDefault: branches.length === 0,
               status: 'ACTIVE',
@@ -479,7 +526,7 @@ export const BranchesPage: React.FC = () => {
       {/* Create Branch Modal */}
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '520px' }}>
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
                 {t('branches.modalTitle')}
@@ -489,7 +536,9 @@ export const BranchesPage: React.FC = () => {
             <form onSubmit={handleCreateBranch}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="form-group">
-                  <label className="form-label">{t('branches.name')}</label>
+                  <label className="form-label">
+                    {t('branches.name')} <span style={{ color: 'var(--rose-500)' }}>*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -522,16 +571,23 @@ export const BranchesPage: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">{t('branches.phone')}</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="+1-555-0100"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>
+                      <SearchableSelect
+                        options={COUNTRY_DIALING_CODES}
+                        value={formData.phoneCountryCode}
+                        onChange={(val) => setFormData({ ...formData, phoneCountryCode: val })}
+                      />
+                      <input
+                        type="tel"
+                        className="form-input"
+                        placeholder="55 1234 5678"
+                        value={formData.phoneNumber}
+                        onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                      />
+                    </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('branches.email')}</label>
@@ -570,7 +626,7 @@ export const BranchesPage: React.FC = () => {
       {/* Edit Branch Modal */}
       {editingBranch && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '520px' }}>
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
                 {t('branches.editModalTitle')}
@@ -580,7 +636,9 @@ export const BranchesPage: React.FC = () => {
             <form onSubmit={handleUpdateBranch}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="form-group">
-                  <label className="form-label">{t('branches.name')}</label>
+                  <label className="form-label">
+                    {t('branches.name')} <span style={{ color: 'var(--rose-500)' }}>*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -610,15 +668,23 @@ export const BranchesPage: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">{t('branches.phone')}</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>
+                      <SearchableSelect
+                        options={COUNTRY_DIALING_CODES}
+                        value={formData.phoneCountryCode}
+                        onChange={(val) => setFormData({ ...formData, phoneCountryCode: val })}
+                      />
+                      <input
+                        type="tel"
+                        className="form-input"
+                        placeholder="55 1234 5678"
+                        value={formData.phoneNumber}
+                        onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                      />
+                    </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('branches.email')}</label>
@@ -632,15 +698,17 @@ export const BranchesPage: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">{t('branches.status')}</label>
-                  <select
-                    className="form-input"
+                  <label className="form-label">
+                    {t('branches.status')} <span style={{ color: 'var(--rose-500)' }}>*</span>
+                  </label>
+                  <SearchableSelect
+                    options={[
+                      { value: 'ACTIVE', label: t('common.statusActive') },
+                      { value: 'INACTIVE', label: t('common.statusInactive') },
+                    ]}
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  >
-                    <option value="ACTIVE">{t('common.statusActive')}</option>
-                    <option value="INACTIVE">{t('common.statusInactive')}</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, status: val })}
+                  />
                 </div>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>

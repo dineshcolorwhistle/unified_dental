@@ -30,7 +30,7 @@
       {{#if subdomainUrl}}
       <strong>Subdominio del Espacio:</strong> <a href="{{subdomainUrl}}" style="color: #0f766e; text-decoration: none; font-weight: 600;">{{subdomainUrl}}</a><br>
       {{/if}}
-      <strong>Rol:</strong> Administrador de Organización
+      <strong>Rol:</strong> {{#if roleName}}{{roleName}}{{else}}Administrador de Organización{{/if}}
     </div>
 
     {{#if hasResetToken}}

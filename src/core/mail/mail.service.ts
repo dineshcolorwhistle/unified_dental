@@ -184,6 +184,7 @@ export class MailService {
     resetToken?: string,
     locale?: string,
     tenantSlug?: string,
+    roleName?: string,
   ) {
     const tenantBaseUrl = this.getTenantBaseUrl(tenantSlug);
     const setPasswordUrl = resetToken
@@ -209,6 +210,7 @@ export class MailService {
         setPasswordUrl,
         hasResetToken: !!resetToken,
         loginUrl,
+        roleName,
       },
     });
   }

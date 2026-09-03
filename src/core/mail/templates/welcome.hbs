@@ -30,7 +30,7 @@
       {{#if subdomainUrl}}
       <strong>Workspace Subdomain:</strong> <a href="{{subdomainUrl}}" style="color: #0f766e; text-decoration: none; font-weight: 600;">{{subdomainUrl}}</a><br>
       {{/if}}
-      <strong>Role:</strong> Tenant Administrator
+      <strong>Role:</strong> {{#if roleName}}{{roleName}}{{else}}Tenant Administrator{{/if}}
     </div>
 
     {{#if hasResetToken}}
