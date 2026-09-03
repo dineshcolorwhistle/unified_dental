@@ -113,7 +113,7 @@ export const App: React.FC = () => {
                     <Route
                       path="settings"
                       element={
-                        <ProtectedRoute tenantAdminOnly>
+                        <ProtectedRoute>
                           <TenantSettingsPage />
                         </ProtectedRoute>
                       }
@@ -121,7 +121,7 @@ export const App: React.FC = () => {
                     <Route
                       path="finance"
                       element={
-                        <ProtectedRoute tenantAdminOnly>
+                        <ProtectedRoute>
                           <FinancePage />
                         </ProtectedRoute>
                       }
@@ -129,7 +129,7 @@ export const App: React.FC = () => {
                     <Route
                       path="reminders"
                       element={
-                        <ProtectedRoute tenantAdminOnly>
+                        <ProtectedRoute>
                           <RemindersPage />
                         </ProtectedRoute>
                       }
@@ -137,7 +137,7 @@ export const App: React.FC = () => {
                     <Route
                       path="inventory"
                       element={
-                        <ProtectedRoute tenantAdminOnly>
+                        <ProtectedRoute>
                           <InventoryPage />
                         </ProtectedRoute>
                       }
@@ -145,7 +145,7 @@ export const App: React.FC = () => {
                     <Route
                       path="expenses"
                       element={
-                        <ProtectedRoute tenantAdminOnly>
+                        <ProtectedRoute>
                           <ExpensesPage />
                         </ProtectedRoute>
                       }

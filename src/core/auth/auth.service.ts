@@ -257,18 +257,13 @@ export class AuthService {
 
     // Determine effective tenant
     const effectiveTenantId = activeTenantId || user.memberships[0]?.tenantId;
-    const effectiveTenant = user.memberships.find((m) => m.tenantId === effectiveTenantId)?.tenant;
+    const membership = user.memberships.find((m) => m.tenantId === effectiveTenantId);
+    const effectiveTenant = membership?.tenant;
 
-    // Filter branches
-    const availableBranches = effectiveTenant
-      ? effectiveTenant.branches
-      : user.userBranches.map((ub) => ub.branch);
-
-    const effectiveBranchId = activeBranchId || 'all';
-
-    // Compute permissions
+    // Compute roles and permissions scoped to effective tenant
     const permissionKeys = new Set<string>();
     const roleNames: string[] = [];
+    const roleSlugs: string[] = [];
 
     if (user.isSuperAdmin) {
       permissionKeys.add('*');
@@ -277,9 +272,80 @@ export class AuthService {
     for (const ur of user.userRoles) {
       if (user.isSuperAdmin || !effectiveTenantId || ur.tenantId === effectiveTenantId) {
         roleNames.push(ur.role.name);
+        roleSlugs.push(ur.role.slug);
         for (const rp of ur.role.rolePermissions) {
           permissionKeys.add(rp.permission.key);
         }
+      }
+    }
+
+    // Determine if user is a Tenant Administrator
+    const isTenantAdmin = user.isSuperAdmin ||
+      Boolean(membership?.isOwner) ||
+      roleSlugs.some((slug) => {
+        const lower = slug.toLowerCase();
+        return lower === 'tenant-admin' || lower === 'admin' || lower === 'administrator';
+      });
+
+    // Determine allowed modules for this user
+    const tenantEnabledModules = effectiveTenant
+      ? effectiveTenant.modules.map((m) => m.moduleKey)
+      : [];
+
+    let allowedModules: string[];
+    if (isTenantAdmin) {
+      // Tenant Admin can access all enabled modules
+      allowedModules = tenantEnabledModules;
+    } else {
+      // Non-tenant admin: derive from user_module_access + role moduleKeys
+      const moduleAccessKeys = user.moduleAccess
+        .filter((ma) => ma.tenantId === effectiveTenantId && ma.isActive)
+        .map((ma) => ma.moduleKey);
+      const roleModuleKeys = user.userRoles
+        .filter((ur) => ur.tenantId === effectiveTenantId && ur.role.moduleKey)
+        .map((ur) => ur.role.moduleKey as string);
+      const userModuleSet = new Set([...moduleAccessKeys, ...roleModuleKeys]);
+      // Intersect with tenant enabled modules
+      allowedModules = tenantEnabledModules.filter((m) => userModuleSet.has(m));
+    }
+
+    // Filter available branches based on role
+    let availableBranches: { id: string; name: string; code: string | null; moduleKey: string; isDefault: boolean }[];
+    if (isTenantAdmin && effectiveTenant) {
+      // Tenant Admin sees all tenant branches
+      availableBranches = effectiveTenant.branches.map((b) => ({
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        moduleKey: (b as any).moduleKey || 'CLINIC',
+        isDefault: b.isDefault,
+      }));
+    } else {
+      // Non-tenant admin: only their assigned branches
+      availableBranches = user.userBranches
+        .filter((ub) => ub.branch && (ub.branch as any).tenantId === effectiveTenantId)
+        .map((ub) => ({
+          id: ub.branch.id,
+          name: ub.branch.name,
+          code: (ub.branch as any).code || null,
+          moduleKey: (ub.branch as any).moduleKey || 'CLINIC',
+          isDefault: ub.isDefault,
+        }));
+    }
+
+    // Determine effective branch ID
+    let effectiveBranchId: string;
+    if (isTenantAdmin) {
+      effectiveBranchId = activeBranchId || 'all';
+    } else {
+      // Non-tenant admin: lock to their assigned branch (single branch for Lab Admin)
+      const userDefaultBranch = availableBranches.find((b) => b.isDefault) || availableBranches[0];
+      if (activeBranchId && activeBranchId !== 'all' && availableBranches.some((b) => b.id === activeBranchId)) {
+        effectiveBranchId = activeBranchId;
+      } else if (userDefaultBranch) {
+        effectiveBranchId = userDefaultBranch.id;
+      } else {
+        effectiveBranchId = 'all';
       }
     }
 
@@ -290,6 +356,7 @@ export class AuthService {
       phone: user.phone,
       avatarUrl: user.avatarUrl,
       isSuperAdmin: user.isSuperAdmin,
+      isTenantAdmin,
       locale: user.locale,
       activeTenant: effectiveTenant
         ? {
@@ -303,17 +370,12 @@ export class AuthService {
             timeFormat: '12h',
             ...((effectiveTenant.settings as Record<string, any>) || {}),
           },
-          enabledModules: effectiveTenant.modules.map((m) => m.moduleKey),
+          enabledModules: tenantEnabledModules,
         }
         : null,
       activeBranchId: effectiveBranchId,
-      availableBranches: availableBranches.map((b) => ({
-        id: b.id,
-        name: b.name,
-        code: b.code,
-        moduleKey: (b as any).moduleKey || 'CLINIC',
-        isDefault: b.isDefault,
-      })),
+      allowedModules,
+      availableBranches,
       tenants: user.memberships.map((m) => ({
         id: m.tenant.id,
         name: m.tenant.name,

@@ -9,6 +9,7 @@ export interface UserProfile {
   phone?: string;
   avatarUrl?: string;
   isSuperAdmin: boolean;
+  isTenantAdmin?: boolean;
   locale: string;
   activeTenant?: {
     id: string;
@@ -18,6 +19,7 @@ export interface UserProfile {
     enabledModules: string[];
   } | null;
   activeBranchId?: string;
+  allowedModules?: string[];
   availableBranches: {
     id: string;
     name: string;
@@ -205,14 +207,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isTenantAdmin = Boolean(
-    user?.activeTenant &&
+    user?.isTenantAdmin ||
     (
-      user.tenants?.find((t) => t.id === user.activeTenant?.id)?.isOwner ||
-      user.roles?.some((r) => {
-        const lower = r.toLowerCase();
-        return lower === 'tenant-admin' || lower.includes('tenant administrator') || lower.includes('tenant admin');
-      }) ||
-      (user.isSuperAdmin && Boolean(user.activeTenant))
+      user?.activeTenant &&
+      (
+        user.tenants?.find((t) => t.id === user.activeTenant?.id)?.isOwner ||
+        user.roles?.some((r) => {
+          const lower = r.toLowerCase();
+          return lower === 'tenant-admin' || lower.includes('tenant administrator') || lower.includes('tenant admin');
+        }) ||
+        (user.isSuperAdmin && Boolean(user.activeTenant))
+      )
     )
   );
 

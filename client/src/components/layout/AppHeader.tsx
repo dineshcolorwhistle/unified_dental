@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../core/context/AuthContext';
+import { useModule } from '../../core/context/ModuleContext';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { NotificationDropdown } from './NotificationDropdown';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { BranchSwitcher } from './BranchSwitcher';
 import {
   LogOut,
   Shield,
@@ -23,6 +25,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onModuleModeChange,
 }) => {
   const { user, logout } = useAuth();
+  const { canSwitchModules, isClinicEnabled, isLabEnabled } = useModule();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -44,8 +47,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   }, []);
 
   const tenant = user?.activeTenant;
-  const isLabEnabled = tenant?.enabledModules.includes('LAB');
-  const isClinicEnabled = tenant?.enabledModules.includes('CLINIC');
 
   return (
     <header className="app-header">
@@ -59,7 +60,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
       </div>
 
-      {/* Header Right: Module Selector, Language Switcher, Theme Switcher, Notifications, Profile */}
+      {/* Header Right: Module Selector, Branch, Language Switcher, Theme Switcher, Notifications, Profile */}
       <div className="header-right">
         {/* Module Mode Selector / Badge */}
         {user?.isSuperAdmin && !tenant ? (
@@ -79,8 +80,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           >
             <Shield size={14} /> {t('header.platformAdmin')}
           </div>
-        ) : (isClinicEnabled && isLabEnabled) ? (
-          /* Multiple Modules Enabled: Render Interactive Switcher Tabs */
+        ) : canSwitchModules ? (
+          /* Tenant Admin with Multiple Modules: Render Interactive Switcher Tabs */
           <div
             style={{
               display: 'flex',
@@ -91,68 +92,54 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               border: '1px solid var(--border-color)',
             }}
           >
-            <button
-              onClick={() => handleModuleSwitch('CLINIC')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                fontSize: '12px',
-                fontWeight: 600,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: activeModuleMode === 'CLINIC' ? 'var(--bg-surface)' : 'transparent',
-                color: activeModuleMode === 'CLINIC' ? 'var(--primary-600)' : 'var(--text-muted)',
-                boxShadow: activeModuleMode === 'CLINIC' ? 'var(--shadow-sm)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Stethoscope size={13} /> {t('header.clinicModule')}
-            </button>
+            {isClinicEnabled && (
+              <button
+                onClick={() => handleModuleSwitch('CLINIC')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: activeModuleMode === 'CLINIC' ? 'var(--bg-surface)' : 'transparent',
+                  color: activeModuleMode === 'CLINIC' ? 'var(--primary-600)' : 'var(--text-muted)',
+                  boxShadow: activeModuleMode === 'CLINIC' ? 'var(--shadow-sm)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Stethoscope size={13} /> {t('header.clinicModule')}
+              </button>
+            )}
 
-            <button
-              onClick={() => handleModuleSwitch('LAB')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                fontSize: '12px',
-                fontWeight: 600,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: activeModuleMode === 'LAB' ? 'var(--bg-surface)' : 'transparent',
-                color: activeModuleMode === 'LAB' ? 'var(--primary-600)' : 'var(--text-muted)',
-                boxShadow: activeModuleMode === 'LAB' ? 'var(--shadow-sm)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <FlaskConical size={13} /> {t('header.labModule')}
-            </button>
+            {isLabEnabled && (
+              <button
+                onClick={() => handleModuleSwitch('LAB')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: activeModuleMode === 'LAB' ? 'var(--bg-surface)' : 'transparent',
+                  color: activeModuleMode === 'LAB' ? 'var(--primary-600)' : 'var(--text-muted)',
+                  boxShadow: activeModuleMode === 'LAB' ? 'var(--shadow-sm)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <FlaskConical size={13} /> {t('header.labModule')}
+              </button>
+            )}
           </div>
-        ) : isClinicEnabled ? (
-          /* Single Module Enabled: Clinic */
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              backgroundColor: 'var(--bg-surface)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              fontSize: '12px',
-              fontWeight: 700,
-              color: 'var(--primary-600)',
-            }}
-          >
-            <Stethoscope size={14} /> {t('header.clinicModule')}
-          </div>
-        ) : isLabEnabled ? (
-          /* Single Module Enabled: Lab */
+        ) : activeModuleMode === 'LAB' ? (
+          /* Non-Tenant Admin locked to Lab: Static Badge */
           <div
             style={{
               display: 'flex',
@@ -169,7 +156,28 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           >
             <FlaskConical size={14} /> {t('header.labModule')}
           </div>
+        ) : activeModuleMode === 'CLINIC' ? (
+          /* Non-Tenant Admin locked to Clinic: Static Badge */
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: 'var(--primary-600)',
+            }}
+          >
+            <Stethoscope size={14} /> {t('header.clinicModule')}
+          </div>
         ) : null}
+
+        {/* Branch Switcher */}
+        {tenant && <BranchSwitcher />}
 
         {/* Language Switcher */}
         <LanguageSwitcher />

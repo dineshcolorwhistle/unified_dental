@@ -334,50 +334,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               />
             )}
 
-            {isTenantAdmin && (
-              <SidebarNavItem
-                to="/settings"
-                icon={<Settings size={17} />}
-                label={t('nav.settings')}
-                isCollapsed={isCollapsed}
-              />
-            )}
+            <SidebarNavItem
+              to="/settings"
+              icon={<Settings size={17} />}
+              label={t('nav.settings')}
+              isCollapsed={isCollapsed}
+            />
 
-            {isTenantAdmin && (
-              <SidebarNavItem
-                to="/finance"
-                icon={<CreditCard size={17} />}
-                label={t('nav.finance')}
-                isCollapsed={isCollapsed}
-              />
-            )}
+            <SidebarNavItem
+              to="/finance"
+              icon={<CreditCard size={17} />}
+              label={t('nav.finance')}
+              isCollapsed={isCollapsed}
+            />
 
-            {isTenantAdmin && (
-              <SidebarNavItem
-                to="/reminders"
-                icon={<Bell size={17} />}
-                label={t('nav.remainder')}
-                isCollapsed={isCollapsed}
-              />
-            )}
+            <SidebarNavItem
+              to="/reminders"
+              icon={<Bell size={17} />}
+              label={t('nav.remainder')}
+              isCollapsed={isCollapsed}
+            />
 
-            {isTenantAdmin && (
-              <SidebarNavItem
-                to="/inventory"
-                icon={<Package size={17} />}
-                label={t('nav.inventory')}
-                isCollapsed={isCollapsed}
-              />
-            )}
+            <SidebarNavItem
+              to="/inventory"
+              icon={<Package size={17} />}
+              label={t('nav.inventory')}
+              isCollapsed={isCollapsed}
+            />
 
-            {isTenantAdmin && (
-              <SidebarNavItem
-                to="/expenses"
-                icon={<Receipt size={17} />}
-                label={t('nav.expenses')}
-                isCollapsed={isCollapsed}
-              />
-            )}
+            <SidebarNavItem
+              to="/expenses"
+              icon={<Receipt size={17} />}
+              label={t('nav.expenses')}
+              isCollapsed={isCollapsed}
+            />
           </div>
         </div>
 
@@ -433,12 +423,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   </button>
 
                   <div className={`nav-sub-list ${isLabUsersOpen ? 'is-expanded' : 'is-collapsed'}`}>
-                    <NavLink
-                      to="/lab/users/admin"
-                      className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
-                    >
-                      <span>{t('nav.labAdmin')}</span>
-                    </NavLink>
+                    {isTenantAdmin && (
+                      <NavLink
+                        to="/lab/users/admin"
+                        className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                      >
+                        <span>{t('nav.labAdmin')}</span>
+                      </NavLink>
+                    )}
                     <NavLink
                       to="/lab/users/technicians"
                       className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
@@ -455,12 +447,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 </div>
               ) : (
                 <>
-                  <SidebarNavItem
-                    to="/lab/users/admin"
-                    icon={<Users size={17} />}
-                    label={t('nav.labAdmin')}
-                    isCollapsed={isCollapsed}
-                  />
+                  {isTenantAdmin && (
+                    <SidebarNavItem
+                      to="/lab/users/admin"
+                      icon={<Users size={17} />}
+                      label={t('nav.labAdmin')}
+                      isCollapsed={isCollapsed}
+                    />
+                  )}
                   <SidebarNavItem
                     to="/lab/users/technicians"
                     icon={<Users size={17} />}

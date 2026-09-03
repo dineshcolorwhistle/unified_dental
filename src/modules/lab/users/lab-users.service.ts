@@ -222,6 +222,29 @@ export class LabUsersService {
       );
     }
 
+    // 5b. Enforce 1 Lab Admin : 1 Branch rule — same email cannot be a Lab Admin in another branch
+    if (existingUser) {
+      const existingLabAdminRole = await this.prisma.userRole.findFirst({
+        where: {
+          userId: existingUser.id,
+          tenantId,
+          role: {
+            slug: 'lab-admin',
+          },
+        },
+        include: {
+          branch: true,
+        },
+      });
+
+      if (existingLabAdminRole) {
+        const branchName = existingLabAdminRole.branch?.name || 'another branch';
+        throw new ConflictException(
+          `This email (${email}) is already assigned as a Lab Admin in branch "${branchName}". A Lab Admin can only be assigned to one branch.`,
+        );
+      }
+    }
+
     // 6. Ensure Role
     const labAdminRole = await this.ensureLabAdminRole();
 
