@@ -4,6 +4,7 @@ import { AuthModule } from '../../core/auth/auth.module';
 import { MailModule } from '../../core/mail/mail.module';
 import { BranchesModule } from '../../core/branches/branches.module';
 import { LabUsersController } from './users/lab-users.controller';
+import { LabTechniciansController } from './users/lab-technicians.controller';
 import { LabUsersService } from './users/lab-users.service';
 
 @Module({
@@ -15,6 +16,7 @@ import { LabUsersService } from './users/lab-users.service';
   ],
   controllers: [
     LabUsersController,
+    LabTechniciansController,
   ],
   providers: [
     LabUsersService,

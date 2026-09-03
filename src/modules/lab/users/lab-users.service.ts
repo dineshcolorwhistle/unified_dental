@@ -11,6 +11,8 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { MailService } from '../../../core/mail/mail.service';
 import { CreateLabAdminDto } from './dto/create-lab-admin.dto';
 import { UpdateLabAdminDto } from './dto/update-lab-admin.dto';
+import { CreateLabTechnicianDto } from './dto/create-lab-technician.dto';
+import { UpdateLabTechnicianDto } from './dto/update-lab-technician.dto';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 import { UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -108,6 +110,117 @@ export class LabUsersService {
     }
 
     return role;
+  }
+
+  /**
+   * Find or auto-provision the system-level 'lab-technician' role
+   */
+  async ensureLabTechnicianRole() {
+    let role = await this.prisma.role.findFirst({
+      where: {
+        slug: 'lab-technician',
+      },
+    });
+
+    if (!role) {
+      this.logger.log('🌱 Auto-provisioning system role "lab-technician"...');
+      role = await this.prisma.role.create({
+        data: {
+          name: 'Lab Technician',
+          slug: 'lab-technician',
+          description: 'Technician for Dental Lab process execution and work orders',
+          moduleKey: 'LAB',
+          isSystem: true,
+          tenantId: null,
+        },
+      });
+    }
+
+    return role;
+  }
+
+  /**
+   * Check whether an authenticated actor is a Tenant Administrator
+   */
+  async isTenantAdminUser(actor: AuthenticatedUser, tenantId: string): Promise<boolean> {
+    if (actor.isSuperAdmin) return true;
+    const isOwnerMem = (actor as any).memberships?.some(
+      (m: any) => m.tenantId === tenantId && m.isOwner,
+    );
+    if (isOwnerMem) return true;
+    const hasAdminRole = actor.roles?.some((r: string) => {
+      const lower = r.toLowerCase();
+      return lower === 'tenant-admin' || lower.includes('tenant administrator') || lower.includes('tenant admin');
+    });
+    if (hasAdminRole) return true;
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { userId_tenantId: { userId: actor.id, tenantId } },
+    });
+    if (membership?.isOwner) return true;
+    const userAdminRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: { slug: { in: ['tenant-admin', 'admin', 'administrator'] } },
+      },
+    });
+    return Boolean(userAdminRole);
+  }
+
+  /**
+   * Verify whether an actor is a Lab Administrator and return their assigned branch ID.
+   * Enforces: Lab Admin only (Tenant Admin cannot create technicians directly).
+   */
+  async assertLabAdmin(actor: AuthenticatedUser, tenantId: string): Promise<string> {
+    // 1. Check if actor has 'lab-admin' role in this tenant
+    const labAdminRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: {
+          slug: 'lab-admin',
+        },
+      },
+      include: {
+        branch: true,
+      },
+    });
+
+    if (labAdminRole?.branchId) {
+      return labAdminRole.branchId;
+    }
+
+    // Check userBranches fallback
+    const userBranch = await this.prisma.userBranch.findFirst({
+      where: {
+        userId: actor.id,
+        branch: { tenantId },
+      },
+    });
+
+    if (labAdminRole && userBranch) {
+      return userBranch.branchId;
+    }
+
+    // For Super Admin in tenant context
+    if (actor.isSuperAdmin) {
+      if (actor.activeBranchId && actor.activeBranchId !== 'all') {
+        return actor.activeBranchId;
+      }
+      const firstBranch = await this.prisma.branch.findFirst({
+        where: { tenantId, moduleKey: 'LAB', status: 'ACTIVE' },
+      });
+      if (firstBranch) return firstBranch.id;
+      const anyBranch = await this.prisma.branch.findFirst({
+        where: { tenantId, status: 'ACTIVE' },
+      });
+      if (anyBranch) return anyBranch.id;
+      throw new BadRequestException('No active branch found in this organization to assign technician.');
+    }
+
+    throw new ForbiddenException(
+      'Only Lab Administrators can create or update lab technicians for their laboratory branch.',
+    );
   }
 
   /**
@@ -776,5 +889,553 @@ export class LabUsersService {
     });
 
     return { success: true, message: `Lab Admin '${user.name}' removed from organization` };
+  }
+
+  /**
+   * Create a new Lab Technician assigned automatically to the Lab Admin's branch.
+   * Enforces:
+   * 1. Lab Admin only (Tenant Admin cannot create technicians directly)
+   * 2. Automatic branch assignment to Lab Admin's branch
+   * 3. LAB module enablement
+   * 4. Member limit check
+   * 5. Welcome email with single-use password reset link
+   */
+  async createLabTechnician(
+    dto: CreateLabTechnicianDto,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required to create a Lab Technician');
+    }
+
+    // 1. Enforce Lab Admin authorization & derive Lab Admin's branch
+    const branchId = await this.assertLabAdmin(actor, tenantId);
+
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, tenantId },
+    });
+
+    if (!branch) {
+      throw new BadRequestException('The branch assigned to the Lab Admin was not found.');
+    }
+
+    // 2. Enforce LAB Module Enablement
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        plan: true,
+        modules: {
+          where: { isEnabled: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant organization '${tenantId}' not found`);
+    }
+
+    const hasLabModule = tenant.modules.some(
+      (m) => m.moduleKey.toUpperCase() === 'LAB',
+    );
+    if (!hasLabModule) {
+      throw new BadRequestException(
+        'The Dental Lab module is not enabled for this organization.',
+      );
+    }
+
+    // 3. Check Member Limit
+    const currentMemberCount = await this.prisma.tenantMembership.count({
+      where: { tenantId },
+    });
+
+    const effectiveMaxMembers =
+      tenant.maxMembers !== null && tenant.maxMembers !== undefined
+        ? Number(tenant.maxMembers)
+        : tenant.plan?.memberCount !== null && tenant.plan?.memberCount !== undefined
+        ? Number(tenant.plan.memberCount)
+        : 10;
+
+    if (currentMemberCount >= effectiveMaxMembers) {
+      throw new BadRequestException(
+        `Organization has reached the maximum allowed limit of ${effectiveMaxMembers} team member(s). Please upgrade your subscription plan or contact support.`,
+      );
+    }
+
+    // 4. Check if user already exists
+    const email = dto.email.toLowerCase().trim();
+    const fullName = `${dto.firstName.trim()} ${dto.lastName.trim()}`.trim();
+
+    let formattedPhone: string | null = null;
+    if (dto.phoneNumber?.trim()) {
+      const code = dto.phoneCountryCode?.trim() || '+52';
+      formattedPhone = `${code} ${dto.phoneNumber.trim()}`;
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        memberships: {
+          where: { tenantId },
+        },
+      },
+    });
+
+    if (existingUser && existingUser.memberships.length > 0) {
+      throw new ConflictException(
+        `User ${email} is already a member of this organization.`,
+      );
+    }
+
+    // 5. Ensure System Role
+    const labTechRole = await this.ensureLabTechnicianRole();
+
+    // 6. Temporary password hash
+    const temporaryPassword = `Temp@${uuidv4().substring(0, 8)}!2026`;
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    // 7. Transaction: User + Membership + Branch + Module Access + Role + Audit
+    const createdUser = await this.prisma.$transaction(async (tx) => {
+      let user = existingUser;
+
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            email,
+            passwordHash,
+            name: fullName,
+            phone: formattedPhone,
+            status: UserStatus.ACTIVE,
+            locale: actor.locale || 'en',
+          },
+          include: { memberships: true },
+        });
+      } else {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            name: fullName,
+            phone: formattedPhone || user.phone,
+          },
+          include: { memberships: true },
+        });
+      }
+
+      // Create membership
+      await tx.tenantMembership.create({
+        data: {
+          userId: user.id,
+          tenantId,
+          status: UserStatus.ACTIVE,
+          isOwner: false,
+        },
+      });
+
+      // Assign branch (auto-assigned to Lab Admin's branch)
+      await tx.userBranch.create({
+        data: {
+          userId: user.id,
+          branchId,
+          isDefault: true,
+        },
+      });
+
+      // Assign Module Access (LAB)
+      await tx.userModuleAccess.upsert({
+        where: {
+          userId_tenantId_moduleKey: {
+            userId: user.id,
+            tenantId,
+            moduleKey: 'LAB',
+          },
+        },
+        update: { isActive: true },
+        create: {
+          userId: user.id,
+          tenantId,
+          moduleKey: 'LAB',
+          isActive: true,
+        },
+      });
+
+      // Assign Lab Technician Role
+      await tx.userRole.create({
+        data: {
+          userId: user.id,
+          tenantId,
+          branchId,
+          roleId: labTechRole.id,
+        },
+      });
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          branchId,
+          userId: actor.id,
+          action: 'CREATE_LAB_TECHNICIAN',
+          resourceType: 'USER',
+          resourceId: user.id,
+          moduleKey: 'LAB',
+          newValues: {
+            email,
+            name: fullName,
+            phone: formattedPhone,
+            branchId,
+            branchName: branch.name,
+            role: 'Lab Technician',
+          },
+        },
+      });
+
+      return user;
+    });
+
+    // 8. Generate Single-Use 24h Password Reset Token
+    let resetToken: string | undefined;
+    try {
+      resetToken = await this.authService.generatePasswordResetToken(createdUser.id);
+    } catch (tokenErr) {
+      this.logger.error(`Failed to generate password reset token for technician: ${tokenErr.message}`);
+    }
+
+    // 9. Send Welcome / Password Reset Email
+    try {
+      const isSpanish = (createdUser.locale || actor.locale || 'en').toLowerCase().startsWith('es');
+      const roleDisplayName = isSpanish ? 'Técnico de Laboratorio' : 'Lab Technician';
+
+      await this.mailService.sendWelcomeInvite(
+        createdUser.email,
+        createdUser.name,
+        tenant.name,
+        resetToken,
+        createdUser.locale || actor.locale || 'en',
+        tenant.slug,
+        roleDisplayName,
+      );
+      this.logger.log(`📧 Welcome invite email dispatched to Lab Technician: ${createdUser.email}`);
+    } catch (mailErr) {
+      this.logger.warn(`⚠️ Failed to send welcome invite email to ${createdUser.email}: ${mailErr.message}`);
+    }
+
+    return {
+      id: createdUser.id,
+      email: createdUser.email,
+      name: createdUser.name,
+      phone: createdUser.phone,
+      status: createdUser.status,
+      branch: {
+        id: branch.id,
+        name: branch.name,
+        code: branch.code,
+      },
+      role: 'Lab Technician',
+      moduleKey: 'LAB',
+      message: 'Lab Technician created successfully. Welcome email with password reset instructions has been sent.',
+    };
+  }
+
+  /**
+   * Find all Lab Technicians in current tenant.
+   * - If Lab Admin: Scoped strictly to Lab Admin's branch.
+   * - If Tenant Admin: Can view all branches or filter by branchId.
+   */
+  async findAllLabTechnicians(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    branchId?: string,
+    search?: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required to fetch technicians');
+    }
+
+    const isTenantAdmin = await this.isTenantAdminUser(actor, tenantId);
+
+    let targetBranchId: string | undefined = branchId;
+    if (!isTenantAdmin) {
+      // Lab Admin: locked to their own branch
+      targetBranchId = await this.assertLabAdmin(actor, tenantId);
+    }
+
+    const whereClause: any = {
+      tenantId,
+      role: {
+        slug: 'lab-technician',
+      },
+    };
+
+    if (targetBranchId && targetBranchId !== 'all') {
+      whereClause.branchId = targetBranchId;
+    }
+
+    const technicianRoles = await this.prisma.userRole.findMany({
+      where: whereClause,
+      include: {
+        user: true,
+        branch: true,
+        role: true,
+      },
+      orderBy: {
+        user: { createdAt: 'desc' },
+      },
+    });
+
+    let results = technicianRoles.map((ur) => {
+      const parts = (ur.user.name || '').trim().split(' ');
+      const firstName = parts[0] || '';
+      const lastName = parts.slice(1).join(' ') || '';
+
+      return {
+        id: ur.user.id,
+        email: ur.user.email,
+        name: ur.user.name,
+        firstName,
+        lastName,
+        phone: ur.user.phone,
+        status: ur.user.status,
+        avatarUrl: ur.user.avatarUrl,
+        createdAt: ur.user.createdAt,
+        branch: ur.branch
+          ? {
+              id: ur.branch.id,
+              name: ur.branch.name,
+              code: ur.branch.code,
+            }
+          : null,
+        roles: [ur.role.name],
+      };
+    });
+
+    if (search) {
+      const q = search.toLowerCase().trim();
+      results = results.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.email.toLowerCase().includes(q) ||
+          (t.phone && t.phone.toLowerCase().includes(q)) ||
+          (t.branch?.name && t.branch.name.toLowerCase().includes(q)),
+      );
+    }
+
+    return results;
+  }
+
+  /**
+   * Update Lab Technician profile.
+   * Enforces: Lab Admin only (scoped to their branch).
+   */
+  async updateLabTechnician(
+    technicianId: string,
+    dto: UpdateLabTechnicianDto,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    const isTenantAdmin = await this.isTenantAdminUser(actor, tenantId);
+    let labBranchId: string | undefined;
+
+    if (!isTenantAdmin) {
+      labBranchId = await this.assertLabAdmin(actor, tenantId);
+    }
+
+    const technician = await this.prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        memberships: { some: { tenantId } },
+      },
+      include: {
+        userRoles: {
+          where: { tenantId, role: { slug: 'lab-technician' } },
+          include: { branch: true },
+        },
+      },
+    });
+
+    if (!technician || technician.userRoles.length === 0) {
+      throw new NotFoundException('Lab Technician not found in this organization');
+    }
+
+    // If Lab Admin, ensure technician belongs to their branch
+    if (labBranchId) {
+      const isSameBranch = technician.userRoles.some((ur) => ur.branchId === labBranchId);
+      if (!isSameBranch) {
+        throw new ForbiddenException('You can only update technicians in your assigned laboratory branch.');
+      }
+    }
+
+    const dataToUpdate: any = {};
+    if (dto.firstName || dto.lastName) {
+      const currentParts = (technician.name || '').trim().split(' ');
+      const newFirst = dto.firstName !== undefined ? dto.firstName.trim() : currentParts[0] || '';
+      const newLast = dto.lastName !== undefined ? dto.lastName.trim() : currentParts.slice(1).join(' ') || '';
+      dataToUpdate.name = `${newFirst} ${newLast}`.trim();
+    }
+
+    if (dto.phoneNumber !== undefined) {
+      if (dto.phoneNumber.trim()) {
+        const code = dto.phoneCountryCode?.trim() || '+52';
+        dataToUpdate.phone = `${code} ${dto.phoneNumber.trim()}`;
+      } else {
+        dataToUpdate.phone = null;
+      }
+    }
+
+    if (dto.status) {
+      dataToUpdate.status = dto.status as UserStatus;
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: technicianId },
+      data: dataToUpdate,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId: actor.id,
+        action: 'UPDATE_LAB_TECHNICIAN',
+        resourceType: 'USER',
+        resourceId: technicianId,
+        moduleKey: 'LAB',
+        oldValues: { name: technician.name, phone: technician.phone, status: technician.status },
+        newValues: dataToUpdate,
+      },
+    });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      phone: updated.phone,
+      status: updated.status,
+      message: 'Lab Technician updated successfully',
+    };
+  }
+
+  /**
+   * Delete / remove a Lab Technician from tenant organization.
+   * Enforces: Tenant Admin only (Lab Admin cannot delete technicians).
+   */
+  async deleteLabTechnician(
+    technicianId: string,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    // Enforce Tenant Admin authorization
+    await this.assertTenantAdmin(actor, tenantId);
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        memberships: { some: { tenantId } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Lab Technician not found in this organization');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Remove membership in this tenant
+      await tx.tenantMembership.deleteMany({
+        where: { userId: technicianId, tenantId },
+      });
+
+      // Remove roles in this tenant
+      await tx.userRole.deleteMany({
+        where: { userId: technicianId, tenantId },
+      });
+
+      // Remove branch links in this tenant
+      const tenantBranches = await tx.branch.findMany({
+        where: { tenantId },
+        select: { id: true },
+      });
+      const branchIds = tenantBranches.map((b) => b.id);
+
+      await tx.userBranch.deleteMany({
+        where: { userId: technicianId, branchId: { in: branchIds } },
+      });
+
+      // Remove module access for this tenant
+      await tx.userModuleAccess.deleteMany({
+        where: { userId: technicianId, tenantId },
+      });
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          userId: actor.id,
+          action: 'DELETE_LAB_TECHNICIAN',
+          resourceType: 'USER',
+          resourceId: technicianId,
+          moduleKey: 'LAB',
+          oldValues: { email: user.email, name: user.name },
+        },
+      });
+    });
+
+    return { success: true, message: `Lab Technician '${user.name}' removed from organization` };
+  }
+
+  /**
+   * Resend welcome / password setup email to Lab Technician
+   */
+  async resendTechnicianInvite(
+    technicianId: string,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        memberships: { some: { tenantId } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Lab Technician not found');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant organization not found');
+    }
+
+    const resetToken = await this.authService.generatePasswordResetToken(technicianId);
+    const isSpanish = (user.locale || actor.locale || 'en').toLowerCase().startsWith('es');
+    const roleDisplayName = isSpanish ? 'Técnico de Laboratorio' : 'Lab Technician';
+
+    await this.mailService.sendWelcomeInvite(
+      user.email,
+      user.name,
+      tenant.name,
+      resetToken,
+      user.locale || actor.locale || 'en',
+      tenant.slug,
+      roleDisplayName,
+    );
+
+    return {
+      success: true,
+      message: `Welcome invitation email resent successfully to ${user.email}`,
+    };
   }
 }

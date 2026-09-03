@@ -19,6 +19,7 @@ import {
   Sparkles,
   DollarSign,
   ClipboardList,
+  Clock,
   // Lab module icons
   FlaskConical,
   Users,
@@ -178,6 +179,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const isClinicUsersActive =
     location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
 
+  // Condition: Lab Technician gets flat menus without accordion groups
+  const isLabTechnician = Boolean(
+    !isTenantAdmin &&
+      user?.roles?.some((r) => {
+        const lower = r.toLowerCase();
+        return lower === 'lab technician' || lower === 'technician' || lower === 'lab-technician';
+      }),
+  );
+
   return (
     <aside className={`app-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       {/* Brand & Collapse Header */}
@@ -287,8 +297,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
 
       {/* Navigation Links with Single-Expand Accordion & Tree Indentation */}
       <nav className="sidebar-nav">
-        {/* ───── Group 1: Core Operations (Collapsible / Expandable) ───── */}
-        <div className="nav-accordion-group">
+        {/* ───── Flat Menu for Lab Technician (Condition: DO NOT separate into groups) ───── */}
+        {isLabTechnician ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 0' }}>
+            <SidebarNavItem
+              to="/"
+              end
+              icon={<LayoutDashboard size={17} />}
+              label={t('nav.dashboard')}
+              isCollapsed={isCollapsed}
+            />
+
+            <SidebarNavItem
+              to="/lab/work-orders/my"
+              icon={<ClipboardList size={17} />}
+              label={t('nav.myWorkorder')}
+              isCollapsed={isCollapsed}
+            />
+
+            <SidebarNavItem
+              to="/lab/work-orders/requested"
+              icon={<Clock size={17} />}
+              label={t('nav.requestedOrder')}
+              isCollapsed={isCollapsed}
+            />
+          </div>
+        ) : (
+          <>
+            {/* ───── Group 1: Core Operations (Collapsible / Expandable) ───── */}
+            <div className="nav-accordion-group">
           {!isCollapsed ? (
             <button
               type="button"
@@ -676,9 +713,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 label={t('nav.subscriptionPlans')}
                 isCollapsed={isCollapsed}
               />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </>
+      )}
       </nav>
 
       {/* Sidebar Footer: User Login Profile & Logout Action */}

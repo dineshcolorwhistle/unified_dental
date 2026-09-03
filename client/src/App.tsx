@@ -157,6 +157,8 @@ export const App: React.FC = () => {
                     <Route path="lab/users/technicians" element={<ProtectedRoute><LabUsersTechniciansPage /></ProtectedRoute>} />
                     <Route path="lab/users/doctors" element={<ProtectedRoute><LabUsersDoctorsPage /></ProtectedRoute>} />
                     <Route path="lab/work-orders" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders/my" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders/requested" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
                     <Route path="lab/processes" element={<ProtectedRoute><LabProcessesPage /></ProtectedRoute>} />
                     <Route path="lab/process-areas" element={<ProtectedRoute><LabProcessAreasPage /></ProtectedRoute>} />
                     <Route path="lab/prosthesis-types" element={<ProtectedRoute><LabProsthesisPage /></ProtectedRoute>} />
