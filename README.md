@@ -226,6 +226,8 @@ JWT_REFRESH_EXPIRES_IN=7d
 STORAGE_LOCAL_PATH=./uploads
 
 # Mail / SMTP (Hostinger Mail or Custom SMTP)
+# In development (NODE_ENV=development), emails are sent directly via SMTP without requiring local Redis.
+# In production (NODE_ENV=production), emails are automatically enqueued via BullMQ with async workers & retries.
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
 SMTP_SECURE=true

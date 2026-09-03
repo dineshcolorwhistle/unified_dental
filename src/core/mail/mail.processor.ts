@@ -15,6 +15,14 @@ export class MailProcessor extends WorkerHost {
     this.logger.log(
       `📬 [BullMQ Mail Worker] Processing email job ID: ${job.id} | Template: ${job.data.template} | To: ${job.data.to}`,
     );
-    return this.mailService.sendDirectMail(job.data);
+    try {
+      return await this.mailService.sendDirectMail(job.data);
+    } catch (error) {
+      this.logger.error(
+        `❌ [BullMQ Mail Worker] Failed to send email for job ID ${job.id}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 }

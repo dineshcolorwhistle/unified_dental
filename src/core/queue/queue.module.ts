@@ -12,9 +12,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         connection: {
           host: configService.get<string>('REDIS_HOST', 'localhost'),
           port: Number(configService.get<string>('REDIS_PORT', '6379')),
-          password: configService.get<string>('REDIS_PASSWORD'),
+          password: configService.get<string>('REDIS_PASSWORD') || undefined,
           db: Number(configService.get<string>('REDIS_DB', '0')),
           maxRetriesPerRequest: null,
+          retryStrategy: (times: number) => {
+            const isProd = configService.get<string>('NODE_ENV') === 'production';
+            if (!isProd) {
+              // In local development without Redis, back off significantly
+              return Math.min(times * 5000, 60000);
+            }
+            return Math.min(times * 1000, 10000);
+          },
         },
         prefix: configService.get<string>('REDIS_PREFIX', 'unified'),
       }),

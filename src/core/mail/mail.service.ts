@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -23,7 +23,7 @@ export class MailService {
 
   constructor(
     private readonly configService: ConfigService,
-    @InjectQueue('mail') private readonly mailQueue: Queue,
+    @Optional() @InjectQueue('mail') private readonly mailQueue?: Queue,
   ) {
     this.fromAddress =
       this.configService.get<string>('SMTP_FROM') ||
@@ -95,22 +95,26 @@ export class MailService {
 
   /**
    * Send email.
-   * - In development mode (NODE_ENV !== 'production') or when ENABLE_DIRECT_MAIL is enabled:
-   *   Sends directly via SMTP so emails arrive immediately in local dev without Redis/worker dependency.
-   * - In production: Queues with BullMQ (with retries & graceful fallback to direct send).
+   * - In development (NODE_ENV !== 'production'):
+   *   Sends directly via SMTP so local development works seamlessly without Redis/BullMQ.
+   * - In production (NODE_ENV === 'production'):
+   *   Enqueues with BullMQ for high throughput, retries & asynchronous execution.
+   *   (With graceful fallback to direct send if Redis/queue dispatch encounters an issue).
    */
   async sendMail(options: SendMailOptions) {
     const nodeEnv = this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development';
-    const enableDirectMail = this.configService.get<string>('ENABLE_DIRECT_MAIL') === 'true';
-    const useQueue = this.configService.get<string>('USE_QUEUE') === 'true';
+    const isProduction = nodeEnv === 'production';
+    const forceDirectMail = this.configService.get<string>('ENABLE_DIRECT_MAIL') === 'true';
 
     // In local development or when explicit direct mail is configured, send directly via SMTP
-    if (nodeEnv === 'development' || enableDirectMail || (!useQueue && nodeEnv !== 'production')) {
-      this.logger.log(`⚡ [Direct Send Mode] Sending email directly to ${options.to} (${nodeEnv} environment)...`);
+    if (!isProduction || forceDirectMail || !this.mailQueue) {
+      this.logger.log(`⚡ [Direct Send Mode] Sending email directly to ${options.to} (environment: ${nodeEnv})...`);
       return this.sendDirectMail(options);
     }
 
+    // In production, dispatch through BullMQ queue
     try {
+      this.logger.log(`📥 [BullMQ Queue] Enqueueing email job for ${options.to} (production environment)...`);
       const job = await this.mailQueue.add('send-mail', options, {
         attempts: 3,
         backoff: {
@@ -120,10 +124,10 @@ export class MailService {
         removeOnComplete: true,
         removeOnFail: false,
       });
-      this.logger.log(`📥 Email job enqueued successfully. Job ID: ${job.id} -> ${options.to}`);
+      this.logger.log(`✅ [BullMQ Queue] Email job enqueued successfully. Job ID: ${job.id} -> ${options.to}`);
       return { success: true, queued: true, jobId: job.id };
     } catch (queueError) {
-      this.logger.warn(`⚠️ BullMQ queue dispatch failed (${queueError.message}). Falling back to direct sending...`);
+      this.logger.warn(`⚠️ [BullMQ Fallback] Queue dispatch failed (${queueError.message}). Falling back to direct sending...`);
       return this.sendDirectMail(options);
     }
   }
