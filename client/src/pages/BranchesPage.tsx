@@ -331,28 +331,28 @@ export const BranchesPage: React.FC = () => {
       {/* Branches Table Container */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface-hover)' }}>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('branches.name')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('branches.address')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('branches.phone')} / {t('branches.email')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('branches.status')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('branches.defaultBadge')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('branches.staffCount')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
                   {t('branches.actions')}
                 </th>
               </tr>
@@ -389,7 +389,7 @@ export const BranchesPage: React.FC = () => {
                     className="table-row-hover"
                   >
                     {/* Name & Code */}
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div
                           style={{
@@ -407,7 +407,7 @@ export const BranchesPage: React.FC = () => {
                           <Building2 size={18} />
                         </div>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+                          <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>
                             {b.name}
                           </div>
                           {b.code && (
@@ -420,11 +420,23 @@ export const BranchesPage: React.FC = () => {
                     </td>
 
                     {/* Address */}
-                    <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-main)' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-main)', maxWidth: '220px' }}>
                       {b.address ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={b.address}
+                        >
                           <MapPin size={14} style={{ color: 'var(--text-subtle)', flexShrink: 0 }} />
-                          <span>{b.address}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {b.address}
+                          </span>
                         </div>
                       ) : (
                         <span style={{ color: 'var(--text-subtle)' }}>—</span>
@@ -432,7 +444,7 @@ export const BranchesPage: React.FC = () => {
                     </td>
 
                     {/* Contact */}
-                    <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-muted)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         {b.phone && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -451,14 +463,14 @@ export const BranchesPage: React.FC = () => {
                     </td>
 
                     {/* Status */}
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <span className={b.status === 'ACTIVE' ? 'badge badge-success' : 'badge badge-danger'}>
                         {b.status}
                       </span>
                     </td>
 
                     {/* Default */}
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       {b.isDefault ? (
                         <span className="badge badge-primary" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <CheckCircle2 size={12} /> {t('branches.defaultBadge')}
@@ -475,14 +487,14 @@ export const BranchesPage: React.FC = () => {
                     </td>
 
                     {/* Staff Count */}
-                    <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
                       <span className="badge badge-info" style={{ fontSize: '11px' }}>
                         {b._count?.userBranches || 0} staff
                       </span>
                     </td>
 
                     {/* Actions */}
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                         <button
                           onClick={() => openEditModal(b)}

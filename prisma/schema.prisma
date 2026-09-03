@@ -24,6 +24,12 @@ enum BranchStatus {
   INACTIVE
 }
 
+enum ProcessType {
+  PRODUCTION
+  INTERNAL_VERIFICATION
+  EXTERNAL_VERIFICATION
+}
+
 model Tenant {
   id                  String         @id @default(uuid())
   name                String
@@ -52,6 +58,9 @@ model Tenant {
   auditLogs    AuditLog[]
   files        FileRecord[]
   notifications Notification[]
+  processAreas ProcessArea[]
+  processes    Process[]
+  prosthesisTypes ProsthesisType[]
 
   @@map("tenants")
 }
@@ -122,6 +131,9 @@ model Branch {
   userRoles   UserRole[]
   auditLogs   AuditLog[]
   files       FileRecord[]
+  processAreas ProcessArea[]
+  processes    Process[]
+  prosthesisTypes ProsthesisType[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -150,6 +162,7 @@ model User {
   auditLogs           AuditLog[]
   uploadedFiles       FileRecord[]
   notifications       Notification[]
+  defaultTechnicianProcesses Process[] @relation("ProcessDefaultTechnician")
 
   @@map("users")
 }
@@ -349,3 +362,89 @@ model PasswordResetToken {
   @@index([userId])
   @@map("password_reset_tokens")
 }
+
+// ─── Dental Lab Operational Entities (Phase 2.1) ──────────
+
+model ProcessArea {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String?  @map("branch_id")
+  moduleKey   String   @default("LAB") @map("module_key")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  processes Process[]
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, branchId])
+  @@map("process_areas")
+}
+
+model Process {
+  id                  String       @id @default(uuid())
+  tenantId            String       @map("tenant_id")
+  branchId            String?      @map("branch_id")
+  moduleKey           String       @default("LAB") @map("module_key")
+  name                String
+  type                ProcessType  @default(PRODUCTION)
+  processAreaId       String?      @map("process_area_id")
+  defaultTechnicianId String?      @map("default_technician_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  tenant                    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                    Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  processArea               ProcessArea?            @relation(fields: [processAreaId], references: [id], onDelete: SetNull)
+  defaultTechnician         User?                   @relation("ProcessDefaultTechnician", fields: [defaultTechnicianId], references: [id], onDelete: SetNull)
+  prosthesisTypeAssignments ProsthesisTypeProcess[]
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, branchId])
+  @@map("processes")
+}
+
+model ProsthesisType {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String?  @map("branch_id")
+  moduleKey   String   @default("LAB") @map("module_key")
+  name        String
+  description String?
+  price       Decimal  @default(0.00) @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch             Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  processAssignments ProsthesisTypeProcess[]
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, branchId])
+  @@map("prosthesis_types")
+}
+
+model ProsthesisTypeProcess {
+  id               String   @id @default(uuid())
+  prosthesisTypeId String   @map("prosthesis_type_id")
+  processId        String   @map("process_id")
+  sequence         Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  prosthesisType ProsthesisType @relation(fields: [prosthesisTypeId], references: [id], onDelete: Cascade)
+  process        Process        @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([prosthesisTypeId, processId])
+  @@index([prosthesisTypeId, sequence])
+  @@map("prosthesis_type_processes")
+}
+

@@ -530,7 +530,8 @@ export const TenantsPage: React.FC = () => {
 
       {/* Tenants Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
-        <table className="table">
+        <div className="table-responsive">
+          <table className="table" style={{ width: '100%', tableLayout: 'auto' }}>
           <thead>
             <tr>
               <th>{t('tenants.name')}</th>
@@ -746,6 +747,7 @@ export const TenantsPage: React.FC = () => {
             )}
           </tbody>
         </table>
+        </div>
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

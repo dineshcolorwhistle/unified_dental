@@ -508,25 +508,27 @@ export const LabUsersTechniciansPage: React.FC = () => {
       {/* Technicians Data Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--table-th-bg)', borderBottom: '1px solid var(--border-color)' }}>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
                   {t('labTechnicians.table.technician')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
-                  {t('labTechnicians.table.branch')}
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
+                {isTenantAdmin && (
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
+                    {t('labTechnicians.table.branch')}
+                  </th>
+                )}
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
                   {t('labTechnicians.table.contact')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
                   {t('labTechnicians.table.status')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, textAlign: 'left', color: 'var(--table-th-text)' }}>
                   {t('labTechnicians.table.created')}
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, textAlign: 'right', color: 'var(--table-th-text)' }}>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, textAlign: 'right', color: 'var(--table-th-text)' }}>
                   {t('labTechnicians.table.actions')}
                 </th>
               </tr>
@@ -534,13 +536,13 @@ export const LabUsersTechniciansPage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <td colSpan={isTenantAdmin ? 6 : 5} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     <div style={{ fontSize: '13px', fontWeight: 500 }}>{t('common.loading')}</div>
                   </td>
                 </tr>
               ) : paginatedTechnicians.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                  <td colSpan={isTenantAdmin ? 6 : 5} style={{ padding: '50px 20px', textAlign: 'center' }}>
                     <div
                       style={{
                         width: '52px',
@@ -580,8 +582,8 @@ export const LabUsersTechniciansPage: React.FC = () => {
                     ? tech.name
                         .split(' ')
                         .filter(Boolean)
-                        .slice(0, 2)
                         .map((n) => n[0])
+                        .slice(0, 2)
                         .join('')
                         .toUpperCase()
                     : 'LT';
@@ -597,7 +599,7 @@ export const LabUsersTechniciansPage: React.FC = () => {
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
                       {/* Technician Identity */}
-                      <td style={{ padding: '14px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div
                             style={{
@@ -628,26 +630,28 @@ export const LabUsersTechniciansPage: React.FC = () => {
                       </td>
 
                       {/* Branch Scope */}
-                      <td style={{ padding: '14px 16px' }}>
-                        {tech.branch ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Building2 size={14} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
-                              {tech.branch.name}
-                            </span>
-                            {tech.branch.code && (
-                              <span className="badge badge-info" style={{ fontSize: '10px', padding: '1px 5px' }}>
-                                {tech.branch.code}
+                      {isTenantAdmin && (
+                        <td style={{ padding: '10px 12px' }}>
+                          {tech.branch ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Building2 size={14} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+                              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                {tech.branch.name}
                               </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: 'var(--text-subtle)' }}>—</span>
-                        )}
-                      </td>
+                              {tech.branch.code && (
+                                <span className="badge badge-info" style={{ fontSize: '10px', padding: '1px 5px' }}>
+                                  {tech.branch.code}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: 'var(--text-subtle)' }}>—</span>
+                          )}
+                        </td>
+                      )}
 
                       {/* Contact Info */}
-                      <td style={{ padding: '14px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         {tech.phone ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
                             <Phone size={13} style={{ color: 'var(--text-muted)' }} />
@@ -659,7 +663,7 @@ export const LabUsersTechniciansPage: React.FC = () => {
                       </td>
 
                       {/* Status */}
-                      <td style={{ padding: '14px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         {tech.status === 'ACTIVE' ? (
                           <span className="badge badge-success" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <CheckCircle2 size={11} />
@@ -679,12 +683,12 @@ export const LabUsersTechniciansPage: React.FC = () => {
                       </td>
 
                       {/* Joined Date */}
-                      <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <td style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-muted)' }}>
                         {formatDate(tech.createdAt)}
                       </td>
 
                       {/* Actions */}
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                           {/* Lab Admin can edit */}
                           {isLabAdmin && (
@@ -771,19 +775,17 @@ export const LabUsersTechniciansPage: React.FC = () => {
 
         {/* Pagination */}
         {filteredTechnicians.length > 0 && (
-          <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)' }}>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredTechnicians.length}
-              pageSize={pageSize}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredTechnicians.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+          />
         )}
       </div>
 

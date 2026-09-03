@@ -218,6 +218,7 @@ button {
   flex-direction: column;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--bg-app);
   transition: var(--theme-transition);
 }
@@ -1001,36 +1002,59 @@ button {
 .badge-primary { background-color: var(--badge-primary-bg); color: var(--badge-primary-text); }
 
 /* Tables */
-.table-container {
-  overflow-x: auto;
+.table-container, .table-responsive {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
   transition: var(--theme-transition);
 }
 
-.data-table, .table {
+.card > .table-container,
+.card > .table-responsive {
+  border: none;
+  border-radius: 0;
+  overflow-x: hidden;
+}
+
+.data-table, .table, .ud-table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 14px;
+  font-size: 13px;
+  table-layout: auto;
 }
 
-.data-table th, .table th {
+.data-table th, .table th, .ud-table th {
   background-color: var(--table-th-bg);
-  padding: 14px 18px;
-  font-weight: 600;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 11.5px;
   color: var(--table-th-text);
   border-bottom: 1px solid var(--border-color);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: normal;
+  word-break: normal;
 }
 
-.data-table td, .table td {
-  padding: 14px 18px;
+.data-table td, .table td, .ud-table td {
+  padding: 10px 14px;
   border-bottom: 1px solid var(--table-row-border);
   color: var(--table-td-text);
+  vertical-align: middle;
 }
 
-.data-table tr:hover td, .table tr:hover td {
+.data-table tbody tr:last-child td,
+.table tbody tr:last-child td,
+.ud-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td, .table tr:hover td, .ud-table tr:hover td, tr.table-row-hover:hover td {
   background-color: var(--table-row-hover);
 }
 
@@ -1119,6 +1143,7 @@ button {
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  max-width: 340px;
   pointer-events: none;
   box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -1126,6 +1151,11 @@ button {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
+}
+
+.app-tooltip-bubble:has(div),
+.app-tooltip-bubble.multiline {
+  white-space: normal;
 }
 
 .app-tooltip-bubble.visible {
@@ -1216,6 +1246,48 @@ button {
   background: #0f172a;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Portal Tooltip: Mounted into document.body to completely avoid clipping by overflow: hidden containers */
+.app-tooltip-bubble.app-tooltip-portal {
+  position: fixed !important;
+  transform: none !important;
+  z-index: 9999999 !important;
+  bottom: auto !important;
+  right: auto !important;
+  pointer-events: none;
+}
+
+.app-tooltip-bubble.app-tooltip-portal.app-tooltip-top::before {
+  top: 100%;
+  left: var(--arrow-offset, 50%);
+  transform: translateX(-50%) translateY(-4px) rotate(45deg);
+  bottom: auto;
+  right: auto;
+}
+
+.app-tooltip-bubble.app-tooltip-portal.app-tooltip-bottom::before {
+  bottom: 100%;
+  left: var(--arrow-offset, 50%);
+  transform: translateX(-50%) translateY(4px) rotate(45deg);
+  top: auto;
+  right: auto;
+}
+
+.app-tooltip-bubble.app-tooltip-portal.app-tooltip-left::before {
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%) translateX(-4px) rotate(45deg);
+  bottom: auto;
+  right: auto;
+}
+
+.app-tooltip-bubble.app-tooltip-portal.app-tooltip-right::before {
+  top: 50%;
+  left: auto;
+  right: 100%;
+  transform: translateY(-50%) translateX(4px) rotate(45deg);
+  bottom: auto;
 }
 
 /* Searchable Select Component */

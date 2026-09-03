@@ -124,15 +124,15 @@ export const UsersPage: React.FC = () => {
       {/* Users Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface-hover)' }}>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.name')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.email')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.roles')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.branch')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.modules')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.status')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.name')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.email')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.roles')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.branch')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.modules')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -156,7 +156,7 @@ export const UsersPage: React.FC = () => {
 
                   return (
                     <tr key={u.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="table-row-hover">
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div
                             style={{
@@ -175,28 +175,28 @@ export const UsersPage: React.FC = () => {
                             {u.name?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{u.name}</div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '13.5px' }}>{u.name}</div>
                             {u.phone && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{u.phone}</div>}
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
                           <Mail size={13} style={{ color: 'var(--text-subtle)' }} /> {u.email}
                         </div>
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <span className="badge badge-primary" style={{ fontSize: '11px' }}>
                           <Shield size={11} /> {assignedRoles}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
                           <Building size={13} style={{ color: 'var(--text-subtle)' }} /> {assignedBranches}
                         </div>
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                           {modules.map((m: string) => (
                             <span key={m} className="badge badge-info" style={{ fontSize: '10px' }}>
                               {m}
@@ -204,7 +204,7 @@ export const UsersPage: React.FC = () => {
                           ))}
                         </div>
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <span className={`badge ${u.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}>
                           {u.status}
                         </span>

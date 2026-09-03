@@ -646,17 +646,17 @@ export const LabUsersAdminPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-responsive">
+            <table className="table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '14px 20px', textAlign: 'left' }}>{t('labAdmin.table.admin')}</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'left' }}>{t('labAdmin.table.contact')}</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'left' }}>{t('labAdmin.table.branch')}</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'left' }}>{t('labAdmin.table.role')}</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'left' }}>{t('labAdmin.table.status')}</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'left' }}>{t('labAdmin.table.created')}</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'right' }}>{t('labAdmin.table.actions')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'left' }}>{t('labAdmin.table.admin')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'left' }}>{t('labAdmin.table.contact')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'left' }}>{t('labAdmin.table.branch')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'left' }}>{t('labAdmin.table.role')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'left' }}>{t('labAdmin.table.status')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'left' }}>{t('labAdmin.table.created')}</th>
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', textAlign: 'right' }}>{t('labAdmin.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -674,7 +674,7 @@ export const LabUsersAdminPage: React.FC = () => {
                   return (
                     <tr key={admin.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       {/* Name & Avatar */}
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div
                             style={{
@@ -694,7 +694,7 @@ export const LabUsersAdminPage: React.FC = () => {
                             {initials}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '14px' }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13.5px' }}>
                               {admin.name}
                             </div>
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -705,7 +705,7 @@ export const LabUsersAdminPage: React.FC = () => {
                       </td>
 
                       {/* Phone */}
-                      <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-main)' }}>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-main)' }}>
                         {admin.phone ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Phone size={13} style={{ color: 'var(--text-muted)' }} />
@@ -717,7 +717,7 @@ export const LabUsersAdminPage: React.FC = () => {
                       </td>
 
                       {/* Branch */}
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         {admin.branch ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Building2 size={14} style={{ color: 'var(--primary-600)' }} />
@@ -747,7 +747,7 @@ export const LabUsersAdminPage: React.FC = () => {
                       </td>
 
                       {/* Role & Default Badge */}
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <span
                             style={{
@@ -786,7 +786,7 @@ export const LabUsersAdminPage: React.FC = () => {
                       </td>
 
                       {/* Status */}
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <span
                           className={`badge ${
                             admin.status === 'ACTIVE'
@@ -806,12 +806,12 @@ export const LabUsersAdminPage: React.FC = () => {
                       </td>
 
                       {/* Created Date */}
-                      <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
                         {formatDate(admin.createdAt, { locale: user?.locale || 'en' })}
                       </td>
 
                       {/* Actions */}
-                      <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                           {isTenantAdmin && (
                             <Tooltip content={t('labAdmin.table.resendTooltip')}>
@@ -865,16 +865,14 @@ export const LabUsersAdminPage: React.FC = () => {
 
         {/* Pagination */}
         {filteredAdmins.length > pageSize && (
-          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              pageSize={pageSize}
-              onPageSizeChange={setPageSize}
-              totalItems={filteredAdmins.length}
-            />
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            totalItems={filteredAdmins.length}
+          />
         )}
       </div>
 

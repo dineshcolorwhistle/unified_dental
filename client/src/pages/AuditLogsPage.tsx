@@ -59,15 +59,15 @@ export const AuditLogsPage: React.FC = () => {
       {/* Audit Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+          <table className="ud-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface-hover)' }}>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.action')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.resource')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.performedBy')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.branch')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.timestamp')}</th>
-                <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.details')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.action')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.resource')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.performedBy')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.branch')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.timestamp')}</th>
+                <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('audit.details')}</th>
               </tr>
             </thead>
             <tbody>
@@ -86,28 +86,28 @@ export const AuditLogsPage: React.FC = () => {
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="table-row-hover">
-                    <td style={{ padding: '12px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <span className="badge badge-info" style={{ fontSize: '11px' }}>{log.action}</span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-main)' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-main)' }}>
                       {log.resourceType} {log.resourceId ? `(#${log.resourceId.substring(0, 6)})` : ''}
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-main)' }}>
                         <User size={13} style={{ color: 'var(--text-subtle)' }} />
                         {log.user?.name || log.user?.email || 'System'}
                       </div>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
                       {log.branch?.name || 'Tenant Scope'}
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
                         <Clock size={12} />
                         {formatDateTime(log.createdAt, { locale: i18n.language, timeZone: tenantTz })}
                       </div>
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <button
                         onClick={() => setSelectedLog(log)}
                         className="btn btn-secondary btn-sm"
