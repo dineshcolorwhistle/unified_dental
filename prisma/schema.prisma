@@ -35,6 +35,26 @@ enum DoctorType {
   INTEGRATED
 }
 
+enum WorkOrderStatus {
+  CREATED
+  ASSIGNED
+  IN_PROGRESS
+  INTERNAL_VERIFICATION
+  EXTERNAL_VERIFICATION
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ProcessStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 
 model Tenant {
   id                  String         @id @default(uuid())
@@ -69,6 +89,7 @@ model Tenant {
   prosthesisTypes ProsthesisType[]
   doctors         Doctor[]
   doctorLists     DoctorList[]
+  workOrders      WorkOrder[]
 
   @@map("tenants")
 }
@@ -144,6 +165,7 @@ model Branch {
   prosthesisTypes ProsthesisType[]
   doctors         Doctor[]
   doctorLists     DoctorList[]
+  workOrders      WorkOrder[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -173,6 +195,10 @@ model User {
   uploadedFiles       FileRecord[]
   notifications       Notification[]
   defaultTechnicianProcesses Process[] @relation("ProcessDefaultTechnician")
+  createdWorkOrders          WorkOrder[] @relation("WorkOrderCreatedBy")
+  assignedWorkOrderProcesses WorkOrderProcess[] @relation("WorkOrderProcessTechnician")
+  workOrderNotes             WorkOrderNote[]
+  processActivityLogs        ProcessActivityLog[]
 
   @@map("users")
 }
@@ -413,6 +439,7 @@ model Process {
   processArea               ProcessArea?            @relation(fields: [processAreaId], references: [id], onDelete: SetNull)
   defaultTechnician         User?                   @relation("ProcessDefaultTechnician", fields: [defaultTechnicianId], references: [id], onDelete: SetNull)
   prosthesisTypeAssignments ProsthesisTypeProcess[]
+  workOrderProcesses        WorkOrderProcess[]
 
   @@unique([tenantId, branchId, name])
   @@index([tenantId])
@@ -435,6 +462,7 @@ model ProsthesisType {
   tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch             Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   processAssignments ProsthesisTypeProcess[]
+  workOrders         WorkOrder[]
 
   @@unique([tenantId, branchId, name])
   @@index([tenantId])
@@ -481,6 +509,8 @@ model Doctor {
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch      Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
   listMembers DoctorListMember[]
+  workOrders  WorkOrder[]
+  workOrderProcesses WorkOrderProcess[] @relation("WorkOrderProcessDoctor")
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -524,5 +554,114 @@ model DoctorListMember {
   @@index([doctorId])
   @@map("doctor_list_members")
 }
+
+// ─── Dental Lab Work Orders & Process Tracking (Phase 2.2) ──
+
+model WorkOrder {
+  id                      String          @id @default(uuid())
+  tenantId                String          @map("tenant_id")
+  branchId                String          @map("branch_id")
+  moduleKey               String          @default("LAB") @map("module_key")
+  folioNumber             String          @map("folio_number")
+  fileNumber              String?         @map("file_number")
+  boxNumber               String?         @map("box_number")
+  patient                 String?
+  doctorId                String          @map("doctor_id")
+  prosthesisTypeId        String          @map("prosthesis_type_id")
+  specification           String
+  color                   String          @default("A1")
+  notes                   String?
+  deliveryDate            DateTime?       @map("delivery_date")
+  totalQuote              Decimal         @default(0.00) @map("total_quote") @db.Decimal(10, 2)
+  initialPayment          Decimal         @default(0.00) @map("initial_payment") @db.Decimal(10, 2)
+  paymentReferenceNumbers String[]        @default([]) @map("payment_reference_numbers")
+  status                  WorkOrderStatus @default(CREATED)
+  qrToken                 String          @unique @default(uuid()) @map("qr_token")
+  createdById             String          @map("created_by_id")
+  createdAt               DateTime        @default(now()) @map("created_at")
+  updatedAt               DateTime        @updatedAt @map("updated_at")
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctor         Doctor             @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  prosthesisType ProsthesisType     @relation(fields: [prosthesisTypeId], references: [id], onDelete: Restrict)
+  createdBy      User               @relation("WorkOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  processes      WorkOrderProcess[]
+  notesHistory   WorkOrderNote[]
+
+  @@unique([tenantId, folioNumber])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, status])
+  @@index([doctorId])
+  @@index([prosthesisTypeId])
+  @@map("work_orders")
+}
+
+model WorkOrderProcess {
+  id                  String             @id @default(uuid())
+  workOrderId         String             @map("work_order_id")
+  processId           String?            @map("process_id")
+  processName         String             @map("process_name")
+  processType         ProcessType        @default(PRODUCTION) @map("process_type")
+  technicianId        String?            @map("technician_id")
+  doctorId            String?            @map("doctor_id")
+  sequence            Int                @default(0)
+  isVerification      Boolean            @default(false) @map("is_verification")
+  status              ProcessStatus      @default(NOT_STARTED)
+  startedAt           DateTime?          @map("started_at")
+  endedAt             DateTime?          @map("ended_at")
+  lastPausedAt        DateTime?          @map("last_paused_at")
+  totalActiveDuration Int                @default(0) @map("total_active_duration")
+  pauseCount          Int                @default(0) @map("pause_count")
+  totalPauseDuration  Int                @default(0) @map("total_pause_duration")
+  reworkCount         Int                @default(0) @map("rework_count")
+  reworkActive        Boolean            @default(false) @map("rework_active")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  workOrder    WorkOrder            @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  process      Process?             @relation(fields: [processId], references: [id], onDelete: SetNull)
+  technician   User?                @relation("WorkOrderProcessTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+  doctor       Doctor?              @relation("WorkOrderProcessDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
+  activityLogs ProcessActivityLog[]
+
+  @@index([workOrderId])
+  @@index([technicianId])
+  @@index([doctorId])
+  @@map("work_order_processes")
+}
+
+model WorkOrderNote {
+  id          String   @id @default(uuid())
+  workOrderId String   @map("work_order_id")
+  userId      String   @map("user_id")
+  note        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([userId])
+  @@map("work_order_notes")
+}
+
+model ProcessActivityLog {
+  id                 String    @id @default(uuid())
+  workOrderProcessId String    @map("work_order_process_id")
+  userId             String?   @map("user_id")
+  action             String    // "START", "PAUSE", "RESUME", "COMPLETE"
+  notes              String?
+  timestamp          DateTime  @default(now())
+
+  workOrderProcess WorkOrderProcess @relation(fields: [workOrderProcessId], references: [id], onDelete: Cascade)
+  user             User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workOrderProcessId])
+  @@map("process_activity_logs")
+}
+
 
 

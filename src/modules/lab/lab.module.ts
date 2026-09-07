@@ -16,6 +16,7 @@ import { ProsthesisTypesService } from './prosthesis-types/prosthesis-types.serv
 
 import { DoctorsController } from './doctors/doctors.controller';
 import { DoctorsService } from './doctors/doctors.service';
+import { WorkOrdersModule } from './work-orders/work-orders.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DoctorsService } from './doctors/doctors.service';
     MailModule,
     BranchesModule,
     ModulesModule,
+    WorkOrdersModule,
   ],
   controllers: [
     LabUsersController,
@@ -46,6 +48,7 @@ import { DoctorsService } from './doctors/doctors.service';
     ProcessesService,
     ProsthesisTypesService,
     DoctorsService,
+    WorkOrdersModule,
   ],
 })
 export class LabModule {}

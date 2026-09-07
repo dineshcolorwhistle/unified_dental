@@ -37,8 +37,34 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [dropUp, setDropUp] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Detect available space and automatically flip dropdown upward if clipped
+  useEffect(() => {
+    if (isOpen && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const spaceBelowWindow = window.innerHeight - rect.bottom;
+      const spaceAboveWindow = rect.top;
+
+      const scrollParent =
+        wrapperRef.current.closest('.modal-body') ||
+        wrapperRef.current.closest('[style*="overflow"]');
+      let spaceBelow = spaceBelowWindow;
+      let spaceAbove = spaceAboveWindow;
+
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        spaceBelow = Math.min(spaceBelowWindow, parentRect.bottom - rect.bottom);
+        spaceAbove = Math.min(spaceAboveWindow, rect.top - parentRect.top);
+      }
+
+      setDropUp(spaceBelow < 230 && spaceAbove > spaceBelow);
+      setAlignRight(window.innerWidth - rect.left < 260 && rect.right > 260);
+    }
+  }, [isOpen]);
 
   const selectedOption = useMemo(
     () => options.find((opt) => opt.value === value),
@@ -118,7 +144,14 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   return (
-    <div className={`searchable-select-wrapper ${className}`} style={style} ref={wrapperRef}>
+    <div
+      className={`searchable-select-wrapper ${isOpen ? 'is-open' : ''} ${className}`}
+      style={{
+        ...style,
+        zIndex: isOpen ? 1000 : undefined,
+      }}
+      ref={wrapperRef}
+    >
       {/* Select Trigger */}
       <button
         type="button"
@@ -176,7 +209,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
       {/* Floating Searchable Dropdown */}
       {isOpen && (
-        <div className="searchable-select-dropdown">
+        <div className={`searchable-select-dropdown ${dropUp ? 'drop-up' : ''} ${alignRight ? 'align-right' : ''}`}>
           {/* Search Input Bar */}
           <div className="searchable-select-search-box">
             <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
