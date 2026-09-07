@@ -7,9 +7,9 @@ const resources = {
       appName: 'Unified Dental Platform',
       nav: {
         dashboard: 'Dashboard',
-        tenants: 'Tenants (Platform)',
+        tenants: 'Tenants',
         modules: 'Modules',
-        subscriptionPlans: 'Subscription Plans',
+        subscriptionPlans: 'Subscription Plan',
         coreOperations: 'Core Operations',
         platformAdmin: 'PLATFORM ADMIN',
         phaseStatus: 'Phase 1 Foundation',
@@ -889,9 +889,9 @@ const resources = {
       appName: 'Plataforma Dental Unificada',
       nav: {
         dashboard: 'Panel de Control',
-        tenants: 'Organizaciones (Plataforma)',
+        tenants: 'Organizaciones',
         modules: 'Módulos',
-        subscriptionPlans: 'Planes de Suscripción',
+        subscriptionPlans: 'Plan de Suscripción',
         coreOperations: 'Operaciones Principales',
         platformAdmin: 'ADMIN PLATAFORMA',
         phaseStatus: 'Fase 1 Plataforma',
