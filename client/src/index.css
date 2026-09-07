@@ -910,35 +910,35 @@ button {
   white-space: nowrap;
 }
 
-.btn-primary {
+.btn-primary, .btn--primary {
   background: linear-gradient(135deg, var(--primary-700), var(--primary-600));
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
 }
 
-.btn-primary:hover {
+.btn-primary:hover, .btn--primary:hover {
   background: linear-gradient(135deg, var(--primary-800), var(--primary-700));
   box-shadow: 0 4px 14px rgba(15, 118, 110, 0.35);
   transform: translateY(-1px);
 }
 
-.btn-secondary {
+.btn-secondary, .btn--secondary {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   color: var(--text-main);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover, .btn--secondary:hover {
   background: var(--bg-surface-hover);
   border-color: var(--border-hover);
 }
 
-.btn-danger {
+.btn-danger, .btn--danger {
   background: var(--rose-500);
   color: #ffffff;
 }
 
-.btn-danger:hover {
+.btn-danger:hover, .btn--danger:hover {
   background: var(--rose-600);
 }
 
@@ -1071,7 +1071,7 @@ button {
   padding: 20px;
 }
 
-.modal-content, .modal-dialog {
+.modal-content, .modal-dialog, .modal-card {
   background: var(--bg-modal);
   border-radius: var(--radius-xl);
   width: 100%;

@@ -14,6 +14,9 @@ import { ProcessAreasService } from './process-areas/process-areas.service';
 import { ProcessesService } from './processes/processes.service';
 import { ProsthesisTypesService } from './prosthesis-types/prosthesis-types.service';
 
+import { DoctorsController } from './doctors/doctors.controller';
+import { DoctorsService } from './doctors/doctors.service';
+
 @Module({
   imports: [
     PrismaModule,
@@ -28,18 +31,21 @@ import { ProsthesisTypesService } from './prosthesis-types/prosthesis-types.serv
     ProcessAreasController,
     ProcessesController,
     ProsthesisTypesController,
+    DoctorsController,
   ],
   providers: [
     LabUsersService,
     ProcessAreasService,
     ProcessesService,
     ProsthesisTypesService,
+    DoctorsService,
   ],
   exports: [
     LabUsersService,
     ProcessAreasService,
     ProcessesService,
     ProsthesisTypesService,
+    DoctorsService,
   ],
 })
 export class LabModule {}
