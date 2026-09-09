@@ -83,6 +83,37 @@ export class WorkOrdersService {
   }
 
   /**
+   * Check whether an authenticated actor is a Lab Technician
+   */
+  async isLabTechnicianUser(actor: AuthenticatedUser, tenantId: string): Promise<boolean> {
+    const isTenantAdmin = await this.isTenantAdminUser(actor, tenantId);
+    if (isTenantAdmin) return false;
+    const isLabAdmin = await this.isLabAdminUser(actor, tenantId);
+    if (isLabAdmin) return false;
+
+    const hasTechRole = actor.roles?.some((r: string) => {
+      const lower = r.toLowerCase();
+      return (
+        lower === 'lab technician' ||
+        lower === 'technician' ||
+        lower === 'lab-technician' ||
+        lower.includes('technician')
+      );
+    });
+    if (hasTechRole) return true;
+
+    const userRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: { slug: 'lab-technician' },
+      },
+    });
+
+    return Boolean(userRole);
+  }
+
+  /**
    * Resolve active branch ID for Lab Admin
    */
   async resolveLabAdminBranch(actor: AuthenticatedUser, tenantId: string): Promise<string> {
@@ -394,6 +425,12 @@ export class WorkOrdersService {
           include: {
             technician: { select: { id: true, name: true, email: true } },
             doctor: { select: { id: true, name: true, clinicName: true } },
+            activityLogs: {
+              orderBy: { timestamp: 'desc' },
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+              },
+            },
           },
         },
         notesHistory: {
@@ -407,6 +444,17 @@ export class WorkOrdersService {
 
     if (!workOrder) {
       throw new NotFoundException(`Work Order with ID "${id}" not found.`);
+    }
+
+    // Payment redaction for Technicians
+    const isTech = await this.isLabTechnicianUser(actor, tenantId);
+    if (isTech) {
+      workOrder.totalQuote = 0 as any;
+      workOrder.initialPayment = 0 as any;
+      workOrder.paymentReferenceNumbers = [];
+      if (workOrder.prosthesisType) {
+        workOrder.prosthesisType.price = 0 as any;
+      }
     }
 
     return workOrder;
@@ -779,5 +827,621 @@ export class WorkOrdersService {
     });
 
     return this.findOne(tenantId, actor, id);
+  }
+
+  /**
+   * Technician Dashboard Stats & Active Queue
+   */
+  async getTechnicianDashboard(tenantId: string, actor: AuthenticatedUser) {
+    const assignedProcesses = await this.prisma.workOrderProcess.findMany({
+      where: {
+        technicianId: actor.id,
+        workOrder: { tenantId },
+      },
+      include: {
+        workOrder: {
+          select: {
+            id: true,
+            folioNumber: true,
+            boxNumber: true,
+            patient: true,
+            status: true,
+            deliveryDate: true,
+            createdAt: true,
+            prosthesisType: { select: { id: true, name: true } },
+            doctor: { select: { id: true, name: true, clinicName: true } },
+            processes: {
+              orderBy: { sequence: 'asc' },
+              select: {
+                id: true,
+                sequence: true,
+                processName: true,
+                status: true,
+                technicianId: true,
+                totalActiveDuration: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    const pendingSteps = assignedProcesses.filter(
+      (p) => p.status === ProcessStatus.NOT_STARTED,
+    ).length;
+    const activeSteps = assignedProcesses.filter(
+      (p) => p.status === ProcessStatus.IN_PROGRESS,
+    ).length;
+    const pausedSteps = assignedProcesses.filter(
+      (p) => p.status === ProcessStatus.PAUSED,
+    ).length;
+    const completedToday = assignedProcesses.filter(
+      (p) =>
+        p.status === ProcessStatus.COMPLETED &&
+        p.endedAt &&
+        new Date(p.endedAt) >= todayStart,
+    ).length;
+
+    // Queue of active work orders (NOT_STARTED, IN_PROGRESS, PAUSED)
+    const workOrderMap = new Map<string, any>();
+
+    for (const ap of assignedProcesses) {
+      if (ap.status === ProcessStatus.COMPLETED) continue;
+      if (!workOrderMap.has(ap.workOrderId)) {
+        const wo = ap.workOrder;
+        // Check readiness: is this step ready to start?
+        const priorIncomplete = wo.processes.find(
+          (p) => p.sequence < ap.sequence && p.status !== ProcessStatus.COMPLETED,
+        );
+        const isReadyToStart = !priorIncomplete;
+
+        workOrderMap.set(ap.workOrderId, {
+          workOrderId: wo.id,
+          folioNumber: wo.folioNumber,
+          patient: wo.patient,
+          prosthesisTypeName: wo.prosthesisType?.name || '',
+          boxNumber: wo.boxNumber,
+          currentProcessId: ap.id,
+          currentStepSequence: ap.sequence + 1,
+          currentStepName: ap.processName,
+          currentStepStatus: ap.status,
+          isReadyToStart,
+          doctorName: wo.doctor?.name,
+          clinicName: wo.doctor?.clinicName,
+          createdAt: wo.createdAt,
+        });
+      }
+    }
+
+    return {
+      stats: {
+        pendingSteps,
+        activeSteps,
+        pausedSteps,
+        completedToday,
+      },
+      queue: Array.from(workOrderMap.values()),
+    };
+  }
+
+  /**
+   * Find Work Orders assigned to authenticated technician
+   */
+  async findTechnicianWorkOrders(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    query: { search?: string; status?: string; page?: number | string; limit?: number | string },
+  ) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      tenantId,
+      processes: {
+        some: {
+          technicianId: actor.id,
+          ...(query.status === 'NOT_STARTED' && { status: ProcessStatus.NOT_STARTED }),
+          ...(query.status === 'IN_PROGRESS_PAUSED' && {
+            status: { in: [ProcessStatus.IN_PROGRESS, ProcessStatus.PAUSED] },
+          }),
+          ...(query.status === 'COMPLETED' && { status: ProcessStatus.COMPLETED }),
+        },
+      },
+    };
+
+    if (query.search && query.search.trim().length > 0) {
+      const q = query.search.trim();
+      where.OR = [
+        { folioNumber: { contains: q, mode: 'insensitive' } },
+        { patient: { contains: q, mode: 'insensitive' } },
+        { boxNumber: { contains: q, mode: 'insensitive' } },
+        { doctor: { name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, orders] = await Promise.all([
+      this.prisma.workOrder.count({ where }),
+      this.prisma.workOrder.findMany({
+        where,
+        select: {
+          id: true,
+          tenantId: true,
+          branchId: true,
+          moduleKey: true,
+          folioNumber: true,
+          fileNumber: true,
+          boxNumber: true,
+          patient: true,
+          specification: true,
+          color: true,
+          notes: true,
+          deliveryDate: true,
+          status: true,
+          qrToken: true,
+          createdAt: true,
+          updatedAt: true,
+          doctor: { select: { id: true, name: true, clinicName: true, email: true, phone: true } },
+          prosthesisType: { select: { id: true, name: true } }, // Strict payment redaction
+          processes: {
+            orderBy: { sequence: 'asc' },
+            select: {
+              id: true,
+              processName: true,
+              processType: true,
+              technicianId: true,
+              doctorId: true,
+              sequence: true,
+              isVerification: true,
+              status: true,
+              startedAt: true,
+              endedAt: true,
+              totalActiveDuration: true,
+              technician: { select: { id: true, name: true } },
+              doctor: { select: { id: true, name: true, clinicName: true } },
+            },
+          },
+          _count: { select: { notesHistory: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const data = orders.map((wo) => {
+      const myProcess = wo.processes.find((p) => p.technicianId === actor.id);
+      return {
+        ...wo,
+        totalQuote: 0,
+        initialPayment: 0,
+        paymentReferenceNumbers: [],
+        myProcess: myProcess || null,
+      };
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Start a work order process step
+   */
+  async startProcess(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    processId: string,
+  ) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        processes: { orderBy: { sequence: 'asc' } },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const currentProcess = workOrder.processes.find((p) => p.id === processId);
+    if (!currentProcess) {
+      throw new NotFoundException(`Process with ID "${processId}" not found in this Work Order.`);
+    }
+
+    if (!isAdmin && currentProcess.technicianId !== actor.id) {
+      throw new ForbiddenException('You are not assigned to this process step.');
+    }
+
+    if (currentProcess.status === ProcessStatus.IN_PROGRESS) {
+      return this.findOne(tenantId, actor, workOrderId);
+    }
+
+    if (currentProcess.status === ProcessStatus.COMPLETED) {
+      throw new BadRequestException('This process step has already been completed.');
+    }
+
+    // Sequential rule: all prior processes must be COMPLETED
+    const priorIncomplete = workOrder.processes.find(
+      (p) => p.sequence < currentProcess.sequence && p.status !== ProcessStatus.COMPLETED,
+    );
+    if (priorIncomplete) {
+      throw new BadRequestException(
+        `Cannot start this step. Prior step "${priorIncomplete.processName}" must be completed first.`,
+      );
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workOrderProcess.update({
+        where: { id: processId },
+        data: {
+          status: ProcessStatus.IN_PROGRESS,
+          startedAt: currentProcess.startedAt || now,
+          lastPausedAt: null,
+        },
+      });
+
+      if (
+        workOrder.status === WorkOrderStatus.CREATED ||
+        workOrder.status === WorkOrderStatus.ASSIGNED
+      ) {
+        await tx.workOrder.update({
+          where: { id: workOrderId },
+          data: { status: WorkOrderStatus.IN_PROGRESS },
+        });
+      }
+
+      await tx.processActivityLog.create({
+        data: {
+          workOrderProcessId: processId,
+          userId: actor.id,
+          action: 'START',
+          notes: 'Process started by technician',
+          timestamp: now,
+        },
+      });
+    });
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: 'PROCESS_START',
+      resourceType: 'WORK_ORDER_PROCESS',
+      resourceId: processId,
+      newValues: {
+        workOrderId,
+        processName: currentProcess.processName,
+        status: ProcessStatus.IN_PROGRESS,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
+  }
+
+  /**
+   * Pause an in-progress process step
+   */
+  async pauseProcess(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    processId: string,
+  ) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        processes: { orderBy: { sequence: 'asc' } },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const currentProcess = workOrder.processes.find((p) => p.id === processId);
+    if (!currentProcess) {
+      throw new NotFoundException(`Process with ID "${processId}" not found.`);
+    }
+
+    if (!isAdmin && currentProcess.technicianId !== actor.id) {
+      throw new ForbiddenException('You are not assigned to this process step.');
+    }
+
+    if (currentProcess.status !== ProcessStatus.IN_PROGRESS) {
+      throw new BadRequestException('Process is not currently in progress.');
+    }
+
+    const now = new Date();
+    const lastActivityTime = currentProcess.lastPausedAt
+      ? currentProcess.updatedAt
+      : currentProcess.startedAt || now;
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((now.getTime() - new Date(lastActivityTime).getTime()) / 1000),
+    );
+    const newTotalActive = currentProcess.totalActiveDuration + elapsedSeconds;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workOrderProcess.update({
+        where: { id: processId },
+        data: {
+          status: ProcessStatus.PAUSED,
+          lastPausedAt: now,
+          pauseCount: currentProcess.pauseCount + 1,
+          totalActiveDuration: newTotalActive,
+        },
+      });
+
+      await tx.processActivityLog.create({
+        data: {
+          workOrderProcessId: processId,
+          userId: actor.id,
+          action: 'PAUSE',
+          notes: 'Process paused',
+          timestamp: now,
+        },
+      });
+    });
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: 'PROCESS_PAUSE',
+      resourceType: 'WORK_ORDER_PROCESS',
+      resourceId: processId,
+      newValues: {
+        workOrderId,
+        status: ProcessStatus.PAUSED,
+        totalActiveDuration: newTotalActive,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
+  }
+
+  /**
+   * Resume a paused process step
+   */
+  async resumeProcess(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    processId: string,
+  ) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        processes: { orderBy: { sequence: 'asc' } },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const currentProcess = workOrder.processes.find((p) => p.id === processId);
+    if (!currentProcess) {
+      throw new NotFoundException(`Process with ID "${processId}" not found.`);
+    }
+
+    if (!isAdmin && currentProcess.technicianId !== actor.id) {
+      throw new ForbiddenException('You are not assigned to this process step.');
+    }
+
+    if (currentProcess.status !== ProcessStatus.PAUSED) {
+      throw new BadRequestException('Process is not currently paused.');
+    }
+
+    const now = new Date();
+    const pausedAt = currentProcess.lastPausedAt || currentProcess.updatedAt || now;
+    const pauseDurationSeconds = Math.max(
+      0,
+      Math.floor((now.getTime() - new Date(pausedAt).getTime()) / 1000),
+    );
+    const newTotalPause = currentProcess.totalPauseDuration + pauseDurationSeconds;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workOrderProcess.update({
+        where: { id: processId },
+        data: {
+          status: ProcessStatus.IN_PROGRESS,
+          lastPausedAt: null,
+          totalPauseDuration: newTotalPause,
+        },
+      });
+
+      await tx.processActivityLog.create({
+        data: {
+          workOrderProcessId: processId,
+          userId: actor.id,
+          action: 'RESUME',
+          notes: 'Process resumed by technician',
+          timestamp: now,
+        },
+      });
+    });
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: 'PROCESS_RESUME',
+      resourceType: 'WORK_ORDER_PROCESS',
+      resourceId: processId,
+      newValues: {
+        workOrderId,
+        status: ProcessStatus.IN_PROGRESS,
+        totalPauseDuration: newTotalPause,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
+  }
+
+  /**
+   * Complete a process step and notify subsequent technician
+   */
+  async completeProcess(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    processId: string,
+  ) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        processes: { orderBy: { sequence: 'asc' } },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const currentProcess = workOrder.processes.find((p) => p.id === processId);
+    if (!currentProcess) {
+      throw new NotFoundException(`Process with ID "${processId}" not found.`);
+    }
+
+    if (!isAdmin && currentProcess.technicianId !== actor.id) {
+      throw new ForbiddenException('You are not assigned to this process step.');
+    }
+
+    if (currentProcess.status === ProcessStatus.COMPLETED) {
+      return this.findOne(tenantId, actor, workOrderId);
+    }
+
+    const now = new Date();
+    let finalActiveDuration = currentProcess.totalActiveDuration;
+
+    if (currentProcess.status === ProcessStatus.IN_PROGRESS) {
+      const lastActivityTime = currentProcess.lastPausedAt
+        ? currentProcess.updatedAt
+        : currentProcess.startedAt || now;
+      const elapsedSeconds = Math.max(
+        0,
+        Math.floor((now.getTime() - new Date(lastActivityTime).getTime()) / 1000),
+      );
+      finalActiveDuration += elapsedSeconds;
+    }
+
+    const mins = Math.floor(finalActiveDuration / 60);
+    const secs = finalActiveDuration % 60;
+    const durationStr =
+      mins > 0
+        ? `${mins} minute${mins > 1 ? 's' : ''}${secs > 0 ? ` ${secs}s` : ''}`
+        : `${secs}s`;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workOrderProcess.update({
+        where: { id: processId },
+        data: {
+          status: ProcessStatus.COMPLETED,
+          endedAt: now,
+          lastPausedAt: null,
+          totalActiveDuration: finalActiveDuration,
+        },
+      });
+
+      await tx.processActivityLog.create({
+        data: {
+          workOrderProcessId: processId,
+          userId: actor.id,
+          action: 'COMPLETE',
+          notes: `Process completed. Active time: ${durationStr}.`,
+          timestamp: now,
+        },
+      });
+
+      const remainingIncomplete = workOrder.processes.filter(
+        (p) => p.id !== processId && p.status !== ProcessStatus.COMPLETED,
+      );
+
+      if (remainingIncomplete.length === 0) {
+        await tx.workOrder.update({
+          where: { id: workOrderId },
+          data: { status: WorkOrderStatus.COMPLETED },
+        });
+      }
+    });
+
+    // Notify subsequent technician if exists
+    const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+    const nextProcess = sortedProcs.find(
+      (p) => p.sequence > currentProcess.sequence && p.id !== processId,
+    );
+
+    if (nextProcess && nextProcess.technicianId) {
+      try {
+        await this.notificationsService.create({
+          tenantId,
+          userId: nextProcess.technicianId,
+          moduleKey: 'LAB',
+          type: 'WORK_ORDER',
+          title: 'Process Ready to Start',
+          body: `Previous step "${currentProcess.processName}" completed. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
+          data: {
+            workOrderId: workOrder.id,
+            folioNumber: workOrder.folioNumber,
+            processId: nextProcess.id,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to dispatch next process notification to technician ${nextProcess.technicianId}: ${(err as any).message}`,
+        );
+      }
+    }
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: 'PROCESS_COMPLETE',
+      resourceType: 'WORK_ORDER_PROCESS',
+      resourceId: processId,
+      newValues: {
+        workOrderId,
+        status: ProcessStatus.COMPLETED,
+        totalActiveDuration: finalActiveDuration,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
   }
 }

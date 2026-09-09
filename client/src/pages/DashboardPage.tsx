@@ -3,6 +3,7 @@ import { useAuth } from '../core/context/AuthContext';
 import { useModule } from '../core/context/ModuleContext';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { TechnicianDashboardPage } from './lab/TechnicianDashboardPage';
 import {
   LayoutDashboard,
   Building2,
@@ -20,9 +21,14 @@ import {
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLabTechnician } = useAuth();
   const { activeModuleMode } = useModule();
   const { t } = useTranslation();
+
+  if (isLabTechnician) {
+    return <TechnicianDashboardPage />;
+  }
+
   const isTenantContext = Boolean(user?.activeTenant);
 
   // Platform super admin states

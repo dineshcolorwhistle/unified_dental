@@ -1,5 +1,19 @@
 import api from './api';
 
+export interface ProcessActivityLogItem {
+  id: string;
+  workOrderProcessId: string;
+  userId?: string | null;
+  action: 'START' | 'PAUSE' | 'RESUME' | 'COMPLETE' | string;
+  notes?: string | null;
+  timestamp: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
 export interface WorkOrderProcessItem {
   id?: string;
   processId?: string | null;
@@ -12,8 +26,39 @@ export interface WorkOrderProcessItem {
   status: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   startedAt?: string | null;
   endedAt?: string | null;
+  lastPausedAt?: string | null;
+  totalActiveDuration?: number;
+  pauseCount?: number;
+  totalPauseDuration?: number;
   technician?: { id: string; name: string } | null;
   doctor?: { id: string; name: string; clinicName?: string | null } | null;
+  activityLogs?: ProcessActivityLogItem[];
+}
+
+export interface TechnicianQueueItem {
+  workOrderId: string;
+  folioNumber: string;
+  patient?: string | null;
+  prosthesisTypeName: string;
+  boxNumber?: string | null;
+  currentProcessId: string;
+  currentStepSequence: number;
+  currentStepName: string;
+  currentStepStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED';
+  isReadyToStart: boolean;
+  doctorName?: string | null;
+  clinicName?: string | null;
+  createdAt: string;
+}
+
+export interface TechnicianDashboardData {
+  stats: {
+    pendingSteps: number;
+    activeSteps: number;
+    pausedSteps: number;
+    completedToday: number;
+  };
+  queue: TechnicianQueueItem[];
 }
 
 export interface WorkOrderNoteItem {
@@ -211,6 +256,47 @@ export const workOrderService = {
 
   delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     const res = await api.delete(`/lab/work-orders/${id}`);
+    return res.data;
+  },
+
+  getTechnicianDashboard: async (): Promise<TechnicianDashboardData> => {
+    const res = await api.get('/lab/work-orders/technician/dashboard');
+    return res.data;
+  },
+
+  getTechnicianWorkOrders: async (params?: QueryWorkOrdersParams): Promise<WorkOrdersResponse> => {
+    const res = await api.get('/lab/work-orders/technician/my-orders', { params });
+    const items: WorkOrderListItem[] = Array.isArray(res.data)
+      ? res.data
+      : (res.data as any)?.data || [];
+    const meta =
+      (res as any).meta ||
+      (res.data as any)?.meta || {
+        total: items.length,
+        page: params?.page || 1,
+        limit: params?.limit || 20,
+        totalPages: Math.ceil(items.length / (params?.limit || 20)) || 1,
+      };
+    return { data: items, meta };
+  },
+
+  startProcess: async (workOrderId: string, processId: string): Promise<WorkOrderListItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/processes/${processId}/start`);
+    return res.data;
+  },
+
+  pauseProcess: async (workOrderId: string, processId: string): Promise<WorkOrderListItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/processes/${processId}/pause`);
+    return res.data;
+  },
+
+  resumeProcess: async (workOrderId: string, processId: string): Promise<WorkOrderListItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/processes/${processId}/resume`);
+    return res.data;
+  },
+
+  completeProcess: async (workOrderId: string, processId: string): Promise<WorkOrderListItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/processes/${processId}/complete`);
     return res.data;
   },
 };

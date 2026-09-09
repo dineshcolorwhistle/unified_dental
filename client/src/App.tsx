@@ -26,6 +26,7 @@ import { LabUsersAdminPage } from './pages/lab/LabUsersAdminPage';
 import { LabUsersTechniciansPage } from './pages/lab/LabUsersTechniciansPage';
 import { LabUsersDoctorsPage } from './pages/lab/LabUsersDoctorsPage';
 import { LabWorkOrdersPage } from './pages/lab/LabWorkOrdersPage';
+import { TechnicianWorkOrdersPage } from './pages/lab/TechnicianWorkOrdersPage';
 import { LabProcessesPage } from './pages/lab/LabProcessesPage';
 import { LabProcessAreasPage } from './pages/lab/LabProcessAreasPage';
 import { LabWhatsappTemplatesPage } from './pages/lab/LabWhatsappTemplatesPage';
@@ -157,7 +158,7 @@ export const App: React.FC = () => {
                     <Route path="lab/users/technicians" element={<ProtectedRoute><LabUsersTechniciansPage /></ProtectedRoute>} />
                     <Route path="lab/users/doctors" element={<ProtectedRoute><LabUsersDoctorsPage /></ProtectedRoute>} />
                     <Route path="lab/work-orders" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
-                    <Route path="lab/work-orders/my" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders/my" element={<ProtectedRoute><TechnicianWorkOrdersPage /></ProtectedRoute>} />
                     <Route path="lab/work-orders/requested" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
                     <Route path="lab/processes" element={<ProtectedRoute><LabProcessesPage /></ProtectedRoute>} />
                     <Route path="lab/process-areas" element={<ProtectedRoute><LabProcessAreasPage /></ProtectedRoute>} />

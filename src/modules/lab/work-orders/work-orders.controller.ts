@@ -42,6 +42,29 @@ export class WorkOrdersController {
     return this.workOrdersService.findAll(user.activeTenantId, user, query);
   }
 
+  @Get('technician/dashboard')
+  @ApiOperation({ summary: 'Get technician dashboard stats and active queue' })
+  getTechnicianDashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.workOrdersService.getTechnicianDashboard(user.activeTenantId, user);
+  }
+
+  @Get('technician/my-orders')
+  @ApiOperation({ summary: 'Get work orders assigned to authenticated technician' })
+  findTechnicianWorkOrders(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.workOrdersService.findTechnicianWorkOrders(user.activeTenantId, user, {
+      search,
+      status,
+      page,
+      limit,
+    });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get details of a specific work order including processes and notes' })
   findOne(
@@ -49,6 +72,46 @@ export class WorkOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workOrdersService.findOne(user.activeTenantId, user, id);
+  }
+
+  @Post(':id/processes/:processId/start')
+  @ApiOperation({ summary: 'Start a work order process step (Technician assigned or Admin)' })
+  startProcess(
+    @Param('id') workOrderId: string,
+    @Param('processId') processId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.startProcess(user.activeTenantId, user, workOrderId, processId);
+  }
+
+  @Post(':id/processes/:processId/pause')
+  @ApiOperation({ summary: 'Pause an in-progress process step' })
+  pauseProcess(
+    @Param('id') workOrderId: string,
+    @Param('processId') processId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.pauseProcess(user.activeTenantId, user, workOrderId, processId);
+  }
+
+  @Post(':id/processes/:processId/resume')
+  @ApiOperation({ summary: 'Resume a paused process step' })
+  resumeProcess(
+    @Param('id') workOrderId: string,
+    @Param('processId') processId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.resumeProcess(user.activeTenantId, user, workOrderId, processId);
+  }
+
+  @Post(':id/processes/:processId/complete')
+  @ApiOperation({ summary: 'Complete a process step and notify next technician' })
+  completeProcess(
+    @Param('id') workOrderId: string,
+    @Param('processId') processId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.completeProcess(user.activeTenantId, user, workOrderId, processId);
   }
 
   @Post()
