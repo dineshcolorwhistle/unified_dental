@@ -450,6 +450,120 @@ export class WorkOrdersService {
   }
 
   /**
+   * Update a note in Work Order history
+   * - Admin can edit any note
+   * - Technician can only edit notes they created
+   */
+  async updateNote(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    noteId: string,
+    noteText: string,
+  ) {
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const noteRecord = await this.prisma.workOrderNote.findFirst({
+      where: { id: noteId, workOrderId },
+    });
+
+    if (!noteRecord) {
+      throw new NotFoundException(`Note with ID "${noteId}" not found.`);
+    }
+
+    // Role check: Admins can edit any note; technicians can only edit their own
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    if (!isAdmin && noteRecord.userId !== actor.id) {
+      throw new ForbiddenException('You can only edit notes created by yourself.');
+    }
+
+    const updated = await this.prisma.workOrderNote.update({
+      where: { id: noteId },
+      data: { note: noteText.trim() },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId: actor.id,
+      moduleKey: 'LAB',
+      action: 'UPDATE_NOTE',
+      resourceType: 'WORK_ORDER',
+      resourceId: workOrderId,
+      oldValues: { note: noteRecord.note },
+      newValues: { note: updated.note },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Delete a note from Work Order history
+   * - Admin can delete any note
+   * - Technician can only delete notes they created
+   */
+  async deleteNote(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    noteId: string,
+  ) {
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const noteRecord = await this.prisma.workOrderNote.findFirst({
+      where: { id: noteId, workOrderId },
+    });
+
+    if (!noteRecord) {
+      throw new NotFoundException(`Note with ID "${noteId}" not found.`);
+    }
+
+    // Role check: Admins can delete any note; technicians can only delete their own
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    if (!isAdmin && noteRecord.userId !== actor.id) {
+      throw new ForbiddenException('You can only delete notes created by yourself.');
+    }
+
+    await this.prisma.workOrderNote.delete({
+      where: { id: noteId },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId: actor.id,
+      moduleKey: 'LAB',
+      action: 'DELETE_NOTE',
+      resourceType: 'WORK_ORDER',
+      resourceId: workOrderId,
+      oldValues: { noteId, note: noteRecord.note },
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Delete Work Order (Restricted strictly to Platform Super Admin and Tenant Admin)
    */
   async remove(tenantId: string, actor: AuthenticatedUser, id: string) {
@@ -522,48 +636,148 @@ export class WorkOrdersService {
     if (dto.doctorId !== undefined) updateData.doctorId = dto.doctorId;
     if (dto.prosthesisTypeId !== undefined) updateData.prosthesisTypeId = dto.prosthesisTypeId;
 
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
-      data: updateData,
-      include: {
-        doctor: { select: { id: true, name: true, clinicName: true, type: true } },
-        prosthesisType: { select: { id: true, name: true, price: true } },
-        branch: { select: { id: true, name: true, code: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        processes: {
-          orderBy: { sequence: 'asc' },
-          select: {
-            id: true,
-            processName: true,
-            processType: true,
-            technicianId: true,
-            doctorId: true,
-            sequence: true,
-            isVerification: true,
-            status: true,
-            technician: { select: { id: true, name: true } },
-            doctor: { select: { id: true, name: true, clinicName: true } },
+    const isSaveAndAssign = dto.action === 'saveAndAssign';
+    if (isSaveAndAssign && workOrder.status === WorkOrderStatus.CREATED) {
+      updateData.status = WorkOrderStatus.ASSIGNED;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Record new note if provided
+      if (dto.notes && dto.notes.trim().length > 0) {
+        await tx.workOrderNote.create({
+          data: {
+            workOrderId: id,
+            userId: actor.id,
+            note: dto.notes.trim(),
           },
-        },
-      },
+        });
+      }
+
+      // Handle processes updates and lifecycle enforcement
+      if (Array.isArray(dto.processes)) {
+        const existingProcs = await tx.workOrderProcess.findMany({
+          where: { workOrderId: id },
+          orderBy: { sequence: 'asc' },
+        });
+
+        const existingMap = new Map(existingProcs.map((p) => [p.id, p]));
+        const incomingIds = new Set(
+          dto.processes.map((p) => p.id).filter(Boolean) as string[],
+        );
+
+        // 1. Deletion check: Any existing process removed in the payload
+        for (const existing of existingProcs) {
+          if (!incomingIds.has(existing.id)) {
+            if (existing.status !== ProcessStatus.NOT_STARTED) {
+              throw new BadRequestException(
+                `Cannot delete process step "${existing.processName}" because it has already started (status: ${existing.status}).`,
+              );
+            }
+            await tx.workOrderProcess.delete({ where: { id: existing.id } });
+          }
+        }
+
+        // 2. Update existing & create newly added processes
+        for (let i = 0; i < dto.processes.length; i++) {
+          const p = dto.processes[i];
+          const isExt = p.processType === ProcessType.EXTERNAL_VERIFICATION;
+          const targetTechId = isExt ? null : p.technicianId || null;
+          const targetDocId = isExt ? p.doctorId || dto.doctorId || workOrder.doctorId : null;
+
+          if (p.id && existingMap.has(p.id)) {
+            const existing = existingMap.get(p.id)!;
+            // Locking rule: once started, technician cannot be changed
+            if (existing.status !== ProcessStatus.NOT_STARTED) {
+              if (existing.technicianId !== targetTechId) {
+                throw new BadRequestException(
+                  `Cannot change assigned technician for process "${existing.processName}" because it has already started.`,
+                );
+              }
+            }
+
+            await tx.workOrderProcess.update({
+              where: { id: p.id },
+              data: {
+                sequence: i,
+                technicianId: targetTechId,
+                doctorId: targetDocId,
+                processName: p.processName.trim(),
+              },
+            });
+          } else {
+            // New process step added
+            await tx.workOrderProcess.create({
+              data: {
+                workOrderId: id,
+                processId: p.processId || null,
+                processName: p.processName.trim(),
+                processType: p.processType || ProcessType.PRODUCTION,
+                technicianId: targetTechId,
+                doctorId: targetDocId,
+                sequence: i,
+                isVerification: Boolean(
+                  p.isVerification ||
+                    isExt ||
+                    p.processType === ProcessType.INTERNAL_VERIFICATION,
+                ),
+                status: ProcessStatus.NOT_STARTED,
+              },
+            });
+          }
+        }
+      }
+
+      // Update work order fields
+      await tx.workOrder.update({
+        where: { id },
+        data: updateData,
+      });
     });
 
+    // If 'saveAndAssign', dispatch assignment notification to step 1 technician
+    if (isSaveAndAssign) {
+      const procs = await this.prisma.workOrderProcess.findMany({
+        where: { workOrderId: id },
+        orderBy: { sequence: 'asc' },
+      });
+      if (procs.length > 0 && procs[0].technicianId) {
+        try {
+          await this.notificationsService.create({
+            tenantId,
+            userId: procs[0].technicianId,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'Work Order Assigned',
+            body: `You have been assigned to process "${procs[0].processName}" on Work Order "${workOrder.folioNumber}".`,
+            data: { workOrderId: workOrder.id, folioNumber: workOrder.folioNumber },
+          });
+        } catch (err) {
+          this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
+        }
+      }
+    }
+
+    // Audit log
     await this.auditService.log({
       tenantId,
       branchId: workOrder.branchId,
       moduleKey: 'LAB',
       userId: actor.id,
-      action: 'UPDATE',
+      action: isSaveAndAssign ? 'UPDATE_AND_ASSIGN' : 'UPDATE',
       resourceType: 'WORK_ORDER',
       resourceId: id,
-      newValues: updateData,
+      newValues: {
+        ...updateData,
+        processCount: dto.processes ? dto.processes.length : undefined,
+      },
       oldValues: {
         patient: workOrder.patient,
         color: workOrder.color,
         totalQuote: workOrder.totalQuote,
+        status: workOrder.status,
       },
     });
 
-    return updated;
+    return this.findOne(tenantId, actor, id);
   }
 }

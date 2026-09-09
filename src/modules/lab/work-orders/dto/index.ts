@@ -15,6 +15,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ProcessStatus, ProcessType } from '@prisma/client';
 
 export class WorkOrderProcessItemDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000', required: false })
+  @IsUUID()
+  @IsOptional()
+  id?: string;
+
   @ApiProperty({ example: 'Vaciado de modelos', description: 'Name of the process step' })
   @IsString()
   @IsNotEmpty()
@@ -232,4 +237,21 @@ export class UpdateWorkOrderDto {
   @IsUUID()
   @IsOptional()
   prosthesisTypeId?: string;
+
+  @ApiProperty({ enum: ['save', 'saveAndAssign'], example: 'save', required: false })
+  @IsString()
+  @IsOptional()
+  action?: 'save' | 'saveAndAssign';
+
+  @ApiProperty({ example: 'Urgent delivery needed by morning', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @ApiProperty({ type: [WorkOrderProcessItemDto], required: false })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkOrderProcessItemDto)
+  @IsOptional()
+  processes?: WorkOrderProcessItemDto[];
 }

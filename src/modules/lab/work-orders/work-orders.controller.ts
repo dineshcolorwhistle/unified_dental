@@ -80,6 +80,27 @@ export class WorkOrdersController {
     return this.workOrdersService.addNote(user.activeTenantId, user, id, dto.note);
   }
 
+  @Patch(':id/notes/:noteId')
+  @ApiOperation({ summary: 'Update a work order note (Admins, or author technician)' })
+  updateNote(
+    @Param('id') id: string,
+    @Param('noteId') noteId: string,
+    @Body() dto: AddWorkOrderNoteDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.updateNote(user.activeTenantId, user, id, noteId, dto.note);
+  }
+
+  @Delete(':id/notes/:noteId')
+  @ApiOperation({ summary: 'Delete a work order note (Admins, or author technician)' })
+  deleteNote(
+    @Param('id') id: string,
+    @Param('noteId') noteId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.deleteNote(user.activeTenantId, user, id, noteId);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a work order (Restricted to Platform and Tenant Administrators)' })
   remove(

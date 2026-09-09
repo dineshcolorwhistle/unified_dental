@@ -96,6 +96,35 @@ export interface CreateWorkOrderPayload {
   paymentReferenceNumbers?: string[];
   action: 'create' | 'createAndAssign';
   processes: Array<{
+    id?: string;
+    processName: string;
+    processId?: string;
+    processType?: 'PRODUCTION' | 'INTERNAL_VERIFICATION' | 'EXTERNAL_VERIFICATION';
+    technicianId?: string;
+    doctorId?: string;
+    sequence: number;
+    isVerification?: boolean;
+    status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  }>;
+}
+
+export interface UpdateWorkOrderPayload {
+  doctorId?: string;
+  patient?: string;
+  fileNumber?: string;
+  boxNumber?: string;
+  deliveryDate?: string;
+  prosthesisTypeId?: string;
+  specification?: string;
+  color?: string;
+  notes?: string;
+  branchId?: string;
+  totalQuote?: number;
+  initialPayment?: number;
+  paymentReferenceNumbers?: string[];
+  action?: 'save' | 'saveAndAssign';
+  processes?: Array<{
+    id?: string;
     processName: string;
     processId?: string;
     processType?: 'PRODUCTION' | 'INTERNAL_VERIFICATION' | 'EXTERNAL_VERIFICATION';
@@ -160,13 +189,23 @@ export const workOrderService = {
     return res.data;
   },
 
-  update: async (id: string, payload: Partial<CreateWorkOrderPayload>): Promise<WorkOrderListItem> => {
+  update: async (id: string, payload: UpdateWorkOrderPayload): Promise<WorkOrderListItem> => {
     const res = await api.patch(`/lab/work-orders/${id}`, payload);
     return res.data;
   },
 
   addNote: async (workOrderId: string, note: string): Promise<WorkOrderNoteItem> => {
     const res = await api.post(`/lab/work-orders/${workOrderId}/notes`, { note });
+    return res.data;
+  },
+
+  updateNote: async (workOrderId: string, noteId: string, note: string): Promise<WorkOrderNoteItem> => {
+    const res = await api.patch(`/lab/work-orders/${workOrderId}/notes/${noteId}`, { note });
+    return res.data;
+  },
+
+  deleteNote: async (workOrderId: string, noteId: string): Promise<{ success: boolean }> => {
+    const res = await api.delete(`/lab/work-orders/${workOrderId}/notes/${noteId}`);
     return res.data;
   },
 
