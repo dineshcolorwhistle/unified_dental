@@ -30,6 +30,8 @@ export interface WorkOrderProcessItem {
   totalActiveDuration?: number;
   pauseCount?: number;
   totalPauseDuration?: number;
+  reworkCount?: number;
+  reworkActive?: boolean;
   technician?: { id: string; name: string } | null;
   doctor?: { id: string; name: string; clinicName?: string | null } | null;
   activityLogs?: ProcessActivityLogItem[];
@@ -51,6 +53,7 @@ export interface TechnicianQueueItem {
   currentStepName: string;
   currentStepStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED';
   isReadyToStart: boolean;
+  reworkActive?: boolean;
   doctorName?: string | null;
   clinicName?: string | null;
   createdAt: string;
@@ -304,4 +307,88 @@ export const workOrderService = {
     const res = await api.post(`/lab/work-orders/${workOrderId}/processes/${processId}/complete`);
     return res.data;
   },
+
+  // ─── Lab Admin Dashboard ───
+
+  getLabAdminDashboard: async (): Promise<LabAdminDashboardData> => {
+    const res = await api.get('/lab/work-orders/admin/dashboard');
+    return res.data;
+  },
+
+  evaluateVerification: async (
+    workOrderId: string,
+    processId: string,
+    payload: { outcome: 'SUCCESS' | 'REPETITION'; notes?: string },
+  ): Promise<WorkOrderListItem> => {
+    const res = await api.post(
+      `/lab/work-orders/${workOrderId}/processes/${processId}/verification-evaluate`,
+      payload,
+    );
+    return res.data;
+  },
+
+  initiateRework: async (
+    workOrderId: string,
+    payload: { processIds: string[]; notes?: string },
+  ): Promise<WorkOrderListItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/rework`, payload);
+    return res.data;
+  },
 };
+
+// ─── Lab Admin Dashboard Types ───
+
+export interface LabAdminVerificationAlertItem {
+  workOrderId: string;
+  folioNumber: string;
+  patient?: string | null;
+  processId: string;
+  processName: string;
+  processType: 'PRODUCTION' | 'INTERNAL_VERIFICATION' | 'EXTERNAL_VERIFICATION';
+  isVerification: boolean;
+  evaluatorId?: string | null;
+  evaluatorName?: string | null;
+  doctorName?: string | null;
+  prosthesisName?: string | null;
+  status: string;
+}
+
+export interface LabAdminInProgressItem {
+  workOrderId: string;
+  folioNumber: string;
+  patient?: string | null;
+  doctorName?: string | null;
+  prosthesisName?: string | null;
+  currentStepId: string;
+  currentStepName: string;
+  currentStepStatus: string;
+  currentStepSequence: number;
+  technicianName?: string | null;
+}
+
+export interface LabAdminVerificationItem {
+  workOrderId: string;
+  folioNumber: string;
+  patient?: string | null;
+  processId: string;
+  processName: string;
+  processType: 'PRODUCTION' | 'INTERNAL_VERIFICATION' | 'EXTERNAL_VERIFICATION';
+  isVerification: boolean;
+  stepStatus: string;
+  evaluatorId?: string | null;
+  evaluatorName?: string | null;
+  doctorName?: string | null;
+  prosthesisName?: string | null;
+}
+
+export interface LabAdminDashboardData {
+  stats: {
+    activeOrders: number;
+    pendingVerifications: number;
+    pendingTechSteps: number;
+    completedToday: number;
+  };
+  pendingVerificationAlerts: LabAdminVerificationAlertItem[];
+  inProgressOrders: LabAdminInProgressItem[];
+  verificationOrders: LabAdminVerificationItem[];
+}

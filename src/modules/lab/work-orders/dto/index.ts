@@ -255,3 +255,36 @@ export class UpdateWorkOrderDto {
   @IsOptional()
   processes?: WorkOrderProcessItemDto[];
 }
+
+export class VerificationEvaluateDto {
+  @ApiProperty({
+    enum: ['SUCCESS', 'REWORK', 'REPETITION'],
+    example: 'SUCCESS',
+    description: 'Verification evaluation outcome',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @IsEnum(['SUCCESS', 'REWORK', 'REPETITION'] as const)
+  outcome: 'SUCCESS' | 'REWORK' | 'REPETITION';
+
+  @ApiProperty({ example: 'Quality check passed', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class InitiateReworkDto {
+  @ApiProperty({
+    example: ['uuid-1', 'uuid-2'],
+    description: 'IDs of completed production process steps to rework',
+  })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsNotEmpty()
+  processIds: string[];
+
+  @ApiProperty({ example: 'Surface finishing needs improvement', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}

@@ -448,8 +448,23 @@ export const TechnicianDashboardPage: React.FC = () => {
                     <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                       {t('technician.queue.currentStep', { defaultValue: 'CURRENT STEP' })}
                     </div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)', marginTop: '2px' }}>
-                      Step {item.currentStepSequence}: {item.currentStepName}
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>Step {item.currentStepSequence}: {item.currentStepName}</span>
+                      {item.reworkActive && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            color: 'var(--rose-600)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                          }}
+                        >
+                          {t('rework.activeBadge', 'Rework Active')}
+                        </span>
+                      )}
                     </div>
                   </div>
 

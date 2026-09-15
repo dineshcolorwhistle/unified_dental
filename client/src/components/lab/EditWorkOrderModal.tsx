@@ -15,6 +15,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
+  RotateCcw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
@@ -49,6 +50,10 @@ interface EditWorkOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialTab?: 1 | 2 | 3;
+  reworkMode?: boolean;
+  reworkVerificationProcessId?: string | null;
+  reworkProcessStageName?: string;
 }
 
 export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
@@ -56,6 +61,10 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialTab,
+  reworkMode = false,
+  reworkVerificationProcessId,
+  reworkProcessStageName,
 }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -63,7 +72,8 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   const isAdmin = Boolean(isTenantAdmin || isLabAdmin || user?.isSuperAdmin);
 
   // Active Tab: 1 (Order Details), 2 (Process Steps), 3 (Payments)
-  const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
+  const [activeTab, setActiveTab] = useState<1 | 2 | 3>(reworkMode ? 2 : (initialTab || 1));
+  const [reworkSelectedProcessIds, setReworkSelectedProcessIds] = useState<string[]>([]);
 
   // Fresh data & Reference data
   const [loadingFresh, setLoadingFresh] = useState(false);
@@ -120,7 +130,8 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   // Fetch fresh Work Order data and reference data when modal opens
   useEffect(() => {
     if (isOpen && workOrder) {
-      setActiveTab(1);
+      setActiveTab(reworkMode ? 2 : (initialTab || 1));
+      setReworkSelectedProcessIds([]);
       setErrors({});
       setShowAddProcess(false);
       setNewProcessId('');
@@ -128,7 +139,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
       setNewNoteText('');
       loadInitialData(workOrder);
     }
-  }, [isOpen, workOrder?.id]);
+  }, [isOpen, workOrder?.id, reworkMode, initialTab]);
 
   const loadInitialData = async (wo: WorkOrderListItem) => {
     // Populate immediately with provided workOrder prop
@@ -517,6 +528,28 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
       toast.error(err?.response?.data?.message || t('workOrders.editModal.deleteNoteFailed', 'Failed to delete note.'));
     } finally {
       setDeletingNote(false);
+    }
+  };
+
+  // Rework submission handler
+  const handleInitiateRework = async () => {
+    if (reworkSelectedProcessIds.length === 0) {
+      toast.error(t('rework.selectAtLeastOne', 'Please select at least one step for rework.'));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await workOrderService.initiateRework(workOrder.id, {
+        processIds: reworkSelectedProcessIds,
+      });
+      toast.success(t('rework.initiateSuccess', 'Rework initiated successfully.'));
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error('Failed to initiate rework', err);
+      toast.error(err?.response?.data?.message || t('rework.initiateFailed', 'Failed to initiate rework.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1348,6 +1381,27 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
               ══════════════════════════════════════════════════════════════ */}
               {activeTab === 2 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Rework Mode Alert Banner */}
+                  {reworkMode && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        color: 'var(--rose-600)',
+                      }}
+                    >
+                      <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                      <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                        {t('rework.selectStepsInstruction', 'Select the completed production steps that require rework. Technicians will be notified to redo the selected steps.')}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Top Bar: Title & Count & Add Process Button */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1368,7 +1422,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                       </span>
                     </div>
 
-                    {!showAddProcess && (
+                    {!showAddProcess && !reworkMode && (
                       <button
                         type="button"
                         onClick={handleOpenAddProcess}
@@ -1604,7 +1658,51 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                             {/* Process Current Status (Requirement 2) */}
                             {renderStatusBadge(step.status)}
 
-                            {/* Action Buttons: Up, Down, Delete */}
+                            {/* Rework Selection Checkbox */}
+                            {reworkMode && step.status === 'COMPLETED' && !step.isVerification && step.processType === 'PRODUCTION' && (
+                              <label
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '5px 10px',
+                                  borderRadius: '8px',
+                                  backgroundColor: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                    ? 'rgba(239, 68, 68, 0.15)'
+                                    : 'var(--bg-surface)',
+                                  border: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                    ? '1.5px solid var(--rose-500)'
+                                    : '1px solid var(--border-color)',
+                                  color: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                    ? 'var(--rose-600)'
+                                    : 'var(--text-muted)',
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  transition: 'all 0.15s ease',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={reworkSelectedProcessIds.includes(step.id || step.processId || '')}
+                                  onChange={(e) => {
+                                    const id = step.id || step.processId || '';
+                                    if (e.target.checked) {
+                                      setReworkSelectedProcessIds((prev) => [...prev, id]);
+                                    } else {
+                                      setReworkSelectedProcessIds((prev) => prev.filter((x) => x !== id));
+                                    }
+                                  }}
+                                  style={{ accentColor: 'var(--rose-600)', width: '15px', height: '15px', cursor: 'pointer' }}
+                                />
+                                <span>{t('rework.checkboxLabel', 'Rework')}</span>
+                              </label>
+                            )}
+
+                            {/* Action Buttons: Up, Down, Delete (Hidden in reworkMode) */}
+                            {!reworkMode && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                               <Tooltip content={t('common.moveUp', 'Move Up')}>
                                 <button
@@ -1701,6 +1799,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                                 </Tooltip>
                               )}
                             </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2041,8 +2140,36 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
           {/* Action Buttons (Save or Save & Save and Assign) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* If status is CREATED: show Save and Save & Assign */}
-            {isCreatedStatus ? (
+            {/* If reworkMode: show Initiate Rework button */}
+            {reworkMode ? (
+              <button
+                type="button"
+                onClick={handleInitiateRework}
+                className="btn"
+                disabled={submitting || reworkSelectedProcessIds.length === 0}
+                style={{
+                  fontWeight: 700,
+                  minWidth: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: 'var(--rose-600)',
+                  borderColor: 'var(--rose-600)',
+                  color: '#ffffff',
+                }}
+              >
+                {submitting ? (
+                  <Loader2 size={16} className="spinner" />
+                ) : (
+                  <>
+                    <RotateCcw size={16} />
+                    <span>
+                      {t('rework.initiateBtn', 'Initiate Rework')} ({reworkSelectedProcessIds.length})
+                    </span>
+                  </>
+                )}
+              </button>
+            ) : isCreatedStatus ? (
               <>
                 <button
                   type="button"

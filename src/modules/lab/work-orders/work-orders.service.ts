@@ -9,9 +9,9 @@ import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuditService } from '../../../core/audit/audit.service';
 import { NotificationsService } from '../../../core/notifications/notifications.service';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
-import { CreateWorkOrderDto, QueryWorkOrdersDto, UpdateWorkOrderDto } from './dto';
+import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { generateFolioNumber } from './utils/folio.util';
-import { parseCalendarDate } from '../../../shared/common/utils/timezone.util';
+import { parseCalendarDate, startOfDayInTz, endOfDayInTz, DEFAULT_TIMEZONE } from '../../../shared/common/utils/timezone.util';
 import { ProcessStatus, ProcessType, WorkOrderStatus } from '@prisma/client';
 
 @Injectable()
@@ -923,6 +923,8 @@ export class WorkOrdersService {
           currentStepName: ap.processName,
           currentStepStatus: ap.status,
           isReadyToStart,
+          reworkActive: Boolean(ap.reworkActive),
+          reworkCount: ap.reworkCount || 0,
           doctorName: wo.doctor?.name,
           clinicName: wo.doctor?.clinicName,
           createdAt: wo.createdAt,
@@ -1111,7 +1113,23 @@ export class WorkOrdersService {
         },
       });
 
-      if (
+      // Determine correct Work Order status based on process type
+      const isVerificationStep =
+        currentProcess.isVerification ||
+        currentProcess.processType === ProcessType.INTERNAL_VERIFICATION ||
+        currentProcess.processType === ProcessType.EXTERNAL_VERIFICATION;
+
+      if (isVerificationStep) {
+        // Verification step: set WO status to INTERNAL_VERIFICATION or EXTERNAL_VERIFICATION
+        const verificationStatus =
+          currentProcess.processType === ProcessType.EXTERNAL_VERIFICATION
+            ? WorkOrderStatus.EXTERNAL_VERIFICATION
+            : WorkOrderStatus.INTERNAL_VERIFICATION;
+        await tx.workOrder.update({
+          where: { id: workOrderId },
+          data: { status: verificationStatus },
+        });
+      } else if (
         workOrder.status === WorkOrderStatus.CREATED ||
         workOrder.status === WorkOrderStatus.ASSIGNED
       ) {
@@ -1126,7 +1144,7 @@ export class WorkOrdersService {
           workOrderProcessId: processId,
           userId: actor.id,
           action: 'START',
-          notes: 'Process started by technician',
+          notes: isVerificationStep ? 'Verification started by admin' : 'Process started by technician',
           timestamp: now,
         },
       });
@@ -1387,6 +1405,7 @@ export class WorkOrdersService {
           endedAt: now,
           lastPausedAt: null,
           totalActiveDuration: finalActiveDuration,
+          reworkActive: false,
         },
       });
 
@@ -1409,24 +1428,63 @@ export class WorkOrdersService {
           where: { id: workOrderId },
           data: { status: WorkOrderStatus.COMPLETED },
         });
+      } else {
+        // Find the next incomplete step in sequence
+        const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+        const nextIncomplete = sortedProcs.find(
+          (p) => p.sequence > currentProcess.sequence && p.id !== processId && p.status !== ProcessStatus.COMPLETED,
+        );
+
+        if (nextIncomplete) {
+          const isNextVerification =
+            nextIncomplete.isVerification ||
+            nextIncomplete.processType === ProcessType.INTERNAL_VERIFICATION ||
+            nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION;
+
+          if (isNextVerification) {
+            // Set WO status to verification status
+            const verificationStatus =
+              nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION
+                ? WorkOrderStatus.EXTERNAL_VERIFICATION
+                : WorkOrderStatus.INTERNAL_VERIFICATION;
+            await tx.workOrder.update({
+              where: { id: workOrderId },
+              data: { status: verificationStatus },
+            });
+          } else if (
+            workOrder.status !== WorkOrderStatus.IN_PROGRESS
+          ) {
+            await tx.workOrder.update({
+              where: { id: workOrderId },
+              data: { status: WorkOrderStatus.IN_PROGRESS },
+            });
+          }
+        }
       }
     });
 
-    // Notify subsequent technician if exists
+    // Notify subsequent technician/evaluator if exists
     const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
     const nextProcess = sortedProcs.find(
-      (p) => p.sequence > currentProcess.sequence && p.id !== processId,
+      (p) => p.sequence > currentProcess.sequence && p.id !== processId && p.status !== ProcessStatus.COMPLETED,
     );
 
     if (nextProcess && nextProcess.technicianId) {
+      const isNextVerification =
+        nextProcess.isVerification ||
+        nextProcess.processType === ProcessType.INTERNAL_VERIFICATION ||
+        nextProcess.processType === ProcessType.EXTERNAL_VERIFICATION;
+
       try {
         await this.notificationsService.create({
           tenantId,
           userId: nextProcess.technicianId,
           moduleKey: 'LAB',
           type: 'WORK_ORDER',
-          title: 'Process Ready to Start',
-          body: `Previous step "${currentProcess.processName}" completed. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
+          title: isNextVerification ? 'Verification Ready' : 'Process Ready to Start',
+          body: isNextVerification
+            ? `Previous step "${currentProcess.processName}" completed. Verification "${nextProcess.processName}" is now ready on Work Order "${workOrder.folioNumber}".`
+            : `Previous step "${currentProcess.processName}" completed. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
           data: {
             workOrderId: workOrder.id,
             folioNumber: workOrder.folioNumber,
@@ -1452,6 +1510,541 @@ export class WorkOrdersService {
         workOrderId,
         status: ProcessStatus.COMPLETED,
         totalActiveDuration: finalActiveDuration,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
+  }
+
+  // ─── Lab Admin Dashboard ───────────────────────────────────
+
+  /**
+   * Get Lab Admin Dashboard: KPIs, Pending Verification Alerts, In-Progress Orders, Verification Orders
+   */
+  async getLabAdminDashboard(tenantId: string, actor: AuthenticatedUser) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Only Lab Administrators can access this dashboard.');
+    }
+
+    const branchId = await this.resolveLabAdminBranch(actor, tenantId).catch(() => undefined);
+
+    const baseWhere: any = {
+      tenantId,
+      status: { notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED] },
+    };
+    if (branchId) baseWhere.branchId = branchId;
+
+    // Fetch all active work orders with processes
+    const activeOrders = await this.prisma.workOrder.findMany({
+      where: baseWhere,
+      include: {
+        doctor: { select: { id: true, name: true, clinicName: true } },
+        prosthesisType: { select: { id: true, name: true } },
+        processes: {
+          orderBy: { sequence: 'asc' },
+          include: {
+            technician: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Completed today (tenant timezone)
+    const todayStart = startOfDayInTz(new Date(), DEFAULT_TIMEZONE);
+    const todayEnd = endOfDayInTz(new Date(), DEFAULT_TIMEZONE);
+    const completedToday = await this.prisma.workOrder.count({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        status: WorkOrderStatus.COMPLETED,
+        updatedAt: { gte: todayStart, lte: todayEnd },
+      },
+    });
+
+    // Categorize
+    const pendingVerificationAlerts: any[] = [];
+    const inProgressOrders: any[] = [];
+    const verificationOrders: any[] = [];
+    let pendingVerificationsCount = 0;
+    let pendingTechSteps = 0;
+
+    for (const wo of activeOrders) {
+      const sortedProcs = [...wo.processes].sort((a, b) => a.sequence - b.sequence);
+
+      // Count pending tech steps (production NOT_STARTED)
+      for (const p of sortedProcs) {
+        if (
+          p.status === ProcessStatus.NOT_STARTED &&
+          p.processType === ProcessType.PRODUCTION &&
+          !p.isVerification
+        ) {
+          pendingTechSteps++;
+        }
+      }
+
+      // Find the current active/ready step (first non-COMPLETED)
+      const currentStep = sortedProcs.find((p) => p.status !== ProcessStatus.COMPLETED);
+      if (!currentStep) continue;
+
+      const isCurrentVerification =
+        currentStep.isVerification ||
+        currentStep.processType === ProcessType.INTERNAL_VERIFICATION ||
+        currentStep.processType === ProcessType.EXTERNAL_VERIFICATION;
+
+      // Check if all prior steps are completed
+      const priorAllCompleted = sortedProcs
+        .filter((p) => p.sequence < currentStep.sequence)
+        .every((p) => p.status === ProcessStatus.COMPLETED);
+
+      if (isCurrentVerification && priorAllCompleted) {
+        pendingVerificationsCount++;
+
+        if (currentStep.status === ProcessStatus.NOT_STARTED) {
+          // Pending alert: verification is ready but not started
+          pendingVerificationAlerts.push({
+            workOrderId: wo.id,
+            folioNumber: wo.folioNumber,
+            patient: wo.patient,
+            processId: currentStep.id,
+            processName: currentStep.processName,
+            processType: currentStep.processType,
+            isVerification: currentStep.isVerification,
+            evaluatorId: currentStep.technicianId,
+            evaluatorName: currentStep.technician?.name || null,
+            doctorName: wo.doctor?.name || null,
+            prosthesisName: wo.prosthesisType?.name || null,
+            status: currentStep.status,
+          });
+        }
+
+        // Verification orders: any verification in NOT_STARTED or IN_PROGRESS
+        if (
+          currentStep.status === ProcessStatus.NOT_STARTED ||
+          currentStep.status === ProcessStatus.IN_PROGRESS
+        ) {
+          verificationOrders.push({
+            workOrderId: wo.id,
+            folioNumber: wo.folioNumber,
+            patient: wo.patient,
+            processId: currentStep.id,
+            processName: currentStep.processName,
+            processType: currentStep.processType,
+            isVerification: currentStep.isVerification,
+            stepStatus: currentStep.status,
+            evaluatorId: currentStep.technicianId,
+            evaluatorName: currentStep.technician?.name || null,
+            doctorName: wo.doctor?.name || null,
+            prosthesisName: wo.prosthesisType?.name || null,
+          });
+        }
+      } else if (!isCurrentVerification) {
+        // In-progress work orders (non-verification active step)
+        if (
+          wo.status === WorkOrderStatus.IN_PROGRESS ||
+          wo.status === WorkOrderStatus.ASSIGNED ||
+          wo.status === WorkOrderStatus.CREATED
+        ) {
+          // Find which step is actively in progress / ready
+          const activeStep = sortedProcs.find(
+            (p) => p.status === ProcessStatus.IN_PROGRESS || p.status === ProcessStatus.PAUSED,
+          );
+          const readyStep = activeStep || currentStep;
+
+          inProgressOrders.push({
+            workOrderId: wo.id,
+            folioNumber: wo.folioNumber,
+            patient: wo.patient,
+            doctorName: wo.doctor?.name || null,
+            prosthesisName: wo.prosthesisType?.name || null,
+            currentStepId: readyStep.id,
+            currentStepName: readyStep.processName,
+            currentStepStatus: readyStep.status,
+            currentStepSequence: readyStep.sequence + 1,
+            technicianName: readyStep.technician?.name || null,
+          });
+        }
+      }
+    }
+
+    return {
+      stats: {
+        activeOrders: activeOrders.length,
+        pendingVerifications: pendingVerificationsCount,
+        pendingTechSteps,
+        completedToday,
+      },
+      pendingVerificationAlerts,
+      inProgressOrders,
+      verificationOrders,
+    };
+  }
+
+  /**
+   * Evaluate a verification process step: SUCCESS, REPETITION, or REWORK
+   */
+  async evaluateVerification(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    processId: string,
+    dto: VerificationEvaluateDto,
+  ) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Only Lab Administrators can evaluate verifications.');
+    }
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        processes: {
+          orderBy: { sequence: 'asc' },
+          include: { technician: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const verificationProcess = workOrder.processes.find((p) => p.id === processId);
+    if (!verificationProcess) {
+      throw new NotFoundException(`Process with ID "${processId}" not found.`);
+    }
+
+    const isVerificationStep =
+      verificationProcess.isVerification ||
+      verificationProcess.processType === ProcessType.INTERNAL_VERIFICATION ||
+      verificationProcess.processType === ProcessType.EXTERNAL_VERIFICATION;
+
+    if (!isVerificationStep) {
+      throw new BadRequestException('This process step is not a verification step.');
+    }
+
+    const now = new Date();
+    const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+
+    if (dto.outcome === 'SUCCESS') {
+      // Calculate final active duration
+      let finalActiveDuration = verificationProcess.totalActiveDuration;
+      if (verificationProcess.status === ProcessStatus.IN_PROGRESS) {
+        const lastActivityTime = verificationProcess.startedAt || now;
+        const elapsedSeconds = Math.max(
+          0,
+          Math.floor((now.getTime() - new Date(lastActivityTime).getTime()) / 1000),
+        );
+        finalActiveDuration += elapsedSeconds;
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        // Mark verification as completed
+        await tx.workOrderProcess.update({
+          where: { id: processId },
+          data: {
+            status: ProcessStatus.COMPLETED,
+            endedAt: now,
+            lastPausedAt: null,
+            totalActiveDuration: finalActiveDuration,
+          },
+        });
+
+        await tx.processActivityLog.create({
+          data: {
+            workOrderProcessId: processId,
+            userId: actor.id,
+            action: 'VERIFICATION_APPROVED',
+            notes: dto.notes || `Verification approved by ${actor.name || 'Admin'}.`,
+            timestamp: now,
+          },
+        });
+
+        // Find next incomplete step
+        const nextIncomplete = sortedProcs.find(
+          (p) => p.sequence > verificationProcess.sequence && p.status !== ProcessStatus.COMPLETED,
+        );
+
+        if (!nextIncomplete) {
+          // Check if ALL steps are now completed
+          const stillIncomplete = workOrder.processes.filter(
+            (p) => p.id !== processId && p.status !== ProcessStatus.COMPLETED,
+          );
+          if (stillIncomplete.length === 0) {
+            await tx.workOrder.update({
+              where: { id: workOrderId },
+              data: { status: WorkOrderStatus.COMPLETED },
+            });
+          }
+        } else {
+          const isNextVerification =
+            nextIncomplete.isVerification ||
+            nextIncomplete.processType === ProcessType.INTERNAL_VERIFICATION ||
+            nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION;
+
+          await tx.workOrder.update({
+            where: { id: workOrderId },
+            data: {
+              status: isNextVerification
+                ? (nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION
+                    ? WorkOrderStatus.EXTERNAL_VERIFICATION
+                    : WorkOrderStatus.INTERNAL_VERIFICATION)
+                : WorkOrderStatus.IN_PROGRESS,
+            },
+          });
+        }
+      });
+
+      // Notify next technician
+      const nextProcess = sortedProcs.find(
+        (p) => p.sequence > verificationProcess.sequence && p.status !== ProcessStatus.COMPLETED,
+      );
+      if (nextProcess?.technicianId) {
+        try {
+          await this.notificationsService.create({
+            tenantId,
+            userId: nextProcess.technicianId,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'Process Ready to Start',
+            body: `Verification "${verificationProcess.processName}" approved. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
+            data: { workOrderId: workOrder.id, folioNumber: workOrder.folioNumber, processId: nextProcess.id },
+          });
+        } catch (err) {
+          this.logger.warn(`Failed to dispatch next process notification: ${(err as any).message}`);
+        }
+      }
+    } else if (dto.outcome === 'REPETITION') {
+      // Reset ALL processes to NOT_STARTED, restart from Step 1
+      await this.prisma.$transaction(async (tx) => {
+        for (const proc of sortedProcs) {
+          await tx.workOrderProcess.update({
+            where: { id: proc.id },
+            data: {
+              status: ProcessStatus.NOT_STARTED,
+              startedAt: null,
+              endedAt: null,
+              lastPausedAt: null,
+              totalActiveDuration: 0,
+              totalPauseDuration: 0,
+              pauseCount: 0,
+              reworkActive: false,
+            },
+          });
+
+          await tx.processActivityLog.create({
+            data: {
+              workOrderProcessId: proc.id,
+              userId: actor.id,
+              action: 'REPETITION_RESET',
+              notes: `Repetition initiated by ${actor.name || 'Admin'} from verification stage: ${verificationProcess.processName}.`,
+              timestamp: now,
+            },
+          });
+        }
+
+        await tx.workOrder.update({
+          where: { id: workOrderId },
+          data: { status: WorkOrderStatus.IN_PROGRESS },
+        });
+      });
+
+      // Notify Step 1 technician
+      const step1 = sortedProcs[0];
+      if (step1?.technicianId) {
+        try {
+          await this.notificationsService.create({
+            tenantId,
+            userId: step1.technicianId,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'Work Order Restarted (Repetition)',
+            body: `Work Order "${workOrder.folioNumber}" has been flagged for full repetition by ${actor.name || 'Admin'}. Please restart from Step 1: "${step1.processName}".`,
+            data: { workOrderId: workOrder.id, folioNumber: workOrder.folioNumber, processId: step1.id },
+          });
+        } catch (err) {
+          this.logger.warn(`Failed to dispatch repetition notification: ${(err as any).message}`);
+        }
+      }
+    }
+    // REWORK outcome is handled separately via initiateRework endpoint
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: `VERIFICATION_${dto.outcome}`,
+      resourceType: 'WORK_ORDER_PROCESS',
+      resourceId: processId,
+      newValues: {
+        workOrderId,
+        outcome: dto.outcome,
+        notes: dto.notes,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
+  }
+
+  /**
+   * Initiate Rework: Reset selected completed production steps to NOT_STARTED
+   */
+  async initiateRework(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    dto: InitiateReworkDto,
+  ) {
+    const isAdmin =
+      (await this.isTenantAdminUser(actor, tenantId)) ||
+      (await this.isLabAdminUser(actor, tenantId));
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Only Lab Administrators can initiate rework.');
+    }
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        processes: {
+          orderBy: { sequence: 'asc' },
+          include: { technician: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    // Validate processIds: must belong to this WO and be COMPLETED production steps
+    const processMap = new Map(workOrder.processes.map((p) => [p.id, p]));
+    for (const pid of dto.processIds) {
+      const proc = processMap.get(pid);
+      if (!proc) {
+        throw new BadRequestException(`Process "${pid}" not found in this Work Order.`);
+      }
+      if (proc.status !== ProcessStatus.COMPLETED) {
+        throw new BadRequestException(`Process "${proc.processName}" is not completed — cannot rework.`);
+      }
+      if (
+        proc.isVerification ||
+        proc.processType === ProcessType.INTERNAL_VERIFICATION ||
+        proc.processType === ProcessType.EXTERNAL_VERIFICATION
+      ) {
+        throw new BadRequestException(`Cannot rework a verification step "${proc.processName}".`);
+      }
+    }
+
+    // Find the verification step that triggered this rework (current active verification)
+    const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+    const verificationStep = sortedProcs.find(
+      (p) =>
+        (p.isVerification ||
+          p.processType === ProcessType.INTERNAL_VERIFICATION ||
+          p.processType === ProcessType.EXTERNAL_VERIFICATION) &&
+        (p.status === ProcessStatus.IN_PROGRESS || p.status === ProcessStatus.NOT_STARTED),
+    );
+
+    const verificationStageName = verificationStep?.processName || 'Verification';
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Reset selected processes
+      for (const pid of dto.processIds) {
+        const proc = processMap.get(pid)!;
+        const newReworkCount = proc.reworkCount + 1;
+
+        await tx.workOrderProcess.update({
+          where: { id: pid },
+          data: {
+            status: ProcessStatus.NOT_STARTED,
+            reworkActive: true,
+            reworkCount: newReworkCount,
+            startedAt: null,
+            endedAt: null,
+            lastPausedAt: null,
+            totalActiveDuration: 0,
+            totalPauseDuration: 0,
+            pauseCount: 0,
+          },
+        });
+
+        await tx.processActivityLog.create({
+          data: {
+            workOrderProcessId: pid,
+            userId: actor.id,
+            action: 'REWORK_ASSIGNED',
+            notes: `Rework cycle #${newReworkCount} initiated by ${actor.name || 'Admin'} in stage: ${verificationStageName}.${dto.notes ? ' Note: ' + dto.notes : ''}`,
+            timestamp: now,
+          },
+        });
+
+        // Notify assigned technician
+        if (proc.technicianId) {
+          try {
+            await this.notificationsService.create({
+              tenantId,
+              userId: proc.technicianId,
+              moduleKey: 'LAB',
+              type: 'WORK_ORDER',
+              title: 'Rework Required',
+              body: `Step "${proc.processName}" on Work Order "${workOrder.folioNumber}" has been flagged for rework by ${actor.name || 'Admin'}.`,
+              data: {
+                workOrderId: workOrder.id,
+                folioNumber: workOrder.folioNumber,
+                processId: pid,
+              },
+            });
+          } catch (err) {
+            this.logger.warn(`Failed to dispatch rework notification to technician ${proc.technicianId}: ${(err as any).message}`);
+          }
+        }
+      }
+
+      // Reset verification step to NOT_STARTED (it waits for rework to finish)
+      if (verificationStep) {
+        await tx.workOrderProcess.update({
+          where: { id: verificationStep.id },
+          data: {
+            status: ProcessStatus.NOT_STARTED,
+            startedAt: null,
+            endedAt: null,
+            lastPausedAt: null,
+            totalActiveDuration: 0,
+            totalPauseDuration: 0,
+            pauseCount: 0,
+          },
+        });
+      }
+
+      // Set WO status to IN_PROGRESS
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: { status: WorkOrderStatus.IN_PROGRESS },
+      });
+    });
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: 'REWORK_INITIATED',
+      resourceType: 'WORK_ORDER',
+      resourceId: workOrderId,
+      newValues: {
+        processIds: dto.processIds,
+        notes: dto.notes,
+        verificationStage: verificationStageName,
       },
     });
 

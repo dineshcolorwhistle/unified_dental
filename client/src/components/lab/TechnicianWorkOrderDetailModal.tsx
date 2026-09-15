@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Activity,
   FileText,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
@@ -703,6 +704,51 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                   <span>{t('technician.timingPanel.title', { defaultValue: 'PROCESS TIMING CONTROL PANEL' })}</span>
                 </div>
 
+                {/* Rework Active Banner */}
+                {myProcess?.reworkActive && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 18px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      marginBottom: '16px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                        color: 'var(--rose-600)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--rose-600)' }}>
+                        {t('rework.activeAlertTitle', {
+                          count: myProcess.reworkCount || 1,
+                          defaultValue: `Rework Active (Cycle #${myProcess.reworkCount || 1})`,
+                        })}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {t('rework.activeAlertDesc', {
+                          defaultValue: 'This step was flagged for rework during verification. Please re-perform the procedure and complete it to return the order for verification.',
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {!myProcess ? (
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                     {t('technician.timingPanel.notAssigned', { defaultValue: 'You are not assigned to any step on this Work Order.' })}
@@ -988,6 +1034,21 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                                 }}
                               >
                                 {t('technician.assignedToMe', { defaultValue: 'Assigned to Me' })}
+                              </span>
+                            )}
+                            {proc.reworkActive && (
+                              <span
+                                style={{
+                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                  color: 'var(--rose-600)',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                }}
+                              >
+                                {t('rework.activeBadge', { defaultValue: 'Rework Active' })}
                               </span>
                             )}
                           </div>

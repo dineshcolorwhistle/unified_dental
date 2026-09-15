@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkOrdersService } from './work-orders.service';
-import { AddWorkOrderNoteDto, CreateWorkOrderDto, QueryWorkOrdersDto, UpdateWorkOrderDto } from './dto';
+import { AddWorkOrderNoteDto, CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 import { RequireModule } from '../../../core/modules/decorators/require-module.decorator';
 import { ModuleGuard } from '../../../core/modules/guards/module.guard';
@@ -46,6 +46,12 @@ export class WorkOrdersController {
   @ApiOperation({ summary: 'Get technician dashboard stats and active queue' })
   getTechnicianDashboard(@CurrentUser() user: AuthenticatedUser) {
     return this.workOrdersService.getTechnicianDashboard(user.activeTenantId, user);
+  }
+
+  @Get('admin/dashboard')
+  @ApiOperation({ summary: 'Get Lab Admin dashboard: KPIs, alerts, in-progress, verification orders' })
+  getLabAdminDashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.workOrdersService.getLabAdminDashboard(user.activeTenantId, user);
   }
 
   @Get('technician/my-orders')
@@ -112,6 +118,27 @@ export class WorkOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workOrdersService.completeProcess(user.activeTenantId, user, workOrderId, processId);
+  }
+
+  @Post(':id/processes/:processId/verification-evaluate')
+  @ApiOperation({ summary: 'Evaluate a verification step outcome (Approve / Rework / Repetition)' })
+  evaluateVerification(
+    @Param('id') workOrderId: string,
+    @Param('processId') processId: string,
+    @Body() dto: VerificationEvaluateDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.evaluateVerification(user.activeTenantId, user, workOrderId, processId, dto);
+  }
+
+  @Post(':id/rework')
+  @ApiOperation({ summary: 'Initiate rework on selected completed process steps' })
+  initiateRework(
+    @Param('id') workOrderId: string,
+    @Body() dto: InitiateReworkDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.initiateRework(user.activeTenantId, user, workOrderId, dto);
   }
 
   @Post()
