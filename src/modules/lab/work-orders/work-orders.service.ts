@@ -9,7 +9,7 @@ import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuditService } from '../../../core/audit/audit.service';
 import { NotificationsService } from '../../../core/notifications/notifications.service';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
-import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
+import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { generateFolioNumber } from './utils/folio.util';
 import { parseCalendarDate, startOfDayInTz, endOfDayInTz, DEFAULT_TIMEZONE } from '../../../shared/common/utils/timezone.util';
 import { ProcessStatus, ProcessType, WorkOrderStatus } from '@prisma/client';
@@ -261,6 +261,20 @@ export class WorkOrdersService {
         });
       }
 
+      // Record initial payment in WorkOrderPayment history if provided
+      if (dto.initialPayment && Number(dto.initialPayment) > 0) {
+        await tx.workOrderPayment.create({
+          data: {
+            workOrderId: wo.id,
+            amount: Number(dto.initialPayment),
+            notes: 'Initial payment registered at order creation',
+            status: 'SETTLED',
+            recordedById: actor.id,
+            reference: dto.paymentReferenceNumbers && dto.paymentReferenceNumbers.length > 0 ? dto.paymentReferenceNumbers[0] : null,
+          },
+        });
+      }
+
       // Create process items
       if (Array.isArray(dto.processes) && dto.processes.length > 0) {
         const sortedProcesses = [...dto.processes].sort((a, b) => a.sequence - b.sequence);
@@ -439,6 +453,12 @@ export class WorkOrdersService {
             user: { select: { id: true, name: true, email: true } },
           },
         },
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            recordedBy: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
     });
 
@@ -452,8 +472,26 @@ export class WorkOrdersService {
       workOrder.totalQuote = 0 as any;
       workOrder.initialPayment = 0 as any;
       workOrder.paymentReferenceNumbers = [];
+      (workOrder as any).payments = [];
       if (workOrder.prosthesisType) {
         workOrder.prosthesisType.price = 0 as any;
+      }
+    } else {
+      // Fallback synthesis if legacy work order has initialPayment > 0 and no payment rows yet
+      if ((!workOrder.payments || workOrder.payments.length === 0) && Number(workOrder.initialPayment) > 0) {
+        (workOrder as any).payments = [
+          {
+            id: 'initial-' + workOrder.id,
+            workOrderId: workOrder.id,
+            amount: Number(workOrder.initialPayment),
+            notes: 'Initial payment registered at order creation',
+            reference: workOrder.paymentReferenceNumbers?.[0] || null,
+            status: 'SETTLED',
+            recordedById: workOrder.createdById,
+            recordedBy: workOrder.createdBy,
+            createdAt: workOrder.createdAt,
+          },
+        ];
       }
     }
 
@@ -2045,6 +2083,77 @@ export class WorkOrdersService {
         processIds: dto.processIds,
         notes: dto.notes,
         verificationStage: verificationStageName,
+      },
+    });
+
+    return this.findOne(tenantId, actor, workOrderId);
+  }
+
+  /**
+   * Record a payment transaction for a Work Order (Restricted to Lab Admins)
+   */
+  async recordPayment(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    dto: RecordWorkOrderPaymentDto,
+  ) {
+    const isTech = await this.isLabTechnicianUser(actor, tenantId);
+    if (isTech) {
+      throw new ForbiddenException('Technicians are not authorized to record payments.');
+    }
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true, folioNumber: true, initialPayment: true, paymentReferenceNumbers: true, branchId: true },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const paymentAmount = Number(dto.amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      throw new BadRequestException('Payment amount must be a positive number.');
+    }
+
+    await this.prisma.workOrderPayment.create({
+      data: {
+        workOrderId,
+        amount: paymentAmount,
+        notes: dto.notes?.trim() || null,
+        reference: dto.reference?.trim() || null,
+        status: 'SETTLED',
+        recordedById: actor.id,
+        createdAt: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+      },
+    });
+
+    // Update total received on workOrder
+    const newTotalPaid = Number(workOrder.initialPayment || 0) + paymentAmount;
+    const updateData: any = { initialPayment: newTotalPaid };
+    if (dto.reference?.trim() && !workOrder.paymentReferenceNumbers.includes(dto.reference.trim())) {
+      updateData.paymentReferenceNumbers = [...workOrder.paymentReferenceNumbers, dto.reference.trim()];
+    }
+
+    await this.prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: updateData,
+    });
+
+    await this.auditService.log({
+      tenantId,
+      branchId: workOrder.branchId,
+      moduleKey: 'LAB',
+      userId: actor.id,
+      action: 'PAYMENT_RECORDED',
+      resourceType: 'WORK_ORDER',
+      resourceId: workOrderId,
+      newValues: {
+        amount: paymentAmount,
+        notes: dto.notes,
+        reference: dto.reference,
+        totalPaid: newTotalPaid,
       },
     });
 

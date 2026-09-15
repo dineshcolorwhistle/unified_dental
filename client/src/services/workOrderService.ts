@@ -82,6 +82,22 @@ export interface WorkOrderNoteItem {
   };
 }
 
+export interface WorkOrderPaymentItem {
+  id: string;
+  workOrderId: string;
+  amount: number | string;
+  notes?: string | null;
+  reference?: string | null;
+  status: string;
+  recordedById?: string | null;
+  recordedBy?: {
+    id: string;
+    name: string;
+    email?: string;
+  } | null;
+  createdAt: string;
+}
+
 export interface WorkOrderListItem {
   id: string;
   tenantId: string;
@@ -128,6 +144,7 @@ export interface WorkOrderListItem {
   };
   processes: WorkOrderProcessItem[];
   notesHistory?: WorkOrderNoteItem[];
+  payments?: WorkOrderPaymentItem[];
   _count?: {
     notesHistory: number;
   };
@@ -332,6 +349,14 @@ export const workOrderService = {
     payload: { processIds: string[]; notes?: string },
   ): Promise<WorkOrderListItem> => {
     const res = await api.post(`/lab/work-orders/${workOrderId}/rework`, payload);
+    return res.data;
+  },
+
+  recordPayment: async (
+    workOrderId: string,
+    payload: { amount: number; notes?: string; reference?: string; paymentDate?: string },
+  ): Promise<WorkOrderListItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/payments`, payload);
     return res.data;
   },
 };

@@ -28,7 +28,7 @@ import {
   LabAdminVerificationItem,
 } from '../../services/workOrderService';
 import { VerifyWorkOrderModal } from '../../components/lab/VerifyWorkOrderModal';
-import { TechnicianWorkOrderDetailModal } from '../../components/lab/TechnicianWorkOrderDetailModal';
+import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
 
 export const LabAdminDashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -725,14 +725,21 @@ export const LabAdminDashboard: React.FC = () => {
                     marginBottom: '8px',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-                        borderRadius: '8px', backgroundColor: 'var(--badge-primary-bg)',
-                        color: 'var(--primary-600)', fontFamily: 'monospace',
-                      }}>
+                      <span
+                        style={{
+                          fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+                          borderRadius: '8px', backgroundColor: 'var(--badge-primary-bg)',
+                          color: 'var(--primary-600)', fontFamily: 'monospace',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setDetailModalWOId(item.workOrderId)}
+                      >
                         {item.folioNumber}
                       </span>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <span
+                        style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
+                        onClick={() => setDetailModalWOId(item.workOrderId)}
+                      >
                         {item.patient || '—'}
                       </span>
                     </div>
@@ -818,9 +825,11 @@ export const LabAdminDashboard: React.FC = () => {
       )}
 
       {detailModalWOId && (
-        <TechnicianWorkOrderDetailModal
+        <ViewWorkOrderModal
           workOrderId={detailModalWOId}
+          isOpen={Boolean(detailModalWOId)}
           onClose={() => { setDetailModalWOId(null); fetchDashboard(true); }}
+          onOrderUpdated={() => fetchDashboard(true)}
         />
       )}
     </div>

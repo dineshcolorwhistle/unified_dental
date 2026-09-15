@@ -199,6 +199,7 @@ model User {
   assignedWorkOrderProcesses WorkOrderProcess[] @relation("WorkOrderProcessTechnician")
   workOrderNotes             WorkOrderNote[]
   processActivityLogs        ProcessActivityLog[]
+  workOrderPayments          WorkOrderPayment[]
 
   @@map("users")
 }
@@ -588,6 +589,7 @@ model WorkOrder {
   createdBy      User               @relation("WorkOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   processes      WorkOrderProcess[]
   notesHistory   WorkOrderNote[]
+  payments       WorkOrderPayment[]
 
   @@unique([tenantId, folioNumber])
   @@index([tenantId])
@@ -661,6 +663,23 @@ model ProcessActivityLog {
 
   @@index([workOrderProcessId])
   @@map("process_activity_logs")
+}
+
+model WorkOrderPayment {
+  id           String    @id @default(uuid())
+  workOrderId  String    @map("work_order_id")
+  amount       Decimal   @db.Decimal(10, 2)
+  notes        String?
+  reference    String?
+  status       String    @default("SETTLED")
+  recordedById String?   @map("recorded_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  workOrder  WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  recordedBy User?     @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([workOrderId])
+  @@map("work_order_payments")
 }
 
 

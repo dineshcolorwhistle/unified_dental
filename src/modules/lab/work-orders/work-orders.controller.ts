@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkOrdersService } from './work-orders.service';
-import { AddWorkOrderNoteDto, CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
+import { AddWorkOrderNoteDto, CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 import { RequireModule } from '../../../core/modules/decorators/require-module.decorator';
 import { ModuleGuard } from '../../../core/modules/guards/module.guard';
@@ -189,6 +189,16 @@ export class WorkOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workOrdersService.deleteNote(user.activeTenantId, user, id, noteId);
+  }
+
+  @Post(':id/payments')
+  @ApiOperation({ summary: 'Record a payment transaction for a work order (Restricted to Lab Administrators)' })
+  recordPayment(
+    @Param('id') id: string,
+    @Body() dto: RecordWorkOrderPaymentDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.recordPayment(user.activeTenantId, user, id, dto);
   }
 
   @Delete(':id')

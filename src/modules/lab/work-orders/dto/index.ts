@@ -288,3 +288,25 @@ export class InitiateReworkDto {
   @IsOptional()
   notes?: string;
 }
+
+export class RecordWorkOrderPaymentDto {
+  @ApiProperty({ example: 100.5, description: 'Amount received in this payment transaction' })
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiProperty({ example: 'Payment via bank transfer', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @ApiProperty({ example: 'TX-984214', required: false })
+  @IsString()
+  @IsOptional()
+  reference?: string;
+
+  @ApiProperty({ example: '2026-07-15T06:00:00.000Z', required: false })
+  @IsString()
+  @IsOptional()
+  paymentDate?: string;
+}
