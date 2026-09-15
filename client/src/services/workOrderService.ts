@@ -41,6 +41,11 @@ export interface TechnicianQueueItem {
   patient?: string | null;
   prosthesisTypeName: string;
   boxNumber?: string | null;
+  specification?: string;
+  color?: string;
+  notes?: string | null;
+  workOrderStatus?: string;
+  deliveryDate?: string | null;
   currentProcessId: string;
   currentStepSequence: number;
   currentStepName: string;

@@ -836,7 +836,12 @@ export class WorkOrdersService {
     const assignedProcesses = await this.prisma.workOrderProcess.findMany({
       where: {
         technicianId: actor.id,
-        workOrder: { tenantId },
+        workOrder: {
+          tenantId,
+          status: {
+            notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED],
+          },
+        },
       },
       include: {
         workOrder: {
@@ -845,6 +850,9 @@ export class WorkOrdersService {
             folioNumber: true,
             boxNumber: true,
             patient: true,
+            specification: true,
+            color: true,
+            notes: true,
             status: true,
             deliveryDate: true,
             createdAt: true,
@@ -905,6 +913,11 @@ export class WorkOrdersService {
           patient: wo.patient,
           prosthesisTypeName: wo.prosthesisType?.name || '',
           boxNumber: wo.boxNumber,
+          specification: wo.specification,
+          color: wo.color,
+          notes: wo.notes,
+          workOrderStatus: wo.status,
+          deliveryDate: wo.deliveryDate,
           currentProcessId: ap.id,
           currentStepSequence: ap.sequence + 1,
           currentStepName: ap.processName,

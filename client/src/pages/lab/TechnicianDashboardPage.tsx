@@ -10,6 +10,7 @@ import {
   Eye,
   ChevronRight,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
@@ -62,6 +63,14 @@ export const TechnicianDashboardPage: React.FC = () => {
   };
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'Technician';
+
+  // Strict filter: Exclude any completed, delivered, or cancelled work orders or completed steps
+  const activeQueue = (dashboardData?.queue || []).filter(
+    (item) =>
+      item.currentStepStatus !== 'COMPLETED' &&
+      item.workOrderStatus !== 'COMPLETED' &&
+      item.workOrderStatus !== 'CANCELLED',
+  );
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
@@ -250,7 +259,7 @@ export const TechnicianDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* My Work Queue Section (Screenshot 1) */}
+      {/* My Work Queue Section */}
       <div
         style={{
           backgroundColor: 'var(--bg-card)',
@@ -269,11 +278,26 @@ export const TechnicianDashboardPage: React.FC = () => {
             marginBottom: '20px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Activity size={18} style={{ color: '#10b981' }} />
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', fontFamily: 'var(--font-heading)' }}>
               {t('technician.queue.title', { defaultValue: 'My Work Queue' })}
             </h2>
+            {activeQueue.length > 0 && (
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-muted)',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                {t('technician.queue.activeCount', { count: activeQueue.length, defaultValue: '{{count}} Active' })}
+              </span>
+            )}
           </div>
 
           <button
@@ -298,12 +322,12 @@ export const TechnicianDashboardPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Queue List */}
+        {/* Queue List (Scrollable container when multiple WOs arrive) */}
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
             {t('common.loading', { defaultValue: 'Loading your work queue...' })}
           </div>
-        ) : !dashboardData?.queue || dashboardData.queue.length === 0 ? (
+        ) : activeQueue.length === 0 ? (
           <div
             style={{
               padding: '48px 24px',
@@ -322,8 +346,17 @@ export const TechnicianDashboardPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {dashboardData.queue.map((item) => {
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              maxHeight: '480px',
+              overflowY: 'auto',
+              paddingRight: '6px',
+            }}
+          >
+            {activeQueue.map((item) => {
               const isReady = item.isReadyToStart;
               const isInProgress = item.currentStepStatus === 'IN_PROGRESS';
               const isPaused = item.currentStepStatus === 'PAUSED';
@@ -349,13 +382,13 @@ export const TechnicianDashboardPage: React.FC = () => {
                   key={item.workOrderId}
                   style={{
                     backgroundColor: 'var(--bg-surface)',
-                    border: '1px solid #10b981',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '12px',
-                    padding: '20px',
+                    padding: '18px 20px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '14px',
-                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.05)',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
                   }}
                 >
                   {/* Top Line */}
@@ -400,6 +433,7 @@ export const TechnicianDashboardPage: React.FC = () => {
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                     <span>{item.prosthesisTypeName}</span>
                     {item.boxNumber && <span> • Box No.: {item.boxNumber}</span>}
+                    {item.color && <span> • Shade: {item.color}</span>}
                   </div>
 
                   {/* Current Step Inner Box */}
@@ -493,6 +527,79 @@ export const TechnicianDashboardPage: React.FC = () => {
             })}
           </div>
         )}
+      </div>
+
+      {/* Operational Workflow Rules Section (Matching Attached Reference) */}
+      <div
+        style={{
+          marginTop: '24px',
+          backgroundColor: 'var(--bg-card)',
+          borderRadius: '14px',
+          border: '1px solid var(--border-color)',
+          padding: '24px',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+          <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0 }} />
+          <h2
+            style={{
+              margin: 0,
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--text-heading)',
+              fontFamily: 'var(--font-heading)',
+            }}
+          >
+            {t('technician.rules.title', { defaultValue: 'Operational Workflow Rules' })}
+          </h2>
+        </div>
+
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: '22px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            fontSize: '13.5px',
+            lineHeight: '1.5',
+            color: 'var(--text-main)',
+          }}
+        >
+          <li style={{ color: 'var(--text-muted)' }}>
+            <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>
+              {t('technician.rules.strictSequencingTitle', { defaultValue: 'Strict Step Sequencing' })}
+            </strong>{' '}
+            {t('technician.rules.strictSequencingDesc', {
+              defaultValue: 'Steps must be completed in order. You cannot start a step until the previous stage is fully completed.',
+            })}
+          </li>
+          <li style={{ color: 'var(--text-muted)' }}>
+            <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>
+              {t('technician.rules.autoHandoffTitle', { defaultValue: 'Automatic Handoff' })}
+            </strong>{' '}
+            {t('technician.rules.autoHandoffDesc', {
+              defaultValue: 'Ending a process step automatically flags the next step in line as ready for the next assigned technician.',
+            })}
+          </li>
+          <li style={{ color: 'var(--text-muted)' }}>
+            <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>
+              {t('technician.rules.pauseAuditingTitle', { defaultValue: 'Pause Time Auditing' })}
+            </strong>{' '}
+            {t('technician.rules.pauseAuditingDesc', {
+              defaultValue: 'Pausing steps logs the duration of pause periods. This assists in identifying workflow bottlenecks and material wait times.',
+            })}
+          </li>
+          <li style={{ color: 'var(--text-muted)' }}>
+            <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>
+              {t('technician.rules.qualityVerificationTitle', { defaultValue: 'Quality & Specification Check' })}
+            </strong>{' '}
+            {t('technician.rules.qualityVerificationDesc', {
+              defaultValue: 'Verify model integrity, prescribed tooth shade, and clinical notes before beginning step fabrication.',
+            })}
+          </li>
+        </ul>
       </div>
 
       {/* Details Modal */}
