@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import {
   workOrderService,
   TechnicianDashboardData,
@@ -24,6 +25,7 @@ export const TechnicianDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { socket } = useNotifications();
   const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState<TechnicianDashboardData | null>(null);
@@ -31,22 +33,53 @@ export const TechnicianDashboardPage: React.FC = () => {
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
   const [startingProcessId, setStartingProcessId] = useState<string | null>(null);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await workOrderService.getTechnicianDashboard();
       setDashboardData(data);
     } catch (err: any) {
       console.error('Failed to load technician dashboard:', err);
-      toast.error(err?.response?.data?.message || t('technician.errors.dashboardFailed', { defaultValue: 'Failed to load dashboard' }));
+      if (!silent) {
+        toast.error(err?.response?.data?.message || t('technician.errors.dashboardFailed', { defaultValue: 'Failed to load dashboard' }));
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  // Real-time synchronization for instant Work Order appearance when admin creates/assigns
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRealtimeSync = () => {
+      fetchDashboard(true);
+    };
+
+    socket.on('work_order:created', handleRealtimeSync);
+    socket.on('work_order:assigned', handleRealtimeSync);
+    socket.on('work_order:updated', handleRealtimeSync);
+    socket.on('process:status_changed', handleRealtimeSync);
+    socket.on('notification:new', handleRealtimeSync);
+
+    // Guaranteed polling fallback every 30s
+    const pollTimer = setInterval(() => {
+      fetchDashboard(true);
+    }, 30000);
+
+    return () => {
+      socket.off('work_order:created', handleRealtimeSync);
+      socket.off('work_order:assigned', handleRealtimeSync);
+      socket.off('work_order:updated', handleRealtimeSync);
+      socket.off('process:status_changed', handleRealtimeSync);
+      socket.off('notification:new', handleRealtimeSync);
+      clearInterval(pollTimer);
+    };
+  }, [socket]);
 
   const handleStartProcessFromQueue = async (workOrderId: string, processId: string) => {
     setStartingProcessId(processId);

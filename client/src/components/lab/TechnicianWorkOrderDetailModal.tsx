@@ -204,22 +204,40 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
     return `${secs}s`;
   };
 
-  // Extract all activity logs across processes for chronological audit log
-  const allActivityLogs: Array<ProcessActivityLogItem & { processName: string }> = React.useMemo(() => {
-    if (!workOrder?.processes) return [];
+  // Find which process is currently active or next to be executed in the Work Order (Requirement 2)
+  const currentWorkOrderProcessId = React.useMemo(() => {
+    if (!workOrder?.processes || workOrder.processes.length === 0) return null;
+    const sorted = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+    // 1. Any step in progress or paused is active
+    const inProgressOrPaused = sorted.find((p) => p.status === 'IN_PROGRESS' || p.status === 'PAUSED');
+    if (inProgressOrPaused) return inProgressOrPaused.id;
+    // 2. First uncompleted step
+    const nextPending = sorted.find((p) => p.status !== 'COMPLETED');
+    if (nextPending) return nextPending.id;
+    // 3. If all completed, the last completed step
+    return sorted[sorted.length - 1]?.id || null;
+  }, [workOrder]);
+
+  // Extract activity logs for the current technician only (Requirement 3)
+  const currentTechnicianLogs: Array<ProcessActivityLogItem & { processName: string }> = React.useMemo(() => {
+    if (!workOrder?.processes || !user?.id) return [];
     const logs: Array<ProcessActivityLogItem & { processName: string }> = [];
     for (const proc of workOrder.processes) {
       if (Array.isArray(proc.activityLogs)) {
         for (const al of proc.activityLogs) {
-          logs.push({
-            ...al,
-            processName: proc.processName,
-          });
+          const isMyAction = al.userId === user.id;
+          const isMyStep = proc.technicianId === user.id && (!al.userId || al.userId === user.id);
+          if (isMyAction || isMyStep) {
+            logs.push({
+              ...al,
+              processName: proc.processName,
+            });
+          }
         }
       }
     }
     return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [workOrder]);
+  }, [workOrder, user?.id]);
 
   if (loading || !workOrder) {
     return (
@@ -946,7 +964,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                 )}
               </div>
 
-              {/* Workflow Stepper Sequence (Screenshots 4 & 5) */}
+              {/* Workflow Stepper Sequence (Screenshots 1 & 2 Comparison) */}
               <div
                 style={{
                   backgroundColor: 'var(--bg-card)',
@@ -955,16 +973,15 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                   border: '1px solid var(--border-color)',
                 }}
               >
-                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Activity size={14} />
                   <span>{t('technician.workflowSequence', { defaultValue: 'WORKFLOW STEPPER SEQUENCE' })}</span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                   {workOrder.processes.map((proc, index) => {
                     const isCompleted = proc.status === 'COMPLETED';
-                    const isCurrentActive = proc.status === 'IN_PROGRESS';
-                    const isPaused = proc.status === 'PAUSED';
+                    const isCurrentWorkOrderProcess = proc.id === currentWorkOrderProcessId;
                     const isAssignedToMe = proc.technicianId === user?.id;
 
                     const priorDone = workOrder.processes
@@ -978,103 +995,157 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '14px',
-                          backgroundColor: 'var(--bg-surface)',
-                          border: `1px solid ${isAssignedToMe ? '#38bdf8' : 'var(--border-subtle)'}`,
-                          padding: '14px 16px',
-                          borderRadius: '10px',
+                          gap: '16px',
+                          position: 'relative',
+                          paddingBottom: index < workOrder.processes.length - 1 ? '16px' : '0',
                         }}
                       >
-                        {/* Stepper Node */}
+                        {/* Stepper Node Column with vertical connector line (Screenshot 2) */}
                         <div
                           style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: isCompleted
-                              ? '#10b981'
-                              : isCurrentActive
-                              ? '#38bdf8'
-                              : isLocked
-                              ? 'var(--bg-card)'
-                              : '#e2e8f0',
-                            color: isCompleted || isCurrentActive ? '#ffffff' : 'var(--text-muted)',
-                            fontSize: '12px',
-                            fontWeight: 700,
+                            position: 'relative',
+                            width: '32px',
                             flexShrink: 0,
                           }}
                         >
-                          {isCompleted ? (
-                            <CheckCircle2 size={16} />
-                          ) : isLocked ? (
-                            <Lock size={13} />
-                          ) : (
-                            proc.sequence + 1
+                          {/* Circular Stepper Node */}
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: isCompleted
+                                ? '#10b981'
+                                : isCurrentWorkOrderProcess
+                                ? 'var(--bg-surface)'
+                                : 'var(--bg-card)',
+                              border: isCompleted
+                                ? '2px solid #10b981'
+                                : isCurrentWorkOrderProcess
+                                ? '2px solid #0284c7'
+                                : '2px solid var(--border-color)',
+                              color: isCompleted
+                                ? '#ffffff'
+                                : isCurrentWorkOrderProcess
+                                ? '#0284c7'
+                                : isLocked
+                                ? '#94a3b8'
+                                : 'var(--text-heading)',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              zIndex: 2,
+                              boxShadow: isCurrentWorkOrderProcess ? '0 0 0 3px rgba(56, 189, 248, 0.2)' : 'none',
+                            }}
+                          >
+                            {isCompleted ? (
+                              <CheckCircle2 size={16} />
+                            ) : isLocked ? (
+                              <Lock size={13} style={{ color: '#94a3b8' }} />
+                            ) : (
+                              proc.sequence + 1
+                            )}
+                          </div>
+
+                          {/* Vertical Connector Line */}
+                          {index < workOrder.processes.length - 1 && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: '32px',
+                                bottom: '-16px',
+                                width: '2px',
+                                backgroundColor: isCompleted ? '#10b981' : 'var(--border-color)',
+                                zIndex: 1,
+                              }}
+                            />
                           )}
                         </div>
 
-                        {/* Step Details */}
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                              {proc.processName}
-                            </span>
-                            {isAssignedToMe && (
-                              <span
-                                style={{
-                                  backgroundColor: '#d1fae5',
-                                  color: '#059669',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                }}
-                              >
-                                {t('technician.assignedToMe', { defaultValue: 'Assigned to Me' })}
+                        {/* Step Details Card (Screenshot 1 & 2) */}
+                        <div
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '14px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: isCurrentWorkOrderProcess
+                              ? '1.5px solid #38bdf8'
+                              : '1px solid var(--border-subtle)',
+                            boxShadow: isCurrentWorkOrderProcess
+                              ? '0 0 0 1px #38bdf8, 0 2px 4px rgba(56, 189, 248, 0.08)'
+                              : 'none',
+                            padding: '14px 18px',
+                            borderRadius: '10px',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                                {proc.processName}
                               </span>
-                            )}
-                            {proc.reworkActive && (
-                              <span
-                                style={{
-                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                                  color: 'var(--rose-600)',
-                                  fontSize: '11px',
-                                  fontWeight: 800,
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                                }}
-                              >
-                                {t('rework.activeBadge', { defaultValue: 'Rework Active' })}
-                              </span>
-                            )}
+                              {isAssignedToMe && (
+                                <span
+                                  style={{
+                                    backgroundColor: '#ecfdf5',
+                                    color: '#059669',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {t('technician.assignedToMe', { defaultValue: 'Assigned to Me' })}
+                                </span>
+                              )}
+                              {proc.reworkActive && (
+                                <span
+                                  style={{
+                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                    color: 'var(--rose-600)',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  }}
+                                >
+                                  {t('rework.activeBadge', { defaultValue: 'Rework Active' })}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                              {proc.technician?.name
+                                ? `Tech: ${proc.technician.name}`
+                                : proc.doctor?.name
+                                ? `Doctor: ${proc.doctor.name}`
+                                : t('technician.unassigned', { defaultValue: 'Unassigned' })}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {proc.technician?.name
-                              ? `Tech: ${proc.technician.name}`
-                              : proc.doctor?.name
-                              ? `Doctor: ${proc.doctor.name}`
-                              : t('technician.unassigned', { defaultValue: 'Unassigned' })}
-                          </div>
-                        </div>
 
-                        {/* Step Duration / Status */}
-                        {proc.totalActiveDuration && proc.totalActiveDuration > 0 ? (
-                          <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Clock size={13} />
-                            <span>{formatDurationDisplay(proc.totalActiveDuration)}</span>
-                          </div>
-                        ) : null}
+                          {/* Step Duration / Status */}
+                          {proc.totalActiveDuration && proc.totalActiveDuration > 0 ? (
+                            <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                              <Clock size={13} />
+                              <span>{formatDurationDisplay(proc.totalActiveDuration)}</span>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Process Activity & Audit Log (Screenshot 4) */}
+              {/* Process Activity & Audit Log (Filtered to current technician only - Requirement 3) */}
               <div
                 style={{
                   backgroundColor: 'var(--bg-card)',
@@ -1088,9 +1159,9 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                   <span>{t('technician.auditLog.title', { defaultValue: 'PROCESS ACTIVITY & AUDIT LOG' })}</span>
                 </div>
 
-                {allActivityLogs.length > 0 ? (
+                {currentTechnicianLogs.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {allActivityLogs.map((log) => {
+                    {currentTechnicianLogs.map((log) => {
                       const isComp = log.action === 'COMPLETE';
                       const isPau = log.action === 'PAUSE';
                       const dotColor = isComp ? '#10b981' : isPau ? '#f59e0b' : '#38bdf8';
@@ -1134,7 +1205,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                   </div>
                 ) : (
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    {t('technician.auditLog.noLogsYet', { defaultValue: 'No activity recorded yet for this order.' })}
+                    {t('technician.auditLog.noLogsForTech', { defaultValue: 'No activity recorded yet for your steps.' })}
                   </div>
                 )}
               </div>

@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuditService } from '../../../core/audit/audit.service';
 import { NotificationsService } from '../../../core/notifications/notifications.service';
+import { NotificationsGateway } from '../../../core/notifications/notifications.gateway';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { generateFolioNumber } from './utils/folio.util';
@@ -22,6 +23,7 @@ export class WorkOrdersService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   /**
@@ -300,11 +302,21 @@ export class WorkOrdersService {
       return wo;
     });
 
-    // If 'createAndAssign', dispatch in-app notification to the technician assigned to Step 1
-    if (dto.action === 'createAndAssign' && Array.isArray(dto.processes) && dto.processes.length > 0) {
+    // Collect all assigned technician IDs across processes
+    const assignedTechIds = new Set<string>();
+    if (Array.isArray(dto.processes)) {
+      for (const p of dto.processes) {
+        if (p.technicianId) {
+          assignedTechIds.add(p.technicianId);
+        }
+      }
+    }
+
+    // If 'createAndAssign' or any step assigned, dispatch in-app notification to the technician assigned to Step 1
+    if (Array.isArray(dto.processes) && dto.processes.length > 0) {
       const sortedProcesses = [...dto.processes].sort((a, b) => a.sequence - b.sequence);
       const firstProcess = sortedProcesses[0];
-      if (firstProcess.technicianId) {
+      if (firstProcess.technicianId && (dto.action === 'createAndAssign' || workOrder.status === WorkOrderStatus.ASSIGNED)) {
         try {
           await this.notificationsService.create({
             tenantId,
@@ -318,6 +330,30 @@ export class WorkOrdersService {
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
         }
+      }
+    }
+
+    // Real-time socket broadcast to tenant room
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:created', {
+        workOrderId: workOrder.id,
+        folioNumber: workOrder.folioNumber,
+        status: workOrder.status,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast work_order:created: ${(err as any).message}`);
+    }
+
+    // Real-time socket broadcast to each assigned technician
+    for (const techId of assignedTechIds) {
+      try {
+        this.notificationsGateway.sendToUser(techId, 'work_order:assigned', {
+          workOrderId: workOrder.id,
+          folioNumber: workOrder.folioNumber,
+          status: workOrder.status,
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to send work_order:assigned to tech ${techId}: ${(err as any).message}`);
       }
     }
 
@@ -839,6 +875,32 @@ export class WorkOrdersService {
           });
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
+        }
+      }
+    }
+
+    // Real-time socket broadcast to tenant room
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId: id,
+        folioNumber: workOrder.folioNumber,
+        status: updateData.status || workOrder.status,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast work_order:updated: ${(err as any).message}`);
+    }
+
+    if (dto.processes) {
+      for (const p of dto.processes) {
+        if (p.technicianId) {
+          try {
+            this.notificationsGateway.sendToUser(p.technicianId, 'work_order:assigned', {
+              workOrderId: id,
+              folioNumber: workOrder.folioNumber,
+            });
+          } catch (err) {
+            this.logger.warn(`Failed to send work_order:assigned to tech ${p.technicianId}: ${(err as any).message}`);
+          }
         }
       }
     }

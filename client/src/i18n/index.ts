@@ -1458,6 +1458,7 @@ const resources = {
           processResumed: 'Process Resumed',
           processCompleted: 'Process Completed',
           noLogsYet: 'No activity recorded yet for this order.',
+          noLogsForTech: 'No activity recorded yet for your steps.',
         },
         chat: {
           title: 'Order Discussion & Chat',
@@ -2945,6 +2946,7 @@ const resources = {
           processResumed: 'Proceso Reanudado',
           processCompleted: 'Proceso Completado',
           noLogsYet: 'Aún no se ha registrado actividad para esta orden.',
+          noLogsForTech: 'Aún no se ha registrado actividad para sus procesos.',
         },
         chat: {
           title: 'Discusión y Chat de la Orden',

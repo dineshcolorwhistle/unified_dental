@@ -16,6 +16,7 @@ export interface NotificationItem {
 interface NotificationContextType {
   notifications: NotificationItem[];
   unreadCount: number;
+  socket: Socket | null;
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
@@ -96,6 +97,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       value={{
         notifications,
         unreadCount,
+        socket,
         fetchNotifications,
         markAsRead,
         markAllAsRead,
