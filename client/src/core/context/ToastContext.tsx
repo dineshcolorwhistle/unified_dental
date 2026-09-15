@@ -20,6 +20,10 @@ interface ToastContextType {
   };
   showToast: (item: Omit<ToastItem, 'id'>) => void;
   removeToast: (id: string) => void;
+  success: (message: string, title?: string) => void;
+  error: (message: string, title?: string) => void;
+  warning: (message: string, title?: string) => void;
+  info: (message: string, title?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -54,7 +58,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <ToastContext.Provider value={{ toast, showToast, removeToast }}>
+    <ToastContext.Provider value={{ toast, showToast, removeToast, ...toast }}>
       {children}
 
       {/* Toast Notification Container */}

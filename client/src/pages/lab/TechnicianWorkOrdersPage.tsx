@@ -17,7 +17,7 @@ import { PrintQrModal } from '../../components/lab/PrintQrModal';
 
 export const TechnicianWorkOrdersPage: React.FC = () => {
   const { t } = useTranslation();
-  const toast = useToast();
+  const { toast } = useToast();
 
   const [orders, setOrders] = useState<WorkOrderListItem[]>([]);
   const [loading, setLoading] = useState(true);

@@ -22,7 +22,7 @@ import { TechnicianWorkOrderDetailModal } from '../../components/lab/TechnicianW
 export const TechnicianDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState<TechnicianDashboardData | null>(null);

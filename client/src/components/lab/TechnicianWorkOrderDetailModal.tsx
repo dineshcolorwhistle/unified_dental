@@ -41,7 +41,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
 
   const [workOrder, setWorkOrder] = useState<WorkOrderListItem | null>(null);
   const [loading, setLoading] = useState(true);
