@@ -21,6 +21,8 @@ interface VerifyWorkOrderModalProps {
   processId: string;
   processName: string;
   processType: string;
+  doctorName?: string | null;
+  doctorType?: string | null;
   onComplete: () => void;
 }
 
@@ -33,6 +35,8 @@ export const VerifyWorkOrderModal: React.FC<VerifyWorkOrderModalProps> = ({
   processId,
   processName,
   processType,
+  doctorName,
+  doctorType,
   onComplete,
 }) => {
   const { t } = useTranslation();
@@ -185,6 +189,24 @@ export const VerifyWorkOrderModal: React.FC<VerifyWorkOrderModalProps> = ({
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
               {t('verifyWorkOrder.verificationStage', 'Verification Stage')}: <strong style={{ color: 'var(--text-main)' }}>{processName}</strong>
             </div>
+            {doctorName && (
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{t('dashboard.labAdmin.doctor', 'Doctor')}: <strong style={{ color: 'var(--text-main)' }}>{doctorName}</strong></span>
+                {doctorType && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(168, 85, 247, 0.1)',
+                    color: doctorType === 'LOCAL' ? '#2563eb' : '#7c3aed',
+                    border: `1px solid ${doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(168, 85, 247, 0.25)'}`,
+                  }}>
+                    {doctorType === 'LOCAL' ? t('dashboard.labAdmin.localDoctor', 'Local Doctor') : t('dashboard.labAdmin.integratedDoctor', 'Integrated Doctor')}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Outcome Label */}

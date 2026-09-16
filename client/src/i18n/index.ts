@@ -170,6 +170,10 @@ const resources = {
           actionRequired: 'Action Required',
           stage: 'Stage',
           readyForEvaluation: 'Ready for quality evaluation',
+          localDoctor: 'Local Doctor',
+          integratedDoctor: 'Integrated Doctor',
+          onlyDefaultAdminCanEnd: 'Only the branch default administrator can conclude this external verification',
+          autoStartedNotice: 'Timer running (Auto-started for local doctor)',
         },
       },
       verifyWorkOrder: {
@@ -1658,6 +1662,10 @@ const resources = {
           actionRequired: 'Acción Requerida',
           stage: 'Etapa',
           readyForEvaluation: 'Listo para evaluación de calidad',
+          localDoctor: 'Doctor Local',
+          integratedDoctor: 'Doctor Integrado',
+          onlyDefaultAdminCanEnd: 'Solo el administrador predeterminado de la sucursal puede concluir esta verificación externa',
+          autoStartedNotice: 'Temporizador en curso (Iniciado automáticamente para doctor local)',
         },
       },
       verifyWorkOrder: {

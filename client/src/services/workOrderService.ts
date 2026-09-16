@@ -374,8 +374,11 @@ export interface LabAdminVerificationAlertItem {
   evaluatorId?: string | null;
   evaluatorName?: string | null;
   doctorName?: string | null;
+  doctorType?: string | null;
   prosthesisName?: string | null;
   status: string;
+  startedAt?: string | null;
+  totalActiveDuration?: number;
 }
 
 export interface LabAdminInProgressItem {
@@ -403,7 +406,10 @@ export interface LabAdminVerificationItem {
   evaluatorId?: string | null;
   evaluatorName?: string | null;
   doctorName?: string | null;
+  doctorType?: string | null;
   prosthesisName?: string | null;
+  startedAt?: string | null;
+  totalActiveDuration?: number;
 }
 
 export interface LabAdminDashboardData {
@@ -413,6 +419,7 @@ export interface LabAdminDashboardData {
     pendingTechSteps: number;
     completedToday: number;
   };
+  isDefaultAdmin?: boolean;
   pendingVerificationAlerts: LabAdminVerificationAlertItem[];
   inProgressOrders: LabAdminInProgressItem[];
   verificationOrders: LabAdminVerificationItem[];

@@ -365,7 +365,23 @@ export class LabUsersService {
     const temporaryPassword = `Temp@${uuidv4().substring(0, 8)}!2026`;
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
-    const isDefaultAdmin = Boolean(dto.isDefaultAdmin);
+    // Every branch must have a default admin. If no default admin exists for this branch, this admin becomes default.
+    const existingDefaultCount = await this.prisma.userBranch.count({
+      where: {
+        branchId: dto.branchId,
+        isDefault: true,
+        user: {
+          userRoles: {
+            some: {
+              tenantId,
+              role: { slug: 'lab-admin' },
+            },
+          },
+        },
+      },
+    });
+
+    const isDefaultAdmin = existingDefaultCount === 0 ? true : Boolean(dto.isDefaultAdmin);
 
     // 8. Create user and all associations in a transaction
     const createdUser = await this.prisma.$transaction(async (tx) => {
@@ -800,12 +816,35 @@ export class LabUsersService {
               where: { branchId: currentUb.branchId, isDefault: true },
               data: { isDefault: false },
             });
+            await tx.userBranch.update({
+              where: { id: currentUb.id },
+              data: { isDefault: true },
+            });
+          } else if (dto.isDefaultAdmin === false) {
+            // Check if there is another admin in this branch
+            const otherAdminUb = await tx.userBranch.findFirst({
+              where: {
+                branchId: currentUb.branchId,
+                userId: { not: adminId },
+                user: {
+                  status: UserStatus.ACTIVE,
+                  userRoles: { some: { tenantId, role: { slug: 'lab-admin' } } },
+                },
+              },
+            });
+            if (!otherAdminUb) {
+              throw new BadRequestException('Every branch must have a default admin. This is the only administrator for this branch.');
+            }
+            // Auto-promote the other admin so the branch always has a default admin
+            await tx.userBranch.update({
+              where: { id: otherAdminUb.id },
+              data: { isDefault: true },
+            });
+            await tx.userBranch.update({
+              where: { id: currentUb.id },
+              data: { isDefault: false },
+            });
           }
-
-          await tx.userBranch.update({
-            where: { id: currentUb.id },
-            data: { isDefault: dto.isDefaultAdmin },
-          });
         }
       }
 
@@ -848,6 +887,17 @@ export class LabUsersService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Check which branches this admin was default for
+      const tenantBranches = await tx.branch.findMany({
+        where: { tenantId },
+        select: { id: true },
+      });
+      const branchIds = tenantBranches.map((b) => b.id);
+
+      const defaultUserBranches = await tx.userBranch.findMany({
+        where: { userId: adminId, branchId: { in: branchIds }, isDefault: true },
+      });
+
       // Remove tenant membership
       await tx.tenantMembership.deleteMany({
         where: { userId: adminId, tenantId },
@@ -859,15 +909,31 @@ export class LabUsersService {
       });
 
       // Remove branch links in this tenant
-      const tenantBranches = await tx.branch.findMany({
-        where: { tenantId },
-        select: { id: true },
-      });
-      const branchIds = tenantBranches.map((b) => b.id);
-
       await tx.userBranch.deleteMany({
         where: { userId: adminId, branchId: { in: branchIds } },
       });
+
+      // For each branch where this admin was default, auto-promote the next available active lab admin
+      for (const dub of defaultUserBranches) {
+        const nextAdminUb = await tx.userBranch.findFirst({
+          where: {
+            branchId: dub.branchId,
+            userId: { not: adminId },
+            user: {
+              status: UserStatus.ACTIVE,
+              userRoles: { some: { tenantId, role: { slug: 'lab-admin' } } },
+            },
+          },
+          orderBy: { id: 'asc' },
+        });
+
+        if (nextAdminUb) {
+          await tx.userBranch.update({
+            where: { id: nextAdminUb.id },
+            data: { isDefault: true },
+          });
+        }
+      }
 
       // Remove module access for this tenant
       await tx.userModuleAccess.deleteMany({

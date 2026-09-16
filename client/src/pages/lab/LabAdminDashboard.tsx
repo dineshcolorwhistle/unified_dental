@@ -29,6 +29,7 @@ import {
 } from '../../services/workOrderService';
 import { VerifyWorkOrderModal } from '../../components/lab/VerifyWorkOrderModal';
 import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
+import { Tooltip } from '../../components/common/Tooltip';
 
 export const LabAdminDashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -48,6 +49,8 @@ export const LabAdminDashboard: React.FC = () => {
     processId: string;
     processName: string;
     processType: string;
+    doctorName?: string | null;
+    doctorType?: string | null;
   } | null>(null);
 
   const [detailModalWOId, setDetailModalWOId] = useState<string | null>(null);
@@ -89,7 +92,16 @@ export const LabAdminDashboard: React.FC = () => {
     }
   };
 
-  const handleOpenVerifyModal = (item: LabAdminVerificationItem) => {
+  const handleOpenVerifyModal = (item: {
+    workOrderId: string;
+    folioNumber: string;
+    patient?: string | null;
+    processId: string;
+    processName: string;
+    processType: string;
+    doctorName?: string | null;
+    doctorType?: string | null;
+  }) => {
     setVerifyModal({
       open: true,
       workOrderId: item.workOrderId,
@@ -98,6 +110,8 @@ export const LabAdminDashboard: React.FC = () => {
       processId: item.processId,
       processName: item.processName,
       processType: item.processType,
+      doctorName: item.doctorName || null,
+      doctorType: item.doctorType || 'LOCAL',
     });
   };
 
@@ -124,6 +138,7 @@ export const LabAdminDashboard: React.FC = () => {
   const alerts = data?.pendingVerificationAlerts || [];
   const inProgress = data?.inProgressOrders || [];
   const verifications = data?.verificationOrders || [];
+  const isDefaultAdmin = data?.isDefaultAdmin ?? true;
 
   const kpiCards = [
     {
@@ -374,21 +389,39 @@ export const LabAdminDashboard: React.FC = () => {
 
                     {getStatusBadge(alert.processType)}
 
-                    <span style={{
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: '5px',
-                      backgroundColor: 'var(--badge-warning-bg)',
-                      color: 'var(--amber-600)',
-                      border: '1px solid var(--amber-200)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} />
-                      {t('dashboard.labAdmin.statusNotStarted')}
-                    </span>
+                    {alert.status === 'IN_PROGRESS' ? (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: '5px',
+                        backgroundColor: 'var(--badge-success-bg)',
+                        color: 'var(--emerald-600)',
+                        border: '1px solid var(--emerald-200)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+                        {t('dashboard.labAdmin.statusInProgress')}
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: '5px',
+                        backgroundColor: 'var(--badge-warning-bg)',
+                        color: 'var(--amber-600)',
+                        border: '1px solid var(--amber-200)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} />
+                        {t('dashboard.labAdmin.statusNotStarted')}
+                      </span>
+                    )}
                   </div>
 
                   {/* Line 2: Structured Details Chips */}
@@ -421,6 +454,20 @@ export const LabAdminDashboard: React.FC = () => {
                           <Stethoscope size={12} style={{ color: '#0ea5e9' }} />
                           <span style={{ color: 'var(--text-muted)' }}>{t('dashboard.labAdmin.doctor')}:</span>
                           <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>{alert.doctorName}</strong>
+                          {alert.doctorType && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              backgroundColor: alert.doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(168, 85, 247, 0.1)',
+                              color: alert.doctorType === 'LOCAL' ? '#2563eb' : '#7c3aed',
+                              border: `1px solid ${alert.doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(168, 85, 247, 0.25)'}`,
+                              marginLeft: '2px',
+                            }}>
+                              {alert.doctorType === 'LOCAL' ? t('dashboard.labAdmin.localDoctor') : t('dashboard.labAdmin.integratedDoctor')}
+                            </span>
+                          )}
                         </span>
                       </>
                     )}
@@ -470,38 +517,97 @@ export const LabAdminDashboard: React.FC = () => {
                     <span>{t('dashboard.labAdmin.viewWO')}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleStartVerification(alert.workOrderId, alert.processId)}
-                    disabled={startingProcessId === alert.processId}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 16px',
-                      borderRadius: '7px',
-                      border: 'none',
-                      background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
-                      color: '#ffffff',
-                      cursor: startingProcessId === alert.processId ? 'wait' : 'pointer',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      opacity: startingProcessId === alert.processId ? 0.7 : 1,
-                      boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
-                      transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (startingProcessId !== alert.processId) {
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(56, 189, 248, 0.45)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(56, 189, 248, 0.3)';
-                    }}
-                  >
-                    <Play size={13} fill="currentColor" />
-                    <span>{t('dashboard.labAdmin.startVerification')}</span>
-                  </button>
+                  {alert.status === 'IN_PROGRESS' ? (
+                    isDefaultAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenVerifyModal(alert)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 16px',
+                          borderRadius: '7px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.45)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
+                        }}
+                      >
+                        <ShieldCheck size={14} />
+                        <span>{t('dashboard.labAdmin.endVerification')}</span>
+                      </button>
+                    ) : (
+                      <Tooltip content={t('dashboard.labAdmin.onlyDefaultAdminCanEnd')}>
+                        <span>
+                          <button
+                            type="button"
+                            disabled
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 16px',
+                              borderRadius: '7px',
+                              border: '1px solid var(--border-color)',
+                              backgroundColor: 'var(--bg-surface-muted)',
+                              color: 'var(--text-muted)',
+                              cursor: 'not-allowed',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              opacity: 0.6,
+                            }}
+                          >
+                            <ShieldCheck size={14} />
+                            <span>{t('dashboard.labAdmin.endVerification')}</span>
+                          </button>
+                        </span>
+                      </Tooltip>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleStartVerification(alert.workOrderId, alert.processId)}
+                      disabled={startingProcessId === alert.processId}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 16px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+                        color: '#ffffff',
+                        cursor: startingProcessId === alert.processId ? 'wait' : 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        opacity: startingProcessId === alert.processId ? 0.7 : 1,
+                        boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (startingProcessId !== alert.processId) {
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(56, 189, 248, 0.45)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(56, 189, 248, 0.3)';
+                      }}
+                    >
+                      <Play size={13} fill="currentColor" />
+                      <span>{t('dashboard.labAdmin.startVerification')}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -750,11 +856,28 @@ export const LabAdminDashboard: React.FC = () => {
                     {getStatusBadge(item.processType)}
                   </div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                    {item.doctorName && <>{t('dashboard.labAdmin.doctor')}: <strong>{item.doctorName}</strong></>}
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    {item.doctorName && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        {t('dashboard.labAdmin.doctor')}: <strong style={{ color: 'var(--text-heading)' }}>{item.doctorName}</strong>
+                        {item.doctorType && (
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            backgroundColor: item.doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(168, 85, 247, 0.1)',
+                            color: item.doctorType === 'LOCAL' ? '#2563eb' : '#7c3aed',
+                            border: `1px solid ${item.doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(168, 85, 247, 0.25)'}`,
+                          }}>
+                            {item.doctorType === 'LOCAL' ? t('dashboard.labAdmin.localDoctor') : t('dashboard.labAdmin.integratedDoctor')}
+                          </span>
+                        )}
+                      </span>
+                    )}
                     {item.prosthesisName && (
-                      <span style={{ marginLeft: '12px' }}>
-                        {t('dashboard.labAdmin.prosthesis')}: <em>{item.prosthesisName}</em>
+                      <span>
+                        • {t('dashboard.labAdmin.prosthesis')}: <em>{item.prosthesisName}</em>
                       </span>
                     )}
                   </div>
@@ -789,7 +912,7 @@ export const LabAdminDashboard: React.FC = () => {
                       >
                         <Play size={14} /> {t('dashboard.labAdmin.start')}
                       </button>
-                    ) : (
+                    ) : isDefaultAdmin ? (
                       <button
                         onClick={() => handleOpenVerifyModal(item)}
                         style={{
@@ -804,6 +927,24 @@ export const LabAdminDashboard: React.FC = () => {
                       >
                         <ShieldCheck size={14} /> {t('dashboard.labAdmin.endVerification')}
                       </button>
+                    ) : (
+                      <Tooltip content={t('dashboard.labAdmin.onlyDefaultAdminCanEnd')}>
+                        <span>
+                          <button
+                            disabled
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                              padding: '6px 14px', borderRadius: '8px',
+                              border: '1px solid var(--border-color)',
+                              backgroundColor: 'var(--bg-surface-muted)', color: 'var(--text-muted)',
+                              cursor: 'not-allowed', fontSize: '12px', fontWeight: 600,
+                              opacity: 0.6,
+                            }}
+                          >
+                            <ShieldCheck size={14} /> {t('dashboard.labAdmin.endVerification')}
+                          </button>
+                        </span>
+                      </Tooltip>
                     )}
                   </div>
                 </div>
@@ -824,6 +965,8 @@ export const LabAdminDashboard: React.FC = () => {
           processId={verifyModal.processId}
           processName={verifyModal.processName}
           processType={verifyModal.processType}
+          doctorName={verifyModal.doctorName}
+          doctorType={verifyModal.doctorType}
           onComplete={handleVerifyOutcome}
         />
       )}

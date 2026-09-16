@@ -13,7 +13,7 @@ import { AuthenticatedUser } from '../../../shared/common/decorators/current-use
 import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { generateFolioNumber } from './utils/folio.util';
 import { parseCalendarDate, startOfDayInTz, endOfDayInTz, DEFAULT_TIMEZONE } from '../../../shared/common/utils/timezone.util';
-import { ProcessStatus, ProcessType, WorkOrderStatus } from '@prisma/client';
+import { DoctorType, ProcessStatus, ProcessType, UserStatus, WorkOrderStatus } from '@prisma/client';
 
 @Injectable()
 export class WorkOrdersService {
@@ -154,6 +154,105 @@ export class WorkOrdersService {
     }
 
     return firstBranch.id;
+  }
+
+  /**
+   * Find the default Lab Admin for a branch.
+   * Every branch must have a default admin.
+   * If no admin is currently marked isDefault: true, self-heals by promoting the earliest active lab-admin of that branch.
+   */
+  async findBranchDefaultAdmin(tenantId: string, branchId: string) {
+    // 1. Check for explicit isDefault: true lab-admin in this branch
+    const defaultUserBranch = await this.prisma.userBranch.findFirst({
+      where: {
+        branchId,
+        isDefault: true,
+        user: {
+          status: UserStatus.ACTIVE,
+          memberships: { some: { tenantId } },
+          userRoles: {
+            some: {
+              tenantId,
+              role: { slug: 'lab-admin' },
+            },
+          },
+        },
+      },
+      include: { user: true },
+    });
+
+    if (defaultUserBranch?.user) {
+      return defaultUserBranch.user;
+    }
+
+    // 2. Self-Healing Fallback: If no admin is marked default yet, find the earliest active lab-admin in this branch
+    const earliestBranchAdmin = await this.prisma.userBranch.findFirst({
+      where: {
+        branchId,
+        user: {
+          status: UserStatus.ACTIVE,
+          memberships: { some: { tenantId } },
+          userRoles: {
+            some: {
+              tenantId,
+              role: { slug: 'lab-admin' },
+            },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+      include: { user: true },
+    });
+
+    if (earliestBranchAdmin?.user) {
+      // Auto-set isDefault so future lookups are instantaneous
+      try {
+        await this.prisma.userBranch.update({
+          where: { id: earliestBranchAdmin.id },
+          data: { isDefault: true },
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to auto-set isDefault on userBranch ${earliestBranchAdmin.id}: ${(err as any).message}`);
+      }
+      return earliestBranchAdmin.user;
+    }
+
+    // 3. Fallback to any active tenant administrator
+    const tenantAdmin = await this.prisma.user.findFirst({
+      where: {
+        status: UserStatus.ACTIVE,
+        memberships: { some: { tenantId } },
+        userRoles: {
+          some: {
+            tenantId,
+            role: { slug: { in: ['tenant-admin', 'admin'] } },
+          },
+        },
+      },
+    });
+
+    return tenantAdmin || null;
+  }
+
+  /**
+   * Check if an actor is the default Lab Admin for a specific branch (or tenant owner/super admin)
+   */
+  async isBranchDefaultAdmin(actor: AuthenticatedUser, tenantId: string, branchId: string): Promise<boolean> {
+    if (actor.isSuperAdmin) return true;
+
+    // Tenant owner has organization-wide authority
+    const membership = await this.prisma.tenantMembership.findFirst({
+      where: { userId: actor.id, tenantId, isOwner: true },
+    });
+    if (membership) return true;
+
+    // Resolve the default admin for this branch
+    const defaultAdmin = await this.findBranchDefaultAdmin(tenantId, branchId);
+    if (!defaultAdmin) {
+      return this.isTenantAdminUser(actor, tenantId);
+    }
+
+    return defaultAdmin.id === actor.id;
   }
 
   /**
@@ -1497,6 +1596,12 @@ export class WorkOrdersService {
         ? `${mins} minute${mins > 1 ? 's' : ''}${secs > 0 ? ` ${secs}s` : ''}`
         : `${secs}s`;
 
+    let autoStartedExtVerif: {
+      processId: string;
+      processName: string;
+      doctorName: string;
+    } | null = null;
+
     await this.prisma.$transaction(async (tx) => {
       await tx.workOrderProcess.update({
         where: { id: processId },
@@ -1542,7 +1647,7 @@ export class WorkOrdersService {
             nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION;
 
           if (isNextVerification) {
-            // Set WO status to verification status
+            // Set WO status to verification status (Work Order status remains EXTERNAL_VERIFICATION or INTERNAL_VERIFICATION)
             const verificationStatus =
               nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION
                 ? WorkOrderStatus.EXTERNAL_VERIFICATION
@@ -1551,6 +1656,49 @@ export class WorkOrdersService {
               where: { id: workOrderId },
               data: { status: verificationStatus },
             });
+
+            // Special handling for EXTERNAL_VERIFICATION: Local Doctor auto-start vs Integrated Doctor
+            if (nextIncomplete.processType === ProcessType.EXTERNAL_VERIFICATION) {
+              const assignedDocId = nextIncomplete.doctorId || workOrder.doctorId;
+              const doctorRecord = assignedDocId
+                ? await tx.doctor.findFirst({ where: { id: assignedDocId, tenantId } })
+                : null;
+
+              if (doctorRecord?.type === DoctorType.LOCAL || !doctorRecord?.type) {
+                // Local Doctor: Process step status changes to IN_PROGRESS automatically; time audit recorded
+                await tx.workOrderProcess.update({
+                  where: { id: nextIncomplete.id },
+                  data: {
+                    status: ProcessStatus.IN_PROGRESS,
+                    startedAt: now,
+                    lastPausedAt: null,
+                    totalActiveDuration: 0,
+                  },
+                });
+
+                await tx.processActivityLog.create({
+                  data: {
+                    workOrderProcessId: nextIncomplete.id,
+                    userId: actor.id,
+                    action: 'START',
+                    notes: `External verification auto-started for local doctor: ${doctorRecord?.name || 'Assigned Doctor'}.`,
+                    timestamp: now,
+                  },
+                });
+
+                autoStartedExtVerif = {
+                  processId: nextIncomplete.id,
+                  processName: nextIncomplete.processName,
+                  doctorName: doctorRecord?.name || 'Assigned Doctor',
+                };
+              } else if (doctorRecord?.type === DoctorType.INTEGRATED) {
+                // [INTEGRATED DOCTOR WORKFLOW - FUTURE PHASE 4 CLINIC INTEGRATION]
+                // For integrated doctors, verification remains NOT_STARTED awaiting confirmation/signal from Clinic module.
+                this.logger.log(
+                  `External verification step ${nextIncomplete.id} on WO ${workOrder.folioNumber} assigned to integrated doctor ${doctorRecord.name} (${doctorRecord.id}). Awaiting clinic synchronization.`,
+                );
+              }
+            }
           } else if (
             workOrder.status !== WorkOrderStatus.IN_PROGRESS
           ) {
@@ -1562,6 +1710,46 @@ export class WorkOrdersService {
         }
       }
     });
+
+    // Auto-start audit and notification for local doctor external verification
+    if (autoStartedExtVerif) {
+      await this.auditService.log({
+        tenantId,
+        branchId: workOrder.branchId,
+        moduleKey: 'LAB',
+        userId: actor.id,
+        action: 'PROCESS_AUTO_START',
+        resourceType: 'WORK_ORDER_PROCESS',
+        resourceId: autoStartedExtVerif.processId,
+        newValues: {
+          workOrderId,
+          status: ProcessStatus.IN_PROGRESS,
+          doctorName: autoStartedExtVerif.doctorName,
+          doctorType: 'LOCAL',
+        },
+      });
+
+      const defaultAdmin = await this.findBranchDefaultAdmin(tenantId, workOrder.branchId);
+      if (defaultAdmin) {
+        try {
+          await this.notificationsService.create({
+            tenantId,
+            userId: defaultAdmin.id,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'External Verification Auto-Started',
+            body: `Work Order "${workOrder.folioNumber}" has automatically started external verification for local Dr. "${autoStartedExtVerif.doctorName}". Timer is running.`,
+            data: {
+              workOrderId: workOrder.id,
+              folioNumber: workOrder.folioNumber,
+              processId: autoStartedExtVerif.processId,
+            },
+          });
+        } catch (err) {
+          this.logger.warn(`Failed to dispatch auto-start notification to default admin: ${(err as any).message}`);
+        }
+      }
+    }
 
     // Notify subsequent technician/evaluator if exists
     const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
@@ -1631,6 +1819,7 @@ export class WorkOrdersService {
     }
 
     const branchId = await this.resolveLabAdminBranch(actor, tenantId).catch(() => undefined);
+    const isDefaultAdmin = branchId ? await this.isBranchDefaultAdmin(actor, tenantId, branchId) : true;
 
     const baseWhere: any = {
       tenantId,
@@ -1642,12 +1831,13 @@ export class WorkOrdersService {
     const activeOrders = await this.prisma.workOrder.findMany({
       where: baseWhere,
       include: {
-        doctor: { select: { id: true, name: true, clinicName: true } },
+        doctor: { select: { id: true, name: true, type: true, clinicName: true } },
         prosthesisType: { select: { id: true, name: true } },
         processes: {
           orderBy: { sequence: 'asc' },
           include: {
             technician: { select: { id: true, name: true } },
+            doctor: { select: { id: true, name: true, type: true } },
           },
         },
       },
@@ -1704,8 +1894,15 @@ export class WorkOrdersService {
       if (isCurrentVerification && priorAllCompleted) {
         pendingVerificationsCount++;
 
-        if (currentStep.status === ProcessStatus.NOT_STARTED) {
-          // Pending alert: verification is ready but not started
+        const isExtVerif = currentStep.processType === ProcessType.EXTERNAL_VERIFICATION;
+        const assignedDoc = currentStep.doctor || wo.doctor;
+        const docType = assignedDoc?.type || 'LOCAL';
+
+        // Alert banner: verification is NOT_STARTED OR (EXTERNAL_VERIFICATION and IN_PROGRESS awaiting conclusion)
+        if (
+          currentStep.status === ProcessStatus.NOT_STARTED ||
+          (isExtVerif && currentStep.status === ProcessStatus.IN_PROGRESS)
+        ) {
           pendingVerificationAlerts.push({
             workOrderId: wo.id,
             folioNumber: wo.folioNumber,
@@ -1714,11 +1911,16 @@ export class WorkOrdersService {
             processName: currentStep.processName,
             processType: currentStep.processType,
             isVerification: currentStep.isVerification,
-            evaluatorId: currentStep.technicianId,
-            evaluatorName: currentStep.technician?.name || null,
+            evaluatorId: isExtVerif ? (assignedDoc?.id || null) : currentStep.technicianId,
+            evaluatorName: isExtVerif
+              ? (assignedDoc?.name || 'Assigned Doctor')
+              : (currentStep.technician?.name || null),
             doctorName: wo.doctor?.name || null,
+            doctorType: docType,
             prosthesisName: wo.prosthesisType?.name || null,
             status: currentStep.status,
+            startedAt: currentStep.startedAt,
+            totalActiveDuration: currentStep.totalActiveDuration,
           });
         }
 
@@ -1736,10 +1938,15 @@ export class WorkOrdersService {
             processType: currentStep.processType,
             isVerification: currentStep.isVerification,
             stepStatus: currentStep.status,
-            evaluatorId: currentStep.technicianId,
-            evaluatorName: currentStep.technician?.name || null,
+            evaluatorId: isExtVerif ? (assignedDoc?.id || null) : currentStep.technicianId,
+            evaluatorName: isExtVerif
+              ? (assignedDoc?.name || 'Assigned Doctor')
+              : (currentStep.technician?.name || null),
             doctorName: wo.doctor?.name || null,
+            doctorType: docType,
             prosthesisName: wo.prosthesisType?.name || null,
+            startedAt: currentStep.startedAt,
+            totalActiveDuration: currentStep.totalActiveDuration,
           });
         }
       } else if (!isCurrentVerification) {
@@ -1778,6 +1985,7 @@ export class WorkOrdersService {
         pendingTechSteps,
         completedToday,
       },
+      isDefaultAdmin,
       pendingVerificationAlerts,
       inProgressOrders,
       verificationOrders,
@@ -1828,6 +2036,23 @@ export class WorkOrdersService {
 
     if (!isVerificationStep) {
       throw new BadRequestException('This process step is not a verification step.');
+    }
+
+    // For EXTERNAL_VERIFICATION with LOCAL doctor, only the branch default administrator can conclude it
+    if (verificationProcess.processType === ProcessType.EXTERNAL_VERIFICATION) {
+      const assignedDocId = verificationProcess.doctorId || workOrder.doctorId;
+      const doctorRecord = assignedDocId
+        ? await this.prisma.doctor.findFirst({ where: { id: assignedDocId, tenantId } })
+        : null;
+
+      if (doctorRecord?.type === DoctorType.LOCAL || !doctorRecord?.type) {
+        const isDefaultAdmin = await this.isBranchDefaultAdmin(actor, tenantId, workOrder.branchId);
+        if (!isDefaultAdmin) {
+          throw new ForbiddenException(
+            'Only the default administrator of this branch can end external verification for local doctors.',
+          );
+        }
+      }
     }
 
     const now = new Date();
