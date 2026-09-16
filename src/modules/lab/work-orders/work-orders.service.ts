@@ -157,6 +157,47 @@ export class WorkOrdersService {
   }
 
   /**
+   * Resolve active branch ID for Lab Technician
+   */
+  async resolveLabTechnicianBranch(actor: AuthenticatedUser, tenantId: string): Promise<string> {
+    const techRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: { slug: 'lab-technician' },
+      },
+    });
+
+    if (techRole?.branchId) {
+      return techRole.branchId;
+    }
+
+    const defaultUserBranch = await this.prisma.userBranch.findFirst({
+      where: {
+        userId: actor.id,
+        branch: { tenantId },
+      },
+      orderBy: { isDefault: 'desc' },
+      select: { branchId: true },
+    });
+
+    if (defaultUserBranch?.branchId) {
+      return defaultUserBranch.branchId;
+    }
+
+    const firstBranch = await this.prisma.branch.findFirst({
+      where: { tenantId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    if (!firstBranch) {
+      throw new BadRequestException('No active branch found in this organization.');
+    }
+
+    return firstBranch.id;
+  }
+
+  /**
    * Find the default Lab Admin for a branch.
    * Every branch must have a default admin.
    * If no admin is currently marked isDefault: true, self-heals by promoting the earliest active lab-admin of that branch.
@@ -286,17 +327,20 @@ export class WorkOrdersService {
   }
 
   /**
-   * Create Work Order (Restricted strictly to Lab Administrators)
+   * Create Work Order (Lab Administrators, or Lab Technicians submitting requests)
    */
   async create(tenantId: string, actor: AuthenticatedUser, dto: CreateWorkOrderDto) {
     const isLabAdmin = await this.isLabAdminUser(actor, tenantId);
-    if (!isLabAdmin) {
+    const isTechnician = await this.isLabTechnicianUser(actor, tenantId);
+    if (!isLabAdmin && !isTechnician) {
       throw new ForbiddenException(
-        'Permission denied: Only Lab Administrators can create Work Orders.',
+        'Permission denied: Only Lab Administrators and Technicians can create Work Orders.',
       );
     }
 
-    const branchId = await this.resolveLabAdminBranch(actor, tenantId);
+    const branchId = isLabAdmin
+      ? await this.resolveLabAdminBranch(actor, tenantId)
+      : await this.resolveLabTechnicianBranch(actor, tenantId);
 
     // Verify Doctor belongs to tenant
     const doctor = await this.prisma.doctor.findFirst({
@@ -323,8 +367,17 @@ export class WorkOrdersService {
       deliveryDate = parseCalendarDate(dto.deliveryDate);
     }
 
+    // Technician created orders always start with CREATED status and zero payments
     const initialStatus =
-      dto.action === 'createAndAssign' ? WorkOrderStatus.ASSIGNED : WorkOrderStatus.CREATED;
+      !isLabAdmin
+        ? WorkOrderStatus.CREATED
+        : dto.action === 'createAndAssign'
+        ? WorkOrderStatus.ASSIGNED
+        : WorkOrderStatus.CREATED;
+
+    const totalQuote = !isLabAdmin ? 0 : (dto.totalQuote !== undefined ? dto.totalQuote : 0);
+    const initialPayment = !isLabAdmin ? 0 : (dto.initialPayment !== undefined ? dto.initialPayment : 0);
+    const paymentReferenceNumbers = !isLabAdmin ? [] : (dto.paymentReferenceNumbers || []);
 
     // Database transaction: WorkOrder + initial Note + Processes
     const workOrder = await this.prisma.$transaction(async (tx) => {
@@ -343,9 +396,9 @@ export class WorkOrdersService {
           color: dto.color.trim(),
           notes: dto.notes?.trim() || null,
           deliveryDate,
-          totalQuote: dto.totalQuote !== undefined ? dto.totalQuote : 0,
-          initialPayment: dto.initialPayment !== undefined ? dto.initialPayment : 0,
-          paymentReferenceNumbers: dto.paymentReferenceNumbers || [],
+          totalQuote,
+          initialPayment,
+          paymentReferenceNumbers,
           status: initialStatus,
           createdById: actor.id,
         },
@@ -362,22 +415,22 @@ export class WorkOrdersService {
         });
       }
 
-      // Record initial payment in WorkOrderPayment history if provided
-      if (dto.initialPayment && Number(dto.initialPayment) > 0) {
+      // Record initial payment in WorkOrderPayment history if provided (Admins only)
+      if (isLabAdmin && initialPayment && Number(initialPayment) > 0) {
         await tx.workOrderPayment.create({
           data: {
             workOrderId: wo.id,
-            amount: Number(dto.initialPayment),
+            amount: Number(initialPayment),
             notes: 'Initial payment registered at order creation',
             status: 'SETTLED',
             recordedById: actor.id,
-            reference: dto.paymentReferenceNumbers && dto.paymentReferenceNumbers.length > 0 ? dto.paymentReferenceNumbers[0] : null,
+            reference: paymentReferenceNumbers.length > 0 ? paymentReferenceNumbers[0] : null,
           },
         });
       }
 
       // Create process items
-      if (Array.isArray(dto.processes) && dto.processes.length > 0) {
+      if (Array.isArray(dto.processes) && dto.processes.length > 0 && isLabAdmin) {
         const sortedProcesses = [...dto.processes].sort((a, b) => a.sequence - b.sequence);
         for (let i = 0; i < sortedProcesses.length; i++) {
           const p = sortedProcesses[i];
@@ -396,6 +449,35 @@ export class WorkOrdersService {
             },
           });
         }
+      } else {
+        // Auto-populate default process steps from ProsthesisType recipe
+        const ptProcesses = await tx.prosthesisTypeProcess.findMany({
+          where: { prosthesisTypeId: dto.prosthesisTypeId },
+          include: { process: true },
+          orderBy: { sequence: 'asc' },
+        });
+
+        for (let i = 0; i < ptProcesses.length; i++) {
+          const ptp = ptProcesses[i];
+          const proc = ptp.process;
+          const isExt = proc.type === ProcessType.EXTERNAL_VERIFICATION;
+          const isInt = proc.type === ProcessType.INTERNAL_VERIFICATION;
+          const isVer = isExt || isInt || proc.name?.toLowerCase().includes('verif');
+
+          await tx.workOrderProcess.create({
+            data: {
+              workOrderId: wo.id,
+              processId: proc.id,
+              processName: proc.name.trim(),
+              processType: proc.type || ProcessType.PRODUCTION,
+              technicianId: isExt ? null : (proc.defaultTechnicianId || null),
+              doctorId: isExt ? dto.doctorId : null,
+              sequence: i,
+              isVerification: Boolean(isVer),
+              status: ProcessStatus.NOT_STARTED,
+            },
+          });
+        }
       }
 
       return wo;
@@ -403,7 +485,7 @@ export class WorkOrdersService {
 
     // Collect all assigned technician IDs across processes
     const assignedTechIds = new Set<string>();
-    if (Array.isArray(dto.processes)) {
+    if (isLabAdmin && Array.isArray(dto.processes)) {
       for (const p of dto.processes) {
         if (p.technicianId) {
           assignedTechIds.add(p.technicianId);
@@ -411,8 +493,8 @@ export class WorkOrdersService {
       }
     }
 
-    // If 'createAndAssign' or any step assigned, dispatch in-app notification to the technician assigned to Step 1
-    if (Array.isArray(dto.processes) && dto.processes.length > 0) {
+    // If Lab Admin and 'createAndAssign' or any step assigned, dispatch in-app notification to Step 1 tech
+    if (isLabAdmin && Array.isArray(dto.processes) && dto.processes.length > 0) {
       const sortedProcesses = [...dto.processes].sort((a, b) => a.sequence - b.sequence);
       const firstProcess = sortedProcesses[0];
       if (firstProcess.technicianId && (dto.action === 'createAndAssign' || workOrder.status === WorkOrderStatus.ASSIGNED)) {
@@ -429,6 +511,33 @@ export class WorkOrdersService {
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
         }
+      }
+    }
+
+    // If technician requested this work order, notify Lab Administrators for review
+    if (!isLabAdmin) {
+      try {
+        const adminRoles = await this.prisma.userRole.findMany({
+          where: {
+            tenantId,
+            role: { slug: 'lab-admin' },
+            OR: [{ branchId }, { branchId: null }],
+          },
+          select: { userId: true },
+        });
+        for (const admin of adminRoles) {
+          await this.notificationsService.create({
+            tenantId,
+            userId: admin.userId,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'New Work Order Request',
+            body: `Technician ${actor.name || 'Staff'} submitted a new Work Order request "${folioNumber}".`,
+            data: { workOrderId: workOrder.id, folioNumber },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to dispatch technician request notification: ${(err as any).message}`);
       }
     }
 
@@ -475,7 +584,7 @@ export class WorkOrdersService {
     });
 
     this.logger.log(
-      `Work Order ${workOrder.folioNumber} created by Lab Admin ${actor.id} for branch ${branchId}`,
+      `Work Order ${workOrder.folioNumber} created by ${isLabAdmin ? 'Lab Admin' : 'Technician'} ${actor.id} for branch ${branchId}`,
     );
 
     return this.findOne(tenantId, actor, workOrder.id);
@@ -487,10 +596,18 @@ export class WorkOrdersService {
   async findAll(tenantId: string, actor: AuthenticatedUser, query: QueryWorkOrdersDto) {
     const isLabAdmin = await this.isLabAdminUser(actor, tenantId);
     const isTenantAdmin = await this.isTenantAdminUser(actor, tenantId);
+    const isTechnician = await this.isLabTechnicianUser(actor, tenantId);
+
+    const myRequestedOnly =
+      query.myRequestedOnly === true ||
+      query.myRequestedOnly === 'true' ||
+      (isTechnician && !isLabAdmin && !isTenantAdmin);
 
     let branchFilter: string | undefined = query.branchId;
     if (isLabAdmin) {
       branchFilter = await this.resolveLabAdminBranch(actor, tenantId);
+    } else if (isTechnician) {
+      branchFilter = await this.resolveLabTechnicianBranch(actor, tenantId);
     }
 
     const page = Math.max(1, Number(query.page) || 1);
@@ -502,6 +619,7 @@ export class WorkOrdersService {
       ...(branchFilter && { branchId: branchFilter }),
       ...(query.status && query.status !== 'ALL' && { status: query.status as WorkOrderStatus }),
       ...(query.doctorId && { doctorId: query.doctorId }),
+      ...(myRequestedOnly && { createdById: actor.id }),
     };
 
     if (query.search && query.search.trim().length > 0) {

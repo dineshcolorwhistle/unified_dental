@@ -165,7 +165,7 @@ export interface CreateWorkOrderPayload {
   initialPayment?: number;
   paymentReferenceNumbers?: string[];
   action: 'create' | 'createAndAssign';
-  processes: Array<{
+  processes?: Array<{
     id?: string;
     processName: string;
     processId?: string;
@@ -211,6 +211,7 @@ export interface QueryWorkOrdersParams {
   branchId?: string;
   status?: string;
   doctorId?: string;
+  myRequestedOnly?: boolean;
   page?: number;
   limit?: number;
 }

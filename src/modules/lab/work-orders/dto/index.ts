@@ -177,6 +177,10 @@ export class QueryWorkOrdersDto {
   @ApiProperty({ required: false, default: 10 })
   @IsOptional()
   limit?: string | number;
+
+  @ApiProperty({ required: false, description: 'Filter only orders requested by current user' })
+  @IsOptional()
+  myRequestedOnly?: boolean | string;
 }
 
 export class UpdateWorkOrderDto {
