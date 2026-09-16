@@ -196,7 +196,9 @@ export const LabAdminDashboard: React.FC = () => {
           fontSize: '10px', fontWeight: 600, padding: '2px 8px',
           borderRadius: '12px', backgroundColor: 'var(--badge-success-bg)',
           color: 'var(--emerald-600)', border: '1px solid var(--emerald-200)',
+          whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px',
         }}>
+          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor' }} />
           {t('dashboard.labAdmin.statusInProgress')}
         </span>
       );
@@ -206,7 +208,9 @@ export const LabAdminDashboard: React.FC = () => {
         fontSize: '10px', fontWeight: 600, padding: '2px 8px',
         borderRadius: '12px', backgroundColor: 'var(--badge-warning-bg)',
         color: 'var(--amber-600)', border: '1px solid var(--amber-200)',
+        whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px',
       }}>
+        <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor' }} />
         {t('dashboard.labAdmin.statusNotStarted')}
       </span>
     );

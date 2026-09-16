@@ -1543,17 +1543,62 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
                             {/* Process Name & Badges */}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontSize: '13px',
-                                  fontWeight: 700,
-                                  color: 'var(--text-heading)',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {step.processName}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <div
+                                  style={{
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    color: 'var(--text-heading)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {step.processName}
+                                </div>
+
+                                {/* Rework Selection Checkbox (beside process name) */}
+                                {reworkMode && step.status === 'COMPLETED' && !step.isVerification && step.processType === 'PRODUCTION' && (
+                                  <label
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 8px',
+                                      borderRadius: '6px',
+                                      backgroundColor: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                        ? 'rgba(239, 68, 68, 0.12)'
+                                        : 'var(--bg-surface)',
+                                      border: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                        ? '1.5px solid var(--rose-500)'
+                                        : '1px solid var(--border-color)',
+                                      color: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                        ? 'var(--rose-600)'
+                                        : 'var(--text-muted)',
+                                      fontWeight: 700,
+                                      fontSize: '11px',
+                                      cursor: 'pointer',
+                                      userSelect: 'none',
+                                      transition: 'all 0.15s ease',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={reworkSelectedProcessIds.includes(step.id || step.processId || '')}
+                                      onChange={(e) => {
+                                        const id = step.id || step.processId || '';
+                                        if (e.target.checked) {
+                                          setReworkSelectedProcessIds((prev) => [...prev, id]);
+                                        } else {
+                                          setReworkSelectedProcessIds((prev) => prev.filter((x) => x !== id));
+                                        }
+                                      }}
+                                      style={{ accentColor: 'var(--rose-600)', width: '14px', height: '14px', cursor: 'pointer' }}
+                                    />
+                                    <span>{t('rework.checkboxLabel', 'Rework')}</span>
+                                  </label>
+                                )}
                               </div>
                               {isExt ? (
                                 <span
@@ -1657,49 +1702,6 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
                             {/* Process Current Status (Requirement 2) */}
                             {renderStatusBadge(step.status)}
-
-                            {/* Rework Selection Checkbox */}
-                            {reworkMode && step.status === 'COMPLETED' && !step.isVerification && step.processType === 'PRODUCTION' && (
-                              <label
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '5px 10px',
-                                  borderRadius: '8px',
-                                  backgroundColor: reworkSelectedProcessIds.includes(step.id || step.processId || '')
-                                    ? 'rgba(239, 68, 68, 0.15)'
-                                    : 'var(--bg-surface)',
-                                  border: reworkSelectedProcessIds.includes(step.id || step.processId || '')
-                                    ? '1.5px solid var(--rose-500)'
-                                    : '1px solid var(--border-color)',
-                                  color: reworkSelectedProcessIds.includes(step.id || step.processId || '')
-                                    ? 'var(--rose-600)'
-                                    : 'var(--text-muted)',
-                                  fontWeight: 700,
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  userSelect: 'none',
-                                  transition: 'all 0.15s ease',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={reworkSelectedProcessIds.includes(step.id || step.processId || '')}
-                                  onChange={(e) => {
-                                    const id = step.id || step.processId || '';
-                                    if (e.target.checked) {
-                                      setReworkSelectedProcessIds((prev) => [...prev, id]);
-                                    } else {
-                                      setReworkSelectedProcessIds((prev) => prev.filter((x) => x !== id));
-                                    }
-                                  }}
-                                  style={{ accentColor: 'var(--rose-600)', width: '15px', height: '15px', cursor: 'pointer' }}
-                                />
-                                <span>{t('rework.checkboxLabel', 'Rework')}</span>
-                              </label>
-                            )}
 
                             {/* Action Buttons: Up, Down, Delete (Hidden in reworkMode) */}
                             {!reworkMode && (

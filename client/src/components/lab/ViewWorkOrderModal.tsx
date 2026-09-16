@@ -314,15 +314,22 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
         return (
           <span
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              padding: '3px 10px',
+              padding: '4px 12px',
               borderRadius: '999px',
               backgroundColor: 'rgba(16, 185, 129, 0.12)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
+              color: 'var(--emerald-600, #10b981)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
             }}
           >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', flexShrink: 0 }} />
             {t(`enums.processStatus.${status}`, 'Completed')}
           </span>
         );
@@ -330,15 +337,22 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
         return (
           <span
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              padding: '3px 10px',
+              padding: '4px 12px',
               borderRadius: '999px',
               backgroundColor: 'rgba(37, 99, 235, 0.12)',
-              color: 'var(--primary-600)',
-              border: '1px solid rgba(37, 99, 235, 0.25)',
+              color: 'var(--primary-600, #2563eb)',
+              border: '1px solid rgba(37, 99, 235, 0.3)',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
             }}
           >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#2563eb', flexShrink: 0 }} />
             {t(`enums.processStatus.${status}`, 'In Progress')}
           </span>
         );
@@ -346,32 +360,71 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
         return (
           <span
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              padding: '3px 10px',
+              padding: '4px 12px',
               borderRadius: '999px',
               backgroundColor: 'rgba(245, 158, 11, 0.12)',
-              color: '#f59e0b',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
+              color: 'var(--amber-600, #d97706)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
             }}
           >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b', flexShrink: 0 }} />
             {t(`enums.processStatus.${status}`, 'Paused')}
           </span>
         );
+      case 'FAILED':
+      case 'CANCELLED':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '4px 12px',
+              borderRadius: '999px',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              color: 'var(--rose-600, #dc2626)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
+            }}
+          >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444', flexShrink: 0 }} />
+            {t(`enums.processStatus.${status}`, status)}
+          </span>
+        );
+      case 'NOT_STARTED':
       default:
         return (
           <span
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              padding: '3px 10px',
+              padding: '4px 12px',
               borderRadius: '999px',
-              backgroundColor: 'var(--bg-surface)',
-              color: 'var(--text-muted)',
-              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-surface-muted, rgba(100, 116, 139, 0.08))',
+              color: 'var(--text-muted, #64748b)',
+              border: '1px solid var(--border-color, rgba(148, 163, 184, 0.25))',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
             }}
           >
-            {t(`enums.processStatus.${status}`, 'Pending')}
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#94a3b8', flexShrink: 0 }} />
+            {t(`enums.processStatus.${status}`, 'Not Started')}
           </span>
         );
     }
@@ -1361,7 +1414,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                               textAlign: 'left',
                             }}
                           >
-                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', width: '50px' }}>
+                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', width: '50px', textAlign: 'center' }}>
                               {t('workOrders.viewModal.processesTab.step', 'Step')}
                             </th>
                             <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>
@@ -1370,16 +1423,10 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                             <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>
                               {t('workOrders.viewModal.processesTab.assignedTechnician', 'Assigned Technician')}
                             </th>
-                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                              {t('workOrders.viewModal.processesTab.startTime', 'Start Time')}
-                            </th>
-                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                              {t('workOrders.viewModal.processesTab.endTime', 'End Time')}
-                            </th>
-                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', width: '140px', whiteSpace: 'nowrap' }}>
                               {t('workOrders.viewModal.processesTab.timeAudit', 'Time Audit')}
                             </th>
-                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>
+                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                               {t('workOrders.viewModal.processesTab.status', 'Status')}
                             </th>
                           </tr>
@@ -1402,7 +1449,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                     transition: 'background-color 0.15s ease',
                                   }}
                                 >
-                                  <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>
                                     {pIdx + 1}
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
@@ -1452,13 +1499,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                   <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text-main)' }}>
                                     {assignee}
                                   </td>
-                                  <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                                    {proc.startedAt ? formatDateTime(proc.startedAt) : '—'}
-                                  </td>
-                                  <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                                    {proc.endedAt ? formatDateTime(proc.endedAt) : '—'}
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
+                                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -1489,7 +1530,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                       </span>
                                     </button>
                                   </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                  <td style={{ padding: '12px 14px', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     {getStepStatusBadge(proc.status)}
                                   </td>
                                 </tr>
@@ -1497,7 +1538,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                 {/* Expanded Process Activity History */}
                                 {isAuditExpanded && (
                                   <tr>
-                                    <td colSpan={7} style={{ padding: '14px 20px', backgroundColor: 'var(--bg-surface)' }}>
+                                    <td colSpan={5} style={{ padding: '14px 20px', backgroundColor: 'var(--bg-surface)' }}>
                                       <div
                                         style={{
                                           borderRadius: '8px',
