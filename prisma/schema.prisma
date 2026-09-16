@@ -200,6 +200,8 @@ model User {
   workOrderNotes             WorkOrderNote[]
   processActivityLogs        ProcessActivityLog[]
   workOrderPayments          WorkOrderPayment[]
+  chatMessages               WorkOrderChatMessage[]
+  chatReads                  WorkOrderChatRead[]
 
   @@map("users")
 }
@@ -590,6 +592,8 @@ model WorkOrder {
   processes      WorkOrderProcess[]
   notesHistory   WorkOrderNote[]
   payments       WorkOrderPayment[]
+  chatMessages   WorkOrderChatMessage[]
+  chatReads      WorkOrderChatRead[]
 
   @@unique([tenantId, folioNumber])
   @@index([tenantId])
@@ -682,5 +686,34 @@ model WorkOrderPayment {
   @@map("work_order_payments")
 }
 
+// ─── Dental Lab Work Order Dedicated Chat (Phase 2.3) ───────
 
+model WorkOrderChatMessage {
+  id          String   @id @default(uuid())
+  workOrderId String   @map("work_order_id")
+  senderId    String   @map("sender_id")
+  message     String
+  createdAt   DateTime @default(now()) @map("created_at")
 
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  sender      User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+  @@index([senderId])
+  @@map("work_order_chat_messages")
+}
+
+model WorkOrderChatRead {
+  id          String   @id @default(uuid())
+  workOrderId String   @map("work_order_id")
+  userId      String   @map("user_id")
+  lastReadAt  DateTime @default(now()) @map("last_read_at")
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workOrderId, userId])
+  @@index([workOrderId])
+  @@index([userId])
+  @@map("work_order_chat_reads")
+}

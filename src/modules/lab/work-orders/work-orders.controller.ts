@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkOrdersService } from './work-orders.service';
-import { AddWorkOrderNoteDto, CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
+import { AddWorkOrderNoteDto, CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, SendWorkOrderChatMessageDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 import { RequireModule } from '../../../core/modules/decorators/require-module.decorator';
 import { ModuleGuard } from '../../../core/modules/guards/module.guard';
@@ -69,6 +69,16 @@ export class WorkOrdersController {
       page,
       limit,
     });
+  }
+
+  @Get('chat/unread-counts')
+  @ApiOperation({ summary: 'Get unread chat message counts for work orders' })
+  getUnreadChatCounts(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('workOrderIds') workOrderIds?: string,
+  ) {
+    const ids = workOrderIds ? workOrderIds.split(',').map((id) => id.trim()).filter(Boolean) : undefined;
+    return this.workOrdersService.getUnreadChatCounts(user.activeTenantId, user, ids);
   }
 
   @Get(':id')
@@ -199,6 +209,34 @@ export class WorkOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workOrdersService.recordPayment(user.activeTenantId, user, id, dto);
+  }
+
+  @Get(':id/chat')
+  @ApiOperation({ summary: 'Get work order chat messages, participants, and mark as read' })
+  getChat(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.getWorkOrderChat(user.activeTenantId, user, id);
+  }
+
+  @Post(':id/chat')
+  @ApiOperation({ summary: 'Send a message in the work order chat' })
+  sendMessage(
+    @Param('id') id: string,
+    @Body() dto: SendWorkOrderChatMessageDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.sendWorkOrderChatMessage(user.activeTenantId, user, id, dto);
+  }
+
+  @Post(':id/chat/read')
+  @ApiOperation({ summary: 'Mark work order chat as read' })
+  markChatRead(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.markWorkOrderChatRead(user.activeTenantId, user, id);
   }
 
   @Delete(':id')

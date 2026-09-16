@@ -18,10 +18,12 @@ import {
   Layers,
   Eye,
   Pencil,
+  MessageSquare,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { Tooltip } from '../../components/common/Tooltip';
 import { Pagination } from '../../components/common/Pagination';
@@ -58,9 +60,30 @@ export const LabWorkOrdersPage: React.FC = () => {
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [orderToView, setOrderToView] = useState<WorkOrderListItem | null>(null);
+  const [modalInitialTab, setModalInitialTab] = useState<'general' | 'chat'>('general');
+  const [unreadChatCounts, setUnreadChatCounts] = useState<Record<string, number>>({});
   const [orderToEdit, setOrderToEdit] = useState<WorkOrderListItem | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<WorkOrderListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const { socket } = useNotifications();
+
+  // Socket listener for real-time incoming chat messages
+  useEffect(() => {
+    if (!socket) return;
+    const handleIncomingChatMessage = (payload: any) => {
+      if (payload?.workOrderId) {
+        setUnreadChatCounts((prev) => ({
+          ...prev,
+          [payload.workOrderId]: (prev[payload.workOrderId] || 0) + 1,
+        }));
+      }
+    };
+    socket.on('work_order:chat_message', handleIncomingChatMessage);
+    return () => {
+      socket.off('work_order:chat_message', handleIncomingChatMessage);
+    };
+  }, [socket]);
 
   // Fetch branches for branch switcher (if Tenant Admin)
   useEffect(() => {
@@ -92,6 +115,14 @@ export const LabWorkOrdersPage: React.FC = () => {
       setOrders(items);
       setTotalOrders(total);
       setTotalPages(pages);
+
+      // Fetch unread chat counts for displayed orders
+      if (items.length > 0) {
+        const ids = items.map((o: any) => o.id);
+        workOrderService.getUnreadChatCounts(ids).then((counts) => {
+          setUnreadChatCounts(counts || {});
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Failed to load work orders', err);
       toast.error(t('workOrders.alerts.loadFailed', 'Failed to load work orders'));
@@ -692,10 +723,13 @@ export const LabWorkOrdersPage: React.FC = () => {
                       <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           {/* View Work Order (for Lab Admin and Admin roles) */}
-                          <Tooltip content={t('workOrders.table.viewTooltip', 'View Work Order')}>
+                          <Tooltip content={t('workOrders.table.viewTooltip', 'View Work Order Details')}>
                             <button
                               type="button"
-                              onClick={() => setOrderToView(order)}
+                              onClick={() => {
+                                setModalInitialTab('general');
+                                setOrderToView(order);
+                              }}
                               className="btn-icon"
                               style={{
                                 width: '32px',
@@ -713,6 +747,72 @@ export const LabWorkOrdersPage: React.FC = () => {
                               <Eye size={14} />
                             </button>
                           </Tooltip>
+
+                          {/* Chat Work Order */}
+                          {(() => {
+                            const unread = unreadChatCounts[order.id] || 0;
+                            return (
+                              <Tooltip
+                                content={
+                                  unread > 0
+                                    ? t('workOrders.table.unreadCountTooltip', {
+                                        count: unread,
+                                        defaultValue: `${unread} unread messages`,
+                                      })
+                                    : t('workOrders.table.chatTooltip', 'Order Chat')
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setModalInitialTab('chat');
+                                    setOrderToView(order);
+                                    setUnreadChatCounts((prev) => ({ ...prev, [order.id]: 0 }));
+                                  }}
+                                  className="btn-icon"
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: unread > 0 ? '1px solid var(--primary-500, #0284c7)' : '1px solid var(--border-color)',
+                                    backgroundColor: unread > 0 ? 'rgba(2, 132, 199, 0.08)' : 'var(--bg-surface)',
+                                    color: unread > 0 ? 'var(--primary-600, #0284c7)' : 'var(--text-main)',
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                  }}
+                                >
+                                  <MessageSquare size={14} />
+                                  {unread > 0 && (
+                                    <span
+                                      style={{
+                                        position: 'absolute',
+                                        top: '-4px',
+                                        right: '-4px',
+                                        minWidth: '15px',
+                                        height: '15px',
+                                        padding: '0 3px',
+                                        borderRadius: '999px',
+                                        backgroundColor: '#ef4444',
+                                        color: '#ffffff',
+                                        fontSize: '9px',
+                                        fontWeight: 800,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                        lineHeight: 1,
+                                      }}
+                                    >
+                                      {unread > 9 ? '9+' : unread}
+                                    </span>
+                                  )}
+                                </button>
+                              </Tooltip>
+                            );
+                          })()}
 
                           {/* Edit Work Order (Lab Admin role) */}
                           {isLabAdmin && (
@@ -802,6 +902,7 @@ export const LabWorkOrdersPage: React.FC = () => {
       <ViewWorkOrderModal
         workOrder={orderToView}
         isOpen={Boolean(orderToView)}
+        initialTab={modalInitialTab}
         onClose={() => setOrderToView(null)}
         onOrderUpdated={fetchWorkOrders}
       />

@@ -36,6 +36,7 @@ import { formatDate, formatDateTime, formatTime, formatCurrency } from '../../co
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { Tooltip } from '../common/Tooltip';
+import { WorkOrderChatTab } from './WorkOrderChatTab';
 
 export interface ViewWorkOrderModalProps {
   workOrder?: WorkOrderListItem | null;
@@ -43,6 +44,7 @@ export interface ViewWorkOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOrderUpdated?: () => void;
+  initialTab?: 'general' | 'processes' | 'payments' | 'chat';
 }
 
 type TabKey = 'general' | 'processes' | 'payments' | 'chat';
@@ -62,15 +64,23 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   isOpen,
   onClose,
   onOrderUpdated,
+  initialTab,
 }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
   const isAdmin = Boolean(isTenantAdmin || isLabAdmin || user?.isSuperAdmin);
+  const isTechnician = !isAdmin;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('general');
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab || 'general');
   const [currentWO, setCurrentWO] = useState<WorkOrderListItem | null>(initialWorkOrder || null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab || 'general');
+    }
+  }, [isOpen, initialTab]);
 
   // General tab: Notes state
   const [isNotesOpen, setIsNotesOpen] = useState(true);
@@ -93,10 +103,6 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
-
-  // Chat tab state
-  const [chatMessage, setChatMessage] = useState('');
-  const [sendingChat, setSendingChat] = useState(false);
 
   // Target ID for fetching
   const targetId = workOrderId || initialWorkOrder?.id;
@@ -121,7 +127,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   useEffect(() => {
     if (isOpen && targetId) {
       fetchFullOrder(false);
-      setActiveTab('general');
+      setActiveTab(initialTab || 'general');
       setShowAddNoteInput(false);
       setNewNote('');
       setEditingNoteId(null);
@@ -130,7 +136,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
     } else if (!isOpen) {
       setCurrentWO(null);
     }
-  }, [isOpen, targetId, fetchFullOrder]);
+  }, [isOpen, targetId, fetchFullOrder, initialTab]);
 
   if (!isOpen) return null;
 
@@ -287,24 +293,6 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
       toast.error(err?.response?.data?.message || t('workOrders.viewModal.paymentTab.recordFailed', 'Failed to record payment.'));
     } finally {
       setSubmittingPayment(false);
-    }
-  };
-
-  // Handle Post Chat Message
-  const handleSendChat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentWO || !chatMessage.trim()) return;
-    setSendingChat(true);
-    try {
-      const created = await workOrderService.addNote(currentWO.id, chatMessage.trim());
-      setLocalNotes((prev) => [created, ...prev]);
-      setChatMessage('');
-      toast.success(t('workOrders.viewModal.generalTab.addNoteSuccess', { defaultValue: 'Message posted.' }));
-      if (onOrderUpdated) onOrderUpdated();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || t('workOrders.viewModal.generalTab.addNoteFailed', { defaultValue: 'Failed to post message.' }));
-    } finally {
-      setSendingChat(false);
     }
   };
 
@@ -572,23 +560,25 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             {t('workOrders.viewModal.tabs.processes', 'Processes')}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('payments')}
-            style={{
-              padding: '12px 16px',
-              fontSize: '13px',
-              fontWeight: activeTab === 'payments' ? 800 : 600,
-              border: 'none',
-              borderBottom: activeTab === 'payments' ? '2.5px solid var(--primary-600)' : '2.5px solid transparent',
-              color: activeTab === 'payments' ? 'var(--primary-600)' : 'var(--text-muted)',
-              backgroundColor: 'transparent',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {t('workOrders.viewModal.tabs.paymentHistory', 'Payment History')}
-          </button>
+          {!isTechnician && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('payments')}
+              style={{
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: activeTab === 'payments' ? 800 : 600,
+                border: 'none',
+                borderBottom: activeTab === 'payments' ? '2.5px solid var(--primary-600)' : '2.5px solid transparent',
+                color: activeTab === 'payments' ? 'var(--primary-600)' : 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {t('workOrders.viewModal.tabs.paymentHistory', 'Payment History')}
+            </button>
+          )}
 
           <button
             type="button"
@@ -1917,109 +1907,15 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
               )}
 
               {/* ═════════════════════════════════════════════════════════════ */}
-              {/* TAB 4: CHAT                                                   */}
+              {/* ═════════════════════════════════════════════════════════════ */}
+              {/* TAB: CHAT                                                     */}
               {/* ═════════════════════════════════════════════════════════════ */}
               {activeTab === 'chat' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div
-                    style={{
-                      borderRadius: '12px',
-                      backgroundColor: 'var(--bg-card)',
-                      border: '1px solid var(--border-color)',
-                      padding: '24px',
-                      textAlign: 'center',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    <MessageSquare size={36} style={{ color: 'var(--primary-600)', margin: '0 auto 10px' }} />
-                    <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: 'var(--text-heading)' }}>
-                      {t('workOrders.viewModal.chatTab.title', 'Order Discussion & Chat')}
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '13px', maxWidth: '420px', marginInline: 'auto' }}>
-                      {t(
-                        'workOrders.viewModal.chatTab.desc',
-                        'Direct messaging with clinic doctors and lab team will be enabled in Phase 2.5 cross-module collaboration.',
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Discussion Messages List */}
-                  <div
-                    style={{
-                      borderRadius: '12px',
-                      backgroundColor: 'var(--bg-card)',
-                      border: '1px solid var(--border-color)',
-                      padding: '16px',
-                      maxHeight: '260px',
-                      overflowY: 'auto',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px',
-                    }}
-                  >
-                    {localNotes.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                        {t('workOrders.viewModal.generalTab.noNotes', 'No messages or notes added yet.')}
-                      </div>
-                    ) : (
-                      localNotes.map((msg) => {
-                        const isMe = msg.userId === user?.id || (msg.user && msg.user.id === user?.id);
-                        return (
-                          <div
-                            key={msg.id}
-                            style={{
-                              alignSelf: isMe ? 'flex-end' : 'flex-start',
-                              maxWidth: '75%',
-                              padding: '10px 14px',
-                              borderRadius: '12px',
-                              backgroundColor: isMe ? 'var(--primary-600)' : 'var(--bg-surface)',
-                              color: isMe ? '#ffffff' : 'var(--text-main)',
-                              border: isMe ? 'none' : '1px solid var(--border-color)',
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                opacity: 0.85,
-                                marginBottom: '2px',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                gap: '12px',
-                              }}
-                            >
-                              <span>{msg.user?.name || t('common.user', 'User')}</span>
-                              <span>{formatTime(msg.createdAt)}</span>
-                            </div>
-                            <div style={{ fontSize: '13px', lineHeight: 1.4 }}>{msg.note}</div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* Chat Input */}
-                  <form onSubmit={handleSendChat} style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder={t('technician.typeNotePlaceholder', 'Type a note or message...')}
-                      value={chatMessage}
-                      onChange={(e) => setChatMessage(e.target.value)}
-                      disabled={sendingChat}
-                      style={{ flex: 1 }}
-                    />
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      disabled={sendingChat || !chatMessage.trim()}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-                    >
-                      {sendingChat ? <Loader2 size={15} className="spinner" /> : <Send size={15} />}
-                      <span>{t('workOrders.viewModal.generalTab.postNoteBtn', 'Post Note')}</span>
-                    </button>
-                  </form>
-                </div>
+                <WorkOrderChatTab
+                  workOrderId={currentWO.id}
+                  workOrder={currentWO}
+                  onMessageSent={onOrderUpdated}
+                />
               )}
             </>
           )}

@@ -314,3 +314,5 @@ export class RecordWorkOrderPaymentDto {
   @IsOptional()
   paymentDate?: string;
 }
+
+export * from './work-order-chat.dto';

@@ -28,6 +28,7 @@ import {
   ProcessActivityLogItem,
 } from '../../services/workOrderService';
 import { PrintQrModal } from './PrintQrModal';
+import { WorkOrderChatTab } from './WorkOrderChatTab';
 
 interface TechnicianWorkOrderDetailModalProps {
   workOrderId: string;
@@ -1213,26 +1214,11 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
           )}
 
           {activeTab === 'chat' && (
-            <div
-              style={{
-                backgroundColor: 'var(--bg-card)',
-                padding: '40px 20px',
-                borderRadius: '12px',
-                border: '1px solid var(--border-color)',
-                textAlign: 'center',
-                color: 'var(--text-muted)',
-              }}
-            >
-              <MessageSquare size={36} style={{ color: 'var(--primary-400)', margin: '0 auto 12px' }} />
-              <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                {t('technician.chat.title', { defaultValue: 'Order Discussion & Chat' })}
-              </h4>
-              <p style={{ margin: 0, fontSize: '13px', maxWidth: '360px', marginInline: 'auto' }}>
-                {t('technician.chat.desc', {
-                  defaultValue: 'Direct messaging with clinic doctors and lab team will be enabled in Phase 2.5 cross-module collaboration.',
-                })}
-              </p>
-            </div>
+            <WorkOrderChatTab
+              workOrderId={workOrderId}
+              workOrder={workOrder}
+              onMessageSent={onRefresh}
+            />
           )}
         </div>
       </div>

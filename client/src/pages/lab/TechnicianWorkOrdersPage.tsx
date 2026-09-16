@@ -3,15 +3,17 @@ import { useTranslation } from 'react-i18next';
 import {
   Search,
   QrCode,
-  FileText,
+  MessageSquare,
   ClipboardList,
 } from 'lucide-react';
 import { useToast } from '../../core/context/ToastContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import { formatDate } from '../../core/utils/dateUtils';
 import {
   workOrderService,
   WorkOrderListItem,
 } from '../../services/workOrderService';
+import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
 import { TechnicianWorkOrderDetailModal } from '../../components/lab/TechnicianWorkOrderDetailModal';
 import { PrintQrModal } from '../../components/lab/PrintQrModal';
 
@@ -24,7 +26,28 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'NOT_STARTED' | 'IN_PROGRESS_PAUSED' | 'COMPLETED'>('ALL');
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
+  const [chatWorkOrder, setChatWorkOrder] = useState<WorkOrderListItem | null>(null);
+  const [unreadChatCounts, setUnreadChatCounts] = useState<Record<string, number>>({});
   const [qrWorkOrder, setQrWorkOrder] = useState<WorkOrderListItem | null>(null);
+
+  const { socket } = useNotifications();
+
+  // Socket listener for real-time incoming chat messages
+  useEffect(() => {
+    if (!socket) return;
+    const handleIncomingChatMessage = (payload: any) => {
+      if (payload?.workOrderId) {
+        setUnreadChatCounts((prev) => ({
+          ...prev,
+          [payload.workOrderId]: (prev[payload.workOrderId] || 0) + 1,
+        }));
+      }
+    };
+    socket.on('work_order:chat_message', handleIncomingChatMessage);
+    return () => {
+      socket.off('work_order:chat_message', handleIncomingChatMessage);
+    };
+  }, [socket]);
 
   const fetchOrders = async () => {
     try {
@@ -34,7 +57,16 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
         status: activeFilter === 'ALL' ? undefined : activeFilter,
         limit: 50,
       });
-      setOrders(res.data);
+      const items = res.data || [];
+      setOrders(items);
+
+      // Fetch unread chat counts for these work orders
+      if (items.length > 0) {
+        const ids = items.map((o: any) => o.id);
+        workOrderService.getUnreadChatCounts(ids).then((counts) => {
+          setUnreadChatCounts(counts || {});
+        }).catch(() => {});
+      }
     } catch (err: any) {
       console.error('Failed to load technician work orders:', err);
       toast.error(err?.response?.data?.message || t('technician.errors.loadOrdersFailed', { defaultValue: 'Failed to load work orders' }));
@@ -285,35 +317,60 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Notes indicator */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedWorkOrderId(order.id)}
-                      title={t('technician.notesIndicator', { defaultValue: 'View Notes' })}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: hasNotes ? '#38bdf8' : 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: '2px',
-                        position: 'relative',
-                      }}
-                    >
-                      <FileText size={16} />
-                      {hasNotes && (
-                        <span
-                          style={{
-                            position: 'absolute',
-                            top: '-2px',
-                            right: '-2px',
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            backgroundColor: '#ef4444',
+                    {/* Chat Icon (replacing Notes icon, matching Screenshot 2) */}
+                    {(() => {
+                      const unread = unreadChatCounts[order.id] || 0;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChatWorkOrder(order);
+                            setUnreadChatCounts((prev) => ({ ...prev, [order.id]: 0 }));
                           }}
-                        />
-                      )}
-                    </button>
+                          title={
+                            unread > 0
+                              ? t('workOrders.table.unreadCountTooltip', { count: unread, defaultValue: `${unread} unread messages` })
+                              : t('technician.chatTooltip', { defaultValue: 'Order Chat' })
+                          }
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: unread > 0 ? '#0284c7' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <MessageSquare size={16} />
+                          {unread > 0 && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: '-3px',
+                                right: '-3px',
+                                minWidth: '13px',
+                                height: '13px',
+                                padding: '0 2px',
+                                borderRadius: '999px',
+                                backgroundColor: '#ef4444',
+                                color: '#ffffff',
+                                fontSize: '8px',
+                                fontWeight: 800,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                lineHeight: 1,
+                              }}
+                            >
+                              {unread > 9 ? '9+' : unread}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })()}
 
                     {/* QR Code icon */}
                     <button
@@ -432,6 +489,17 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
           workOrderId={selectedWorkOrderId}
           onClose={() => setSelectedWorkOrderId(null)}
           onRefresh={fetchOrders}
+        />
+      )}
+
+      {/* Chat Tab in View Work Order Modal */}
+      {chatWorkOrder && (
+        <ViewWorkOrderModal
+          workOrder={chatWorkOrder}
+          isOpen={Boolean(chatWorkOrder)}
+          initialTab="chat"
+          onClose={() => setChatWorkOrder(null)}
+          onOrderUpdated={fetchOrders}
         />
       )}
 

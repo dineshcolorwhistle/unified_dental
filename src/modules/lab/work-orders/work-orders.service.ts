@@ -10,7 +10,7 @@ import { AuditService } from '../../../core/audit/audit.service';
 import { NotificationsService } from '../../../core/notifications/notifications.service';
 import { NotificationsGateway } from '../../../core/notifications/notifications.gateway';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
-import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
+import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, SendWorkOrderChatMessageDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { generateFolioNumber } from './utils/folio.util';
 import { parseCalendarDate, startOfDayInTz, endOfDayInTz, DEFAULT_TIMEZONE } from '../../../shared/common/utils/timezone.util';
 import { DoctorType, ProcessStatus, ProcessType, UserStatus, WorkOrderStatus } from '@prisma/client';
@@ -2564,4 +2564,389 @@ export class WorkOrdersService {
 
     return this.findOne(tenantId, actor, workOrderId);
   }
+
+  /**
+   * Resolve all chat participants associated with a Work Order:
+   * - Lab Administrators of the branch (or tenant admins)
+   * - Assigned Technicians across all process steps
+   * - Integrated Doctor (if doctor.type === 'INTEGRATED' and associated user account exists)
+   */
+  async getWorkOrderChatParticipants(tenantId: string, workOrderId: string) {
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        branch: { select: { id: true, name: true } },
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            clinicName: true,
+            email: true,
+            phone: true,
+          },
+        },
+        processes: {
+          select: {
+            technicianId: true,
+            technician: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const participantsMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        email?: string;
+        role: 'Administrator' | 'Technician' | 'Doctor';
+        branchName?: string;
+        clinicName?: string;
+      }
+    >();
+
+    // 1. Lab Administrators of this branch (and tenant admins)
+    const branchAdmins = await this.prisma.userRole.findMany({
+      where: {
+        tenantId,
+        role: { slug: { in: ['lab-admin', 'tenant-admin'] } },
+        ...(workOrder.branchId ? { OR: [{ branchId: workOrder.branchId }, { branchId: null }] } : {}),
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        branch: { select: { name: true } },
+      },
+    });
+
+    for (const ur of branchAdmins) {
+      if (ur.user && !participantsMap.has(ur.user.id)) {
+        participantsMap.set(ur.user.id, {
+          id: ur.user.id,
+          name: ur.user.name,
+          email: ur.user.email,
+          role: 'Administrator',
+          branchName: ur.branch?.name || workOrder.branch?.name || 'Main Branch',
+        });
+      }
+    }
+
+    // Include the order creator if user exists
+    if (workOrder.createdById && !participantsMap.has(workOrder.createdById)) {
+      const creator = await this.prisma.user.findUnique({
+        where: { id: workOrder.createdById },
+        select: { id: true, name: true, email: true },
+      });
+      if (creator) {
+        participantsMap.set(creator.id, {
+          id: creator.id,
+          name: creator.name,
+          email: creator.email,
+          role: 'Administrator',
+          branchName: workOrder.branch?.name || 'Main Branch',
+        });
+      }
+    }
+
+    // 2. Technicians assigned to process steps
+    for (const proc of workOrder.processes) {
+      if (proc.technician && !participantsMap.has(proc.technician.id)) {
+        participantsMap.set(proc.technician.id, {
+          id: proc.technician.id,
+          name: proc.technician.name,
+          email: proc.technician.email,
+          role: 'Technician',
+          branchName: workOrder.branch?.name || 'Main Branch',
+        });
+      }
+    }
+
+    // 3. Integrated Doctor (only if INTEGRATED and has user account)
+    if (workOrder.doctor?.type === DoctorType.INTEGRATED && workOrder.doctor.email) {
+      const doctorUser = await this.prisma.user.findFirst({
+        where: { email: workOrder.doctor.email },
+        select: { id: true, name: true, email: true },
+      });
+      if (doctorUser && !participantsMap.has(doctorUser.id)) {
+        participantsMap.set(doctorUser.id, {
+          id: doctorUser.id,
+          name: workOrder.doctor.name || doctorUser.name,
+          email: doctorUser.email,
+          role: 'Doctor',
+          clinicName: workOrder.doctor.clinicName || undefined,
+          branchName: workOrder.doctor.clinicName || workOrder.branch?.name,
+        });
+      }
+    }
+
+    return Array.from(participantsMap.values());
+  }
+
+  /**
+   * Get chat messages and participants for a Work Order
+   */
+  async getWorkOrderChat(tenantId: string, actor: AuthenticatedUser, workOrderId: string) {
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true, folioNumber: true, boxNumber: true },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    const participants = await this.getWorkOrderChatParticipants(tenantId, workOrderId);
+
+    // Fetch chat messages
+    const messages = await this.prisma.workOrderChatMessage.findMany({
+      where: { workOrderId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Mark as read for this actor
+    await this.prisma.workOrderChatRead.upsert({
+      where: {
+        workOrderId_userId: {
+          workOrderId,
+          userId: actor.id,
+        },
+      },
+      update: { lastReadAt: new Date() },
+      create: {
+        workOrderId,
+        userId: actor.id,
+        lastReadAt: new Date(),
+      },
+    });
+
+    // Format messages with participant role metadata
+    const formattedMessages = messages.map((m) => {
+      const participant = participants.find((p) => p.id === m.senderId);
+      return {
+        id: m.id,
+        workOrderId: m.workOrderId,
+        senderId: m.senderId,
+        message: m.message,
+        createdAt: m.createdAt,
+        sender: {
+          id: m.sender.id,
+          name: m.sender.name,
+          email: m.sender.email,
+          role: participant?.role || 'User',
+          branchName: participant?.branchName,
+        },
+      };
+    });
+
+    return {
+      workOrder,
+      participants,
+      messages: formattedMessages,
+      unreadCount: 0,
+    };
+  }
+
+  /**
+   * Send a chat message in a Work Order
+   */
+  async sendWorkOrderChatMessage(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    dto: SendWorkOrderChatMessageDto,
+  ) {
+    const messageText = dto?.message?.trim();
+    if (!messageText) {
+      throw new BadRequestException('Message cannot be empty.');
+    }
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true, folioNumber: true, boxNumber: true, branchId: true },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    // Save message
+    const chatMessage = await this.prisma.workOrderChatMessage.create({
+      data: {
+        workOrderId,
+        senderId: actor.id,
+        message: messageText,
+      },
+      include: {
+        sender: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Mark as read for the sender
+    await this.prisma.workOrderChatRead.upsert({
+      where: {
+        workOrderId_userId: {
+          workOrderId,
+          userId: actor.id,
+        },
+      },
+      update: { lastReadAt: new Date() },
+      create: {
+        workOrderId,
+        userId: actor.id,
+        lastReadAt: new Date(),
+      },
+    });
+
+    // Retrieve participants to notify
+    const participants = await this.getWorkOrderChatParticipants(tenantId, workOrderId);
+    const senderParticipant = participants.find((p) => p.id === actor.id);
+
+    const formattedMessage = {
+      id: chatMessage.id,
+      workOrderId: chatMessage.workOrderId,
+      senderId: chatMessage.senderId,
+      message: chatMessage.message,
+      createdAt: chatMessage.createdAt,
+      sender: {
+        id: chatMessage.sender.id,
+        name: chatMessage.sender.name,
+        email: chatMessage.sender.email,
+        role: senderParticipant?.role || 'User',
+        branchName: senderParticipant?.branchName,
+      },
+    };
+
+    // Broadcast to all participants (except sender)
+    const recipientIds = participants
+      .map((p) => p.id)
+      .filter((id) => id !== actor.id);
+
+    const messagePreview = messageText.length > 60 ? `${messageText.substring(0, 57)}...` : messageText;
+
+    for (const recipientId of recipientIds) {
+      // 1. Real-time chat message event (for open chat tab and unread badge update)
+      this.notificationsGateway.sendToUser(recipientId, 'work_order:chat_message', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        message: formattedMessage,
+      });
+
+      // 2. In-app Notification for recipient (top bar notification)
+      try {
+        await this.notificationsService.create({
+          tenantId,
+          userId: recipientId,
+          moduleKey: 'LAB',
+          type: 'WORK_ORDER_CHAT',
+          title: `WO# ${workOrder.folioNumber} - New Message`,
+          body: `${actor.name || 'Team member'}: ${messagePreview}`,
+          data: {
+            workOrderId,
+            folioNumber: workOrder.folioNumber,
+            type: 'WORK_ORDER_CHAT',
+          },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Failed to dispatch chat notification to user ${recipientId}: ${err.message}`);
+      }
+    }
+
+    return formattedMessage;
+  }
+
+  /**
+   * Mark chat messages as read for a Work Order
+   */
+  async markWorkOrderChatRead(tenantId: string, actor: AuthenticatedUser, workOrderId: string) {
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true },
+    });
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    await this.prisma.workOrderChatRead.upsert({
+      where: {
+        workOrderId_userId: {
+          workOrderId,
+          userId: actor.id,
+        },
+      },
+      update: { lastReadAt: new Date() },
+      create: {
+        workOrderId,
+        userId: actor.id,
+        lastReadAt: new Date(),
+      },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Get unread chat message counts for a list of work order IDs (for cards & table rows)
+   */
+  async getUnreadChatCounts(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderIds?: string[],
+  ): Promise<Record<string, number>> {
+    const reads = await this.prisma.workOrderChatRead.findMany({
+      where: {
+        userId: actor.id,
+        ...(workOrderIds && workOrderIds.length > 0 ? { workOrderId: { in: workOrderIds } } : {}),
+      },
+      select: { workOrderId: true, lastReadAt: true },
+    });
+
+    const readMap = new Map<string, Date>();
+    for (const r of reads) {
+      readMap.set(r.workOrderId, r.lastReadAt);
+    }
+
+    // Query messages not sent by actor
+    const messages = await this.prisma.workOrderChatMessage.findMany({
+      where: {
+        senderId: { not: actor.id },
+        workOrder: { tenantId },
+        ...(workOrderIds && workOrderIds.length > 0 ? { workOrderId: { in: workOrderIds } } : {}),
+      },
+      select: { workOrderId: true, createdAt: true },
+    });
+
+    const unreadCounts: Record<string, number> = {};
+
+    for (const m of messages) {
+      const lastRead = readMap.get(m.workOrderId);
+      if (!lastRead || new Date(m.createdAt) > new Date(lastRead)) {
+        unreadCounts[m.workOrderId] = (unreadCounts[m.workOrderId] || 0) + 1;
+      }
+    }
+
+    return unreadCounts;
+  }
 }
+

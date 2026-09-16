@@ -118,6 +118,8 @@ export interface WorkOrderListItem {
   paymentReferenceNumbers: string[];
   status: 'CREATED' | 'ASSIGNED' | 'IN_PROGRESS' | 'INTERNAL_VERIFICATION' | 'EXTERNAL_VERIFICATION' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   qrToken: string;
+  reworkCount?: number;
+  reworkActive?: boolean;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -360,7 +362,68 @@ export const workOrderService = {
     const res = await api.post(`/lab/work-orders/${workOrderId}/payments`, payload);
     return res.data;
   },
+
+  // ─── Work Order Dedicated Chat ───
+
+  getChat: async (workOrderId: string): Promise<WorkOrderChatData> => {
+    const res = await api.get(`/lab/work-orders/${workOrderId}/chat`);
+    return res.data;
+  },
+
+  sendChatMessage: async (workOrderId: string, message: string): Promise<WorkOrderChatMessageItem> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/chat`, { message });
+    return res.data;
+  },
+
+  markChatRead: async (workOrderId: string): Promise<{ success: boolean }> => {
+    const res = await api.post(`/lab/work-orders/${workOrderId}/chat/read`);
+    return res.data;
+  },
+
+  getUnreadChatCounts: async (workOrderIds?: string[]): Promise<Record<string, number>> => {
+    const params = workOrderIds && workOrderIds.length > 0 ? { workOrderIds: workOrderIds.join(',') } : {};
+    const res = await api.get('/lab/work-orders/chat/unread-counts', { params });
+    return res.data;
+  },
 };
+
+// ─── Dedicated Chat Types ───
+
+export interface WorkOrderChatParticipant {
+  id: string;
+  name: string;
+  email?: string;
+  role: 'Administrator' | 'Technician' | 'Doctor';
+  branchName?: string;
+  clinicName?: string;
+}
+
+export interface WorkOrderChatMessageItem {
+  id: string;
+  workOrderId: string;
+  senderId: string;
+  message: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    name: string;
+    email?: string;
+    role: string;
+    branchName?: string;
+  };
+}
+
+export interface WorkOrderChatData {
+  workOrder: {
+    id: string;
+    folioNumber: string;
+    boxNumber?: string | null;
+  };
+  participants: WorkOrderChatParticipant[];
+  messages: WorkOrderChatMessageItem[];
+  unreadCount: number;
+}
+
 
 // ─── Lab Admin Dashboard Types ───
 

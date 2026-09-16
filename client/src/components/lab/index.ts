@@ -5,3 +5,4 @@ export * from './TechnicianWorkOrderDetailModal';
 export * from './VerifyWorkOrderModal';
 export * from './ViewWorkOrderModal';
 export * from './WorkOrderNotesModal';
+export * from './WorkOrderChatTab';
