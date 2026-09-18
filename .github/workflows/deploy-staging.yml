@@ -95,7 +95,7 @@ jobs:
             elif [ -f "ecosystem.config.js" ]; then
               pm2 start ecosystem.config.js --env staging
             else
-              pm2 start dist/src/main.js --name "unified-dental-staging"
+              pm2 start dist/main.js --name "unified-dental-staging"
             fi
 
             pm2 save
