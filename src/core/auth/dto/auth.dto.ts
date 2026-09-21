@@ -49,3 +49,19 @@ export class ResetPasswordDto {
   @MinLength(6)
   newPassword: string;
 }
+
+export class CreatePortalTokenDto {
+  @IsNotEmpty()
+  @IsString()
+  tenantId: string;
+
+  @IsOptional()
+  @IsString()
+  origin?: string;
+}
+
+export class ExchangePortalTokenDto {
+  @IsNotEmpty()
+  @IsString()
+  token: string;
+}

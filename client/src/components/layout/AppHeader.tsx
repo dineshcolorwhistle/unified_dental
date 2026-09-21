@@ -7,12 +7,14 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { NotificationDropdown } from './NotificationDropdown';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { BranchSwitcher } from './BranchSwitcher';
+import { getPlatformRootUrl } from '../../core/utils/tenantContext';
 import {
   LogOut,
   Shield,
   Stethoscope,
   FlaskConical,
   ChevronDown,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface AppHeaderProps {
@@ -56,6 +58,48 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield size={18} style={{ color: 'var(--primary-600)' }} />
             <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Platform Super Admin</span>
+          </div>
+        )}
+
+        {user?.isSuperAdmin && tenant && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--badge-warning-bg)',
+                color: 'var(--badge-warning-text)',
+                fontSize: '12px',
+                fontWeight: 700,
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <Shield size={14} />
+              <span>{t('tenants.superAdminImpersonating', { tenant: tenant.name })}</span>
+            </div>
+
+            <button
+              onClick={() => {
+                window.location.href = getPlatformRootUrl('tenants');
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{
+                fontSize: '11.5px',
+                padding: '4px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderRadius: '8px',
+                color: 'var(--text-main)',
+              }}
+              title={t('tenants.exitImpersonation')}
+            >
+              <ArrowLeft size={13} />
+              <span>{t('tenants.exitImpersonation')}</span>
+            </button>
           </div>
         )}
       </div>

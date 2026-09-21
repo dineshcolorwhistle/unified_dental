@@ -94,6 +94,7 @@ model Tenant {
   expenses        Expense[]
   inventoryCategories InventoryCategory[]
   inventoryItems      InventoryItem[]
+  portalExchangeTokens PortalExchangeToken[]
 
   @@map("tenants")
 }
@@ -212,6 +213,7 @@ model User {
   chatReads                  WorkOrderChatRead[]
   createdExpenses            Expense[] @relation("ExpenseCreatedBy")
   createdInventoryItems      InventoryItem[] @relation("InventoryItemCreatedBy")
+  portalExchangeTokens       PortalExchangeToken[]
 
   @@map("users")
 }
@@ -330,6 +332,24 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model PortalExchangeToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  tenantId  String   @map("tenant_id")
+  used      Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([tenantId])
+  @@map("portal_exchange_tokens")
 }
 
 model AuditLog {

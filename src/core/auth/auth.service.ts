@@ -258,7 +258,18 @@ export class AuthService {
     // Determine effective tenant
     const effectiveTenantId = activeTenantId || user.memberships[0]?.tenantId;
     const membership = user.memberships.find((m) => m.tenantId === effectiveTenantId);
-    const effectiveTenant = membership?.tenant;
+    let effectiveTenant = membership?.tenant;
+
+    // If Super Admin is operating in a specific tenant context without an explicit membership row:
+    if (!effectiveTenant && effectiveTenantId && user.isSuperAdmin) {
+      effectiveTenant = await this.prisma.tenant.findUnique({
+        where: { id: effectiveTenantId },
+        include: {
+          modules: { where: { isEnabled: true } },
+          branches: { where: { status: 'ACTIVE' } },
+        },
+      });
+    }
 
     // Compute roles and permissions scoped to effective tenant
     const permissionKeys = new Set<string>();
@@ -565,6 +576,206 @@ export class AuthService {
     return {
       success: true,
       message: 'Password has been updated successfully. You can now log in with your new password.',
+    };
+  }
+
+  private get portalTokens() {
+    return (this.prisma as any).portalExchangeToken;
+  }
+
+  /**
+   * Generates a secure, short-lived (60s) single-use portal exchange token
+   * for a Super Admin to launch directly into a tenant organization's portal
+   * on their dedicated subdomain without entering credentials.
+   */
+  async createPortalToken(
+    superAdminUserId: string,
+    tenantId: string,
+    requestProtocol?: string,
+    requestHost?: string,
+    clientOrigin?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: superAdminUserId },
+    });
+
+    if (!user || !user.isSuperAdmin) {
+      throw new ForbiddenException('Only platform super administrators can access tenant portals');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant organization not found');
+    }
+
+    if (tenant.status !== 'ACTIVE') {
+      throw new BadRequestException(`Cannot access organization portal: Organization is ${tenant.status}`);
+    }
+
+    // 1. Purge expired or previously used portal tokens for this user
+    await this.portalTokens.deleteMany({
+      where: {
+        userId: user.id,
+        OR: [{ used: true }, { expiresAt: { lt: new Date() } }],
+      },
+    });
+
+    // 2. Generate a secure random token (UUID + random bytes)
+    const token = `${uuidv4()}-${uuidv4()}`.replace(/-/g, '');
+    const expiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds TTL
+
+    await this.portalTokens.create({
+      data: {
+        token,
+        userId: user.id,
+        tenantId: tenant.id,
+        expiresAt,
+      },
+    });
+
+    // 3. Create Audit Log for impersonation
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: tenant.id,
+        userId: user.id,
+        action: 'PORTAL_IMPERSONATION',
+        resourceType: 'TENANT',
+        resourceId: tenant.id,
+        newValues: {
+          tenantName: tenant.name,
+          tenantSlug: tenant.slug,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+
+    // 4. Resolve destination Subdomain URL
+    let baseUrl = this.mailService.getTenantBaseUrl(tenant.slug);
+
+    if (clientOrigin) {
+      try {
+        const parsed = new URL(clientOrigin);
+        const protocol = parsed.protocol; // e.g. 'http:' or 'https:'
+        const port = parsed.port ? `:${parsed.port}` : '';
+        const hostname = parsed.hostname.toLowerCase();
+
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost')) {
+          baseUrl = `${protocol}//${tenant.slug}.localhost${port}`;
+        } else {
+          const baseDomain = process.env.BASE_DOMAIN?.toLowerCase().trim();
+          if (baseDomain && !baseDomain.includes('localhost')) {
+            baseUrl = `${protocol}//${tenant.slug}.${baseDomain}${port}`;
+          } else {
+            const strippedHost = hostname.replace(/^(app\.|www\.)/, '');
+            baseUrl = `${protocol}//${tenant.slug}.${strippedHost}${port}`;
+          }
+        }
+      } catch {}
+    } else if (requestHost) {
+      const protocol = requestProtocol || (requestHost.includes('localhost') ? 'http' : 'https');
+      const port = requestHost.includes(':') ? `:${requestHost.split(':')[1]}` : '';
+      const hostWithoutPort = requestHost.split(':')[0].toLowerCase();
+
+      if (hostWithoutPort === 'localhost' || hostWithoutPort.endsWith('.localhost')) {
+        baseUrl = `${protocol}://${tenant.slug}.localhost${port}`;
+      } else {
+        const baseDomain = process.env.BASE_DOMAIN?.toLowerCase().trim();
+        if (baseDomain && !baseDomain.includes('localhost')) {
+          baseUrl = `${protocol}://${tenant.slug}.${baseDomain}${port}`;
+        }
+      }
+    }
+
+    const redirectUrl = `${baseUrl.replace(/\/+$/, '')}/auth/portal-callback?token=${token}`;
+
+    return {
+      redirectUrl,
+      token,
+      expiresIn: 60,
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+      },
+    };
+  }
+
+  /**
+   * Exchanges a single-use portal exchange token on the tenant subdomain
+   * for a valid tenant-scoped access token and refresh token with Super Admin privileges.
+   */
+  async exchangePortalToken(token: string) {
+    if (!token) {
+      throw new BadRequestException('Exchange token is required');
+    }
+
+    // 1. Find and validate the token record
+    const tokenRecord = await this.portalTokens.findUnique({
+      where: { token },
+      include: {
+        tenant: {
+          include: {
+            modules: { where: { isEnabled: true } },
+            branches: { where: { status: 'ACTIVE' } },
+          },
+        },
+        user: true,
+      },
+    });
+
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid or expired portal token');
+    }
+
+    if (tokenRecord.used) {
+      throw new UnauthorizedException('Portal token has already been redeemed');
+    }
+
+    if (tokenRecord.expiresAt < new Date()) {
+      await this.portalTokens.delete({ where: { id: tokenRecord.id } }).catch(() => {});
+      throw new UnauthorizedException('Portal token has expired. Please launch from the admin portal again.');
+    }
+
+    // 2. Mark token used immediately (single-use anti-replay)
+    await this.portalTokens.update({
+      where: { id: tokenRecord.id },
+      data: { used: true },
+    });
+
+    const { user, tenant } = tokenRecord;
+
+    if (user.status === 'INACTIVE') {
+      throw new ForbiddenException('User account is inactive');
+    }
+
+    if (tenant.status !== 'ACTIVE') {
+      throw new ForbiddenException(`Tenant organization is ${tenant.status}`);
+    }
+
+    // 3. Issue full session tokens scoped to this tenant
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.isSuperAdmin,
+      tenant.id,
+      'all',
+    );
+
+    // 4. Retrieve complete user profile in the tenant context
+    const userProfile = await this.getMe(user.id, tenant.id, 'all');
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: userProfile,
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+      },
     };
   }
 }

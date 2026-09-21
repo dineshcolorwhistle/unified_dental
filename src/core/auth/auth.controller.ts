@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { ForgotPasswordDto, LoginDto, RefreshTokenDto, ResetPasswordDto } from './dto/auth.dto';
+import { ForgotPasswordDto, LoginDto, RefreshTokenDto, ResetPasswordDto, CreatePortalTokenDto, ExchangePortalTokenDto } from './dto/auth.dto';
 import { Public } from '../../shared/common/decorators/public.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../shared/common/decorators/current-user.decorator';
 import { Request } from 'express';
@@ -44,8 +44,9 @@ export class AuthController {
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current authenticated user session details' })
-  getProfile(@CurrentUser() user: AuthenticatedUser) {
-    return this.authService.getMe(user.id, user.activeTenantId, user.activeBranchId);
+  getProfile(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    const effectiveTenantId = user.activeTenantId || req.tenant?.id;
+    return this.authService.getMe(user.id, effectiveTenantId, user.activeBranchId);
   }
 
   @Post('switch-branch')
@@ -72,5 +73,26 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password with reset token' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('portal-token')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate one-time portal exchange token for Super Admin tenant access' })
+  createPortalToken(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreatePortalTokenDto,
+    @Req() req: Request,
+  ) {
+    const clientOrigin = dto.origin || (req.headers.origin as string) || (req.headers.referer as string);
+    const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol;
+    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+    return this.authService.createPortalToken(user.id, dto.tenantId, protocol, host, clientOrigin);
+  }
+
+  @Public()
+  @Post('exchange-portal-token')
+  @ApiOperation({ summary: 'Exchange one-time portal token for active tenant session tokens' })
+  exchangePortalToken(@Body() dto: ExchangePortalTokenDto) {
+    return this.authService.exchangePortalToken(dto.token);
   }
 }

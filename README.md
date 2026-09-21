@@ -95,6 +95,7 @@ Each tenant is isolated and accessed via its unique subdomain:
 smile-dental.app.example.com  -->  Tenant: "smile-dental"
 precision-lab.app.example.com -->  Tenant: "precision-lab"
 ```
+- **Platform Super Admin Single Sign-On (SSO)**: Super Admins can click **"Open Portal"** on any tenant in `/tenants` to seamlessly enter the tenant's isolated subdomain and land as a **Tenant Administrator** without entering credentials. The flow uses a short-lived (60s), single-use cryptographic exchange ticket (`POST /api/auth/portal-token` → `POST /api/auth/exchange-portal-token`), logs full audit trails, and provides a top-bar banner to exit back to the platform admin anytime.
 
 ### 2. Sibling Module Independence
 Modules are independent siblings sharing a common core:

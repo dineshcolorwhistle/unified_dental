@@ -80,6 +80,9 @@ export const TenantsPage: React.FC = () => {
   const [deletingTenant, setDeletingTenant] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Portal Impersonation State
+  const [openingPortalTenantId, setOpeningPortalTenantId] = useState<string | null>(null);
+
   // Create Tenant Modal State
   const [creatingTenant, setCreatingTenant] = useState(false);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
@@ -395,6 +398,25 @@ export const TenantsPage: React.FC = () => {
     setTimeout(() => setCopiedSlug(null), 2500);
   };
 
+  const handleOpenPortal = async (tenant: any) => {
+    try {
+      setOpeningPortalTenantId(tenant.id);
+      const res = await api.post('/auth/portal-token', {
+        tenantId: tenant.id,
+        origin: window.location.origin,
+      });
+      const { redirectUrl } = res.data;
+      if (redirectUrl) {
+        window.open(redirectUrl, '_blank');
+      }
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || t('tenants.portalExchangeFailed');
+      toast.error(errorMsg);
+    } finally {
+      setOpeningPortalTenantId(null);
+    }
+  };
+
   const getPreviewUrl = (slug: string) => {
     const { protocol, host } = window.location;
     return `${protocol}//${slug || '<slug>'}.${host}`;
@@ -705,17 +727,22 @@ export const TenantsPage: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                         {/* Open Portal */}
                         <button
-                          onClick={() => {
-                            const { protocol, port } = window.location;
-                            const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
-                            window.open(`${protocol}//${tItem.slug}.localhost${portSuffix}/login`, '_blank');
-                          }}
+                          onClick={() => handleOpenPortal(tItem)}
+                          disabled={openingPortalTenantId === tItem.id}
                           className="btn btn-secondary btn-sm"
                           style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                           title={t('tenants.openPortal')}
                         >
-                          <ExternalLink size={12} />
-                          <span>{t('tenants.openPortal')}</span>
+                          {openingPortalTenantId === tItem.id ? (
+                            <Loader2 size={12} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                          ) : (
+                            <ExternalLink size={12} />
+                          )}
+                          <span>
+                            {openingPortalTenantId === tItem.id
+                              ? t('tenants.openPortalLoading')
+                              : t('tenants.openPortal')}
+                          </span>
                         </button>
 
                         {/* Edit Organization */}

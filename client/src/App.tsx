@@ -9,6 +9,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { PortalCallbackPage } from './pages/PortalCallbackPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { UsersPage } from './pages/UsersPage';
@@ -94,6 +95,7 @@ export const App: React.FC = () => {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route path="/auth/portal-callback" element={<PortalCallbackPage />} />
 
                   <Route
                     path="/"

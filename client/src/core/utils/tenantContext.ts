@@ -126,3 +126,33 @@ export function getTenantLoginUrl(slug: string): string {
 
   return `${protocol}//${cleanSlug}.${hostname}${portSuffix}/login`;
 }
+
+/**
+ * Returns the primary platform domain URL (for returning from tenant subdomain to platform admin).
+ */
+export function getPlatformRootUrl(path: string = ''): string {
+  const { protocol, hostname, port } = window.location;
+  const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
+  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : '';
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost')) {
+    return `${protocol}//localhost${portSuffix}${cleanPath}`;
+  }
+
+  const configuredBaseDomain = (
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BASE_DOMAIN) ||
+    ''
+  ).toLowerCase().trim();
+
+  if (configuredBaseDomain) {
+    return `${protocol}//${configuredBaseDomain}${portSuffix}${cleanPath}`;
+  }
+
+  const currentSlug = getTenantSlug();
+  if (currentSlug) {
+    const domainWithoutSlug = hostname.slice(currentSlug.length + 1);
+    return `${protocol}//${domainWithoutSlug}${portSuffix}${cleanPath}`;
+  }
+
+  return `${protocol}//${hostname}${portSuffix}${cleanPath}`;
+}

@@ -49,7 +49,8 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      if (!window.location.pathname.includes('/login')) {
+      const pathname = window.location.pathname;
+      if (!pathname.includes('/login') && !pathname.includes('/auth/portal-callback')) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';
