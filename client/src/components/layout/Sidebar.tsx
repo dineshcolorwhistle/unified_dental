@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   };
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
-  const roleName = user?.roles?.[0] || (user?.isSuperAdmin ? 'Super Admin' : 'User');
+  const roleName = user?.roles?.[0] || (user?.isTenantAdmin ? t('roles.tenantAdmin', 'Tenant Admin') : user?.isSuperAdmin ? 'Super Admin' : 'User');
 
   const rawBrandName = isTenantContext ? user!.activeTenant!.name : 'Unified Dental';
   const brandName = formatTitleCase(rawBrandName);

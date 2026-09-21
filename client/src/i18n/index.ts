@@ -502,6 +502,11 @@ const resources = {
         subtitle: 'View granular platform permissions and configured access levels.',
         systemRoles: 'System Defined Roles',
         permissionGroups: 'Granular Permissions Catalog',
+        tenantAdmin: 'Tenant Admin',
+        superAdmin: 'Super Admin',
+        labAdmin: 'Lab Admin',
+        labTechnician: 'Lab Technician',
+        user: 'User',
       },
       audit: {
         title: 'Audit Trail & Logs',
@@ -2311,6 +2316,11 @@ const resources = {
         subtitle: 'Consulte los permisos granulares y niveles de acceso configurados.',
         systemRoles: 'Roles Predefinidos del Sistema',
         permissionGroups: 'Catálogo de Permisos Granulares',
+        tenantAdmin: 'Administrador del Inquilino',
+        superAdmin: 'Super Administrador',
+        labAdmin: 'Administrador del Laboratorio',
+        labTechnician: 'Técnico de Laboratorio',
+        user: 'Usuario',
       },
       audit: {
         title: 'Registro de Auditoría',

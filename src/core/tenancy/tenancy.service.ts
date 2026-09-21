@@ -244,18 +244,27 @@ export class TenancyService {
         });
       }
 
-      // Find tenant-admin role and assign tenant-wide (branchId: null)
-      const tenantAdminRole = await tx.role.findFirst({ where: { slug: 'tenant-admin' } });
-      if (tenantAdminRole) {
-        await tx.userRole.create({
+      // Find or auto-provision tenant-admin role and assign tenant-wide (branchId: null)
+      let tenantAdminRole = await tx.role.findFirst({ where: { slug: 'tenant-admin' } });
+      if (!tenantAdminRole) {
+        tenantAdminRole = await tx.role.create({
           data: {
-            userId: adminUser.id,
-            tenantId: tenant.id,
-            branchId: null,
-            roleId: tenantAdminRole.id,
+            name: 'Tenant Admin',
+            slug: 'tenant-admin',
+            description: 'Administrator for organization-wide tenant operations and settings',
+            isSystem: true,
+            tenantId: null,
           },
         });
       }
+      await tx.userRole.create({
+        data: {
+          userId: adminUser.id,
+          tenantId: tenant.id,
+          branchId: null,
+          roleId: tenantAdminRole.id,
+        },
+      });
 
       // 4. Audit Log
       await tx.auditLog.create({

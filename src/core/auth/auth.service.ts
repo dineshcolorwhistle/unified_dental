@@ -287,6 +287,12 @@ export class AuthService {
         return lower === 'tenant-admin' || lower === 'admin' || lower === 'administrator';
       });
 
+    if (isTenantAdmin && !roleNames.some((r) => r.toLowerCase().includes('admin'))) {
+      roleNames.unshift('Tenant Admin');
+    } else if (user.isSuperAdmin && !roleNames.length) {
+      roleNames.unshift('Super Admin');
+    }
+
     // Determine allowed modules for this user
     const tenantEnabledModules = effectiveTenant
       ? effectiveTenant.modules.map((m) => m.moduleKey)

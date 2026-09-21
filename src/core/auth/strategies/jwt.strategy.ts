@@ -79,6 +79,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
+    const isOwner = user.memberships.some((m) => m.tenantId === tenantId && m.isOwner);
+    if ((isOwner || user.isSuperAdmin) && !roleNames.some((r) => r.toLowerCase().includes('admin'))) {
+      roleNames.unshift(user.isSuperAdmin && !tenantId ? 'Super Admin' : 'Tenant Admin');
+    }
+
     return {
       id: user.id,
       email: user.email,

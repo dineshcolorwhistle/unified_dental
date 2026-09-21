@@ -224,8 +224,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user?.name}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                {user?.roles[0] || 'User'}
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.roles?.[0] || (user?.isTenantAdmin ? t('roles.tenantAdmin', 'Tenant Admin') : user?.isSuperAdmin ? 'Super Admin' : 'User')}
               </div>
             </div>
             <ChevronDown size={14} style={{ color: 'var(--text-subtle)' }} />
@@ -247,9 +247,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 animation: 'fadeIn 0.15s ease-out',
               }}
             >
-              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{user?.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user?.email}</div>
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={user?.email}>{user?.email}</div>
               </div>
               <button
                 onClick={logout}
