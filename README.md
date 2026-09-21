@@ -60,7 +60,7 @@ The platform is designed to operate as a single unified SaaS application where e
 ├─────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                  CORE OPERATIONS                                            │
 │   • Dashboard (`/`)      • Branch (`/branches`)  • Settings (`/settings`)                   │
-│   • Finance (`/finance`) • Remainder (`/reminders`) • Inventory (`/inventory`) • Expense  │
+│   • Finance (`/finance`) • Remainder (`/reminders`) • Inventory (`/inventory`) • Expenses (`/expenses`) │
 ├──────────────────────────────────────────────┬──────────────────────────────────────────────┤
 │                                              │                                              │
 │                     ▼                        │                       ▼                      │

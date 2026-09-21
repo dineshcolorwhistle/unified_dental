@@ -17,7 +17,7 @@ interface ModuleContextType {
 const ModuleContext = createContext<ModuleContextType | undefined>(undefined);
 
 export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isTenantAdmin } = useAuth();
+  const { user, isTenantAdmin, loading: authLoading } = useAuth();
   const tenant = user?.activeTenant;
   const enabledModules = tenant?.enabledModules || [];
   const isClinicEnabled = enabledModules.includes('CLINIC');
@@ -33,32 +33,58 @@ export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const resolveInitialMode = (): ModuleMode => {
     if (user?.isSuperAdmin && !tenant) return 'PLATFORM';
 
-    // Non-tenant admin: force their allowed module
+    // Non-tenant admin: force their allowed module dynamically
     if (!isTenantAdmin && allowedModules.length > 0) {
       if (allowedModules.includes('LAB')) return 'LAB';
       if (allowedModules.includes('CLINIC')) return 'CLINIC';
+      return (allowedModules[0] as ModuleMode) || 'LAB';
     }
 
-    // Tenant admin or fallback: check localStorage preference
-    if (canSwitchModules) {
-      const saved = localStorage.getItem('ud_active_module_mode') as ModuleMode | null;
-      if (saved === 'CLINIC' && isClinicEnabled) return 'CLINIC';
-      if (saved === 'LAB' && isLabEnabled) return 'LAB';
-      if (saved === 'PLATFORM' && user?.isSuperAdmin) return 'PLATFORM';
+    // Check localStorage preference
+    const saved = localStorage.getItem('ud_active_module_mode') as ModuleMode | null;
+    if (saved && (saved === 'CLINIC' || saved === 'LAB' || saved === 'PLATFORM')) {
+      if (canSwitchModules) {
+        if (saved === 'CLINIC' && isClinicEnabled) return 'CLINIC';
+        if (saved === 'LAB' && isLabEnabled) return 'LAB';
+        if (saved === 'PLATFORM' && user?.isSuperAdmin) return 'PLATFORM';
+      } else if (!isTenantAdmin && allowedModules.length > 0 && allowedModules.includes(saved)) {
+        return saved;
+      }
     }
 
     // If tenant only has 1 module, force that module
     if (isSingleModule) {
       if (isClinicEnabled) return 'CLINIC';
       if (isLabEnabled) return 'LAB';
+      return (enabledModules[0] as ModuleMode) || 'PLATFORM';
     }
 
+    // If user has allowed modules, prioritize the first allowed module
+    if (allowedModules.length > 0) {
+      if (allowedModules.includes('LAB') && !allowedModules.includes('CLINIC')) return 'LAB';
+      if (allowedModules.includes('CLINIC')) return 'CLINIC';
+      return (allowedModules[0] as ModuleMode) || 'PLATFORM';
+    }
+
+    // Default fallbacks
+    if (saved === 'LAB' || saved === 'CLINIC') return saved;
     if (isClinicEnabled) return 'CLINIC';
     if (isLabEnabled) return 'LAB';
     return 'PLATFORM';
   };
 
   const [activeModuleMode, setActiveModuleModeState] = useState<ModuleMode>(resolveInitialMode);
+  const [prevUserKey, setPrevUserKey] = useState<string>('');
+
+  // Synchronously adjust state during render when user auth or allowed modules settle
+  const currentUserKey = `${user?.id || ''}_${user?.activeTenant?.id || ''}_${allowedModules.join(',')}_${isTenantAdmin}`;
+  if (currentUserKey !== prevUserKey) {
+    setPrevUserKey(currentUserKey);
+    const targetMode = resolveInitialMode();
+    if (targetMode !== activeModuleMode) {
+      setActiveModuleModeState(targetMode);
+    }
+  }
 
   useEffect(() => {
     const nextMode = resolveInitialMode();

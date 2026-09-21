@@ -90,6 +90,8 @@ model Tenant {
   doctors         Doctor[]
   doctorLists     DoctorList[]
   workOrders      WorkOrder[]
+  expenseCategories ExpenseCategory[]
+  expenses        Expense[]
 
   @@map("tenants")
 }
@@ -166,6 +168,8 @@ model Branch {
   doctors         Doctor[]
   doctorLists     DoctorList[]
   workOrders      WorkOrder[]
+  expenseCategories ExpenseCategory[]
+  expenses        Expense[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -202,6 +206,7 @@ model User {
   workOrderPayments          WorkOrderPayment[]
   chatMessages               WorkOrderChatMessage[]
   chatReads                  WorkOrderChatRead[]
+  createdExpenses            Expense[] @relation("ExpenseCreatedBy")
 
   @@map("users")
 }
@@ -717,3 +722,55 @@ model WorkOrderChatRead {
   @@index([userId])
   @@map("work_order_chat_reads")
 }
+
+// ─── Expense Management Entities (Phase 2 / Shared Operational) ───
+
+model ExpenseCategory {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String?  @map("branch_id")
+  moduleKey   String   @default("LAB") @map("module_key")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  expenses    Expense[]
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, branchId])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id            String          @id @default(uuid())
+  tenantId      String          @map("tenant_id")
+  branchId      String          @map("branch_id")
+  moduleKey     String          @default("LAB") @map("module_key")
+  categoryId    String          @map("category_id")
+  title         String
+  description   String?
+  amount        Decimal         @db.Decimal(10, 2)
+  expenseDate   DateTime        @map("expense_date")
+  paymentMethod String          @map("payment_method")
+  createdById   String?         @map("created_by_id")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy     User?           @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, expenseDate])
+  @@index([categoryId])
+  @@map("expenses")
+}
+

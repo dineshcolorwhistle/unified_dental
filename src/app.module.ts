@@ -27,6 +27,7 @@ import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
 
 // Domain Modules
 import { LabModule } from './modules/lab/lab.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { LabModule } from './modules/lab/lab.module';
 
     // Domain Modules
     LabModule,
+    ExpensesModule,
   ],
 })
 export class AppModule {}

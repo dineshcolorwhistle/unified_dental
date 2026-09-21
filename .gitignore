@@ -64,3 +64,6 @@ ai_agentic_interface_analysis.md
 
 #agents
 *.agents
+
+#docs
+docs/
