@@ -28,6 +28,7 @@ import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
 // Domain Modules
 import { LabModule } from './modules/lab/lab.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
     // Domain Modules
     LabModule,
     ExpensesModule,
+    InventoryModule,
   ],
 })
 export class AppModule {}

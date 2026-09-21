@@ -92,6 +92,8 @@ model Tenant {
   workOrders      WorkOrder[]
   expenseCategories ExpenseCategory[]
   expenses        Expense[]
+  inventoryCategories InventoryCategory[]
+  inventoryItems      InventoryItem[]
 
   @@map("tenants")
 }
@@ -170,6 +172,8 @@ model Branch {
   workOrders      WorkOrder[]
   expenseCategories ExpenseCategory[]
   expenses        Expense[]
+  inventoryCategories InventoryCategory[]
+  inventoryItems      InventoryItem[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -207,6 +211,7 @@ model User {
   chatMessages               WorkOrderChatMessage[]
   chatReads                  WorkOrderChatRead[]
   createdExpenses            Expense[] @relation("ExpenseCreatedBy")
+  createdInventoryItems      InventoryItem[] @relation("InventoryItemCreatedBy")
 
   @@map("users")
 }
@@ -772,5 +777,64 @@ model Expense {
   @@index([tenantId, expenseDate])
   @@index([categoryId])
   @@map("expenses")
+}
+
+// ─── Inventory Management Entities (Phase 2 / Shared Operational) ───
+
+model InventoryCategory {
+  id          String          @id @default(uuid())
+  tenantId    String          @map("tenant_id")
+  branchId    String?         @map("branch_id")
+  moduleKey   String          @default("LAB") @map("module_key")
+  name        String
+  productType String          @default("FOR_USE") @map("product_type") // FOR_USE, FOR_SALE, RAW_MATERIAL, EQUIPMENT
+  status      String          @default("ACTIVE") // ACTIVE, INACTIVE
+  description String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  items       InventoryItem[]
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, branchId])
+  @@map("inventory_categories")
+}
+
+model InventoryItem {
+  id          String            @id @default(uuid())
+  tenantId    String            @map("tenant_id")
+  branchId    String            @map("branch_id")
+  moduleKey   String            @default("LAB") @map("module_key")
+  categoryId  String            @map("category_id")
+  name        String
+  sku         String
+  status      String            @default("IN_STOCK") // IN_STOCK, LOW_STOCK, OUT_OF_STOCK, DISCONTINUED
+  quantity    Int               @default(0)
+  minQuantity Int               @default(5) @map("min_quantity")
+  unitPrice   Decimal           @default(0.00) @map("unit_price") @db.Decimal(10, 2)
+  brand       String?
+  supplier    String?
+  expiryDate  DateTime?         @map("expiry_date")
+  description String?
+  createdById String?           @map("created_by_id")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  category    InventoryCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy   User?             @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, moduleKey])
+  @@index([categoryId])
+  @@index([tenantId, status])
+  @@map("inventory_items")
 }
 

@@ -574,18 +574,21 @@ export const ExpensesPage: React.FC = () => {
       {/* Filters Bar (Only on Expenses Tab) */}
       {activeTab === 'expenses' && (
         <div
+          className="card"
           style={{
+            padding: '16px 20px',
+            marginBottom: '20px',
+            borderRadius: '14px',
             display: 'flex',
             alignItems: 'center',
-            gap: '14px',
-            marginBottom: '24px',
             flexWrap: 'wrap',
+            gap: '12px',
           }}
         >
           {/* Search Input */}
-          <div style={{ position: 'relative', width: '220px' }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '220px' }}>
             <Search
-              size={15}
+              size={16}
               style={{
                 position: 'absolute',
                 left: '12px',
@@ -596,32 +599,19 @@ export const ExpensesPage: React.FC = () => {
             />
             <input
               type="text"
+              className="input"
               placeholder={t('expenses.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              style={{
-                width: '100%',
-                height: '38px',
-                paddingLeft: '34px',
-                paddingRight: '12px',
-                backgroundColor: 'var(--bg-input)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                color: 'var(--text-main)',
-                fontSize: '13px',
-                outline: 'none',
-              }}
+              style={{ paddingLeft: '36px', width: '100%' }}
             />
           </div>
 
           {/* Category Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-              {t('expenses.filters.category')}
-            </span>
+          <div style={{ width: '200px' }}>
             <SearchableSelect
               options={categoryFilterOptions}
               value={selectedCategory}
@@ -629,15 +619,12 @@ export const ExpensesPage: React.FC = () => {
                 setSelectedCategory(val);
                 setPage(1);
               }}
-              style={{ width: '180px' }}
+              placeholder={t('expenses.filters.categoryAll')}
             />
           </div>
 
           {/* Date Range Picker */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-              {t('expenses.filters.dateRange')}
-            </span>
+          <div>
             <DateRangePicker
               value={dateRange}
               onChange={(newRange) => {
@@ -649,10 +636,7 @@ export const ExpensesPage: React.FC = () => {
 
           {/* Branch Filter (Tenant Admin Only) */}
           {isTenantAdmin && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                {t('expenses.filters.branch')}
-              </span>
+            <div style={{ width: '180px' }}>
               <SearchableSelect
                 options={branchFilterOptions}
                 value={selectedBranch}
@@ -660,7 +644,7 @@ export const ExpensesPage: React.FC = () => {
                   setSelectedBranch(val);
                   setPage(1);
                 }}
-                style={{ width: '200px' }}
+                placeholder={t('expenses.filters.branchAll')}
               />
             </div>
           )}
@@ -671,8 +655,10 @@ export const ExpensesPage: React.FC = () => {
             onClick={handleResetFilters}
             className="btn btn-secondary"
             style={{
-              height: '38px',
-              padding: '0 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
               fontSize: '13px',
             }}
           >
