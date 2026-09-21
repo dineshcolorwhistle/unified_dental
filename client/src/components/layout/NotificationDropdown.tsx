@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNotifications, NotificationItem } from '../../core/context/NotificationContext';
 import { useAuth } from '../../core/context/AuthContext';
-import { Bell, CheckCheck, Clock, Eye } from 'lucide-react';
+import { Bell, CheckCheck, Clock, Eye, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatTime } from '../../core/utils/dateUtils';
 import { Tooltip } from '../common/Tooltip';
@@ -10,7 +10,7 @@ import { TechnicianWorkOrderDetailModal } from '../lab/TechnicianWorkOrderDetail
 import api from '../../services/api';
 
 export const NotificationDropdown: React.FC = () => {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, removeAllRead } = useNotifications();
   const { t, i18n } = useTranslation();
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
   const tenantTz = user?.activeTenant?.settings?.timezone;
@@ -22,6 +22,8 @@ export const NotificationDropdown: React.FC = () => {
     user?.roles?.some((r: string) => r.toLowerCase().includes('technician')) ||
     (!isLabAdmin && !isTenantAdmin && !user?.isSuperAdmin)
   );
+
+  const readCount = notifications.filter((n) => n.readAt).length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -95,6 +97,11 @@ export const NotificationDropdown: React.FC = () => {
     }
   };
 
+  const handleRemove = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    removeNotification(id);
+  };
+
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
       <button
@@ -142,7 +149,7 @@ export const NotificationDropdown: React.FC = () => {
             position: 'absolute',
             top: '110%',
             right: 0,
-            width: '340px',
+            width: '360px',
             backgroundColor: 'var(--bg-dropdown)',
             borderRadius: '12px',
             boxShadow: 'var(--shadow-xl)',
@@ -165,24 +172,48 @@ export const NotificationDropdown: React.FC = () => {
             <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
               {t('header.notifications')} ({unreadCount})
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--primary-600)',
-                  fontWeight: 600,
-                  background: 'none',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  cursor: 'pointer',
-                }}
-              >
-                <CheckCheck size={13} /> {t('header.markAllRead')}
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {readCount > 0 && (
+                <button
+                  onClick={removeAllRead}
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--rose-500, #ef4444)',
+                    fontWeight: 600,
+                    background: 'none',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    transition: 'opacity 0.15s ease',
+                  }}
+                  title={t('header.removeAllRead')}
+                >
+                  <Trash2 size={12} /> {t('header.removeAllRead')}
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--primary-600)',
+                    fontWeight: 600,
+                    background: 'none',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <CheckCheck size={13} /> {t('header.markAllRead')}
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ maxHeight: '320px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -201,13 +232,13 @@ export const NotificationDropdown: React.FC = () => {
                     backgroundColor: n.readAt ? 'var(--bg-surface)' : 'var(--badge-primary-bg)',
                     border: '1px solid',
                     borderColor: n.readAt ? 'var(--border-subtle)' : 'var(--primary-200)',
-                    borderLeft: n.readAt ? '3px solid transparent' : '3px solid #0284c7',
+                    borderLeft: n.readAt ? '3px solid transparent' : '3px solid var(--primary-600)',
                     cursor: 'pointer',
                     transition: 'background-color 0.15s ease',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '10px',
+                    gap: '8px',
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -222,9 +253,9 @@ export const NotificationDropdown: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* View Work Order Icon Button (Screenshot Match) */}
-                  {isWorkOrderNotification(n) && (
-                    <div style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                    {/* View Work Order Icon Button */}
+                    {isWorkOrderNotification(n) && (
                       <Tooltip content={t('common.viewWorkOrder', { defaultValue: 'View Work Order' })}>
                         <button
                           type="button"
@@ -233,7 +264,7 @@ export const NotificationDropdown: React.FC = () => {
                             background: 'transparent',
                             border: 'none',
                             color: 'var(--primary-600)',
-                            padding: '6px',
+                            padding: '5px',
                             borderRadius: '6px',
                             cursor: 'pointer',
                             display: 'flex',
@@ -248,11 +279,41 @@ export const NotificationDropdown: React.FC = () => {
                             e.currentTarget.style.backgroundColor = 'transparent';
                           }}
                         >
-                          <Eye size={16} />
+                          <Eye size={15} />
                         </button>
                       </Tooltip>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Remove Notification Button */}
+                    <Tooltip content={t('header.removeNotification')}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemove(e, n.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-subtle)',
+                          padding: '5px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                          e.currentTarget.style.color = 'var(--rose-500, #ef4444)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = 'var(--text-subtle)';
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
               ))
             )}

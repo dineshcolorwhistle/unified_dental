@@ -20,6 +20,8 @@ interface NotificationContextType {
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  removeNotification: (id: string) => Promise<void>;
+  removeAllRead: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -92,6 +94,30 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const removeNotification = async (id: string) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications((prev) => {
+        const target = prev.find((n) => n.id === id);
+        if (target && !target.readAt) {
+          setUnreadCount((c) => Math.max(0, c - 1));
+        }
+        return prev.filter((n) => n.id !== id);
+      });
+    } catch (e) {
+      console.error('Failed to remove notification:', e);
+    }
+  };
+
+  const removeAllRead = async () => {
+    try {
+      await api.delete('/notifications/read');
+      setNotifications((prev) => prev.filter((n) => !n.readAt));
+    } catch (e) {
+      console.error('Failed to remove read notifications:', e);
+    }
+  };
+
   return (
     <NotificationContext.Provider
       value={{
@@ -101,6 +127,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         fetchNotifications,
         markAsRead,
         markAllAsRead,
+        removeNotification,
+        removeAllRead,
       }}
     >
       {children}

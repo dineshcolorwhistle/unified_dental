@@ -79,4 +79,20 @@ export class NotificationsService {
       data: { readAt: new Date() },
     });
   }
+
+  async remove(id: string, userId: string) {
+    return this.prisma.notification.deleteMany({
+      where: { id, userId },
+    });
+  }
+
+  async removeAllRead(userId: string, tenantId?: string) {
+    return this.prisma.notification.deleteMany({
+      where: {
+        userId,
+        tenantId: tenantId || undefined,
+        readAt: { not: null },
+      },
+    });
+  }
 }
