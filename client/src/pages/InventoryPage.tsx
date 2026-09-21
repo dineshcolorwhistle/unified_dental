@@ -990,30 +990,30 @@ export const InventoryPage: React.FC = () => {
               <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--table-th-bg)', borderBottom: '1px solid var(--border-color)' }}>
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       {t('inventory.fields.itemName')} / {t('inventory.fields.sku')}
                     </th>
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       {t('inventory.fields.category')}
                     </th>
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       {t('inventory.fields.brand')} & {t('inventory.fields.supplier')}
                     </th>
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'center' }}>
                       {t('inventory.fields.stockLevel')}
                     </th>
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' }}>
                       {t('inventory.fields.unitPrice')} & {t('inventory.fields.totalValue')}
                     </th>
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'center' }}>
                       {t('inventory.fields.status')}
                     </th>
                     {(isTenantAdmin || availableBranches.length > 1) && (
-                      <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         {t('inventory.fields.branch')}
                       </th>
                     )}
-                    <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' }}>
                       {t('inventory.fields.actions')}
                     </th>
                   </tr>
@@ -1083,8 +1083,19 @@ export const InventoryPage: React.FC = () => {
                           }}
                         >
                           {/* Item & SKU */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
-                            <div style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '13.5px' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
+                            <div
+                              onClick={() => setViewingItem(it)}
+                              style={{
+                                fontWeight: 700,
+                                color: 'var(--text-heading)',
+                                fontSize: '13.5px',
+                                cursor: 'pointer',
+                                transition: 'color 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary-600)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-heading)')}
+                            >
                               {it.name}
                             </div>
                             <div style={{ fontFamily: 'monospace', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1093,7 +1104,7 @@ export const InventoryPage: React.FC = () => {
                           </td>
 
                           {/* Category */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
                             <span
                               style={{
                                 display: 'inline-flex',
@@ -1113,7 +1124,7 @@ export const InventoryPage: React.FC = () => {
                           </td>
 
                           {/* Brand & Supplier */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
                               {it.brand || '—'}
                             </div>
@@ -1125,7 +1136,7 @@ export const InventoryPage: React.FC = () => {
                           </td>
 
                           {/* Stock Level */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', textAlign: 'center' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'center' }}>
                             <div
                               style={{
                                 fontSize: '14px',
@@ -1146,7 +1157,7 @@ export const InventoryPage: React.FC = () => {
                           </td>
 
                           {/* Unit Price & Total Value */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', textAlign: 'right' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
                             <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
                               {formatCurrency(itemTotalVal)}
                             </div>
@@ -1156,13 +1167,13 @@ export const InventoryPage: React.FC = () => {
                           </td>
 
                           {/* Status */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', textAlign: 'center' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'center' }}>
                             {renderStatusBadge(it.status)}
                           </td>
 
                           {/* Branch (if visible) */}
                           {(isTenantAdmin || availableBranches.length > 1) && (
-                            <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                            <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
                               <span style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
                                 {it.branch?.name || '—'}
                               </span>
@@ -1170,7 +1181,7 @@ export const InventoryPage: React.FC = () => {
                           )}
 
                           {/* Action Buttons */}
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                               {/* View Item Button */}
                               <Tooltip content={t('inventory.buttons.viewDetails')}>
@@ -1351,12 +1362,12 @@ export const InventoryPage: React.FC = () => {
                         }}
                       >
                         {/* Category Name */}
-                        <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading)', fontSize: '13.5px' }}>
+                        <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading)', fontSize: '13.5px' }}>
                           {cat.name}
                         </td>
 
                         {/* Product Type */}
-                        <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
                           <span
                             style={{
                               display: 'inline-flex',
@@ -1375,7 +1386,7 @@ export const InventoryPage: React.FC = () => {
                         </td>
 
                         {/* Category Status */}
-                        <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
                           <span
                             style={{
                               display: 'inline-flex',
@@ -1393,12 +1404,12 @@ export const InventoryPage: React.FC = () => {
                         </td>
 
                         {/* Description */}
-                        <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px' }}>
+                        <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px' }}>
                           {cat.description || '—'}
                         </td>
 
                         {/* Items Count */}
-                        <td style={{ padding: '12px 16px', verticalAlign: 'middle', textAlign: 'center' }}>
+                        <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'center' }}>
                           <span
                             style={{
                               display: 'inline-flex',
@@ -1420,13 +1431,13 @@ export const InventoryPage: React.FC = () => {
 
                         {/* Branch */}
                         {(isTenantAdmin || availableBranches.length > 1) && (
-                          <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontSize: '12.5px', color: 'var(--text-muted)' }}>
                             {cat.branch?.name || t('inventory.filters.branchAll')}
                           </td>
                         )}
 
                         {/* Actions */}
-                        <td style={{ padding: '12px 16px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                             {!isTenantAdmin && (
                               <Tooltip content={t('inventory.buttons.edit')}>
@@ -1547,14 +1558,27 @@ export const InventoryPage: React.FC = () => {
                   {editingItem ? t('inventory.modals.editItemTitle') : t('inventory.modals.addItemTitle')}
                 </h2>
               </div>
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setIsItemModalOpen(false)}
-                style={{ width: '32px', height: '32px' }}
-              >
-                <X size={17} />
-              </button>
+              <Tooltip content={t('common.close', 'Close')}>
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => setIsItemModalOpen(false)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-card)',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Modal Form */}
@@ -1862,14 +1886,27 @@ export const InventoryPage: React.FC = () => {
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
                 {editingCategory ? t('inventory.modals.editCategoryTitle') : t('inventory.modals.addCategoryTitle')}
               </h2>
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => setIsCategoryModalOpen(false)}
-                style={{ width: '32px', height: '32px' }}
-              >
-                <X size={17} />
-              </button>
+              <Tooltip content={t('common.close', 'Close')}>
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Form */}
@@ -1990,42 +2027,43 @@ export const InventoryPage: React.FC = () => {
             className="card"
             onClick={(e) => e.stopPropagation()}
             style={{
+              backgroundColor: 'var(--bg-modal, var(--bg-card))',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '440px',
               padding: '24px',
-              borderRadius: '16px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-modal, var(--bg-card))',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--badge-danger-bg)',
-                  color: 'var(--badge-danger-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Trash2 size={20} />
-              </div>
-              <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
-                {t('inventory.deleteModal.titleItem')}
-              </h3>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(244, 63, 94, 0.15)',
+                color: '#f43f5e',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px auto',
+              }}
+            >
+              <AlertTriangle size={24} />
             </div>
-            <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 24px 0' }}>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 8px 0' }}>
+              {t('inventory.deleteModal.titleItem')}
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px 0', lineHeight: 1.5 }}>
               {t('inventory.deleteModal.msgItem')}
             </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button
                 type="button"
                 onClick={() => setDeletingItem(null)}
                 className="btn btn-secondary"
+                style={{ padding: '8px 18px', fontSize: '13px' }}
                 disabled={submitting}
               >
                 {t('inventory.deleteModal.cancel')}
@@ -2034,6 +2072,7 @@ export const InventoryPage: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDeleteItem}
                 className="btn btn-danger"
+                style={{ padding: '8px 20px', fontSize: '13px' }}
                 disabled={submitting}
               >
                 {submitting ? t('inventory.deleteModal.deleting') : t('inventory.deleteModal.confirm')}
@@ -2063,42 +2102,43 @@ export const InventoryPage: React.FC = () => {
             className="card"
             onClick={(e) => e.stopPropagation()}
             style={{
+              backgroundColor: 'var(--bg-modal, var(--bg-card))',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
               width: '100%',
               maxWidth: '440px',
               padding: '24px',
-              borderRadius: '16px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-modal, var(--bg-card))',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--badge-danger-bg)',
-                  color: 'var(--badge-danger-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Trash2 size={20} />
-              </div>
-              <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
-                {t('inventory.deleteModal.titleCategory')}
-              </h3>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(244, 63, 94, 0.15)',
+                color: '#f43f5e',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px auto',
+              }}
+            >
+              <AlertTriangle size={24} />
             </div>
-            <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 24px 0' }}>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 8px 0' }}>
+              {t('inventory.deleteModal.titleCategory')}
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px 0', lineHeight: 1.5 }}>
               {t('inventory.deleteModal.msgCategory')}
             </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button
                 type="button"
                 onClick={() => setDeletingCategory(null)}
                 className="btn btn-secondary"
+                style={{ padding: '8px 18px', fontSize: '13px' }}
                 disabled={submitting}
               >
                 {t('inventory.deleteModal.cancel')}
@@ -2107,6 +2147,7 @@ export const InventoryPage: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDeleteCategory}
                 className="btn btn-danger"
+                style={{ padding: '8px 20px', fontSize: '13px' }}
                 disabled={submitting}
               >
                 {submitting ? t('inventory.deleteModal.deleting') : t('inventory.deleteModal.confirm')}
