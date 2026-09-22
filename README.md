@@ -280,3 +280,6 @@ npm run start:prod
 - [project_scope.md](file:///d:/Projects/unified_dental/project_scope.md) — Phased specifications, entity checklists, and decision records.
 - [AGENTS.md](file:///d:/Projects/unified_dental/AGENTS.md) — Mandatory agent & developer compliance guidelines.
 - [instructions.md](file:///d:/Projects/unified_dental/instructions.md) — Master architectural & domain design document (80 sections).
+- [docs/README.md](file:///d:/Projects/unified_dental/docs/README.md) — Complete Documentation Hub across all roles and modules.
+- [docs/lab-module/work-orders.md](file:///d:/Projects/unified_dental/docs/lab-module/work-orders.md) — Work orders lifecycle, QR code generation, download/print, and public tracking.
+- [docs/platform-admin/qr-inquiries.md](file:///d:/Projects/unified_dental/docs/platform-admin/qr-inquiries.md) — Platform Super Admin QR leads and inquiries management.

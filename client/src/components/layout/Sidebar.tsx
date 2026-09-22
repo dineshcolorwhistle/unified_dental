@@ -20,6 +20,7 @@ import {
   DollarSign,
   ClipboardList,
   Clock,
+  QrCode,
   // Lab module icons
   FlaskConical,
   Users,
@@ -321,6 +322,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               to="/plans"
               icon={<CreditCard size={17} />}
               label={t('nav.subscriptionPlans')}
+              isCollapsed={isCollapsed}
+            />
+            <SidebarNavItem
+              to="/qr-inquiries"
+              icon={<QrCode size={17} />}
+              label={t('nav.qrInquiries', 'QR Inquiries')}
               isCollapsed={isCollapsed}
             />
           </div>

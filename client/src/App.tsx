@@ -21,6 +21,8 @@ import { FinancePage } from './pages/FinancePage';
 import { RemindersPage } from './pages/RemindersPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ExpensesPage } from './pages/ExpensesPage';
+import { PublicQrTrackingPage } from './pages/PublicQrTrackingPage';
+import { QrInquiriesPage } from './pages/QrInquiriesPage';
 // Lab Module Pages
 import { LabStaffPage } from './pages/lab/LabStaffPage';
 import { LabUsersAdminPage } from './pages/lab/LabUsersAdminPage';
@@ -96,6 +98,7 @@ export const App: React.FC = () => {
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/auth/portal-callback" element={<PortalCallbackPage />} />
+                  <Route path="/qr/:qrToken" element={<PublicQrTrackingPage />} />
 
                   <Route
                     path="/"
@@ -205,6 +208,14 @@ export const App: React.FC = () => {
                       element={
                         <ProtectedRoute superAdminOnly>
                           <PlansPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="qr-inquiries"
+                      element={
+                        <ProtectedRoute superAdminOnly>
+                          <QrInquiriesPage />
                         </ProtectedRoute>
                       }
                     />

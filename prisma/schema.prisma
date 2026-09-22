@@ -95,6 +95,7 @@ model Tenant {
   inventoryCategories InventoryCategory[]
   inventoryItems      InventoryItem[]
   portalExchangeTokens PortalExchangeToken[]
+  qrInquiries          QrInquiry[]
 
   @@map("tenants")
 }
@@ -624,6 +625,7 @@ model WorkOrder {
   payments       WorkOrderPayment[]
   chatMessages   WorkOrderChatMessage[]
   chatReads      WorkOrderChatRead[]
+  qrInquiries    QrInquiry[]
 
   @@unique([tenantId, folioNumber])
   @@index([tenantId])
@@ -858,3 +860,27 @@ model InventoryItem {
   @@map("inventory_items")
 }
 
+// ─── Public Work Order QR Tracking Inquiries (Leads) ──────
+
+model QrInquiry {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  workOrderId    String    @map("work_order_id")
+  workOrderFolio String    @map("work_order_folio")
+  name           String
+  email          String
+  phone          String
+  message        String?
+  status         String    @default("NEW") // NEW, CONTACTED, CLOSED
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([workOrderId])
+  @@index([status])
+  @@map("qr_inquiries")
+}

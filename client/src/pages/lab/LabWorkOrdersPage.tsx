@@ -19,6 +19,7 @@ import {
   Eye,
   Pencil,
   MessageSquare,
+  QrCode,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
@@ -31,6 +32,7 @@ import { workOrderService, WorkOrderListItem } from '../../services/workOrderSer
 import { CreateWorkOrderModal } from '../../components/lab/CreateWorkOrderModal';
 import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
 import { EditWorkOrderModal } from '../../components/lab/EditWorkOrderModal';
+import { QrCodeModal } from '../../components/lab/QrCodeModal';
 import { formatDate, formatCurrency } from '../../core/utils/dateUtils';
 import api from '../../services/api';
 
@@ -64,6 +66,7 @@ export const LabWorkOrdersPage: React.FC = () => {
   const [unreadChatCounts, setUnreadChatCounts] = useState<Record<string, number>>({});
   const [orderToEdit, setOrderToEdit] = useState<WorkOrderListItem | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<WorkOrderListItem | null>(null);
+  const [qrOrderToView, setQrOrderToView] = useState<WorkOrderListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const { socket } = useNotifications();
@@ -814,6 +817,30 @@ export const LabWorkOrdersPage: React.FC = () => {
                             );
                           })()}
 
+                          {/* QR Code Action Button */}
+                          <Tooltip content={t('workOrders.table.qrTooltip', 'View QR Code')}>
+                            <button
+                              type="button"
+                              onClick={() => setQrOrderToView(order)}
+                              className="btn-icon"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                              }}
+                              aria-label={t('workOrders.table.qrTooltip', 'View QR Code')}
+                            >
+                              <QrCode size={14} />
+                            </button>
+                          </Tooltip>
+
                           {/* Edit Work Order (Lab Admin role) */}
                           {isLabAdmin && (
                             <Tooltip content={t('workOrders.table.editTooltip', 'Edit Work Order')}>
@@ -967,6 +994,14 @@ export const LabWorkOrdersPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* QR Code Modal */}
+      {qrOrderToView && (
+        <QrCodeModal
+          order={qrOrderToView}
+          onClose={() => setQrOrderToView(null)}
+        />
       )}
     </div>
   );

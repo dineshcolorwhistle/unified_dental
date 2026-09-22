@@ -15,7 +15,8 @@ import {
 } from '../../services/workOrderService';
 import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
 import { TechnicianWorkOrderDetailModal } from '../../components/lab/TechnicianWorkOrderDetailModal';
-import { PrintQrModal } from '../../components/lab/PrintQrModal';
+import { QrCodeModal } from '../../components/lab/QrCodeModal';
+import { Tooltip } from '../../components/common/Tooltip';
 
 export const TechnicianWorkOrdersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -373,20 +374,25 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                     })()}
 
                     {/* QR Code icon */}
-                    <button
-                      type="button"
-                      onClick={() => setQrWorkOrder(order)}
-                      title={t('technician.printQr', { defaultValue: 'Print QR' })}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: '2px',
-                      }}
-                    >
-                      <QrCode size={16} />
-                    </button>
+                    <Tooltip content={t('workOrders.table.qrTooltip', 'View QR Code')}>
+                      <button
+                        type="button"
+                        onClick={() => setQrWorkOrder(order)}
+                        aria-label={t('workOrders.table.qrTooltip', 'View QR Code')}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <QrCode size={16} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
 
@@ -503,9 +509,9 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
         />
       )}
 
-      {/* Print QR Modal */}
+      {/* QR Code Modal */}
       {qrWorkOrder && (
-        <PrintQrModal workOrder={qrWorkOrder} onClose={() => setQrWorkOrder(null)} />
+        <QrCodeModal order={qrWorkOrder} onClose={() => setQrWorkOrder(null)} />
       )}
     </div>
   );
