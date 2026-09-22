@@ -702,7 +702,38 @@ export const LabAdminDashboard: React.FC = () => {
                         {item.patient || '—'}
                       </span>
                     </div>
-                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailModalWOId(item.workOrderId);
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-card)',
+                        color: 'var(--text-main)',
+                        cursor: 'pointer',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--primary-400)';
+                        e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                      }}
+                    >
+                      <Eye size={13} />
+                      <span>{t('dashboard.labAdmin.viewWO')}</span>
+                    </button>
                   </div>
 
                   {item.doctorName && (
@@ -843,63 +874,97 @@ export const LabAdminDashboard: React.FC = () => {
                     padding: '8px 12px', borderRadius: '8px',
                     backgroundColor: 'var(--bg-surface)',
                     marginBottom: '10px',
+                    flexWrap: 'wrap',
+                    gap: '8px',
                   }}>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       {t('dashboard.labAdmin.evaluator')}: <strong style={{ color: 'var(--text-main)' }}>{item.evaluatorName || '—'}</strong>
                     </div>
 
-                    {item.stepStatus === 'NOT_STARTED' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <button
-                        onClick={() => handleStartVerification(item.workOrderId, item.processId)}
-                        disabled={startingProcessId === item.processId}
+                        type="button"
+                        onClick={() => setDetailModalWOId(item.workOrderId)}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                          padding: '6px 14px', borderRadius: '8px', border: 'none',
-                          backgroundColor: 'var(--primary-600)', color: '#fff',
-                          cursor: startingProcessId === item.processId ? 'wait' : 'pointer',
-                          fontSize: '12px', fontWeight: 600,
-                          opacity: startingProcessId === item.processId ? 0.6 : 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-card)',
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 600,
                           transition: 'all 0.15s ease',
                         }}
-                        onMouseEnter={(e) => { if (startingProcessId !== item.processId) e.currentTarget.style.backgroundColor = 'var(--primary-700)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary-600)'; }}
-                      >
-                        <Play size={14} /> {t('dashboard.labAdmin.start')}
-                      </button>
-                    ) : isDefaultAdmin ? (
-                      <button
-                        onClick={() => handleOpenVerifyModal(item)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                          padding: '6px 14px', borderRadius: '8px', border: 'none',
-                          backgroundColor: 'var(--emerald-500)', color: '#fff',
-                          cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                          transition: 'all 0.15s ease',
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--primary-400)';
+                          e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--emerald-600)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--emerald-500)'; }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
+                          e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                        }}
                       >
-                        <ShieldCheck size={14} /> {t('dashboard.labAdmin.endVerification')}
+                        <Eye size={13} />
+                        <span>{t('dashboard.labAdmin.viewWO')}</span>
                       </button>
-                    ) : (
-                      <Tooltip content={t('dashboard.labAdmin.onlyDefaultAdminCanEnd')}>
-                        <span>
-                          <button
-                            disabled
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '4px',
-                              padding: '6px 14px', borderRadius: '8px',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--bg-surface-muted)', color: 'var(--text-muted)',
-                              cursor: 'not-allowed', fontSize: '12px', fontWeight: 600,
-                              opacity: 0.6,
-                            }}
-                          >
-                            <ShieldCheck size={14} /> {t('dashboard.labAdmin.endVerification')}
-                          </button>
-                        </span>
-                      </Tooltip>
-                    )}
+
+                      {item.stepStatus === 'NOT_STARTED' ? (
+                        <button
+                          onClick={() => handleStartVerification(item.workOrderId, item.processId)}
+                          disabled={startingProcessId === item.processId}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '6px 14px', borderRadius: '8px', border: 'none',
+                            backgroundColor: 'var(--primary-600)', color: '#fff',
+                            cursor: startingProcessId === item.processId ? 'wait' : 'pointer',
+                            fontSize: '12px', fontWeight: 600,
+                            opacity: startingProcessId === item.processId ? 0.6 : 1,
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => { if (startingProcessId !== item.processId) e.currentTarget.style.backgroundColor = 'var(--primary-700)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary-600)'; }}
+                        >
+                          <Play size={14} /> {t('dashboard.labAdmin.start')}
+                        </button>
+                      ) : isDefaultAdmin ? (
+                        <button
+                          onClick={() => handleOpenVerifyModal(item)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '6px 14px', borderRadius: '8px', border: 'none',
+                            backgroundColor: 'var(--emerald-500)', color: '#fff',
+                            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--emerald-600)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--emerald-500)'; }}
+                        >
+                          <ShieldCheck size={14} /> {t('dashboard.labAdmin.endVerification')}
+                        </button>
+                      ) : (
+                        <Tooltip content={t('dashboard.labAdmin.onlyDefaultAdminCanEnd')}>
+                          <span>
+                            <button
+                              disabled
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                                padding: '6px 14px', borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-surface-muted)', color: 'var(--text-muted)',
+                                cursor: 'not-allowed', fontSize: '12px', fontWeight: 600,
+                                opacity: 0.6,
+                              }}
+                            >
+                              <ShieldCheck size={14} /> {t('dashboard.labAdmin.endVerification')}
+                            </button>
+                          </span>
+                        </Tooltip>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
