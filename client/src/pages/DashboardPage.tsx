@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { TechnicianDashboardPage } from './lab/TechnicianDashboardPage';
 import { LabAdminDashboard } from './lab/LabAdminDashboard';
+import { TenantAdminDashboard } from './tenant/TenantAdminDashboard';
 import {
   LayoutDashboard,
   Building2,
@@ -22,7 +23,7 @@ import {
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
-  const { user, isLabTechnician } = useAuth();
+  const { user, isLabTechnician, isTenantAdmin } = useAuth();
   const { activeModuleMode } = useModule();
   const { t } = useTranslation();
 
@@ -31,6 +32,10 @@ export const DashboardPage: React.FC = () => {
   }
 
   const isTenantContext = Boolean(user?.activeTenant);
+
+  if (isTenantContext && isTenantAdmin) {
+    return <TenantAdminDashboard />;
+  }
 
   // Platform super admin states
   const [tenants, setTenants] = useState<any[]>([]);

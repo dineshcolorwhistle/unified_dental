@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   forwardRef,
   Inject,
   Injectable,
@@ -12,10 +13,11 @@ import { MailService } from '../mail/mail.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
-import { TenantStatus, UserStatus } from '@prisma/client';
+import { TenantStatus, UserStatus, WorkOrderStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_TIMEZONE, DEFAULT_CURRENCY, parseCalendarDate } from '../../shared/common/utils/timezone.util';
+import { AuthenticatedUser } from '../../shared/common/decorators/current-user.decorator';
 
 @Injectable()
 export class TenancyService {
@@ -476,6 +478,216 @@ export class TenancyService {
     return {
       success: true,
       message: `Tenant '${tenant.name}' has been deleted successfully`,
+    };
+  }
+
+  /**
+   * Get Tenant Admin Dashboard data:
+   * - Common Subscription Plan & Quota Details (branches used/allocated, members used/allocated, modules)
+   * - Dynamic Module-Specific section (for LAB: branch count & core lab aggregate KPIs)
+   */
+  async getTenantAdminDashboard(tenantId: string, moduleKey = 'LAB', actor?: AuthenticatedUser) {
+    if (!tenantId) {
+      throw new BadRequestException('Organization context (tenant ID) is required.');
+    }
+
+    if (actor) {
+      const membership = await this.prisma.tenantMembership.findUnique({
+        where: { userId_tenantId: { userId: actor.id, tenantId } },
+      });
+      const isOwner = membership?.isOwner;
+      const hasTenantAdminRole = actor.roles?.some((r: string) => {
+        const lower = r.toLowerCase();
+        return (
+          lower === 'tenant-admin' ||
+          lower === 'admin' ||
+          lower.includes('tenant administrator') ||
+          lower.includes('tenant admin')
+        );
+      });
+
+      if (!actor.isSuperAdmin && !isOwner && !hasTenantAdminRole) {
+        throw new ForbiddenException('Only Tenant Administrators can access the organizational dashboard.');
+      }
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        plan: true,
+        modules: true,
+        branches: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            status: true,
+            isDefault: true,
+            moduleKey: true,
+            settings: true,
+          },
+        },
+        _count: {
+          select: {
+            memberships: true,
+            branches: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with ID '${tenantId}' not found`);
+    }
+
+    // 1. Subscription & Resource Quotas (Common across all modules)
+    const effectiveMaxBranches =
+      tenant.maxBranches !== null && tenant.maxBranches !== undefined
+        ? Number(tenant.maxBranches)
+        : (tenant.plan?.branchCount ?? 3);
+
+    const effectiveMaxMembers =
+      tenant.maxMembers !== null && tenant.maxMembers !== undefined
+        ? Number(tenant.maxMembers)
+        : (tenant.plan?.memberCount ?? 10);
+
+    const effectiveMaxModules =
+      tenant.maxModules !== null && tenant.maxModules !== undefined
+        ? Number(tenant.maxModules)
+        : (tenant.plan?.moduleCount ?? 1);
+
+    const totalBranchesUsed = tenant.branches.length;
+    const totalMembersUsed = tenant._count.memberships;
+    const enabledModulesList = tenant.modules.map((m) => m.moduleKey);
+
+    const subscriptionData = {
+      plan: {
+        id: tenant.plan?.id || null,
+        code: tenant.plan?.code || 'CUSTOM',
+        name: tenant.plan?.name || 'Standard Plan',
+        price: tenant.price ?? tenant.plan?.price ?? 0,
+        status: tenant.status,
+        startDate: tenant.startDate,
+        endDate: tenant.endDate,
+      },
+      quotas: {
+        branches: {
+          allocated: effectiveMaxBranches,
+          used: totalBranchesUsed,
+          remaining: Math.max(0, effectiveMaxBranches - totalBranchesUsed),
+          percentage: Math.min(100, Math.round((totalBranchesUsed / effectiveMaxBranches) * 100)),
+        },
+        members: {
+          allocated: effectiveMaxMembers,
+          used: totalMembersUsed,
+          remaining: Math.max(0, effectiveMaxMembers - totalMembersUsed),
+          percentage: Math.min(100, Math.round((totalMembersUsed / effectiveMaxMembers) * 100)),
+        },
+        modules: {
+          allocated: effectiveMaxModules,
+          used: enabledModulesList.length,
+          enabledList: enabledModulesList,
+        },
+      },
+    };
+
+    // 2. Module Section (Dental Lab Focus)
+    const upperModule = (moduleKey || 'LAB').toUpperCase();
+    let moduleData: any = null;
+
+    if (upperModule === 'LAB') {
+      // Find lab branches: moduleKey === 'LAB' or settings.moduleKey === 'LAB'
+      const labBranches = tenant.branches.filter((b) => {
+        const bMod = b.moduleKey || (b.settings as any)?.moduleKey || 'CLINIC';
+        return bMod.toUpperCase() === 'LAB';
+      });
+
+      const labBranchIds = labBranches.map((b) => b.id);
+      const branchFilter = labBranchIds.length > 0 ? { branchId: { in: labBranchIds } } : {};
+
+      const [totalWorkOrders, activeOrders, inProgressOrders, pendingVerifications, completedOrders] =
+        await Promise.all([
+          this.prisma.workOrder.count({
+            where: { tenantId, ...branchFilter },
+          }),
+          this.prisma.workOrder.count({
+            where: {
+              tenantId,
+              ...branchFilter,
+              status: { notIn: [WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED] },
+            },
+          }),
+          this.prisma.workOrder.count({
+            where: {
+              tenantId,
+              ...branchFilter,
+              status: WorkOrderStatus.IN_PROGRESS,
+            },
+          }),
+          this.prisma.workOrder.count({
+            where: {
+              tenantId,
+              ...branchFilter,
+              status: {
+                in: [WorkOrderStatus.INTERNAL_VERIFICATION, WorkOrderStatus.EXTERNAL_VERIFICATION],
+              },
+            },
+          }),
+          this.prisma.workOrder.count({
+            where: {
+              tenantId,
+              ...branchFilter,
+              status: WorkOrderStatus.COMPLETED,
+            },
+          }),
+        ]);
+
+      // Count technicians assigned to lab branches (or tenant-wide if unassigned)
+      const technicianRolesCount = await this.prisma.userRole.count({
+        where: {
+          tenantId,
+          role: { slug: 'lab-technician' },
+          ...(labBranchIds.length > 0
+            ? { OR: [{ branchId: { in: labBranchIds } }, { branchId: null }] }
+            : {}),
+        },
+      });
+
+      moduleData = {
+        moduleKey: 'LAB',
+        branches: {
+          totalLabBranches: labBranches.length,
+          activeLabBranches: labBranches.filter((b) => b.status === 'ACTIVE').length,
+        },
+        kpis: {
+          totalWorkOrders,
+          activeOrders,
+          inProgressOrders,
+          pendingVerifications,
+          completedOrders,
+          totalTechnicians: technicianRolesCount,
+        },
+      };
+    } else {
+      // Clean fallback for other modules (e.g. CLINIC)
+      const clinicBranches = tenant.branches.filter((b) => {
+        const bMod = b.moduleKey || (b.settings as any)?.moduleKey || 'CLINIC';
+        return bMod.toUpperCase() === 'CLINIC';
+      });
+
+      moduleData = {
+        moduleKey: upperModule,
+        branches: {
+          totalBranches: clinicBranches.length,
+          activeBranches: clinicBranches.filter((b) => b.status === 'ACTIVE').length,
+        },
+        kpis: {},
+      };
+    }
+
+    return {
+      subscription: subscriptionData,
+      module: moduleData,
     };
   }
 }

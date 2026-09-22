@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -42,6 +43,19 @@ export class TenancyController {
   @ApiOperation({ summary: 'List all tenants (Platform Super Admin)' })
   findAll(@Query('search') search?: string) {
     return this.tenancyService.findAll(search);
+  }
+
+  @Get('admin/dashboard')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Tenant Admin Dashboard with subscription quotas and module analytics' })
+  getTenantAdminDashboard(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('moduleKey') moduleKey?: string,
+  ) {
+    if (!user?.activeTenantId) {
+      throw new BadRequestException('Active tenant organization context is required');
+    }
+    return this.tenancyService.getTenantAdminDashboard(user.activeTenantId, moduleKey || 'LAB', user);
   }
 
   @Get(':id')
