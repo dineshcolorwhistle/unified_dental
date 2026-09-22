@@ -5,17 +5,11 @@ import {
   ShieldCheck,
   Clock,
   CheckCircle2,
-  AlertTriangle,
   Play,
   Eye,
   RefreshCw,
   ChevronRight,
   Inbox,
-  User,
-  Cpu,
-  UserCheck,
-  Stethoscope,
-  Layers,
   FileText,
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
@@ -39,6 +33,7 @@ export const LabAdminDashboard: React.FC = () => {
   const [data, setData] = useState<LabAdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
 
   // Modal state
   const [verifyModal, setVerifyModal] = useState<{
@@ -298,43 +293,70 @@ export const LabAdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Live Attention Indicator */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '5px 12px',
-              borderRadius: '20px',
-              backgroundColor: 'rgba(245, 158, 11, 0.12)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              color: 'var(--amber-600)',
-              fontSize: '11px',
-              fontWeight: 700,
-            }}>
-              <span style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                backgroundColor: '#f59e0b',
-                display: 'inline-block',
-                boxShadow: '0 0 0 2px rgba(245, 158, 11, 0.25)',
-              }} />
-              <span>{t('dashboard.labAdmin.actionRequired')}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {alerts.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllAlerts((prev) => !prev)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    backgroundColor: showAllAlerts ? 'rgba(147, 51, 234, 0.15)' : 'var(--bg-card)',
+                    border: '1px solid rgba(147, 51, 234, 0.3)',
+                    color: showAllAlerts ? '#7c3aed' : 'var(--text-main)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {showAllAlerts
+                    ? t('dashboard.labAdmin.showLess')
+                    : `${t('dashboard.labAdmin.showAll')} (${alerts.length})`}
+                </button>
+              )}
+
+              {/* Live Attention Indicator */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '20px',
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                color: 'var(--amber-600)',
+                fontSize: '11px',
+                fontWeight: 700,
+              }}>
+                <span style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: '#f59e0b',
+                  display: 'inline-block',
+                  boxShadow: '0 0 0 2px rgba(245, 158, 11, 0.25)',
+                }} />
+                <span>{t('dashboard.labAdmin.actionRequired')}</span>
+              </div>
             </div>
           </div>
 
-          {/* List of WOs inside the single card */}
+          {/* List of WOs inside the single card (Displays latest 2; on Show All, scrolls within same 2-item height) */}
           <div style={{
-            maxHeight: alerts.length > 4 ? '360px' : 'none',
-            overflowY: alerts.length > 4 ? 'auto' : 'visible',
-            paddingRight: alerts.length > 4 ? '4px' : '0',
+            maxHeight: showAllAlerts ? '108px' : 'none',
+            overflowY: showAllAlerts ? 'auto' : 'visible',
+            paddingRight: showAllAlerts ? '4px' : '0',
           }}>
-            {alerts.map((alert: LabAdminVerificationAlertItem, index: number) => (
+            {(showAllAlerts ? alerts : alerts.slice(0, 2)).map((alert: LabAdminVerificationAlertItem, index: number, arr: LabAdminVerificationAlertItem[]) => (
               <div
                 key={`${alert.workOrderId}-${alert.processId}`}
                 style={{
-                  padding: '14px 20px',
-                  borderBottom: index < alerts.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  padding: '10px 20px',
+                  borderBottom: index < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -350,139 +372,77 @@ export const LabAdminDashboard: React.FC = () => {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                {/* Left Side: 2-line layout (Line 1: Identifiers; Line 2: Details) */}
+                {/* Left Side: Folio + Patient + Badges */}
                 <div style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
                   minWidth: '280px',
                   flex: '1 1 auto',
                 }}>
-                  {/* Line 1: Folio + Patient + Badges */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    color: '#2563eb',
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.02em',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}>
+                    <FileText size={12} />
+                    {alert.folioNumber}
+                  </span>
+
+                  <span style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--text-heading)',
+                    fontFamily: 'var(--font-heading)',
+                  }}>
+                    {alert.patient || '—'}
+                  </span>
+
+                  {getStatusBadge(alert.processType)}
+
+                  {alert.status === 'IN_PROGRESS' ? (
                     <span style={{
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      color: '#2563eb',
-                      fontFamily: 'monospace',
-                      letterSpacing: '0.02em',
-                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '5px',
+                      backgroundColor: 'var(--badge-success-bg)',
+                      color: 'var(--emerald-600)',
+                      border: '1px solid var(--emerald-200)',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
                     }}>
-                      <FileText size={12} />
-                      {alert.folioNumber}
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+                      {t('dashboard.labAdmin.statusInProgress')}
                     </span>
-
+                  ) : (
                     <span style={{
-                      fontSize: '14px',
+                      fontSize: '10px',
                       fontWeight: 700,
-                      color: 'var(--text-heading)',
-                      fontFamily: 'var(--font-heading)',
+                      padding: '2px 7px',
+                      borderRadius: '5px',
+                      backgroundColor: 'var(--badge-warning-bg)',
+                      color: 'var(--amber-600)',
+                      border: '1px solid var(--amber-200)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
                     }}>
-                      {alert.patient || '—'}
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} />
+                      {t('dashboard.labAdmin.statusNotStarted')}
                     </span>
-
-                    {getStatusBadge(alert.processType)}
-
-                    {alert.status === 'IN_PROGRESS' ? (
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        padding: '2px 7px',
-                        borderRadius: '5px',
-                        backgroundColor: 'var(--badge-success-bg)',
-                        color: 'var(--emerald-600)',
-                        border: '1px solid var(--emerald-200)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
-                        {t('dashboard.labAdmin.statusInProgress')}
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        padding: '2px 7px',
-                        borderRadius: '5px',
-                        backgroundColor: 'var(--badge-warning-bg)',
-                        color: 'var(--amber-600)',
-                        border: '1px solid var(--amber-200)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} />
-                        {t('dashboard.labAdmin.statusNotStarted')}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Line 2: Structured Details Chips */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    fontSize: '12px',
-                    color: 'var(--text-muted)',
-                    flexWrap: 'wrap',
-                  }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Cpu size={12} style={{ color: 'var(--primary-600)' }} />
-                      <span style={{ color: 'var(--text-muted)' }}>{t('dashboard.labAdmin.stage')}:</span>
-                      <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>{alert.processName}</strong>
-                    </span>
-
-                    <span style={{ color: 'var(--border-color)' }}>•</span>
-
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <UserCheck size={12} style={{ color: '#9333ea' }} />
-                      <span style={{ color: 'var(--text-muted)' }}>{t('dashboard.labAdmin.assignedEvaluator')}:</span>
-                      <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>{alert.evaluatorName || '—'}</strong>
-                    </span>
-
-                    {alert.doctorName && (
-                      <>
-                        <span style={{ color: 'var(--border-color)' }}>•</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Stethoscope size={12} style={{ color: '#0ea5e9' }} />
-                          <span style={{ color: 'var(--text-muted)' }}>{t('dashboard.labAdmin.doctor')}:</span>
-                          <strong style={{ color: 'var(--text-heading)', fontWeight: 700 }}>{alert.doctorName}</strong>
-                          {alert.doctorType && (
-                            <span style={{
-                              fontSize: '10px',
-                              fontWeight: 600,
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              backgroundColor: alert.doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(168, 85, 247, 0.1)',
-                              color: alert.doctorType === 'LOCAL' ? '#2563eb' : '#7c3aed',
-                              border: `1px solid ${alert.doctorType === 'LOCAL' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(168, 85, 247, 0.25)'}`,
-                              marginLeft: '2px',
-                            }}>
-                              {alert.doctorType === 'LOCAL' ? t('dashboard.labAdmin.localDoctor') : t('dashboard.labAdmin.integratedDoctor')}
-                            </span>
-                          )}
-                        </span>
-                      </>
-                    )}
-
-                    {alert.prosthesisName && (
-                      <>
-                        <span style={{ color: 'var(--border-color)' }}>•</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Layers size={12} style={{ color: '#10b981' }} />
-                          <span style={{ color: 'var(--text-muted)' }}>{t('dashboard.labAdmin.prosthesis')}:</span>
-                          <span style={{ color: 'var(--text-heading)', fontWeight: 600 }}>{alert.prosthesisName}</span>
-                        </span>
-                      </>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Right Side: Action Buttons */}
@@ -745,10 +705,11 @@ export const LabAdminDashboard: React.FC = () => {
                     <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                   </div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                    {item.doctorName && <>{t('dashboard.labAdmin.doctor')}: <strong>{item.doctorName}</strong> • </>}
-                    {item.prosthesisName && <>{item.prosthesisName}</>}
-                  </div>
+                  {item.doctorName && (
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                      {t('dashboard.labAdmin.doctor')}: <strong style={{ color: 'var(--text-heading)' }}>{item.doctorName}</strong>
+                    </div>
+                  )}
 
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
@@ -856,8 +817,8 @@ export const LabAdminDashboard: React.FC = () => {
                     {getStatusBadge(item.processType)}
                   </div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    {item.doctorName && (
+                  {item.doctorName && (
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         {t('dashboard.labAdmin.doctor')}: <strong style={{ color: 'var(--text-heading)' }}>{item.doctorName}</strong>
                         {item.doctorType && (
@@ -874,13 +835,8 @@ export const LabAdminDashboard: React.FC = () => {
                           </span>
                         )}
                       </span>
-                    )}
-                    {item.prosthesisName && (
-                      <span>
-                        • {t('dashboard.labAdmin.prosthesis')}: <em>{item.prosthesisName}</em>
-                      </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -889,8 +845,6 @@ export const LabAdminDashboard: React.FC = () => {
                     marginBottom: '10px',
                   }}>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {t('dashboard.labAdmin.verification')}: <strong style={{ color: 'var(--text-main)' }}>{item.processName}</strong>
-                      <br />
                       {t('dashboard.labAdmin.evaluator')}: <strong style={{ color: 'var(--text-main)' }}>{item.evaluatorName || '—'}</strong>
                     </div>
 

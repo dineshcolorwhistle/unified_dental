@@ -177,6 +177,8 @@ const resources = {
           integratedDoctor: 'Integrated Doctor',
           onlyDefaultAdminCanEnd: 'Only the branch default administrator can conclude this external verification',
           autoStartedNotice: 'Timer running (Auto-started for local doctor)',
+          showAll: 'Show All',
+          showLess: 'Show Less',
         },
         tenantAdmin: {
           welcomeTitle: 'Welcome back, {{name}}',
@@ -2127,6 +2129,8 @@ const resources = {
           integratedDoctor: 'Doctor Integrado',
           onlyDefaultAdminCanEnd: 'Solo el administrador predeterminado de la sucursal puede concluir esta verificación externa',
           autoStartedNotice: 'Temporizador en curso (Iniciado automáticamente para doctor local)',
+          showAll: 'Mostrar Todos',
+          showLess: 'Mostrar Menos',
         },
         tenantAdmin: {
           welcomeTitle: 'Bienvenido de nuevo, {{name}}',
