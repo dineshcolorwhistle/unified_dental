@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { useAuth } from '../core/context/AuthContext';
 import { useToast } from '../core/context/ToastContext';
 import { formatDate, formatDateTime } from '../core/utils/dateUtils';
 import { SearchableSelect } from '../components/common/SearchableSelect';
@@ -55,6 +56,8 @@ interface QrInquiryItem {
 
 export const QrInquiriesPage: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isSuperAdmin = !!user?.isSuperAdmin;
   const toast = useToast();
 
   const [inquiries, setInquiries] = useState<QrInquiryItem[]>([]);
@@ -76,8 +79,9 @@ export const QrInquiriesPage: React.FC = () => {
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
 
-  // Fetch tenants for dropdown filter
+  // Fetch tenants for dropdown filter (Platform Super Admin only)
   useEffect(() => {
+    if (!isSuperAdmin) return;
     api
       .get('/tenants')
       .then((res) => {
@@ -91,7 +95,7 @@ export const QrInquiriesPage: React.FC = () => {
         ]);
       })
       .catch(() => {});
-  }, [t]);
+  }, [isSuperAdmin, t]);
 
   // Fetch Inquiries
   const fetchInquiries = useCallback(async () => {
@@ -103,22 +107,28 @@ export const QrInquiriesPage: React.FC = () => {
       };
       if (search.trim()) params.search = search.trim();
       if (selectedStatus !== 'ALL') params.status = selectedStatus;
-      if (selectedTenant !== 'ALL') params.tenantId = selectedTenant;
+      if (isSuperAdmin && selectedTenant !== 'ALL') params.tenantId = selectedTenant;
 
       const res = await api.get('/platform/qr-inquiries', { params });
-      const data = res.data?.data || [];
-      const meta = res.data?.meta || {};
+      const raw = res.data;
+      const data: QrInquiryItem[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+        ? raw.data
+        : [];
+      const meta = (res as any).meta || raw?.meta || {};
 
       setInquiries(data);
-      setTotalCount(meta.total ?? data.length);
-      setTotalPages(meta.totalPages ?? 1);
+      const total = meta.total !== undefined ? meta.total : data.length;
+      setTotalCount(total);
+      setTotalPages(meta.totalPages || Math.max(1, Math.ceil(total / pageSize)));
     } catch (err) {
       console.error('Failed to load QR inquiries:', err);
       toast.error(t('qrInquiries.loadFailed', 'Failed to load QR inquiries'));
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, search, selectedStatus, selectedTenant, t]);
+  }, [currentPage, isSuperAdmin, pageSize, search, selectedStatus, selectedTenant, t]);
 
   useEffect(() => {
     fetchInquiries();
@@ -347,18 +357,20 @@ export const QrInquiriesPage: React.FC = () => {
           />
         </div>
 
-        {/* Tenant Filter */}
-        <div style={{ width: '220px' }}>
-          <SearchableSelect
-            options={tenantsList}
-            value={selectedTenant}
-            onChange={(val) => {
-              setSelectedTenant(val);
-              setCurrentPage(1);
-            }}
-            placeholder={t('qrInquiries.filters.tenantPlaceholder', 'Filter by Tenant')}
-          />
-        </div>
+        {/* Tenant Filter (Platform Super Admin only) */}
+        {isSuperAdmin && (
+          <div style={{ width: '220px' }}>
+            <SearchableSelect
+              options={tenantsList}
+              value={selectedTenant}
+              onChange={(val) => {
+                setSelectedTenant(val);
+                setCurrentPage(1);
+              }}
+              placeholder={t('qrInquiries.filters.tenantPlaceholder', 'Filter by Tenant')}
+            />
+          </div>
+        )}
 
         {/* Status Filter */}
         <div style={{ width: '180px' }}>
@@ -509,7 +521,7 @@ export const QrInquiriesPage: React.FC = () => {
                       <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 600 }}>
                           <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-                          <span>{inquiry.phone}</span>
+                          <span>{inquiry.phone || '—'}</span>
                         </div>
                       </td>
 
@@ -772,12 +784,16 @@ export const QrInquiriesPage: React.FC = () => {
                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
                       {t('qrInquiries.phone', 'Phone Number')}
                     </div>
-                    <a
-                      href={`tel:${inquiryToView.phone}`}
-                      style={{ fontSize: '13px', color: 'var(--primary-600)', textDecoration: 'none', fontWeight: 600 }}
-                    >
-                      {inquiryToView.phone}
-                    </a>
+                    {inquiryToView.phone ? (
+                      <a
+                        href={`tel:${inquiryToView.phone}`}
+                        style={{ fontSize: '13px', color: 'var(--primary-600)', textDecoration: 'none', fontWeight: 600 }}
+                      >
+                        {inquiryToView.phone}
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>—</span>
+                    )}
                   </div>
                 </div>
 

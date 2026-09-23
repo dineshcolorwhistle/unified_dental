@@ -27,8 +27,13 @@ export class QrTrackingService {
 
     const trimmedToken = qrToken.trim();
 
-    const order = await this.prisma.workOrder.findUnique({
-      where: { qrToken: trimmedToken },
+    const order = await this.prisma.workOrder.findFirst({
+      where: {
+        OR: [
+          { qrToken: trimmedToken },
+          { folioNumber: trimmedToken },
+        ],
+      },
       select: {
         id: true,
         folioNumber: true,
@@ -108,8 +113,13 @@ export class QrTrackingService {
   async createInquiry(dto: CreateQrInquiryDto) {
     const trimmedToken = dto.qrToken.trim();
 
-    const order = await this.prisma.workOrder.findUnique({
-      where: { qrToken: trimmedToken },
+    const order = await this.prisma.workOrder.findFirst({
+      where: {
+        OR: [
+          { qrToken: trimmedToken },
+          { folioNumber: trimmedToken },
+        ],
+      },
       select: {
         id: true,
         folioNumber: true,
@@ -128,7 +138,7 @@ export class QrTrackingService {
         workOrderFolio: order.folioNumber,
         name: dto.name.trim(),
         email: dto.email.trim().toLowerCase(),
-        phone: dto.phone.trim(),
+        phone: dto.phone?.trim() || '',
         message: dto.message?.trim() || null,
         status: 'NEW',
       },
@@ -158,8 +168,11 @@ export class QrTrackingService {
    * Platform Super Admin: Query all QR inquiries across tenants.
    */
   async findAllInquiries(actor: AuthenticatedUser, query: QueryQrInquiriesDto) {
-    if (!actor?.isSuperAdmin) {
-      throw new ForbiddenException('Only Platform Super Admins can view QR inquiries');
+    const isSuperAdmin = actor?.isSuperAdmin;
+    const actorTenantId = actor?.activeTenantId;
+
+    if (!isSuperAdmin && !actorTenantId) {
+      throw new ForbiddenException('You do not have permission to view QR inquiries');
     }
 
     const page = Math.max(1, Number(query.page) || 1);
@@ -168,7 +181,9 @@ export class QrTrackingService {
 
     const where: any = {};
 
-    if (query.tenantId && query.tenantId !== 'ALL') {
+    if (!isSuperAdmin) {
+      where.tenantId = actorTenantId;
+    } else if (query.tenantId && query.tenantId !== 'ALL') {
       where.tenantId = query.tenantId;
     }
 
@@ -245,16 +260,16 @@ export class QrTrackingService {
     notes: string | undefined,
     actor: AuthenticatedUser,
   ) {
-    if (!actor?.isSuperAdmin) {
-      throw new ForbiddenException('Only Platform Super Admins can update QR inquiries');
-    }
-
     const inquiry = await this.prisma.qrInquiry.findUnique({
       where: { id },
     });
 
     if (!inquiry) {
       throw new NotFoundException('Inquiry not found');
+    }
+
+    if (!actor?.isSuperAdmin && inquiry.tenantId !== actor?.activeTenantId) {
+      throw new ForbiddenException('You do not have permission to update this inquiry');
     }
 
     return this.prisma.qrInquiry.update({
@@ -279,16 +294,16 @@ export class QrTrackingService {
    * Platform Super Admin: Delete an inquiry.
    */
   async deleteInquiry(id: string, actor: AuthenticatedUser) {
-    if (!actor?.isSuperAdmin) {
-      throw new ForbiddenException('Only Platform Super Admins can delete QR inquiries');
-    }
-
     const inquiry = await this.prisma.qrInquiry.findUnique({
       where: { id },
     });
 
     if (!inquiry) {
       throw new NotFoundException('Inquiry not found');
+    }
+
+    if (!actor?.isSuperAdmin && inquiry.tenantId !== actor?.activeTenantId) {
+      throw new ForbiddenException('You do not have permission to delete this inquiry');
     }
 
     await this.prisma.qrInquiry.delete({

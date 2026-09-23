@@ -19,11 +19,11 @@ export class CreateQrInquiryDto {
   @MaxLength(150)
   email: string;
 
-  @ApiProperty({ description: 'Contact phone number' })
+  @ApiPropertyOptional({ description: 'Contact phone number (optional)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(50)
-  phone: string;
+  phone?: string;
 
   @ApiPropertyOptional({ description: 'Optional message or notes' })
   @IsOptional()

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { formatDate } from '../core/utils/dateUtils';
+import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import {
   Activity,
   AlertCircle,
@@ -114,16 +115,23 @@ export const PublicQrTrackingPage: React.FC = () => {
     fetchTrackingData();
   }, [qrToken, t]);
 
-  // Language toggle
-  const toggleLanguage = () => {
-    const nextLang = i18n.language.startsWith('es') ? 'en' : 'es';
-    i18n.changeLanguage(nextLang);
-  };
+  // Public tracking initially defaults to Spanish per requirement
+  useEffect(() => {
+    const savedPublicLang = sessionStorage.getItem('public_qr_lang');
+    if (savedPublicLang) {
+      if (i18n.language !== savedPublicLang) {
+        i18n.changeLanguage(savedPublicLang);
+      }
+    } else {
+      i18n.changeLanguage('es');
+      sessionStorage.setItem('public_qr_lang', 'es');
+    }
+  }, [i18n]);
 
   // Submit Interest Lead Form
   const handleSubmitLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!qrToken || !formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+    if (!qrToken || !formData.name.trim() || !formData.email.trim()) {
       return;
     }
 
@@ -134,7 +142,7 @@ export const PublicQrTrackingPage: React.FC = () => {
         qrToken,
         name: formData.name.trim(),
         email: formData.email.trim(),
-        phone: formData.phone.trim(),
+        phone: formData.phone.trim() || undefined,
         message: formData.message.trim() || undefined,
       });
       setSubmitSuccess(true);
@@ -355,14 +363,15 @@ export const PublicQrTrackingPage: React.FC = () => {
     >
       {/* ─── 1. TOP HEADER BAR ───────────────────────────────── */}
       <header
+        className="public-qr-header"
         style={{
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          backgroundColor: 'rgba(10, 16, 29, 0.85)',
-          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(10, 16, 29, 0.88)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          padding: '12px 24px',
         }}
       >
         <div
@@ -372,69 +381,63 @@ export const PublicQrTrackingPage: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '12px',
           }}
         >
           {/* Tenant Brand & Subtitle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: '1 1 auto' }}>
             {order.tenant?.logoUrl ? (
               <img
                 src={order.tenant.logoUrl}
                 alt={tenantName}
-                style={{ height: '32px', maxWidth: '120px', objectFit: 'contain' }}
+                style={{ height: '32px', maxWidth: '110px', objectFit: 'contain', flexShrink: 0 }}
               />
             ) : (
               <div
                 style={{
-                  width: '34px',
-                  height: '34px',
+                  width: '36px',
+                  height: '36px',
                   borderRadius: '10px',
                   background: 'linear-gradient(135deg, #0284c7, #0369a1)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontWeight: 800,
-                  fontSize: '15px',
+                  fontSize: '14px',
                   color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+                  flexShrink: 0,
                 }}
               >
                 {tenantName.substring(0, 2).toUpperCase()}
               </div>
             )}
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff', letterSpacing: '0.02em' }}>
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <div
+                className="public-qr-brand-title"
+                style={{
+                  fontSize: '14.5px',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  letterSpacing: '0.01em',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={tenantName}
+              >
                 {tenantName}
               </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>
+              <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, whiteSpace: 'nowrap' }}>
                 {t('publicQr.headerSubtitle', 'Work Order Tracking')}
               </div>
             </div>
           </div>
 
-          {/* Right Header Actions: Language Switcher & "I'm Interested" Button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Language Toggle */}
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                color: '#cbd5e1',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              title="Change Language / Cambiar Idioma"
-            >
-              <Globe size={14} />
-              <span>{i18n.language.startsWith('es') ? 'ES' : 'EN'}</span>
-            </button>
+          {/* Right Header Actions: Language Switcher Dropdown & "I'm Interested" Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            {/* Language Switcher Dropdown */}
+            <LanguageSwitcher variant="dark" compact={true} />
 
             {/* Top "I'm Interested" Button */}
             <button
@@ -444,19 +447,21 @@ export const PublicQrTrackingPage: React.FC = () => {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '7px 16px',
-                borderRadius: '20px',
+                padding: '6px 14px',
+                borderRadius: '999px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
                 color: '#ffffff',
-                fontSize: '12.5px',
+                fontSize: '12px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
                 transition: 'transform 0.15s ease',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              <Heart size={14} fill="#ffffff" />
+              <Heart size={13} fill="#ffffff" />
               <span>{t('publicQr.interestedBtn', "I'm Interested")}</span>
             </button>
           </div>
@@ -1052,11 +1057,10 @@ export const PublicQrTrackingPage: React.FC = () => {
                   {/* Phone */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginBottom: '6px' }}>
-                      {t('publicQr.phone', 'Phone Number')} <span style={{ color: '#ef4444' }}>*</span>
+                      {t('publicQr.phoneOptional', 'Phone Number (Optional)')}
                     </label>
                     <input
                       type="tel"
-                      required
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder={t('publicQr.phonePlaceholder', 'Enter your phone number')}

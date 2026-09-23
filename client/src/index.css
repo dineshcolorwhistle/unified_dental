@@ -1441,3 +1441,31 @@ button {
   color: var(--primary-600);
   font-weight: 600;
 }
+
+/* Public QR Tracking Header Responsive Layout */
+.public-qr-header {
+  padding: 10px 14px;
+}
+
+@media (min-width: 640px) {
+  .public-qr-header {
+    padding: 12px 24px;
+  }
+}
+
+.public-qr-brand-title {
+  max-width: 140px;
+}
+
+@media (min-width: 480px) {
+  .public-qr-brand-title {
+    max-width: 240px;
+  }
+}
+
+@media (min-width: 768px) {
+  .public-qr-brand-title {
+    max-width: 360px;
+  }
+}
+
