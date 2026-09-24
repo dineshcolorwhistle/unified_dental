@@ -29,6 +29,7 @@ import { SubscriptionsModule } from './core/subscriptions/subscriptions.module';
 import { LabModule } from './modules/lab/lab.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     LabModule,
     ExpensesModule,
     InventoryModule,
+    FinanceModule,
   ],
 })
 export class AppModule {}

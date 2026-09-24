@@ -215,8 +215,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (
         user.tenants?.find((t) => t.id === user.activeTenant?.id)?.isOwner ||
         user.roles?.some((r) => {
-          const lower = r.toLowerCase();
-          return lower === 'tenant-admin' || lower.includes('tenant administrator') || lower.includes('tenant admin');
+          const lower = r.toLowerCase().replace(/_/g, '-');
+          return (
+            lower === 'tenant-admin' ||
+            lower === 'admin' ||
+            lower === 'administrator' ||
+            lower.includes('tenant-admin') ||
+            lower.includes('tenant administrator') ||
+            lower.includes('tenant admin')
+          );
         }) ||
         (user.isSuperAdmin && Boolean(user.activeTenant))
       )
@@ -226,8 +233,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLabAdmin = Boolean(
     !user?.isSuperAdmin &&
     user?.roles?.some((r) => {
-      const lower = r.toLowerCase();
-      return lower === 'lab admin' || lower === 'lab-admin' || lower.includes('lab administrator') || lower.includes('lab admin');
+      const lower = r.toLowerCase().replace(/_/g, '-');
+      return (
+        lower === 'lab admin' ||
+        lower === 'lab-admin' ||
+        lower.includes('lab administrator') ||
+        lower.includes('lab admin') ||
+        lower.includes('lab-admin')
+      );
     })
   );
 
