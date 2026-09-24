@@ -23,7 +23,7 @@ Unified Dental is architected as an **enterprise-grade, multi-tenant SaaS applic
 ├─────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                  CORE OPERATIONS                                            │
 │   • Dashboard (`/`)      • Branch (`/branches`)  • Settings (`/settings`)                   │
-│   • Finance (`/finance`) • Remainder (`/reminders`) • Inventory (`/inventory`) • Expense  │
+│   • Finance (`/finance`) • Reminder (`/reminders`) • Inventory (`/inventory`) • Expense  │
 ├──────────────────────────────────────────────┬──────────────────────────────────────────────┤
 │                                              │                                              │
 │                     ▼                        │                       ▼                      │
@@ -83,7 +83,7 @@ The platform strictly isolates data and operations at 4 hierarchical levels:
   - Full governance over all subscribed modules (Lab-only, Clinic-only, or Combined Clinic+Lab).
   - Organization branding, custom logo, timezone, currency, and date formatting (`/settings`).
   - Organization-wide branch management (`/branches`).
-  - Core administrative operations (`Finance`, `Remainder`, `Inventory`, `Expense`).
+  - Core administrative operations (`Finance`, `Reminder`, `Inventory`, `Expense`).
 
 ### Level 3: Branch Scoping
 - Every branch belongs strictly to a `tenant_id`.
@@ -108,7 +108,7 @@ The sidebar navigation implements a **Single-Expand Accordion with Tree-Line Hie
  │    ├── Branch (`/branches`)
  │    ├── Settings (`/settings`)
  │    ├── Finance (`/finance`)
- │    ├── Remainder (`/reminders`)
+ │    ├── Reminder (`/reminders`)
  │    ├── Inventory (`/inventory`)
  │    └── Expense (`/expenses`)
  │

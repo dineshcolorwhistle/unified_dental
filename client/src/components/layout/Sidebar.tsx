@@ -423,7 +423,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 <SidebarNavItem
                   to="/reminders"
                   icon={<Bell size={17} />}
-                  label={t('nav.remainder')}
+                  label={t('nav.reminder')}
                   isCollapsed={isCollapsed}
                 />
 
@@ -651,7 +651,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 <SidebarNavItem
                   to="/reminders"
                   icon={<Bell size={17} />}
-                  label={t('nav.remainder')}
+                  label={t('nav.reminder')}
                   isCollapsed={isCollapsed}
                 />
 
