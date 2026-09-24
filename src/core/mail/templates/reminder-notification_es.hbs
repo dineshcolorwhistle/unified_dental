@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notificación de Recordatorio Próximo</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
+    .card { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 14px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .header { text-align: center; margin-bottom: 24px; }
+    .logo-text { font-size: 22px; font-weight: 800; color: #0f766e; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge-urgent { background-color: #fee2e2; color: #b91c1c; }
+    .badge-high { background-color: #ffedd5; color: #c2410c; }
+    .badge-medium { background-color: #fef3c7; color: #b45309; }
+    .badge-low { background-color: #e0f2fe; color: #0369a1; }
+    .alert-banner { background-color: #f0fdfa; border: 1px solid #99f6e4; border-radius: 10px; padding: 16px; margin: 20px 0; }
+    .alert-banner strong { color: #0f766e; font-size: 15px; }
+    .details-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    .details-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+    .details-table td.label { font-weight: 600; color: #64748b; width: 35%; }
+    .details-table td.value { color: #0f172a; font-weight: 500; }
+    .description-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-top: 12px; font-size: 13.5px; line-height: 1.5; color: #334155; }
+    .btn { display: inline-block; background: linear-gradient(135deg, #0f766e, #0d9488); color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; margin: 24px 0 12px; font-size: 14px; text-align: center; }
+    .footer { margin-top: 28px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo-text">🦷 Unified Dental</div>
+    </div>
+
+    <div class="alert-banner">
+      <strong>⏰ Recordatorio Programado en 2 Horas</strong>
+      <p style="margin: 6px 0 0 0; font-size: 13.5px; color: #134e4a;">
+        Hola {{assigneeName}}, esta es una notificación automática para un recordatorio programado dentro de 2 horas.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0;">{{title}}</h2>
+      {{#if priority}}
+      <span class="badge badge-{{priorityLower}}">{{priority}}</span>
+      {{/if}}
+    </div>
+
+    <table class="details-table">
+      {{#if category}}
+      <tr>
+        <td class="label">Categoría</td>
+        <td class="value">{{category}}</td>
+      </tr>
+      {{/if}}
+      <tr>
+        <td class="label">Hora Programada</td>
+        <td class="value"><strong>{{scheduledDateTime}}</strong></td>
+      </tr>
+      <tr>
+        <td class="label">Recurrencia</td>
+        <td class="value">{{recurrenceLabel}}</td>
+      </tr>
+      {{#if assigneesList}}
+      <tr>
+        <td class="label">Asignado A</td>
+        <td class="value">{{assigneesList}}</td>
+      </tr>
+      {{/if}}
+    </table>
+
+    {{#if description}}
+    <div style="margin-top: 16px;">
+      <span style="font-weight: 600; font-size: 13px; color: #64748b;">Descripción / Notas:</span>
+      <div class="description-box">{{description}}</div>
+    </div>
+    {{/if}}
+
+    {{#if appUrl}}
+    <div style="text-align: center;">
+      <a href="{{appUrl}}" class="btn">Ver en Unified Dental</a>
+    </div>
+    {{/if}}
+
+    <div class="footer">
+      Esta es una notificación automática de {{tenantName}} en la Plataforma Dental Unificada.<br>
+      &copy; 2026 Unified Dental. Todos los derechos reservados.
+    </div>
+  </div>
+</body>
+</html>

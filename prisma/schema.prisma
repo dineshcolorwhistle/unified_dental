@@ -96,6 +96,7 @@ model Tenant {
   inventoryItems      InventoryItem[]
   portalExchangeTokens PortalExchangeToken[]
   qrInquiries          QrInquiry[]
+  reminders            Reminder[]
 
   @@map("tenants")
 }
@@ -176,6 +177,7 @@ model Branch {
   expenses        Expense[]
   inventoryCategories InventoryCategory[]
   inventoryItems      InventoryItem[]
+  reminders           Reminder[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -215,6 +217,8 @@ model User {
   createdExpenses            Expense[] @relation("ExpenseCreatedBy")
   createdInventoryItems      InventoryItem[] @relation("InventoryItemCreatedBy")
   portalExchangeTokens       PortalExchangeToken[]
+  createdReminders           Reminder[] @relation("ReminderCreatedBy")
+  reminderAssignments        ReminderAssignee[]
 
   @@map("users")
 }
@@ -545,6 +549,7 @@ model Doctor {
   listMembers DoctorListMember[]
   workOrders  WorkOrder[]
   workOrderProcesses WorkOrderProcess[] @relation("WorkOrderProcessDoctor")
+  reminderAssignments ReminderAssignee[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -884,3 +889,98 @@ model QrInquiry {
   @@index([status])
   @@map("qr_inquiries")
 }
+
+// ─── Reminders & Follow-ups Module ────────────────────────
+
+enum ReminderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ReminderRecurrence {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum ReminderEndType {
+  ON_DATE
+  AFTER_OCCURRENCES
+  NEVER
+}
+
+model Reminder {
+  id               String              @id @default(uuid())
+  tenantId         String              @map("tenant_id")
+  branchId         String?             @map("branch_id")
+  moduleKey        String              @default("LAB") @map("module_key")
+  title            String
+  priority         ReminderPriority    @default(MEDIUM)
+  category         String?
+  description      String?             @db.Text
+  recurrence       ReminderRecurrence  @default(ONE_TIME)
+  startDate        DateTime            @map("start_date")
+  reminderTime     String              @map("reminder_time")
+  recurrenceConfig Json?               @default("{}") @map("recurrence_config")
+  endType          ReminderEndType?    @map("end_type")
+  endDate          DateTime?           @map("end_date")
+  endOccurrences   Int?                @map("end_occurrences")
+  isActive         Boolean             @default(true) @map("is_active")
+  createdBy        String?             @map("created_by")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  creator          User?               @relation("ReminderCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  assignees        ReminderAssignee[]
+  notificationLogs ReminderNotificationLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, branchId])
+  @@index([tenantId, isActive])
+  @@map("reminders")
+}
+
+model ReminderAssignee {
+  id           String    @id @default(uuid())
+  reminderId   String    @map("reminder_id")
+  userId       String?   @map("user_id")
+  doctorId     String?   @map("doctor_id")
+  name         String
+  email        String?
+  profession   String
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  reminder     Reminder  @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doctor       Doctor?   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([reminderId, userId, doctorId])
+  @@index([reminderId])
+  @@index([userId])
+  @@index([doctorId])
+  @@map("reminder_assignees")
+}
+
+model ReminderNotificationLog {
+  id             String    @id @default(uuid())
+  reminderId     String    @map("reminder_id")
+  occurrenceKey  String    @map("occurrence_key")
+  scheduledAt    DateTime  @map("scheduled_at")
+  notifiedAt     DateTime  @default(now()) @map("notified_at")
+  recipientCount Int       @default(0) @map("recipient_count")
+  status         String    @default("SENT")
+
+  reminder       Reminder  @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+
+  @@unique([reminderId, occurrenceKey])
+  @@index([reminderId])
+  @@map("reminder_notification_logs")
+}
+

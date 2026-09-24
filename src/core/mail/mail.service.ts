@@ -10,7 +10,7 @@ import * as path from 'path';
 export interface SendMailOptions {
   to: string;
   subject: string;
-  template: 'welcome' | 'reset-password';
+  template: 'welcome' | 'reset-password' | 'reminder-notification';
   context: Record<string, any>;
   locale?: string;
 }
@@ -250,6 +250,52 @@ export class MailService {
         resetUrl,
         loginUrl,
         subdomainUrl: tenantBaseUrl,
+      },
+    });
+  }
+
+  /**
+   * Send reminder alert email 2 hours prior to scheduled occurrence.
+   * Supports bilingual templates (EN/ES).
+   */
+  async sendReminderAlert(options: {
+    to: string;
+    assigneeName: string;
+    tenantName: string;
+    tenantSlug?: string;
+    title: string;
+    priority?: string;
+    category?: string;
+    scheduledDateTime: string;
+    recurrenceLabel: string;
+    description?: string;
+    assigneesList?: string;
+    locale?: string;
+  }) {
+    const tenantBaseUrl = this.getTenantBaseUrl(options.tenantSlug);
+    const appUrl = `${tenantBaseUrl}/reminders`;
+    const isSpanish = options.locale?.toLowerCase().startsWith('es');
+    const subject = isSpanish
+      ? `⏰ Recordatorio en 2 Horas: ${options.title}`
+      : `⏰ Reminder in 2 Hours: ${options.title}`;
+
+    return this.sendMail({
+      to: options.to,
+      subject,
+      template: 'reminder-notification',
+      locale: options.locale,
+      context: {
+        assigneeName: options.assigneeName,
+        tenantName: options.tenantName,
+        title: options.title,
+        priority: options.priority,
+        priorityLower: options.priority ? options.priority.toLowerCase() : 'medium',
+        category: options.category,
+        scheduledDateTime: options.scheduledDateTime,
+        recurrenceLabel: options.recurrenceLabel,
+        description: options.description,
+        assigneesList: options.assigneesList,
+        appUrl,
       },
     });
   }
