@@ -20,6 +20,7 @@ import { useToast } from '../core/context/ToastContext';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import { Tooltip } from '../components/common/Tooltip';
 import { Pagination } from '../components/common/Pagination';
+import { CalendarView, CalendarEvent } from '../components/common/CalendarView';
 import { formatDate } from '../core/utils/dateUtils';
 import {
   CreateReminderModal,
@@ -50,6 +51,9 @@ export const RemindersPage: React.FC = () => {
   const [reminderToView, setReminderToView] = useState<ReminderItem | null>(null);
   const [reminderToDelete, setReminderToDelete] = useState<ReminderItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // View mode: list or calendar
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   const fetchReminders = useCallback(async () => {
     setLoading(true);
@@ -189,23 +193,39 @@ export const RemindersPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Action Button: Lab Admin can create; Tenant Admin CANNOT create */}
-        {isLabAdmin && (
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Calendar View Toggle */}
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              setReminderToEdit(null);
-              setIsCreateOpen(true);
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            className="btn btn-secondary"
+            onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '13px' }}
           >
-            <Plus size={17} />
-            <span>{t('reminders.createBtn', 'Create Reminder')}</span>
+            <Calendar size={15} />
+            <span>{viewMode === 'list' ? t('calendar.calendarView', 'Calendar View') : t('calendar.listView', 'List View')}</span>
           </button>
-        )}
+
+          {/* Create Reminder: Lab Admin Only */}
+          {isLabAdmin && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setReminderToEdit(null);
+                setIsCreateOpen(true);
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Plus size={17} />
+              <span>{t('reminders.createBtn', 'Create Reminder')}</span>
+            </button>
+          )}
+        </div>
       </div>
 
+      {viewMode === 'list' ? (
+      <>
       {/* Filter Row */}
       <div
         className="card"
@@ -531,6 +551,60 @@ export const RemindersPage: React.FC = () => {
           }}
         />
       </div>
+      </>
+      ) : (
+        /* ─── CALENDAR VIEW ───────────────────────────────────── */
+        <CalendarView
+          title={t('calendar.remindersTitle', 'Reminders Calendar')}
+          subtitle={t('calendar.remindersSubtitle', 'Overview of reminders scheduled by date')}
+          events={reminders.map((r): CalendarEvent => {
+            const priColors: Record<string, string> = {
+              URGENT: '#ef4444',
+              HIGH: '#f59e0b',
+              MEDIUM: '#0d9488',
+              LOW: '#94a3b8',
+            };
+            return {
+              id: r.id,
+              date: r.startDate,
+              title: r.title,
+              subtitle: r.category ? `${r.category} • ${r.reminderTime}` : r.reminderTime,
+              priorityColor: priColors[r.priority] || '#94a3b8',
+              badgeLabel: t(`reminders.priorities.${r.priority.toLowerCase()}`, r.priority),
+              badgeBg: r.priority === 'URGENT' ? 'var(--badge-danger-bg)' : r.priority === 'HIGH' ? 'var(--badge-warning-bg)' : 'var(--badge-primary-bg)',
+              badgeColor: r.priority === 'URGENT' ? 'var(--rose-700, #b91c1c)' : r.priority === 'HIGH' ? 'var(--amber-700, #b45309)' : 'var(--primary-700)',
+              meta: r,
+            };
+          })}
+          onEventClick={(ev) => {
+            const reminder = reminders.find((r) => r.id === ev.id);
+            if (reminder) setReminderToView(reminder);
+          }}
+          onListViewClick={() => setViewMode('list')}
+          searchValue={search}
+          onSearchChange={(val) => {
+            setSearch(val);
+            setPage(1);
+          }}
+          searchPlaceholder={t('calendar.searchReminders', 'Search reminders...')}
+          filterControls={
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ width: '150px' }}>
+                <SearchableSelect
+                  options={priorityOptions}
+                  value={priorityFilter}
+                  onChange={(val) => {
+                    setPriorityFilter(val);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            </div>
+          }
+          icon={<Bell size={20} />}
+          loading={loading}
+        />
+      )}
 
       {/* Create / Edit Modal */}
       <CreateReminderModal

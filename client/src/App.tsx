@@ -214,7 +214,7 @@ export const App: React.FC = () => {
                     <Route
                       path="qr-inquiries"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute superAdminOnly>
                           <QrInquiriesPage />
                         </ProtectedRoute>
                       }

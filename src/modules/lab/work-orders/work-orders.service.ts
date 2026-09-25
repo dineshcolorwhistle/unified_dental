@@ -657,6 +657,9 @@ export class WorkOrdersService {
               doctor: { select: { id: true, name: true, clinicName: true } },
             },
           },
+          payments: {
+            select: { id: true, amount: true, status: true },
+          },
           _count: { select: { notesHistory: true } },
         },
         orderBy: { createdAt: 'desc' },

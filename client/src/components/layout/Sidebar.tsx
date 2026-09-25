@@ -575,13 +575,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   label={t('nav.whatsappTemplate')}
                   isCollapsed={isCollapsed}
                 />
-
-                <SidebarNavItem
-                  to="/qr-inquiries"
-                  icon={<QrCode size={17} />}
-                  label={t('nav.qrInquiries', 'QR Inquiries')}
-                  isCollapsed={isCollapsed}
-                />
               </div>
             </div>
           </>

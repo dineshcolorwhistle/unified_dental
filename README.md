@@ -281,6 +281,6 @@ npm run start:prod
 - [AGENTS.md](file:///d:/Projects/unified_dental/AGENTS.md) — Mandatory agent & developer compliance guidelines.
 - [instructions.md](file:///d:/Projects/unified_dental/instructions.md) — Master architectural & domain design document (80 sections).
 - [docs/README.md](file:///d:/Projects/unified_dental/docs/README.md) — Complete Documentation Hub across all roles and modules.
-- [docs/lab-module/work-orders.md](file:///d:/Projects/unified_dental/docs/lab-module/work-orders.md) — Work orders lifecycle, QR code generation, download/print, and public tracking.
-- [docs/lab-module/reminders.md](file:///d:/Projects/unified_dental/docs/lab-module/reminders.md) — Recurring task reminders, doctor follow-ups, and automated 2-hour email alerts.
+- [docs/lab-module/work-orders.md](file:///d:/Projects/unified_dental/docs/lab-module/work-orders.md) — Work orders lifecycle, QR code generation, download/print, public tracking, payment status tracking, and interactive delivery calendar.
+- [docs/lab-module/reminders.md](file:///d:/Projects/unified_dental/docs/lab-module/reminders.md) — Recurring task reminders, doctor follow-ups, automated 2-hour email alerts, and interactive reminders calendar.
 - [docs/platform-admin/qr-inquiries.md](file:///d:/Projects/unified_dental/docs/platform-admin/qr-inquiries.md) — Platform Super Admin QR leads and inquiries management.

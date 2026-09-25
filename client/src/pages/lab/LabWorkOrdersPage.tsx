@@ -20,6 +20,7 @@ import {
   Pencil,
   MessageSquare,
   QrCode,
+  DollarSign,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
@@ -28,6 +29,7 @@ import { useNotifications } from '../../core/context/NotificationContext';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { Tooltip } from '../../components/common/Tooltip';
 import { Pagination } from '../../components/common/Pagination';
+import { CalendarView, CalendarEvent } from '../../components/common/CalendarView';
 import { workOrderService, WorkOrderListItem } from '../../services/workOrderService';
 import { CreateWorkOrderModal } from '../../components/lab/CreateWorkOrderModal';
 import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
@@ -40,6 +42,9 @@ export const LabWorkOrdersPage: React.FC = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
+
+  // View mode: list or calendar
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   // Role permissions
   const canCreate = isLabAdmin;
@@ -271,34 +276,50 @@ export const LabWorkOrdersPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Button: Lab Admin Only can create WO */}
-        {canCreate ? (
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Calendar View Toggle */}
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={() => setIsCreateModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}
+            className="btn btn-secondary"
+            onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '13px' }}
           >
-            <Plus size={16} />
-            <span>{t('workOrders.newWorkOrderBtn', 'New Work Order')}</span>
+            <Calendar size={15} />
+            <span>{viewMode === 'list' ? t('calendar.calendarView', 'Calendar View') : t('calendar.listView', 'List View')}</span>
           </button>
-        ) : (
-          <Tooltip content={t('workOrders.adminOnlyCreateNotice', 'Only Lab Administrators can create Work Orders')}>
-            <span style={{ display: 'inline-block' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled
-                style={{ opacity: 0.6, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-              >
-                <Plus size={16} />
-                <span>{t('workOrders.newWorkOrderBtn', 'New Work Order')}</span>
-              </button>
-            </span>
-          </Tooltip>
-        )}
+
+          {/* New Work Order: Lab Admin Only */}
+          {canCreate ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setIsCreateModalOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}
+            >
+              <Plus size={16} />
+              <span>{t('workOrders.newWorkOrderBtn', 'New Work Order')}</span>
+            </button>
+          ) : (
+            <Tooltip content={t('workOrders.adminOnlyCreateNotice', 'Only Lab Administrators can create Work Orders')}>
+              <span style={{ display: 'inline-block' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled
+                  style={{ opacity: 0.6, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Plus size={16} />
+                  <span>{t('workOrders.newWorkOrderBtn', 'New Work Order')}</span>
+                </button>
+              </span>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
+      {viewMode === 'list' ? (
+      <>
       {/* ─── KPI METRICS ────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
         <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -568,11 +589,12 @@ export const LabWorkOrdersPage: React.FC = () => {
                   <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                     {t('workOrders.table.doctor', 'Doctor')}
                   </th>
-                  <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                    {t('workOrders.table.color', 'Color')}
-                  </th>
+
                   <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                     {t('workOrders.table.status', 'Status')}
+                  </th>
+                  <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                    {t('workOrders.table.paymentStatus', 'Payment Status')}
                   </th>
                   <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                     {t('workOrders.table.quotedPrice', 'Quoted Price')}
@@ -657,29 +679,7 @@ export const LabWorkOrdersPage: React.FC = () => {
                         )}
                       </td>
 
-                      {/* 4. Color */}
-                      <td style={{ padding: '14px 18px' }}>
-                        {order.color ? (
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--bg-surface)',
-                              border: '1px solid var(--border-color)',
-                              color: 'var(--text-main)',
-                            }}
-                          >
-                            {order.color}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* 5. Status */}
+                      {/* 4. Status */}
                       <td style={{ padding: '14px 18px' }}>
                         <span
                           style={{
@@ -697,6 +697,50 @@ export const LabWorkOrdersPage: React.FC = () => {
                           {badge.icon}
                           <span>{badge.label}</span>
                         </span>
+                      </td>
+
+                      {/* 5. Payment Status */}
+                      <td style={{ padding: '14px 18px' }}>
+                        {(() => {
+                          const totalQuoteNum = Number(order.totalQuote) || 0;
+                          const totalPaidNum =
+                            order.payments && order.payments.length > 0
+                              ? order.payments
+                                  .filter((p: any) => p.status === 'SETTLED')
+                                  .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
+                              : Number(order.initialPayment || 0);
+                          let payLabel = t('workOrders.paymentStatus.pending', 'Pending');
+                          let payBg = 'var(--bg-surface)';
+                          let payColor = 'var(--text-muted)';
+                          let payIcon = <DollarSign size={11} />;
+                          if (totalPaidNum >= totalQuoteNum && totalQuoteNum > 0) {
+                            payLabel = t('workOrders.paymentStatus.paid', 'Paid');
+                            payBg = 'var(--badge-success-bg)';
+                            payColor = 'var(--badge-success-text)';
+                          } else if (totalPaidNum > 0) {
+                            payLabel = t('workOrders.paymentStatus.partiallyPaid', 'Partial');
+                            payBg = 'var(--badge-warning-bg)';
+                            payColor = 'var(--badge-warning-text)';
+                          }
+                          return (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                backgroundColor: payBg,
+                                color: payColor,
+                              }}
+                            >
+                              {payIcon}
+                              <span>{payLabel}</span>
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* 6. Quoted Price */}
@@ -914,6 +958,60 @@ export const LabWorkOrdersPage: React.FC = () => {
           }}
         />
       </div>
+      </>
+      ) : (
+        /* ─── CALENDAR VIEW ───────────────────────────────────── */
+        <CalendarView
+          title={t('calendar.workOrdersTitle', 'Work Orders Calendar')}
+          subtitle={t('calendar.workOrdersSubtitle', 'Overview of work orders scheduled by delivery date')}
+          events={orders
+            .filter((o) => o.deliveryDate)
+            .map((o): CalendarEvent => {
+              const badge = getStatusBadge(o.status);
+              return {
+                id: o.id,
+                date: o.deliveryDate!,
+                title: o.folioNumber,
+                subtitle: `${o.patient || ''} ${o.doctor?.name ? `• ${o.doctor.name}` : ''}`.trim(),
+                badgeLabel: badge.label,
+                badgeBg: badge.bg,
+                badgeColor: badge.color,
+                meta: o,
+              };
+            })}
+          onEventClick={(ev) => {
+            const order = orders.find((o) => o.id === ev.id);
+            if (order) {
+              setModalInitialTab('general');
+              setOrderToView(order);
+            }
+          }}
+          onListViewClick={() => setViewMode('list')}
+          searchValue={search}
+          onSearchChange={(val) => {
+            setSearch(val);
+            setCurrentPage(1);
+          }}
+          searchPlaceholder={t('calendar.searchWorkOrders', 'Search work orders...')}
+          filterControls={
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ width: '170px' }}>
+                <SearchableSelect
+                  options={statusOptions}
+                  value={selectedStatus}
+                  onChange={(val) => {
+                    setSelectedStatus(val);
+                    setCurrentPage(1);
+                  }}
+                  placeholder={t('common.status', 'Status')}
+                />
+              </div>
+            </div>
+          }
+          icon={<ClipboardList size={20} />}
+          loading={loading}
+        />
+      )}
 
       {/* ─── CREATE WORK ORDER MODAL ────────────────────────────── */}
       <CreateWorkOrderModal
