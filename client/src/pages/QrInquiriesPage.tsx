@@ -394,7 +394,7 @@ export const QrInquiriesPage: React.FC = () => {
       {/* ─── DATA TABLE (AGENTS.md Rule 13 Compliant) ────────── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--table-th-bg)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -406,19 +406,19 @@ export const QrInquiriesPage: React.FC = () => {
                 <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   {t('qrInquiries.table.contact', 'Contact Lead')}
                 </th>
-                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
                   {t('qrInquiries.table.phone', 'Phone')}
                 </th>
-                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', width: '240px', maxWidth: '240px' }}>
                   {t('qrInquiries.table.message', 'Message')}
                 </th>
-                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
                   {t('qrInquiries.table.date', 'Submitted At')}
                 </th>
-                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
                   {t('qrInquiries.table.status', 'Status')}
                 </th>
-                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' }}>
+                <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {t('common.actions', 'Actions')}
                 </th>
               </tr>
@@ -518,7 +518,7 @@ export const QrInquiriesPage: React.FC = () => {
                       </td>
 
                       {/* 4. Phone */}
-                      <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 600 }}>
                           <Phone size={13} style={{ color: 'var(--text-muted)' }} />
                           <span>{inquiry.phone || '—'}</span>
@@ -526,9 +526,16 @@ export const QrInquiriesPage: React.FC = () => {
                       </td>
 
                       {/* 5. Message Snippet */}
-                      <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle', maxWidth: '200px' }}>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle', width: '240px', maxWidth: '240px', overflow: 'hidden' }}>
                         {inquiry.message ? (
-                          <Tooltip content={inquiry.message}>
+                          <Tooltip
+                            content={
+                              <div style={{ maxWidth: '280px', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                {inquiry.message}
+                              </div>
+                            }
+                            style={{ maxWidth: '100%', display: 'flex' }}
+                          >
                             <div
                               style={{
                                 overflow: 'hidden',
@@ -536,6 +543,8 @@ export const QrInquiriesPage: React.FC = () => {
                                 whiteSpace: 'nowrap',
                                 color: 'var(--text-muted)',
                                 cursor: 'help',
+                                width: '100%',
+                                maxWidth: '240px',
                               }}
                             >
                               {inquiry.message}
@@ -554,7 +563,7 @@ export const QrInquiriesPage: React.FC = () => {
                       </td>
 
                       {/* 7. Status */}
-                      <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '12px 14px', fontSize: '13px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                         <span
                           style={{
                             display: 'inline-flex',

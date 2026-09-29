@@ -1153,6 +1153,7 @@ button {
   position: relative;
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
 }
 
 .app-tooltip-bubble {
@@ -1166,6 +1167,7 @@ button {
   letter-spacing: 0.01em;
   white-space: nowrap;
   max-width: 340px;
+  word-break: break-word;
   pointer-events: none;
   box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.16);
