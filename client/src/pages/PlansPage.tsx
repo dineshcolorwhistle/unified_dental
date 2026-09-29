@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
-import { formatDate, formatCurrency } from '../core/utils/dateUtils';
+import { formatDate, formatDateTime, formatCurrency } from '../core/utils/dateUtils';
 import {
   CreditCard,
   Plus,
@@ -20,6 +20,7 @@ import {
   MapPin,
   Users,
   HardDrive,
+  Eye,
 } from 'lucide-react';
 
 interface SystemModule {
@@ -43,6 +44,7 @@ interface SubscriptionPlan {
   modules?: string[];
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
   _count?: {
     tenants: number;
   };
@@ -64,6 +66,9 @@ export const PlansPage: React.FC = () => {
   const [availableModules, setAvailableModules] = useState<SystemModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // View Details Modal State
+  const [viewingPlan, setViewingPlan] = useState<SubscriptionPlan | null>(null);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -351,7 +356,7 @@ export const PlansPage: React.FC = () => {
           {filteredPlans.map((plan) => (
             <div
               key={plan.id}
-              className="card"
+              className="card card-interactive"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -364,6 +369,19 @@ export const PlansPage: React.FC = () => {
                 transition: 'all 0.2s ease',
               }}
             >
+              {/* Card Hover Overlay */}
+              <div className="card-hover-overlay">
+                <button
+                  type="button"
+                  onClick={() => setViewingPlan(plan)}
+                  className="btn btn-primary card-hover-overlay-btn"
+                  style={{ gap: '8px', padding: '10px 20px', borderRadius: '10px' }}
+                >
+                  <Eye size={16} />
+                  <span>{t('plans.viewBtn', 'View Details')}</span>
+                </button>
+              </div>
+
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -520,6 +538,367 @@ export const PlansPage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* View Subscription Plan Details Modal (AGENTS.md Rule 14 Compliant) */}
+      {viewingPlan && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1050,
+            padding: '16px',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              padding: 0,
+              overflow: 'hidden',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-modal, var(--bg-card))',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '18px 24px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  {t('plans.viewModalTitle', 'Subscription Plan Details')}
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {t('plans.viewModalSubtitle', 'Comprehensive tier limits, pricing specifications, and tenant utilization')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingPlan(null)}
+                className="btn-icon"
+                style={{ width: '32px', height: '32px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Identity & Pricing Header Card */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--badge-primary-bg)',
+                      color: 'var(--primary-600)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <CreditCard size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)' }}>
+                      {viewingPlan.name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                      <span className="badge badge-info" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                        {viewingPlan.code}
+                      </span>
+                      <span className={viewingPlan.isActive ? 'badge badge-success' : 'badge badge-danger'} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                        {viewingPlan.isActive ? t('common.statusActive') : t('common.statusInactive')}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--primary-600)', fontWeight: 600 }}>
+                        {(viewingPlan._count?.tenants || 0) === 1
+                          ? t('plans.tenantsCount', { count: viewingPlan._count?.tenants || 0 })
+                          : t('plans.tenantsCountPlural', { count: viewingPlan._count?.tenants || 0 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {t('plans.price', 'Price')}
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-heading)', letterSpacing: '-0.5px' }}>
+                    {formatCurrency(viewingPlan.price, undefined, i18n.language)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  {t('plans.description', 'Description')}
+                </div>
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13.5px',
+                    color: viewingPlan.description ? 'var(--text-main)' : 'var(--text-muted)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {viewingPlan.description || <span style={{ fontStyle: 'italic' }}>No description provided</span>}
+                </div>
+              </div>
+
+              {/* Capacity & Limits Grid */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  {t('plans.tierLimits', 'Capacity & Operational Limits')}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-600)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Layers size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {t('plans.moduleCount', 'Allowed Modules')}
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {viewingPlan.moduleCount === 1
+                          ? t('plans.modulesAllowed', { count: 1 })
+                          : t('plans.modulesAllowedPlural', { count: viewingPlan.moduleCount })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-600)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <MapPin size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {t('plans.branchCount', 'Allowed Branches')}
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {viewingPlan.branchCount === 1
+                          ? t('plans.branchesAllowed', { count: 1 })
+                          : t('plans.branchesAllowedPlural', { count: viewingPlan.branchCount })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-600)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Users size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {t('plans.memberCount', 'Allowed Members')}
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {viewingPlan.memberCount === 1
+                          ? t('plans.membersAllowed', { count: 1 })
+                          : t('plans.membersAllowedPlural', { count: viewingPlan.memberCount })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-600)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <HardDrive size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {t('plans.maxUploadFileSizeMb', 'Upload Size Limit')}
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {viewingPlan.maxUploadFileSizeMb} MB
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timestamps & Audit Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {t('plans.created', 'Created At')}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginTop: '2px' }}>
+                    {formatDateTime(viewingPlan.createdAt)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {t('plans.activeTenants', 'Active Subscribed Tenants')}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary-600)', marginTop: '2px' }}>
+                    {(viewingPlan._count?.tenants || 0) === 1
+                      ? t('plans.tenantsCount', { count: viewingPlan._count?.tenants || 0 })
+                      : t('plans.tenantsCountPlural', { count: viewingPlan._count?.tenants || 0 })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '12px',
+                  marginTop: '8px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid var(--border-color)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setViewingPlan(null)}
+                  className="btn btn-secondary"
+                >
+                  {t('common.close', 'Close')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const plan = viewingPlan;
+                    setViewingPlan(null);
+                    handleOpenEditModal(plan);
+                  }}
+                  className="btn btn-primary"
+                  style={{ gap: '6px' }}
+                >
+                  <Edit2 size={14} />
+                  <span>{t('plans.editBtn', 'Edit Plan')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

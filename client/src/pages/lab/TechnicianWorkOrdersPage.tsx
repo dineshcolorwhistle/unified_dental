@@ -5,6 +5,7 @@ import {
   QrCode,
   MessageSquare,
   ClipboardList,
+  Eye,
 } from 'lucide-react';
 import { useToast } from '../../core/context/ToastContext';
 import { useNotifications } from '../../core/context/NotificationContext';
@@ -292,6 +293,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
             return (
               <div
                 key={order.id}
+                className="card card-interactive"
                 style={{
                   backgroundColor: 'var(--bg-card)',
                   borderRadius: '16px',
@@ -301,9 +303,23 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                   flexDirection: 'column',
                   gap: '14px',
                   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
-                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
                 }}
               >
+                {/* Card Hover Overlay */}
+                <div className="card-hover-overlay">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedWorkOrderId(order.id)}
+                    className="btn btn-primary card-hover-overlay-btn"
+                    style={{ gap: '8px', padding: '10px 20px', borderRadius: '10px' }}
+                  >
+                    <Eye size={16} />
+                    <span>{t('technician.viewDetails', 'View Details')}</span>
+                  </button>
+                </div>
+
                 {/* Card Header: Folio, Patient, Icons */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -317,7 +333,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative', zIndex: 6 }}>
                     {/* Chat Icon (replacing Notes icon, matching Screenshot 2) */}
                     {(() => {
                       const unread = unreadChatCounts[order.id] || 0;

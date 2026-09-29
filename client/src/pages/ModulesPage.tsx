@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../core/context/ToastContext';
-import { formatDate } from '../core/utils/dateUtils';
+import { formatDate, formatDateTime } from '../core/utils/dateUtils';
 import {
   Layers,
   Plus,
@@ -20,6 +20,7 @@ import {
   AlertCircle,
   PackageCheck,
   Zap,
+  Eye,
 } from 'lucide-react';
 
 export interface SystemModule {
@@ -47,6 +48,9 @@ export const ModulesPage: React.FC = () => {
   const [modules, setModules] = useState<SystemModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // View Details Modal State
+  const [viewingModule, setViewingModule] = useState<SystemModule | null>(null);
 
   // Create / Edit Modal State
   const [showModal, setShowModal] = useState(false);
@@ -395,7 +399,7 @@ export const ModulesPage: React.FC = () => {
           {filteredModules.map((mod) => (
             <div
               key={mod.id}
-              className="card"
+              className="card card-interactive"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -407,6 +411,19 @@ export const ModulesPage: React.FC = () => {
                 transition: 'all 0.2s ease',
               }}
             >
+              {/* Card Hover Overlay */}
+              <div className="card-hover-overlay">
+                <button
+                  type="button"
+                  onClick={() => setViewingModule(mod)}
+                  className="btn btn-primary card-hover-overlay-btn"
+                  style={{ gap: '8px', padding: '10px 20px', borderRadius: '10px' }}
+                >
+                  <Eye size={16} />
+                  <span>{t('modules.viewBtn', 'View Details')}</span>
+                </button>
+              </div>
+
               <div>
                 {/* Card Top: Code badge & Status toggle */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -520,6 +537,258 @@ export const ModulesPage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* View Module Details Modal (AGENTS.md Rule 14 Compliant) */}
+      {viewingModule && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1050,
+            padding: '16px',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '540px',
+              padding: 0,
+              overflow: 'hidden',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-modal, var(--bg-card))',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '18px 24px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  {t('modules.viewModalTitle', 'System Module Details')}
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {t('modules.viewModalSubtitle', 'Complete configuration and operational status for this system module')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingModule(null)}
+                className="btn-icon"
+                style={{ width: '32px', height: '32px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Identity Header Card */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--badge-primary-bg)',
+                      color: 'var(--primary-600)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Layers size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)' }}>
+                      {viewingModule.name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          backgroundColor: 'var(--bg-surface-hover)',
+                          color: 'var(--text-main)',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          fontFamily: 'monospace',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        {viewingModule.code}
+                      </span>
+                      <span
+                        className={`badge ${viewingModule.isEnabled ? 'badge-success' : 'badge-danger'}`}
+                        style={{ fontSize: '11px' }}
+                      >
+                        {viewingModule.isEnabled ? (
+                          <>
+                            <CheckCircle2 size={12} /> {t('common.statusActive')}
+                          </>
+                        ) : (
+                          <>
+                            <XCircle size={12} /> {t('common.statusInactive')}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleToggleStatus(viewingModule);
+                    setViewingModule((prev) => prev ? { ...prev, isEnabled: !prev.isEnabled } : null);
+                  }}
+                  title={viewingModule.isEnabled ? 'Click to disable module' : 'Click to enable module'}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0,
+                  }}
+                >
+                  {viewingModule.isEnabled ? (
+                    <ToggleRight size={32} style={{ color: 'var(--emerald-500)' }} />
+                  ) : (
+                    <ToggleLeft size={32} style={{ color: 'var(--text-subtle)' }} />
+                  )}
+                </button>
+              </div>
+
+              {/* Description */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  {t('modules.description', 'Description')}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13.5px',
+                    color: viewingModule.description ? 'var(--text-main)' : 'var(--text-muted)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {viewingModule.description || <span style={{ fontStyle: 'italic' }}>No description provided</span>}
+                </div>
+              </div>
+
+              {/* Provisioning Help Note */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                  border: '1px solid rgba(20, 184, 166, 0.2)',
+                  fontSize: '12.5px',
+                  color: 'var(--text-main)',
+                }}
+              >
+                <ShieldCheck size={18} style={{ color: 'var(--primary-600)', flexShrink: 0, marginTop: '2px' }} />
+                <span>
+                  {t('modules.tenantProvisioningHelp', 'Active modules can be provisioned and activated by tenants according to their subscription plan.')}
+                </span>
+              </div>
+
+              {/* Timestamps & Audit Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {t('modules.created', 'Created At')}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginTop: '2px' }}>
+                    {formatDateTime(viewingModule.createdAt)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {t('modules.updated', 'Last Updated')}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginTop: '2px' }}>
+                    {formatDateTime(viewingModule.updatedAt)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '12px',
+                  marginTop: '8px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid var(--border-color)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setViewingModule(null)}
+                  className="btn btn-secondary"
+                >
+                  {t('common.close', 'Close')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const mod = viewingModule;
+                    setViewingModule(null);
+                    handleOpenEditModal(mod);
+                  }}
+                  className="btn btn-primary"
+                  style={{ gap: '6px' }}
+                >
+                  <Edit2 size={14} />
+                  <span>{t('modules.editBtn', 'Edit Module')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

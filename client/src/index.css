@@ -88,6 +88,9 @@
   --table-row-hover: #f1f5f9;
   --table-row-border: #f1f5f9;
 
+  /* Card Hover Overlay */
+  --card-overlay-bg: rgba(255, 255, 255, 0.82);
+
   /* Transition for theme switching */
   --theme-transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -140,6 +143,9 @@
   --table-td-text: #e2e8f0;
   --table-row-hover: #172236;
   --table-row-border: #162032;
+
+  /* Card Hover Overlay - Dark */
+  --card-overlay-bg: rgba(17, 24, 39, 0.82);
 }
 
 * {
@@ -894,6 +900,50 @@ button {
 
 .card:hover {
   box-shadow: var(--shadow-md);
+}
+
+/* Interactive Card with Hover Overlay */
+.card-interactive {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-600) !important;
+}
+
+.card-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--card-overlay-bg, rgba(255, 255, 255, 0.82));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 5;
+  border-radius: inherit;
+}
+
+.card-interactive:hover .card-hover-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-hover-overlay-btn {
+  transform: translateY(6px) scale(0.96);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.35);
+}
+
+.card-interactive:hover .card-hover-overlay-btn {
+  transform: translateY(0) scale(1);
 }
 
 /* Buttons */
