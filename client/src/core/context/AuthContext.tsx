@@ -44,6 +44,7 @@ interface AuthContextType {
   isTenantAdmin: boolean;
   isLabAdmin: boolean;
   isLabTechnician: boolean;
+  isClinicAdmin: boolean;
   login: (email: string, pass: string, tenantSlug?: string) => Promise<void>;
   logout: () => Promise<void>;
   switchBranch: (branchId: string) => Promise<void>;
@@ -258,6 +259,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
   );
 
+  const isClinicAdmin = Boolean(
+    !user?.isSuperAdmin &&
+    user?.roles?.some((r) => {
+      const lower = r.toLowerCase().replace(/_/g, '-');
+      return (
+        lower === 'clinic admin' ||
+        lower === 'clinic-admin' ||
+        lower.includes('clinic administrator') ||
+        lower.includes('clinic admin') ||
+        lower.includes('clinic-admin')
+      );
+    })
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -266,6 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isTenantAdmin,
         isLabAdmin,
         isLabTechnician,
+        isClinicAdmin,
         login,
         logout,
         switchBranch,

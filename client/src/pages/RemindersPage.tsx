@@ -30,9 +30,31 @@ import { ViewReminderModal } from '../components/reminders/ViewReminderModal';
 
 export const RemindersPage: React.FC = () => {
   const { t } = useTranslation();
-  const { isTenantAdmin, isLabAdmin } = useAuth();
-  const { activeModuleMode } = useModule();
+  const { isTenantAdmin, isLabAdmin, isClinicAdmin, user } = useAuth();
+  const { activeModuleMode, enabledModules } = useModule();
   const toast = useToast();
+
+  const currentModuleKey = useMemo(() => {
+    if (activeModuleMode && activeModuleMode !== 'PLATFORM') {
+      return activeModuleMode;
+    }
+    if (!isTenantAdmin && user?.allowedModules && user.allowedModules.length > 0) {
+      return user.allowedModules[0];
+    }
+    const saved = localStorage.getItem('ud_active_module_mode');
+    if (saved && (saved === 'LAB' || saved === 'CLINIC')) {
+      return saved;
+    }
+    return enabledModules[0] || 'CLINIC';
+  }, [activeModuleMode, isTenantAdmin, user?.allowedModules, enabledModules]);
+
+  const canCreate = currentModuleKey === 'CLINIC'
+    ? (isTenantAdmin || isClinicAdmin)
+    : isLabAdmin;
+
+  const canEdit = currentModuleKey === 'CLINIC'
+    ? (isTenantAdmin || isClinicAdmin)
+    : isLabAdmin;
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +83,7 @@ export const RemindersPage: React.FC = () => {
       const params: any = {
         page,
         limit,
+        moduleKey: currentModuleKey,
       };
 
       if (search.trim()) {
@@ -86,7 +109,14 @@ export const RemindersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, priorityFilter, recurrenceFilter, activeModuleMode]);
+  }, [page, limit, search, priorityFilter, recurrenceFilter, currentModuleKey]);
+
+  useEffect(() => {
+    setPage(1);
+    setSearch('');
+    setPriorityFilter('ALL');
+    setRecurrenceFilter('ALL');
+  }, [currentModuleKey]);
 
   useEffect(() => {
     fetchReminders();
@@ -206,8 +236,8 @@ export const RemindersPage: React.FC = () => {
             <span>{viewMode === 'list' ? t('calendar.calendarView', 'Calendar View') : t('calendar.listView', 'List View')}</span>
           </button>
 
-          {/* Create Reminder: Lab Admin Only */}
-          {isLabAdmin && (
+          {/* Create Reminder Button */}
+          {canCreate && (
             <button
               type="button"
               className="btn btn-primary"
@@ -353,7 +383,7 @@ export const RemindersPage: React.FC = () => {
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px 0', maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto' }}>
                       {t('reminders.table.noRemindersDesc', 'There are no reminders matching your current search or filter criteria.')}
                     </p>
-                    {isLabAdmin && (
+                    {canCreate && (
                       <button
                         type="button"
                         className="btn btn-primary"
@@ -498,8 +528,8 @@ export const RemindersPage: React.FC = () => {
                             </button>
                           </Tooltip>
 
-                          {/* Edit: Lab Admin ONLY (Hidden for Tenant Admin) */}
-                          {isLabAdmin && (
+                          {/* Edit: Lab Admin (in LAB) / Clinic Admin or Tenant Admin (in CLINIC) */}
+                          {canEdit && (
                             <Tooltip content={t('reminders.actions.edit', 'Edit Reminder')}>
                               <button
                                 type="button"
@@ -615,6 +645,7 @@ export const RemindersPage: React.FC = () => {
         }}
         onSuccess={fetchReminders}
         reminderToEdit={reminderToEdit}
+        moduleKey={currentModuleKey}
       />
 
       {/* View Details Modal */}

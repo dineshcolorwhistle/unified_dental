@@ -90,10 +90,41 @@ export class RemindersService {
   }
 
   /**
+   * Helper to verify if the actor has Clinic Administrator privileges
+   */
+  async isClinicAdmin(actor: AuthenticatedUser, tenantId: string): Promise<boolean> {
+    if (actor.isSuperAdmin) return true;
+
+    const hasClinicRole = actor.roles?.some((r: string) => {
+      const lower = r.toLowerCase();
+      return (
+        lower === 'clinic-admin' ||
+        lower.includes('clinic admin') ||
+        lower.includes('clinic administrator')
+      );
+    });
+    if (hasClinicRole) return true;
+
+    const userRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: { slug: { in: ['clinic-admin', 'clinic_admin'] } },
+      },
+    });
+
+    return Boolean(userRole);
+  }
+
+  /**
    * Get all eligible assignees: Tenant Admins, Lab Admins, Technicians, and Doctors
    * Each entry includes their Name and Profession formatted for multi-select dropdown.
    */
-  async getCandidateAssignees(tenantId: string, actor: AuthenticatedUser): Promise<CandidateAssignee[]> {
+  async getCandidateAssignees(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    moduleKey?: string,
+  ): Promise<CandidateAssignee[]> {
     const candidates: CandidateAssignee[] = [];
     const seenIds = new Set<string>();
 
@@ -125,10 +156,28 @@ export class RemindersService {
         profession = 'Tenant Admin';
       } else if (roleSlugs.includes('lab-admin')) {
         profession = 'Lab Admin';
+      } else if (roleSlugs.includes('clinic-admin')) {
+        profession = 'Clinic Admin';
+      } else if (roleSlugs.includes('clinic-staff') || roleSlugs.includes('staff')) {
+        profession = 'Clinic Staff';
       } else if (roleSlugs.includes('technician') || roleSlugs.includes('tech')) {
         profession = 'Technician';
       } else if (u.isSuperAdmin) {
         profession = 'Tenant Admin';
+      }
+
+      // Filter by moduleKey if specified
+      if (moduleKey) {
+        const modUpper = moduleKey.toUpperCase();
+        if (modUpper === 'LAB') {
+          if (['Clinic Admin', 'Clinic Staff'].includes(profession)) {
+            continue;
+          }
+        } else if (modUpper === 'CLINIC') {
+          if (['Lab Admin', 'Technician'].includes(profession)) {
+            continue;
+          }
+        }
       }
 
       candidates.push({
@@ -322,6 +371,10 @@ export class RemindersService {
         profession = 'Tenant Admin';
       } else if (roleSlugs.includes('lab-admin')) {
         profession = 'Lab Admin';
+      } else if (roleSlugs.includes('clinic-admin')) {
+        profession = 'Clinic Admin';
+      } else if (roleSlugs.includes('clinic-staff') || roleSlugs.includes('staff')) {
+        profession = 'Clinic Staff';
       } else {
         profession = 'Technician';
       }
@@ -353,11 +406,21 @@ export class RemindersService {
   async create(dto: CreateReminderDto, tenantId: string, actor: AuthenticatedUser) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isLabAdminUser = await this.isLabAdmin(actor, tenantId);
+    const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    // If actor is Tenant Admin and NOT Lab Admin, strictly forbid creation
-    if (isTenantAdminUser && !isLabAdminUser) {
+    const targetModule = (dto.moduleKey || 'LAB').toUpperCase();
+
+    // Lab Module boundary: Lab Admin ONLY (Tenant Admin is prohibited)
+    if (targetModule === 'LAB' && isTenantAdminUser && !isLabAdminUser) {
       throw new ForbiddenException(
-        'Tenant Administrators cannot create operational reminders. Creation is reserved for Lab Administrators.',
+        'Tenant Administrators cannot create operational reminders for the Lab module. Creation is reserved for Lab Administrators.',
+      );
+    }
+
+    // Clinic Module boundary: Clinic Admin or Tenant Admin allowed
+    if (targetModule === 'CLINIC' && !isTenantAdminUser && !isClinicAdminUser) {
+      throw new ForbiddenException(
+        'You do not have permission to create operational reminders for the Clinic module.',
       );
     }
 
@@ -424,15 +487,24 @@ export class RemindersService {
   async update(id: string, dto: UpdateReminderDto, tenantId: string, actor: AuthenticatedUser) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isLabAdminUser = await this.isLabAdmin(actor, tenantId);
+    const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    // If actor is Tenant Admin and NOT Lab Admin, strictly forbid updates
-    if (isTenantAdminUser && !isLabAdminUser) {
+    const existing = await this.findOne(id, tenantId, actor);
+    const targetModule = (existing.moduleKey || 'LAB').toUpperCase();
+
+    // Lab Module boundary: Lab Admin ONLY
+    if (targetModule === 'LAB' && isTenantAdminUser && !isLabAdminUser) {
       throw new ForbiddenException(
-        'Tenant Administrators cannot update operational reminders. Updates are reserved for Lab Administrators.',
+        'Tenant Administrators cannot update operational reminders for the Lab module. Updates are reserved for Lab Administrators.',
       );
     }
 
-    const existing = await this.findOne(id, tenantId, actor);
+    // Clinic Module boundary: Clinic Admin or Tenant Admin allowed
+    if (targetModule === 'CLINIC' && !isTenantAdminUser && !isClinicAdminUser) {
+      throw new ForbiddenException(
+        'You do not have permission to update operational reminders for the Clinic module.',
+      );
+    }
 
     let assigneesUpdate: any = undefined;
     if (dto.assigneeIds) {

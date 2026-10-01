@@ -23,8 +23,11 @@ export class RemindersController {
 
   @Get('assignees')
   @ApiOperation({ summary: 'Get all eligible candidate assignees (Admins, Technicians, Doctors)' })
-  getCandidateAssignees(@CurrentUser() user: AuthenticatedUser) {
-    return this.remindersService.getCandidateAssignees(user.activeTenantId, user);
+  getCandidateAssignees(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('moduleKey') moduleKey?: string,
+  ) {
+    return this.remindersService.getCandidateAssignees(user.activeTenantId, user, moduleKey);
   }
 
   @Get()

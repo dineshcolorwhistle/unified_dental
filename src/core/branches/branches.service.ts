@@ -72,7 +72,7 @@ export class BranchesService {
     if (moduleKey) {
       const target = moduleKey.toUpperCase();
       return branches.filter((b) => {
-        const bMod = (b.settings as any)?.moduleKey || 'CLINIC';
+        const bMod = b.moduleKey || (b.settings as any)?.moduleKey || 'CLINIC';
         return bMod.toUpperCase() === target;
       });
     }

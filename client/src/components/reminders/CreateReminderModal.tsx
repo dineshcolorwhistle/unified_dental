@@ -27,6 +27,7 @@ export interface ReminderItem {
   endDate?: string;
   endOccurrences?: number;
   branchId?: string;
+  moduleKey?: string;
   assignees: Array<{
     id: string;
     userId?: string;
@@ -42,6 +43,7 @@ interface CreateReminderModalProps {
   onClose: () => void;
   onSuccess: () => void;
   reminderToEdit?: ReminderItem | null;
+  moduleKey?: string;
 }
 
 export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
@@ -49,6 +51,7 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
   onClose,
   onSuccess,
   reminderToEdit,
+  moduleKey,
 }) => {
   const { t } = useTranslation();
   const toast = useToast();
@@ -96,7 +99,10 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
     const fetchAssignees = async () => {
       setLoadingAssignees(true);
       try {
-        const res = await api.get('/reminders/assignees');
+        const targetMod = reminderToEdit?.moduleKey || moduleKey || 'LAB';
+        const res = await api.get('/reminders/assignees', {
+          params: { moduleKey: targetMod },
+        });
         const options: MultiSelectOption[] = (res.data || []).map((c: any) => ({
           value: c.id,
           label: c.label,
@@ -112,7 +118,7 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
     };
 
     fetchAssignees();
-  }, [isOpen]);
+  }, [isOpen, reminderToEdit?.moduleKey, moduleKey]);
 
   // Initialize or reset form values
   useEffect(() => {
@@ -255,7 +261,7 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
         startDate,
         reminderTime,
         description: description.trim() || undefined,
-        moduleKey: 'LAB',
+        moduleKey: reminderToEdit?.moduleKey || moduleKey || 'LAB',
       };
 
       if (recurrence !== 'ONE_TIME') {

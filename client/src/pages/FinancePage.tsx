@@ -94,8 +94,9 @@ export const FinancePage: React.FC = () => {
 
   const moduleKey = activeModuleMode === 'PLATFORM' ? 'LAB' : activeModuleMode || 'LAB';
 
-  // Load branches
+  // Load branches and reset branch filter when module changes
   useEffect(() => {
+    setSelectedBranchId('all');
     const loadBranches = async () => {
       try {
         const { data } = await api.get('/branches', { params: { moduleKey } });
