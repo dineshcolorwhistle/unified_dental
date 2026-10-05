@@ -97,7 +97,9 @@ export const LabUsersAdminPage: React.FC = () => {
             search: search || undefined,
           },
         }),
-        api.get('/branches'),
+        api.get('/branches', {
+          params: { moduleKey: 'LAB' },
+        }),
       ]);
 
       if (adminsRes.status === 'fulfilled') {
@@ -864,13 +866,17 @@ export const LabUsersAdminPage: React.FC = () => {
         )}
 
         {/* Pagination */}
-        {filteredAdmins.length > pageSize && (
+        {filteredAdmins.length > 0 && (
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
             pageSize={pageSize}
-            onPageSizeChange={setPageSize}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
             totalItems={filteredAdmins.length}
           />
         )}

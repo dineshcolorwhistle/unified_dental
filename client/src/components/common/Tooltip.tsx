@@ -10,6 +10,7 @@ export interface TooltipProps {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  maxWidth?: number | string;
   disabled?: boolean;
 }
 
@@ -27,9 +28,11 @@ export const Tooltip: React.FC<TooltipProps> = ({
   children,
   className = '',
   style,
+  maxWidth,
   disabled = false,
 }) => {
   const [visible, setVisible] = useState(false);
+  const [isPositioned, setIsPositioned] = useState(false);
   const [coords, setCoords] = useState<{
     top: number;
     left: number;
@@ -96,6 +99,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       actualPosition: targetPos,
       arrowOffset,
     });
+    setIsPositioned(true);
   }, [position]);
 
   const showTooltip = () => {
@@ -111,6 +115,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       timerRef.current = null;
     }
     setVisible(false);
+    setIsPositioned(false);
   };
 
   useLayoutEffect(() => {
@@ -164,10 +169,11 @@ export const Tooltip: React.FC<TooltipProps> = ({
         createPortal(
           <div
             ref={bubbleRef}
-            className={`app-tooltip-bubble app-tooltip-portal ${positionClass} visible`}
+            className={`app-tooltip-bubble app-tooltip-portal ${positionClass} ${isPositioned ? 'visible' : ''}`}
             style={{
               top: `${coords.top}px`,
               left: `${coords.left}px`,
+              ...(maxWidth ? { maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth } : {}),
               ['--arrow-offset' as any]: coords.arrowOffset ? `${coords.arrowOffset}px` : '50%',
             }}
             role="tooltip"

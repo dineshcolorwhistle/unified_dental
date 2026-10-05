@@ -1054,7 +1054,7 @@ button {
   color: var(--text-main);
 }
 
-.form-input, .form-select, .form-textarea, .input {
+.form-input, .form-select, .form-textarea, .input, .form-control {
   width: 100%;
   padding: 10px 14px;
   font-size: 14px;
@@ -1063,16 +1063,17 @@ button {
   border-radius: var(--radius-md);
   background-color: var(--bg-input);
   color: var(--text-main);
+  box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
 }
 
-.form-input:focus, .form-select:focus, .form-textarea:focus, .input:focus {
+.form-input:focus, .form-select:focus, .form-textarea:focus, .input:focus, .form-control:focus {
   outline: none;
   border-color: var(--primary-500);
   box-shadow: 0 0 0 3px var(--ring-primary);
 }
 
-.form-input::placeholder, .input::placeholder, .form-textarea::placeholder {
+.form-input::placeholder, .input::placeholder, .form-textarea::placeholder, .form-control::placeholder {
   color: var(--text-subtle);
 }
 
@@ -1228,16 +1229,22 @@ button {
 
 .app-tooltip-bubble {
   position: absolute;
+  box-sizing: border-box;
   background: #0f172a;
   color: #f8fafc;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.45;
   letter-spacing: 0.01em;
-  white-space: nowrap;
-  max-width: 340px;
-  word-break: break-word;
+  white-space: normal;
+  width: max-content;
+  max-width: 400px;
+  word-wrap: break-word;
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-align: left;
   pointer-events: none;
   box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.16);

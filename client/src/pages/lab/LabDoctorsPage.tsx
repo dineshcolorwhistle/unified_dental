@@ -159,7 +159,7 @@ export const LabDoctorsPage: React.FC = () => {
   useEffect(() => {
     if (isTenantAdmin) {
       api
-        .get('/branches')
+        .get('/branches', { params: { moduleKey: 'LAB' } })
         .then((res) => {
           const labBranches = res.data.filter(
             (b: any) => b.moduleKey === 'LAB' && b.status === 'ACTIVE',

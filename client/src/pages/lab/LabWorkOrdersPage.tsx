@@ -97,7 +97,7 @@ export const LabWorkOrdersPage: React.FC = () => {
   useEffect(() => {
     if (isTenantAdmin || user?.isSuperAdmin) {
       api
-        .get('/branches')
+        .get('/branches', { params: { moduleKey: 'LAB' } })
         .then((res) => {
           const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
           setBranches(list.map((b: any) => ({ id: b.id, name: b.name })));

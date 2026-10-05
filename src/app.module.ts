@@ -31,6 +31,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { ClinicModule } from './modules/clinic/clinic.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { RemindersModule } from './modules/reminders/reminders.module';
     InventoryModule,
     FinanceModule,
     RemindersModule,
+    ClinicModule,
   ],
 })
 export class AppModule {}

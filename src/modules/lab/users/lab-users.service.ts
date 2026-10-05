@@ -194,7 +194,7 @@ export class LabUsersService {
     const userBranch = await this.prisma.userBranch.findFirst({
       where: {
         userId: actor.id,
-        branch: { tenantId },
+        branch: { tenantId, moduleKey: 'LAB' },
       },
     });
 
@@ -245,12 +245,12 @@ export class LabUsersService {
 
     // 2. Enforce Branch Prerequisite
     const branchCount = await this.prisma.branch.count({
-      where: { tenantId },
+      where: { tenantId, moduleKey: 'LAB' },
     });
 
     if (branchCount === 0) {
       throw new BadRequestException(
-        'Cannot create a Lab Admin without an active branch. Please create at least one branch in your organization first.',
+        'Cannot create a Lab Admin without an active Lab branch. Please create at least one Lab branch in your organization first.',
       );
     }
 
@@ -259,12 +259,12 @@ export class LabUsersService {
     }
 
     const branch = await this.prisma.branch.findFirst({
-      where: { id: dto.branchId, tenantId },
+      where: { id: dto.branchId, tenantId, moduleKey: 'LAB' },
     });
 
     if (!branch) {
       throw new BadRequestException(
-        'The selected branch was not found or does not belong to this organization.',
+        'The selected branch was not found or is not a Lab branch.',
       );
     }
 
@@ -602,7 +602,7 @@ export class LabUsersService {
       where: whereClause,
       include: {
         userBranches: {
-          where: { branch: { tenantId } },
+          where: { branch: { tenantId, moduleKey: 'LAB' } },
           include: { branch: true },
         },
         userRoles: {
@@ -754,15 +754,15 @@ export class LabUsersService {
       // 2. Update branch assignment if provided
       if (dto.branchId) {
         const branch = await tx.branch.findFirst({
-          where: { id: dto.branchId, tenantId },
+          where: { id: dto.branchId, tenantId, moduleKey: 'LAB' },
         });
         if (!branch) {
-          throw new BadRequestException('Selected branch does not belong to this organization');
+          throw new BadRequestException('Selected branch does not belong to this organization or is not a Lab branch');
         }
 
-        // Delete existing branch links for this user in this tenant
+        // Delete existing branch links for this user in this tenant for LAB
         const existingBranches = await tx.branch.findMany({
-          where: { tenantId },
+          where: { tenantId, moduleKey: 'LAB' },
           select: { id: true },
         });
         const branchIds = existingBranches.map((b) => b.id);
@@ -889,7 +889,7 @@ export class LabUsersService {
     await this.prisma.$transaction(async (tx) => {
       // Check which branches this admin was default for
       const tenantBranches = await tx.branch.findMany({
-        where: { tenantId },
+        where: { tenantId, moduleKey: 'LAB' },
         select: { id: true },
       });
       const branchIds = tenantBranches.map((b) => b.id);
@@ -898,19 +898,19 @@ export class LabUsersService {
         where: { userId: adminId, branchId: { in: branchIds }, isDefault: true },
       });
 
-      // Remove tenant membership
-      await tx.tenantMembership.deleteMany({
-        where: { userId: adminId, tenantId },
-      });
-
-      // Remove roles in this tenant
+      // Remove roles in this tenant for lab-admin
       await tx.userRole.deleteMany({
-        where: { userId: adminId, tenantId },
+        where: { userId: adminId, tenantId, role: { slug: 'lab-admin' } },
       });
 
-      // Remove branch links in this tenant
+      // Remove branch links in this tenant for LAB
       await tx.userBranch.deleteMany({
         where: { userId: adminId, branchId: { in: branchIds } },
+      });
+
+      // Remove LAB module access
+      await tx.userModuleAccess.deleteMany({
+        where: { userId: adminId, tenantId, moduleKey: 'LAB' },
       });
 
       // For each branch where this admin was default, auto-promote the next available active lab admin
@@ -979,11 +979,11 @@ export class LabUsersService {
     const branchId = await this.assertLabAdmin(actor, tenantId);
 
     const branch = await this.prisma.branch.findFirst({
-      where: { id: branchId, tenantId },
+      where: { id: branchId, tenantId, moduleKey: 'LAB' },
     });
 
     if (!branch) {
-      throw new BadRequestException('The branch assigned to the Lab Admin was not found.');
+      throw new BadRequestException('The branch assigned to the Lab Admin was not found or is not a Lab branch.');
     }
 
     // 2. Enforce LAB Module Enablement
@@ -1421,9 +1421,9 @@ export class LabUsersService {
         where: { userId: technicianId, tenantId },
       });
 
-      // Remove branch links in this tenant
+      // Remove branch links in this tenant for LAB
       const tenantBranches = await tx.branch.findMany({
-        where: { tenantId },
+        where: { tenantId, moduleKey: 'LAB' },
         select: { id: true },
       });
       const branchIds = tenantBranches.map((b) => b.id);
@@ -1432,9 +1432,9 @@ export class LabUsersService {
         where: { userId: technicianId, branchId: { in: branchIds } },
       });
 
-      // Remove module access for this tenant
+      // Remove module access for this tenant for LAB
       await tx.userModuleAccess.deleteMany({
-        where: { userId: technicianId, tenantId },
+        where: { userId: technicianId, tenantId, moduleKey: 'LAB' },
       });
 
       // Audit Log

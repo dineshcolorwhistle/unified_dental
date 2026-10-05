@@ -698,12 +698,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                     </button>
 
                     <div className={`nav-sub-list ${isClinicUsersOpen ? 'is-expanded' : 'is-collapsed'}`}>
-                      <NavLink
-                        to="/clinic/users/admin"
-                        className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
-                      >
-                        <span>{t('nav.clinicAdmin')}</span>
-                      </NavLink>
+                      {isTenantAdmin && (
+                        <NavLink
+                          to="/clinic/users/admin"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.clinicAdmin')}</span>
+                        </NavLink>
+                      )}
                       <NavLink
                         to="/clinic/users/staff"
                         className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
@@ -720,12 +722,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   </div>
                 ) : (
                   <>
-                    <SidebarNavItem
-                      to="/clinic/users/admin"
-                      icon={<Users size={17} />}
-                      label={t('nav.clinicAdmin')}
-                      isCollapsed={isCollapsed}
-                    />
+                    {isTenantAdmin && (
+                      <SidebarNavItem
+                        to="/clinic/users/admin"
+                        icon={<Users size={17} />}
+                        label={t('nav.clinicAdmin')}
+                        isCollapsed={isCollapsed}
+                      />
+                    )}
                     <SidebarNavItem
                       to="/clinic/users/staff"
                       icon={<Users size={17} />}
