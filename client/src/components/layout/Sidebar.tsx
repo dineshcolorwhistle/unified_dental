@@ -6,7 +6,6 @@ import { useModule } from '../../core/context/ModuleContext';
 import {
   LayoutDashboard,
   Building2,
-  Settings,
   CreditCard,
   Bell,
   Package,
@@ -151,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
         setIsClinicUsersOpen(true);
       }
     } else {
-      // Core Operations: '/', '/branches', '/settings', '/finance', '/reminders', '/inventory', '/expenses'
+      // Core Operations: '/', '/branches', '/finance', '/reminders', '/inventory', '/expenses'
       setExpandedGroup('core');
     }
   }, [location.pathname]);
@@ -176,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
   const tenantLogoUrl = isTenantContext ? (user?.activeTenant?.settings as any)?.logoUrl : null;
   const brandInitials = isTenantContext ? getBrandInitials(rawBrandName) : '🦷';
 
-  const isCoreActive = ['/', '/branches', '/settings', '/finance', '/reminders', '/inventory', '/expenses'].includes(
+  const isCoreActive = ['/', '/branches', '/finance', '/reminders', '/inventory', '/expenses'].includes(
     location.pathname,
   );
   const isLabActive = location.pathname.startsWith('/lab');
@@ -407,13 +406,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 )}
 
                 <SidebarNavItem
-                  to="/settings"
-                  icon={<Settings size={17} />}
-                  label={t('nav.settings')}
-                  isCollapsed={isCollapsed}
-                />
-
-                <SidebarNavItem
                   to="/finance"
                   icon={<CreditCard size={17} />}
                   label={t('nav.finance')}
@@ -482,7 +474,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                       onClick={() => setIsLabUsersOpen((prev) => !prev)}
                       aria-expanded={isLabUsersOpen}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="nav-sub-header-title">
                         <span className="nav-link-icon">
                           <Users size={17} />
                         </span>
@@ -628,13 +620,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 )}
 
                 <SidebarNavItem
-                  to="/settings"
-                  icon={<Settings size={17} />}
-                  label={t('nav.settings')}
-                  isCollapsed={isCollapsed}
-                />
-
-                <SidebarNavItem
                   to="/finance"
                   icon={<CreditCard size={17} />}
                   label={t('nav.finance')}
@@ -701,7 +686,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                       onClick={() => setIsClinicUsersOpen((prev) => !prev)}
                       aria-expanded={isClinicUsersOpen}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="nav-sub-header-title">
                         <span className="nav-link-icon">
                           <Users size={17} />
                         </span>

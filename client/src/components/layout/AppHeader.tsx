@@ -15,6 +15,7 @@ import {
   FlaskConical,
   ChevronDown,
   ArrowLeft,
+  Settings,
 } from 'lucide-react';
 
 interface AppHeaderProps {
@@ -295,6 +296,44 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name}</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={user?.email}>{user?.email}</div>
               </div>
+              {tenant && (
+                <>
+                  <div style={{ padding: '4px 0' }}>
+                    <button
+                      onClick={() => {
+                        navigate('/settings');
+                        setProfileOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'transparent',
+                        color: 'var(--text-main)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease, color 0.15s ease',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <Settings size={15} style={{ color: 'var(--text-muted)' }} />
+                      <span>{t('nav.settings', 'Settings')}</span>
+                    </button>
+                  </div>
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-subtle)', margin: '2px 0' }} />
+                </>
+              )}
               <button
                 onClick={logout}
                 style={{

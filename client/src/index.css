@@ -545,18 +545,21 @@ button {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 10px;
+  padding: 10px 14px;
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
   color: #94a3b8;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.5;
   cursor: pointer;
   transition: all 0.15s ease;
   text-decoration: none;
   box-sizing: border-box;
+  margin: 0;
+  text-align: left;
 }
 
 .nav-sub-header:hover {
@@ -569,12 +572,27 @@ button {
   font-weight: 600;
 }
 
+.nav-sub-header:hover .accordion-chevron {
+  color: #cbd5e1;
+}
+
+.nav-sub-header.has-active .accordion-chevron {
+  color: #38bdf8;
+}
+
+.nav-sub-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 /* Secondary tree-line guideline for Level 2 items */
 .nav-sub-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-left: 16px;
+  margin-left: 23px;
   padding-left: 12px;
   border-left: 1.5px solid rgba(56, 189, 248, 0.4);
   margin-top: 2px;
@@ -645,6 +663,8 @@ button {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .nav-link-text {
