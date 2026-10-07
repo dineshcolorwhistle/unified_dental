@@ -448,7 +448,7 @@ export class DoctorsService {
           },
         },
       },
-      orderBy: [{ name: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
 
     return lists;
@@ -479,7 +479,7 @@ export class DoctorsService {
               },
             },
           },
-          orderBy: { createdAt: 'asc' },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });

@@ -150,7 +150,7 @@ export class ProcessAreasService {
           select: { processes: true },
         },
       },
-      orderBy: [{ name: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
   }
 

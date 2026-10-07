@@ -161,7 +161,7 @@ export class ProcessesService {
           select: { prosthesisTypeAssignments: true },
         },
       },
-      orderBy: [{ name: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
   }
 

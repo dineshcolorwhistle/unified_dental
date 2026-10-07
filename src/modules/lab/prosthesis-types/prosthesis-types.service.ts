@@ -163,7 +163,7 @@ export class ProsthesisTypesService {
     return this.prisma.prosthesisType.findMany({
       where,
       include: this.fullInclude,
-      orderBy: [{ name: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
   }
 

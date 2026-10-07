@@ -66,7 +66,7 @@ export class BranchesService {
           },
         },
       },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
     if (moduleKey) {
