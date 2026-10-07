@@ -30,6 +30,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
   const [chatWorkOrder, setChatWorkOrder] = useState<WorkOrderListItem | null>(null);
   const [unreadChatCounts, setUnreadChatCounts] = useState<Record<string, number>>({});
+  const [unreadChatFilter, setUnreadChatFilter] = useState(false);
   const [qrWorkOrder, setQrWorkOrder] = useState<WorkOrderListItem | null>(null);
 
   const { socket } = useNotifications();
@@ -57,6 +58,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
       const res = await workOrderService.getTechnicianWorkOrders({
         search: search.trim() || undefined,
         status: activeFilter === 'ALL' ? undefined : activeFilter,
+        hasUnreadChat: unreadChatFilter ? true : undefined,
         limit: 50,
       });
       const items = res.data || [];
@@ -82,7 +84,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
       fetchOrders();
     }, 250);
     return () => clearTimeout(timer);
-  }, [search, activeFilter]);
+  }, [search, activeFilter, unreadChatFilter]);
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
@@ -222,6 +224,29 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
           }}
         >
           {t('technician.filters.completed', { defaultValue: 'Completed' })}
+        </button>
+
+        {/* Unread Chat Filter Tab */}
+        <button
+          type="button"
+          onClick={() => setUnreadChatFilter((prev) => !prev)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            borderRadius: '20px',
+            border: unreadChatFilter ? 'none' : '1px solid var(--border-color)',
+            backgroundColor: unreadChatFilter ? '#ef4444' : 'var(--bg-card)',
+            color: unreadChatFilter ? '#ffffff' : 'var(--text-muted)',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <MessageSquare size={14} />
+          <span>{t('technician.filters.unreadChat', { defaultValue: 'Unread Chat' })}</span>
         </button>
       </div>
 

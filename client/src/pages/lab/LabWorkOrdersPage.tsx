@@ -39,7 +39,7 @@ import { formatDate, formatCurrency } from '../../core/utils/dateUtils';
 import api from '../../services/api';
 
 export const LabWorkOrdersPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
 
@@ -62,6 +62,7 @@ export const LabWorkOrdersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedBranch, setSelectedBranch] = useState('ALL');
+  const [unreadChatFilter, setUnreadChatFilter] = useState(false);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
 
   // Modals
@@ -106,6 +107,11 @@ export const LabWorkOrdersPage: React.FC = () => {
     }
   }, [isTenantAdmin, user?.isSuperAdmin]);
 
+  // Total count of work orders with at least one unread chat message
+  const totalUnreadOrdersCount = useMemo(() => {
+    return Object.values(unreadChatCounts).filter((c) => c > 0).length;
+  }, [unreadChatCounts]);
+
   // Fetch work orders
   const fetchWorkOrders = useCallback(async () => {
     try {
@@ -114,6 +120,7 @@ export const LabWorkOrdersPage: React.FC = () => {
         search: search.trim() || undefined,
         status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
         branchId: selectedBranch !== 'ALL' ? selectedBranch : undefined,
+        hasUnreadChat: unreadChatFilter ? true : undefined,
         page: currentPage,
         limit: pageSize,
       });
@@ -124,20 +131,17 @@ export const LabWorkOrdersPage: React.FC = () => {
       setTotalOrders(total);
       setTotalPages(pages);
 
-      // Fetch unread chat counts for displayed orders
-      if (items.length > 0) {
-        const ids = items.map((o: any) => o.id);
-        workOrderService.getUnreadChatCounts(ids).then((counts) => {
-          setUnreadChatCounts(counts || {});
-        }).catch(() => {});
-      }
+      // Fetch unread chat counts for all accessible orders
+      workOrderService.getUnreadChatCounts().then((counts) => {
+        setUnreadChatCounts(counts || {});
+      }).catch(() => {});
     } catch (err) {
       console.error('Failed to load work orders', err);
       toast.error(t('workOrders.alerts.loadFailed', 'Failed to load work orders'));
     } finally {
       setLoading(false);
     }
-  }, [search, selectedStatus, selectedBranch, currentPage, pageSize, t]);
+  }, [search, selectedStatus, selectedBranch, unreadChatFilter, currentPage, pageSize, t]);
 
   useEffect(() => {
     fetchWorkOrders();
@@ -488,6 +492,63 @@ export const LabWorkOrdersPage: React.FC = () => {
           </div>
         )}
 
+        {/* Unread Chat Filter Toggle Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setUnreadChatFilter((prev) => !prev);
+            setCurrentPage(1);
+          }}
+          className="btn"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            height: '38px',
+            borderRadius: '8px',
+            padding: '0 14px',
+            fontSize: '13px',
+            fontWeight: 600,
+            backgroundColor: unreadChatFilter ? 'var(--primary-600)' : 'var(--bg-surface)',
+            color: unreadChatFilter ? '#ffffff' : 'var(--text-main)',
+            border: unreadChatFilter ? '1px solid var(--primary-600)' : '1px solid var(--border-color)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <MessageSquare size={16} />
+            {totalUnreadOrdersCount > 0 && !unreadChatFilter && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-3px',
+                  right: '-3px',
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  backgroundColor: '#ef4444',
+                }}
+              />
+            )}
+          </div>
+          <span>{t('workOrders.filters.unreadChat', 'Unread Chat')}</span>
+          {totalUnreadOrdersCount > 0 && (
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: '999px',
+                backgroundColor: unreadChatFilter ? 'rgba(255, 255, 255, 0.25)' : '#ef4444',
+                color: '#ffffff',
+              }}
+            >
+              {totalUnreadOrdersCount}
+            </span>
+          )}
+        </button>
+
         <Tooltip content={t('common.refresh', 'Refresh')}>
           <button
             type="button"
@@ -709,6 +770,9 @@ export const LabWorkOrdersPage: React.FC = () => {
                                   .filter((p: any) => p.status === 'SETTLED')
                                   .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
                               : Number(order.initialPayment || 0);
+                          const isPartiallyPaid = totalPaidNum > 0 && totalPaidNum < totalQuoteNum;
+                          const pendingAmount = Math.max(0, totalQuoteNum - totalPaidNum);
+
                           let payLabel = t('workOrders.paymentStatus.pending', 'Pending');
                           let payBg = 'var(--bg-surface)';
                           let payColor = 'var(--text-muted)';
@@ -717,28 +781,43 @@ export const LabWorkOrdersPage: React.FC = () => {
                             payLabel = t('workOrders.paymentStatus.paid', 'Paid');
                             payBg = 'var(--badge-success-bg)';
                             payColor = 'var(--badge-success-text)';
-                          } else if (totalPaidNum > 0) {
-                            payLabel = t('workOrders.paymentStatus.partiallyPaid', 'Partial');
-                            payBg = 'var(--badge-warning-bg)';
-                            payColor = 'var(--badge-warning-text)';
+                          } else if (isPartiallyPaid) {
+                            payLabel = t('workOrders.paymentStatus.partiallyPaid', 'Partially Paid');
+                            payBg = 'rgba(245, 158, 11, 0.12)';
+                            payColor = '#d97706';
                           }
                           return (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                backgroundColor: payBg,
-                                color: payColor,
-                              }}
-                            >
-                              {payIcon}
-                              <span>{payLabel}</span>
-                            </span>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  backgroundColor: payBg,
+                                  color: payColor,
+                                }}
+                              >
+                                {payIcon}
+                                <span>{payLabel}</span>
+                              </span>
+                              {isPartiallyPaid && (
+                                <span
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: '#ef4444',
+                                    marginTop: '3px',
+                                    letterSpacing: '0.01em',
+                                  }}
+                                >
+                                  -{formatCurrency(pendingAmount, undefined, i18n.language)}
+                                </span>
+                              )}
+                            </div>
                           );
                         })()}
                       </td>

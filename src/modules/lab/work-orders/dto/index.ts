@@ -181,6 +181,10 @@ export class QueryWorkOrdersDto {
   @ApiProperty({ required: false, description: 'Filter only orders requested by current user' })
   @IsOptional()
   myRequestedOnly?: boolean | string;
+
+  @ApiProperty({ required: false, description: 'Filter only orders with unread chat messages for current user' })
+  @IsOptional()
+  hasUnreadChat?: boolean | string;
 }
 
 export class UpdateWorkOrderDto {

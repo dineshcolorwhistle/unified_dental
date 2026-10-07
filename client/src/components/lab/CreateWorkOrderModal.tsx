@@ -20,6 +20,7 @@ import { Tooltip } from '../common/Tooltip';
 import api from '../../services/api';
 import { workOrderService, CreateWorkOrderPayload } from '../../services/workOrderService';
 import { doctorService, DoctorListItem } from '../../services/doctor.service';
+import { formatCurrency } from '../../core/utils/dateUtils';
 
 interface ProcessFormItem {
   tempId: string;
@@ -180,6 +181,9 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
 
     const pt = prosthesisTypes.find((p) => p.id === ptId);
     if (pt) {
+      if (pt.price !== undefined && pt.price !== null) {
+        setTotalQuote(String(pt.price));
+      }
       // Auto-populate default process sequence from recipe
       if (Array.isArray(pt.processAssignments) && pt.processAssignments.length > 0) {
         const sorted = [...pt.processAssignments].sort(
@@ -455,6 +459,7 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
     return prosthesisTypes.map((pt) => ({
       value: pt.id,
       label: pt.name,
+      badge: pt.price !== undefined && pt.price !== null ? formatCurrency(Number(pt.price)) : undefined,
     }));
   }, [prosthesisTypes]);
 
@@ -832,6 +837,7 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                       </p>
                     )}
                   </div>
+
 
                   {/* Row 4: Specification * */}
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1307,10 +1313,17 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                   {/* Row 1: Total Quote & Initial Payment */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600 }}>
-                        {t('workOrders.form.totalQuote', 'Total Quote ($)')}{' '}
-                        <span style={{ color: 'var(--rose-500)' }}>*</span>
-                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
+                          {t('workOrders.form.totalQuote', 'Total Quote ($)')}{' '}
+                          <span style={{ color: 'var(--rose-500)' }}>*</span>
+                        </label>
+                        {prosthesisTypeId && (
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {t('workOrders.form.autoFilledFromProsthesis', 'Auto-populated from selected prosthesis')}
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="number"
                         min="0"

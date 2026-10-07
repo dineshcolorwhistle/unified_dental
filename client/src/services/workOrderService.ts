@@ -214,6 +214,7 @@ export interface QueryWorkOrdersParams {
   status?: string;
   doctorId?: string;
   myRequestedOnly?: boolean;
+  hasUnreadChat?: boolean;
   page?: number;
   limit?: number;
 }

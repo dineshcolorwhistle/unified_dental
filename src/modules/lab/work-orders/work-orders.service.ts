@@ -375,7 +375,12 @@ export class WorkOrdersService {
         ? WorkOrderStatus.ASSIGNED
         : WorkOrderStatus.CREATED;
 
-    const totalQuote = !isLabAdmin ? 0 : (dto.totalQuote !== undefined ? dto.totalQuote : 0);
+    const defaultPtPrice = Number(prosthesisType.price || 0);
+    const totalQuote = !isLabAdmin
+      ? defaultPtPrice
+      : (dto.totalQuote !== undefined && dto.totalQuote !== null && !isNaN(Number(dto.totalQuote))
+          ? Number(dto.totalQuote)
+          : defaultPtPrice);
     const initialPayment = !isLabAdmin ? 0 : (dto.initialPayment !== undefined ? dto.initialPayment : 0);
     const paymentReferenceNumbers = !isLabAdmin ? [] : (dto.paymentReferenceNumbers || []);
 
@@ -621,6 +626,12 @@ export class WorkOrdersService {
       ...(query.doctorId && { doctorId: query.doctorId }),
       ...(myRequestedOnly && { createdById: actor.id }),
     };
+
+    if (query.hasUnreadChat === true || query.hasUnreadChat === 'true') {
+      const unreadMap = await this.getUnreadChatCounts(tenantId, actor);
+      const unreadWoIds = Object.keys(unreadMap).filter((id) => unreadMap[id] > 0);
+      where.id = { in: unreadWoIds };
+    }
 
     if (query.search && query.search.trim().length > 0) {
       const q = query.search.trim();
@@ -1269,7 +1280,7 @@ export class WorkOrdersService {
   async findTechnicianWorkOrders(
     tenantId: string,
     actor: AuthenticatedUser,
-    query: { search?: string; status?: string; page?: number | string; limit?: number | string },
+    query: { search?: string; status?: string; page?: number | string; limit?: number | string; hasUnreadChat?: boolean | string },
   ) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
@@ -1288,6 +1299,12 @@ export class WorkOrdersService {
         },
       },
     };
+
+    if (query.hasUnreadChat === true || query.hasUnreadChat === 'true') {
+      const unreadMap = await this.getUnreadChatCounts(tenantId, actor);
+      const unreadWoIds = Object.keys(unreadMap).filter((id) => unreadMap[id] > 0);
+      where.id = { in: unreadWoIds };
+    }
 
     if (query.search && query.search.trim().length > 0) {
       const q = query.search.trim();

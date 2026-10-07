@@ -1408,6 +1408,8 @@ const resources = {
           selectTechnicianOrAdmin: 'Select technician or admin...',
           searchTechOrAdmin: 'Search technician or admin...',
           totalQuote: 'Total Quote ($)',
+          quotedAmount: 'Quoted Amount ($)',
+          autoFilledFromProsthesis: 'Auto-populated from selected prosthesis',
           initialPayment: 'Initial Payment ($)',
           paymentRefTitle: 'Payment Reference Numbers',
           paymentRefPlaceholder: 'Type reference number and click Add (e.g., REF-98765)',
@@ -1460,8 +1462,11 @@ const resources = {
         },
         paymentStatus: {
           paid: 'Paid',
-          partiallyPaid: 'Partial',
+          partiallyPaid: 'Partially Paid',
           pending: 'Pending',
+        },
+        filters: {
+          unreadChat: 'Unread Chat',
         },
         editModal: {
           title: 'Edit Work Order',
@@ -3879,6 +3884,8 @@ const resources = {
           selectTechnicianOrAdmin: 'Seleccionar técnico o administrador...',
           searchTechOrAdmin: 'Buscar técnico o administrador...',
           totalQuote: 'Cotización Total ($)',
+          quotedAmount: 'Monto Cotizado ($)',
+          autoFilledFromProsthesis: 'Cargado automáticamente del tipo de prótesis',
           initialPayment: 'Pago Inicial ($)',
           paymentRefTitle: 'Números de Referencia de Pago',
           paymentRefPlaceholder: 'Escriba el número de referencia y haga clic en Agregar (ej. REF-98765)',
@@ -3931,8 +3938,11 @@ const resources = {
         },
         paymentStatus: {
           paid: 'Pagado',
-          partiallyPaid: 'Parcial',
+          partiallyPaid: 'Parcialmente Pagado',
           pending: 'Pendiente',
+        },
+        filters: {
+          unreadChat: 'Chat no leído',
         },
         editModal: {
           title: 'Editar Orden de Trabajo',

@@ -60,12 +60,14 @@ export class WorkOrdersController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('hasUnreadChat') hasUnreadChat?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.workOrdersService.findTechnicianWorkOrders(user.activeTenantId, user, {
       search,
       status,
+      hasUnreadChat,
       page,
       limit,
     });

@@ -12,6 +12,7 @@ import { Tooltip } from '../common/Tooltip';
 import api from '../../services/api';
 import { workOrderService } from '../../services/workOrderService';
 import { doctorService, DoctorListItem } from '../../services/doctor.service';
+import { formatCurrency } from '../../core/utils/dateUtils';
 
 interface TechnicianCreateWorkOrderModalProps {
   isOpen: boolean;
@@ -105,6 +106,7 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
       prosthesisTypes.map((pt) => ({
         value: pt.id,
         label: pt.name,
+        badge: pt.price !== undefined && pt.price !== null ? formatCurrency(Number(pt.price)) : undefined,
       })),
     [prosthesisTypes],
   );
