@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'unified-dental-staging',
+      name: process.env.PM2_APP_NAME || 'unified-dental-platform',
       script: 'dist/main.js',
       instances: 1,
       autorestart: true,
@@ -9,7 +9,7 @@ module.exports = {
       max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 7700,
       },
       env_staging: {
         NODE_ENV: 'staging',
@@ -17,7 +17,7 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 7700,
       },
     },
   ],

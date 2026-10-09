@@ -1,0 +1,195 @@
+name: Unified Deployment Pipeline (Build -> Staging -> Review -> Production)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # ==========================================
+  # Step 1: Build & Verify (Runs Once)
+  # ==========================================
+  build-and-test:
+    name: Build & Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Backend Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build Backend (NestJS)
+        run: npm run build:server
+
+      - name: Install Frontend Dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build Frontend (Vite SPA)
+        working-directory: ./client
+        run: npm run build
+
+  # ==========================================
+  # Step 2: Deploy to Staging (Automatic)
+  # ==========================================
+  deploy-staging:
+    name: Deploy to Staging Server
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: unified-staging
+
+    steps:
+      - name: Deploy via SSH to Staging
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: GITHUB_SHA,GITHUB_REF_NAME
+          script: |
+            echo "🚀 Starting Staging Deployment for Unified Dental Platform..."
+            TARGET_DIR="/home/sarvadent-staging-unified/htdocs/staging-unified.sarvadent.com/unified_dental"
+
+            if [ ! -d "$TARGET_DIR" ]; then
+              echo "❌ Error: Target directory $TARGET_DIR does not exist."
+              exit 1
+            fi
+
+            cd "$TARGET_DIR"
+
+            echo "📦 Fetching latest code from origin ($GITHUB_REF_NAME)..."
+            git fetch --all
+            git checkout main || git checkout $GITHUB_REF_NAME
+            git pull origin main || git pull
+
+            echo "📥 Installing Backend Dependencies..."
+            npm install --include=dev
+
+            echo "📥 Installing Frontend Dependencies and Building Client..."
+            cd client
+            npm install
+            npm run build
+            cd ..
+
+            echo "🔄 Generating Prisma Client..."
+            npx prisma generate
+
+            echo "🗄️ Applying Database Schema Migrations..."
+            npx prisma db push --skip-generate
+
+            echo "🏗️ Building NestJS Backend..."
+            npm run build:server
+
+            echo "♻️ Reloading Application via PM2..."
+            if pm2 list | grep -q "unified-dental-staging"; then
+              pm2 reload unified-dental-staging --update-env
+            elif [ -f "ecosystem.config.cjs" ]; then
+              pm2 start ecosystem.config.cjs --name unified-dental-staging --env staging
+            elif [ -f "ecosystem.config.js" ]; then
+              pm2 start ecosystem.config.js --name unified-dental-staging --env staging
+            else
+              pm2 start dist/main.js --name "unified-dental-staging"
+            fi
+
+            pm2 save
+
+            echo "✅ Deployment to staging completed successfully!"
+
+  # ==========================================
+  # Step 3: Deploy to Production (Requires Review)
+  # ==========================================
+  deploy-production:
+    name: Deploy to Production Server
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    # The 'Platform' environment enforces the Required Reviewers gate in GitHub
+    environment: Platform
+
+    steps:
+      - name: Deploy via SSH to Production
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: GITHUB_SHA,GITHUB_REF_NAME
+          script: |
+            echo "🚀 Starting Production Deployment for Unified Dental Platform..."
+            TARGET_DIR="/home/platform-admin/htdocs/platform.sarvadent.com/unified_dental"
+
+            if [ ! -d "$TARGET_DIR" ]; then
+              echo "❌ Error: Target directory $TARGET_DIR does not exist."
+              exit 1
+            fi
+
+            cd "$TARGET_DIR"
+
+            # Check if this directory is already a Git repository
+            if [ ! -d ".git" ]; then
+              echo "❌ Error: Git repository not found in $TARGET_DIR."
+              echo "Please clone the repository into $TARGET_DIR first."
+              exit 1
+            fi
+
+            # Check if .env exists
+            if [ ! -f ".env" ]; then
+              echo "❌ Error: Production .env file not found in $TARGET_DIR."
+              echo "Please create the .env file with production credentials before first deployment."
+              exit 1
+            fi
+
+            echo "📦 Fetching latest code from origin ($GITHUB_REF_NAME)..."
+            git fetch --all
+            git checkout main || git checkout $GITHUB_REF_NAME
+            git pull origin main || git pull
+
+            echo "📥 Installing Backend Dependencies..."
+            npm install --include=dev
+
+            echo "📥 Installing Frontend Dependencies and Building Client..."
+            cd client
+            npm install
+            npm run build
+            cd ..
+
+            echo "🔄 Generating Prisma Client..."
+            npx prisma generate
+
+            echo "🗄️ Applying Database Schema Migrations..."
+            npx prisma db push --skip-generate
+
+            echo "🌱 Seeding Essential Data (if first time or missing)..."
+            npm run prisma:seed || echo "Seeding step completed or skipped."
+
+            echo "🏗️ Building NestJS Backend..."
+            npm run build:server
+
+            echo "♻️ Reloading Application via PM2..."
+            if pm2 list | grep -q "unified-dental-platform"; then
+              pm2 reload unified-dental-platform --update-env
+            elif [ -f "ecosystem.config.cjs" ]; then
+              pm2 start ecosystem.config.cjs --name unified-dental-platform --env production
+            elif [ -f "ecosystem.config.js" ]; then
+              pm2 start ecosystem.config.js --name unified-dental-platform --env production
+            else
+              pm2 start dist/main.js --name "unified-dental-platform"
+            fi
+
+            pm2 save
+
+            echo "✅ Deployment to production completed successfully!"
