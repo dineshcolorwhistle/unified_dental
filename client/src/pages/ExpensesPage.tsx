@@ -24,6 +24,7 @@ import { Pagination } from '../components/common/Pagination';
 import { DateRangePicker, DateRange } from '../components/common/DateRangePicker';
 import { formatDate, formatCurrency } from '../core/utils/dateUtils';
 import { ViewExpenseModal } from '../components/expenses/ViewExpenseModal';
+import { paymentMethodService, PaymentMethodItem } from '../services/paymentMethodService';
 
 interface ExpenseCategory {
   id: string;
@@ -56,19 +57,6 @@ interface ExpenseMetrics {
   expenseCount: number;
 }
 
-const DEFAULT_PAYMENT_METHODS = [
-  'BBVA Crédito',
-  'BBVA Débito',
-  'Santander',
-  'Banorte',
-  'Citibanamex',
-  'Cash',
-  'Credit Card',
-  'Debit Card',
-  'Bank Transfer',
-  'Check',
-  'Other',
-];
 
 function getInitialDateRange(): DateRange {
   const now = new Date();
@@ -115,6 +103,7 @@ export const ExpensesPage: React.FC = () => {
   // Data states
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [configuredPaymentMethods, setConfiguredPaymentMethods] = useState<PaymentMethodItem[]>([]);
   const [metrics, setMetrics] = useState<ExpenseMetrics>({
     totalExpenses: 0,
     averageExpense: 0,
@@ -242,6 +231,25 @@ export const ExpensesPage: React.FC = () => {
     fetchCategories();
   }, [fetchCategories]);
 
+  const fetchPaymentMethods = useCallback(async (branchId?: string) => {
+    try {
+      const list = await paymentMethodService.getAll({
+        branchId: branchId && branchId !== 'all' ? branchId : undefined,
+        activeOnly: true,
+      });
+      setConfiguredPaymentMethods(list);
+    } catch (err) {
+      console.error('Failed to load payment methods for expenses:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const branchForPm = selectedBranch !== 'all' ? selectedBranch : (user?.activeBranchId || availableBranches[0]?.id);
+    if (branchForPm) {
+      fetchPaymentMethods(branchForPm);
+    }
+  }, [fetchPaymentMethods, selectedBranch, user?.activeBranchId, availableBranches]);
+
   useEffect(() => {
     fetchExpenses();
   }, [fetchExpenses]);
@@ -264,7 +272,7 @@ export const ExpensesPage: React.FC = () => {
       categoryId: categories.length > 0 ? categories[0].id : '',
       description: '',
       amount: '',
-      paymentMethod: 'BBVA Crédito',
+      paymentMethod: configuredPaymentMethods.length > 0 ? configuredPaymentMethods[0].name : '',
       branchId: user?.activeBranchId || availableBranches[0]?.id || '',
     });
     setIsExpenseModalOpen(true);
@@ -425,10 +433,12 @@ export const ExpensesPage: React.FC = () => {
 
   const categoryFormOptions = categories.map((c) => ({ value: c.id, label: c.name }));
 
-  const paymentMethodOptions = DEFAULT_PAYMENT_METHODS.map((pm) => ({
-    value: pm,
-    label: pm,
-  }));
+  const paymentMethodOptions = useMemo(() => {
+    return configuredPaymentMethods.map((pm) => ({
+      value: pm.name,
+      label: pm.name,
+    }));
+  }, [configuredPaymentMethods]);
 
   const branchFormOptions = availableBranches.map((b) => ({
     value: b.id,

@@ -88,6 +88,7 @@ export interface WorkOrderPaymentItem {
   amount: number | string;
   notes?: string | null;
   reference?: string | null;
+  paymentMethod?: string | null;
   status: string;
   recordedById?: string | null;
   recordedBy?: {
@@ -165,6 +166,12 @@ export interface CreateWorkOrderPayload {
   branchId?: string;
   totalQuote?: number;
   initialPayment?: number;
+  payments?: Array<{
+    amount: number;
+    paymentMethod?: string;
+    notes?: string;
+    reference?: string;
+  }>;
   paymentReferenceNumbers?: string[];
   action: 'create' | 'createAndAssign';
   processes?: Array<{
@@ -358,7 +365,7 @@ export const workOrderService = {
 
   recordPayment: async (
     workOrderId: string,
-    payload: { amount: number; notes?: string; reference?: string; paymentDate?: string },
+    payload: { amount: number; notes?: string; reference?: string; paymentMethod?: string; paymentDate?: string },
   ): Promise<WorkOrderListItem> => {
     const res = await api.post(`/lab/work-orders/${workOrderId}/payments`, payload);
     return res.data;

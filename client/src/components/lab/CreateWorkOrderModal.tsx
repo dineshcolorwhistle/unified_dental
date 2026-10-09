@@ -12,6 +12,7 @@ import {
   Loader2,
   CheckCircle2,
   ShieldCheck,
+  PlusCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
@@ -20,7 +21,18 @@ import { Tooltip } from '../common/Tooltip';
 import api from '../../services/api';
 import { workOrderService, CreateWorkOrderPayload } from '../../services/workOrderService';
 import { doctorService, DoctorListItem } from '../../services/doctor.service';
-import { formatCurrency } from '../../core/utils/dateUtils';
+import { paymentMethodService, PaymentMethodItem } from '../../services/paymentMethodService';
+import { formatDateTime, formatCurrency } from '../../core/utils/dateUtils';
+
+export interface CreateWorkOrderPaymentItem {
+  tempId: string;
+  amount: number;
+  paymentMethod?: string;
+  reference?: string;
+  notes?: string;
+  status: 'SETTLED';
+  createdAt: string;
+}
 
 interface ProcessFormItem {
   tempId: string;
@@ -82,9 +94,17 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
 
   // Tab 3: Payments
   const [totalQuote, setTotalQuote] = useState('0');
-  const [initialPayment, setInitialPayment] = useState('0');
+  const [paymentsList, setPaymentsList] = useState<CreateWorkOrderPaymentItem[]>([]);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethodItem[]>([]);
   const [paymentReferences, setPaymentReferences] = useState<string[]>([]);
   const [refInput, setRefInput] = useState('');
+
+  // Tab 3: Add Payment popup modal
+  const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
+  const [recordPaymentAmount, setRecordPaymentAmount] = useState('');
+  const [recordPaymentMethod, setRecordPaymentMethod] = useState('');
+  const [recordPaymentNotes, setRecordPaymentNotes] = useState('');
+  const [recordPaymentReference, setRecordPaymentReference] = useState('');
 
   // Validation & Submission
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -109,9 +129,14 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
       setNewProcessId('');
       setNewProcessTechnicianId('');
       setTotalQuote('0');
-      setInitialPayment('0');
+      setPaymentsList([]);
       setPaymentReferences([]);
       setRefInput('');
+      setIsRecordPaymentOpen(false);
+      setRecordPaymentAmount('');
+      setRecordPaymentMethod('');
+      setRecordPaymentNotes('');
+      setRecordPaymentReference('');
       setErrors({});
       loadReferenceData();
     }
@@ -120,17 +145,19 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   const loadReferenceData = useCallback(async () => {
     try {
       setLoadingRefs(true);
-      const [doctorsRes, ptRes, techRes, adminRes, procRes, folioRes] = await Promise.all([
+      const [doctorsRes, ptRes, techRes, adminRes, procRes, folioRes, pmRes] = await Promise.all([
         doctorService.getAll({ branchId }),
         api.get('/lab/prosthesis-types', { params: branchId ? { branchId } : undefined }).catch(() => ({ data: [] })),
         api.get('/lab/users/technicians', { params: branchId ? { branchId } : undefined }).catch(() => ({ data: [] })),
         api.get('/lab/users/admin', { params: branchId ? { branchId } : undefined }).catch(() => ({ data: [] })),
         api.get('/lab/processes', { params: branchId ? { branchId } : undefined }).catch(() => ({ data: [] })),
         workOrderService.getNextFolio(branchId).catch(() => ({ folioNumber: '---' })),
+        paymentMethodService.getAll({ branchId, activeOnly: true }).catch(() => []),
       ]);
 
       const activeDocs = Array.isArray(doctorsRes) ? doctorsRes.filter((d) => d.isActive) : [];
       setDoctors(activeDocs);
+      setAvailablePaymentMethods(Array.isArray(pmRes) ? pmRes : []);
 
       const rawPt = Array.isArray(ptRes.data) ? ptRes.data : (ptRes.data as any)?.data || [];
       setProsthesisTypes(rawPt);
@@ -411,7 +438,13 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
         notes: notes.trim() || undefined,
         branchId: branchId || undefined,
         totalQuote: totalQuote !== '' && !isNaN(Number(totalQuote)) ? Number(totalQuote) : 0,
-        initialPayment: parseFloat(initialPayment) || 0,
+        initialPayment: totalReceivedNum,
+        payments: paymentsList.map((p) => ({
+          amount: p.amount,
+          paymentMethod: p.paymentMethod,
+          notes: p.notes,
+          reference: p.reference,
+        })),
         paymentReferenceNumbers: paymentReferences,
         action,
         processes: processList.map((p, idx) => ({
@@ -537,6 +570,67 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
       };
     });
   }, [availableProcesses, t]);
+
+  // Payment methods options (strictly from DB)
+  const paymentMethodSelectOptions = useMemo(() => {
+    return availablePaymentMethods.map((m) => ({
+      value: m.name,
+      label: m.name,
+    }));
+  }, [availablePaymentMethods]);
+
+  // Balance & Received calculation
+  const totalQuoteNum = parseFloat(totalQuote) || 0;
+  const totalReceivedNum = paymentsList.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const balanceDue = Math.max(0, totalQuoteNum - totalReceivedNum);
+
+  // Payment Status
+  let paymentStatusKey = 'statusPending';
+  let paymentStatusColor = 'var(--text-muted)';
+  let paymentStatusBg = 'var(--bg-surface)';
+  if (totalReceivedNum >= totalQuoteNum && totalQuoteNum > 0) {
+    paymentStatusKey = 'statusPaid';
+    paymentStatusColor = '#10b981';
+    paymentStatusBg = 'rgba(16, 185, 129, 0.12)';
+  } else if (totalReceivedNum > 0) {
+    paymentStatusKey = 'statusPartiallyPaid';
+    paymentStatusColor = '#f59e0b';
+    paymentStatusBg = 'rgba(245, 158, 11, 0.12)';
+  }
+
+  const handleRecordPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountVal = parseFloat(recordPaymentAmount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      toast.error(t('workOrders.viewModal.paymentTab.invalidAmount', 'Please enter a valid positive payment amount.'));
+      return;
+    }
+
+    const newPayment: CreateWorkOrderPaymentItem = {
+      tempId: `pay-${Date.now()}`,
+      amount: amountVal,
+      paymentMethod: recordPaymentMethod.trim() || undefined,
+      notes: recordPaymentNotes.trim() || undefined,
+      reference: recordPaymentReference.trim() || undefined,
+      status: 'SETTLED',
+      createdAt: new Date().toISOString(),
+    };
+
+    setPaymentsList((prev) => [...prev, newPayment]);
+    if (recordPaymentReference.trim() && !paymentReferences.includes(recordPaymentReference.trim())) {
+      setPaymentReferences((prev) => [...prev, recordPaymentReference.trim()]);
+    }
+    setIsRecordPaymentOpen(false);
+    setRecordPaymentAmount('');
+    setRecordPaymentMethod('');
+    setRecordPaymentNotes('');
+    setRecordPaymentReference('');
+    toast.success(t('workOrders.viewModal.paymentTab.recordSuccess', 'Payment recorded successfully.'));
+  };
+
+  const handleRemovePayment = (tempId: string) => {
+    setPaymentsList((prev) => prev.filter((p) => p.tempId !== tempId));
+  };
 
   if (!isOpen) return null;
 
@@ -1309,84 +1403,391 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                   TAB 3: PAYMENTS
               ══════════════════════════════════════════════════════════════ */}
               {activeTab === 3 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Row 1: Total Quote & Initial Payment */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
-                          {t('workOrders.form.totalQuote', 'Total Quote ($)')}{' '}
-                          <span style={{ color: 'var(--rose-500)' }}>*</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Financial Summary */}
+                  <div
+                    style={{
+                      padding: '20px',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', alignItems: 'start' }}>
+                      {/* 1. Total Quote */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.form.totalQuote', 'Total Quote ($)')} <span style={{ color: 'var(--rose-500)' }}>*</span>
                         </label>
-                        {prosthesisTypeId && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {t('workOrders.form.autoFilledFromProsthesis', 'Auto-populated from selected prosthesis')}
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 700 }}>
+                            $
                           </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className="form-input"
+                            value={totalQuote}
+                            onChange={(e) => setTotalQuote(e.target.value)}
+                            placeholder="0.00"
+                            style={{ paddingLeft: '28px', height: '42px', fontWeight: 700, fontSize: '15px' }}
+                          />
+                        </div>
+                        {prosthesisTypeId && (
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              marginTop: '6px',
+                              lineHeight: 1.2,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                            title={t('workOrders.form.autoFilledFromProsthesis', 'Auto-populated from selected prosthesis')}
+                          >
+                            {t('workOrders.form.autoFilledFromProsthesis', 'Auto-populated from prosthesis')}
+                          </div>
                         )}
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="form-input"
-                        placeholder="0"
-                        value={totalQuote}
-                        onChange={(e) => setTotalQuote(e.target.value)}
-                      />
-                    </div>
 
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600 }}>
-                        {t('workOrders.form.initialPayment', 'Initial Payment ($)')}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="form-input"
-                        placeholder="0"
-                        value={initialPayment}
-                        onChange={(e) => setInitialPayment(e.target.value)}
-                      />
+                      {/* 2. Total Received */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.viewModal.paymentTab.receivedAmount', 'Total Received')}
+                        </label>
+                        <div
+                          style={{
+                            height: '42px',
+                            padding: '0 14px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontWeight: 800,
+                            color: '#10b981',
+                            fontSize: '15px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          ${totalReceivedNum.toFixed(2)}
+                        </div>
+                      </div>
+
+                      {/* 3. Balance Due */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.form.balanceDue', 'Balance Due')}
+                        </label>
+                        <div
+                          style={{
+                            height: '42px',
+                            padding: '0 14px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontWeight: 800,
+                            color: balanceDue > 0 ? 'var(--rose-500)' : '#10b981',
+                            fontSize: '15px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          ${balanceDue.toFixed(2)}
+                        </div>
+                      </div>
+
+                      {/* 4. Payment Status */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.viewModal.paymentTab.paymentStatus', 'Payment Status')}
+                        </label>
+                        <div
+                          style={{
+                            height: '42px',
+                            padding: '0 12px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              padding: '4px 12px',
+                              borderRadius: '999px',
+                              backgroundColor: paymentStatusBg,
+                              color: paymentStatusColor,
+                            }}
+                          >
+                            {t(`workOrders.viewModal.paymentTab.${paymentStatusKey}`)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Row 2: Payment Reference Numbers */}
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontWeight: 600 }}>
-                      {t('workOrders.form.paymentRefTitle', 'Payment Reference Numbers')}
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder={t('workOrders.form.paymentRefPlaceholder', 'Type reference number and click Add (e.g., REF-98765)')}
-                        value={refInput}
-                        onChange={(e) => setRefInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddReference();
-                          }
+                  {/* Payment Transactions Section */}
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: 'var(--text-muted)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
                         }}
-                      />
+                      >
+                        {t('workOrders.viewModal.paymentTab.paymentTransactions', 'PAYMENT TRANSACTIONS')}
+                      </span>
+
                       <button
                         type="button"
-                        onClick={() => handleAddReference()}
-                        className="btn btn-secondary"
-                        style={{ whiteSpace: 'nowrap', fontWeight: 600 }}
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setIsRecordPaymentOpen(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 700,
+                          padding: '6px 14px',
+                        }}
                       >
-                        {t('workOrders.form.addReferenceBtn', 'Add Reference')}
+                        <PlusCircle size={14} />
+                        <span>{t('workOrders.viewModal.paymentTab.recordPaymentBtn', 'Record Payment')}</span>
                       </button>
                     </div>
 
-                    {/* Tag list */}
+                    <div
+                      style={{
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr
+                            style={{
+                              backgroundColor: 'var(--bg-surface)',
+                              borderBottom: '1px solid var(--border-color)',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.paymentDate', 'Payment Date')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.receivedAmount', 'Received Amount')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('labPaymentMethods.fieldMethod', 'Payment Method')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.reference', 'Reference')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.notes', 'Notes')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.generalTab.status', 'Status')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>
+                              {t('common.actions', 'Actions')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paymentsList.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                                {t('workOrders.viewModal.paymentTab.noTransactions', 'No payment transactions recorded yet. Click "+ Record Payment" to add a payment.')}
+                              </td>
+                            </tr>
+                          ) : (
+                            paymentsList.map((item, idx) => (
+                              <tr
+                                key={item.tempId || idx}
+                                style={{
+                                  borderBottom: '1px solid var(--border-color)',
+                                  transition: 'background-color 0.15s ease',
+                                }}
+                              >
+                                <td style={{ padding: '14px 16px', color: 'var(--text-main)' }}>
+                                  {formatDateTime(item.createdAt)}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 700, color: '#10b981' }}>
+                                  ${Number(item.amount || 0).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-main)' }}>
+                                  {item.paymentMethod ? (
+                                    <span
+                                      style={{
+                                        display: 'inline-block',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        padding: '2px 8px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                        color: 'var(--primary-600)',
+                                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                                      }}
+                                    >
+                                      {item.paymentMethod}
+                                    </span>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                  {item.reference || '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '12px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {item.notes || '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '3px 10px',
+                                      borderRadius: '999px',
+                                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                      color: '#10b981',
+                                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    }}
+                                  >
+                                    {item.status || 'SETTLED'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-icon"
+                                    onClick={() => handleRemovePayment(item.tempId)}
+                                    title={t('common.delete', 'Delete')}
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      borderRadius: '6px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid var(--border-color)',
+                                      backgroundColor: 'var(--bg-surface)',
+                                      color: 'var(--rose-500)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Payment Reference Numbers */}
+                  <div
+                    style={{
+                      padding: '20px',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                    }}
+                  >
+                    <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px' }}>
+                      {t('workOrders.form.paymentReferences', 'Payment Reference Numbers')}
+                    </label>
+
+                    <form onSubmit={handleAddReference} style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. REC-9921, SPEI-002"
+                        value={refInput}
+                        onChange={(e) => setRefInput(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="submit"
+                        className="btn btn-secondary"
+                        disabled={!refInput.trim()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                      >
+                        <Plus size={15} />
+                        <span>{t('workOrders.form.addReference', 'Add')}</span>
+                      </button>
+                    </form>
+
                     {paymentReferences.length === 0 ? (
-                      <p style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                      <p style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)', margin: 0 }}>
                         {t('workOrders.form.noReferencesAdded', 'No reference numbers added')}
                       </p>
                     ) : (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {paymentReferences.map((ref) => (
                           <span
                             key={ref}
@@ -1632,6 +2033,129 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── RECORD PAYMENT POPUP MODAL ─── */}
+      {isRecordPaymentOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1080 }}>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '440px',
+              padding: '24px',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                  {t('workOrders.viewModal.paymentTab.modalTitle', 'Record Payment')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  {t('workOrders.viewModal.paymentTab.modalSubtitle', 'Register a payment transaction for this work order')}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setIsRecordPaymentOpen(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('workOrders.viewModal.paymentTab.amount', 'Received Amount')} *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    className="form-input"
+                    value={recordPaymentAmount}
+                    onChange={(e) => setRecordPaymentAmount(e.target.value)}
+                    placeholder="0.00"
+                    style={{ paddingLeft: '28px', fontSize: '15px', fontWeight: 700 }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('labPaymentMethods.fieldMethod', 'Payment Method')}
+                </label>
+                <select
+                  className="form-input"
+                  value={recordPaymentMethod}
+                  onChange={(e) => setRecordPaymentMethod(e.target.value)}
+                  style={{ fontSize: '13px' }}
+                >
+                  <option value="">{t('common.select', 'Select payment method...')}</option>
+                  {paymentMethodSelectOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('workOrders.viewModal.paymentTab.reference', 'Reference / Receipt Folio (Optional)')}
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={recordPaymentReference}
+                  onChange={(e) => setRecordPaymentReference(e.target.value)}
+                  placeholder="e.g. REC-10293 or Card Ref"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('workOrders.viewModal.paymentTab.notes', 'Notes')}
+                </label>
+                <textarea
+                  rows={2}
+                  className="form-input"
+                  value={recordPaymentNotes}
+                  onChange={(e) => setRecordPaymentNotes(e.target.value)}
+                  placeholder={t('workOrders.viewModal.paymentTab.notesPlaceholder', 'Enter notes or transaction details...')}
+                  style={{ resize: 'vertical', fontSize: '13px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsRecordPaymentOpen(false)}
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ fontWeight: 700 }}
+                >
+                  {t('workOrders.viewModal.paymentTab.recordBtn', 'Add Payment')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

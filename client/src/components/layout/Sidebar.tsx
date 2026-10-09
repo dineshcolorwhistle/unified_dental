@@ -562,6 +562,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                 />
 
                 <SidebarNavItem
+                  to="/lab/payment-methods"
+                  icon={<CreditCard size={17} />}
+                  label={t('nav.paymentMethods', 'Payment Methods')}
+                  isCollapsed={isCollapsed}
+                />
+
+                <SidebarNavItem
                   to="/lab/whatsapp-templates"
                   icon={<MessageSquare size={17} />}
                   label={t('nav.whatsappTemplate')}

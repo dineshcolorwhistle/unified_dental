@@ -381,7 +381,14 @@ export class WorkOrdersService {
       : (dto.totalQuote !== undefined && dto.totalQuote !== null && !isNaN(Number(dto.totalQuote))
           ? Number(dto.totalQuote)
           : defaultPtPrice);
-    const initialPayment = !isLabAdmin ? 0 : (dto.initialPayment !== undefined ? dto.initialPayment : 0);
+    const totalPaymentsFromList = Array.isArray(dto.payments) && dto.payments.length > 0
+      ? dto.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+      : 0;
+    const initialPayment = !isLabAdmin
+      ? 0
+      : (totalPaymentsFromList > 0
+          ? totalPaymentsFromList
+          : (dto.initialPayment !== undefined ? Number(dto.initialPayment) : 0));
     const paymentReferenceNumbers = !isLabAdmin ? [] : (dto.paymentReferenceNumbers || []);
 
     // Database transaction: WorkOrder + initial Note + Processes
@@ -420,18 +427,36 @@ export class WorkOrdersService {
         });
       }
 
-      // Record initial payment in WorkOrderPayment history if provided (Admins only)
-      if (isLabAdmin && initialPayment && Number(initialPayment) > 0) {
-        await tx.workOrderPayment.create({
-          data: {
-            workOrderId: wo.id,
-            amount: Number(initialPayment),
-            notes: 'Initial payment registered at order creation',
-            status: 'SETTLED',
-            recordedById: actor.id,
-            reference: paymentReferenceNumbers.length > 0 ? paymentReferenceNumbers[0] : null,
-          },
-        });
+      // Record payments in WorkOrderPayment history if provided (Admins only)
+      if (isLabAdmin) {
+        if (Array.isArray(dto.payments) && dto.payments.length > 0) {
+          for (const pay of dto.payments) {
+            if (Number(pay.amount) > 0) {
+              await tx.workOrderPayment.create({
+                data: {
+                  workOrderId: wo.id,
+                  amount: Number(pay.amount),
+                  paymentMethod: pay.paymentMethod?.trim() || null,
+                  notes: pay.notes?.trim() || 'Payment recorded at order creation',
+                  status: 'SETTLED',
+                  recordedById: actor.id,
+                  reference: pay.reference?.trim() || null,
+                },
+              });
+            }
+          }
+        } else if (initialPayment && Number(initialPayment) > 0) {
+          await tx.workOrderPayment.create({
+            data: {
+              workOrderId: wo.id,
+              amount: Number(initialPayment),
+              notes: 'Initial payment registered at order creation',
+              status: 'SETTLED',
+              recordedById: actor.id,
+              reference: paymentReferenceNumbers.length > 0 ? paymentReferenceNumbers[0] : null,
+            },
+          });
+        }
       }
 
       // Create process items
@@ -994,6 +1019,15 @@ export class WorkOrdersService {
       updateData.status = WorkOrderStatus.ASSIGNED;
     }
 
+    const isWOCreated = workOrder.status === WorkOrderStatus.CREATED;
+    const completedStepsForNotification: Array<{
+      processName: string;
+      nextTechnicianId: string;
+      nextProcessName: string;
+      nextProcessId: string;
+      isNextVerification: boolean;
+    }> = [];
+
     await this.prisma.$transaction(async (tx) => {
       // Record new note if provided
       if (dto.notes && dto.notes.trim().length > 0) {
@@ -1030,6 +1064,10 @@ export class WorkOrdersService {
           }
         }
 
+        const now = new Date();
+        let allCompleted = dto.processes.length > 0;
+        let anyInProgress = false;
+
         // 2. Update existing & create newly added processes
         for (let i = 0; i < dto.processes.length; i++) {
           const p = dto.processes[i];
@@ -1039,8 +1077,18 @@ export class WorkOrdersService {
 
           if (p.id && existingMap.has(p.id)) {
             const existing = existingMap.get(p.id)!;
-            // Locking rule: once started, technician cannot be changed
-            if (existing.status !== ProcessStatus.NOT_STARTED) {
+            const targetStatus = p.status || existing.status;
+            const isStatusChanged = targetStatus !== existing.status;
+
+            // Condition 1: If WO status is CREATED, admin cannot change any process status, but CAN change technician
+            if (isWOCreated && isStatusChanged) {
+              throw new BadRequestException(
+                `Cannot change process status for "${existing.processName}" because the Work Order is in Created status.`,
+              );
+            }
+
+            // Technician locking rule: only locked once started when WO is NOT in CREATED status
+            if (!isWOCreated && existing.status !== ProcessStatus.NOT_STARTED && !isStatusChanged) {
               if (existing.technicianId !== targetTechId) {
                 throw new BadRequestException(
                   `Cannot change assigned technician for process "${existing.processName}" because it has already started.`,
@@ -1048,17 +1096,119 @@ export class WorkOrdersService {
               }
             }
 
+            // Condition 2 & 4: For subsequent processes (i > 0), cannot change status until previous process is COMPLETED or FAILED
+            if (!isWOCreated && isStatusChanged && i > 0) {
+              const prevStep = dto.processes[i - 1];
+              const prevExisting = prevStep.id ? existingMap.get(prevStep.id) : null;
+              const prevEffectiveStatus = prevStep.status || prevExisting?.status || ProcessStatus.NOT_STARTED;
+
+              if (
+                prevEffectiveStatus === ProcessStatus.NOT_STARTED ||
+                prevEffectiveStatus === ProcessStatus.IN_PROGRESS ||
+                prevEffectiveStatus === ProcessStatus.PAUSED
+              ) {
+                throw new BadRequestException(
+                  `Cannot change status of step "${p.processName}" until previous step "${prevStep.processName}" is marked as Completed or Failed.`,
+                );
+              }
+            }
+
+            if (targetStatus !== ProcessStatus.COMPLETED) {
+              allCompleted = false;
+            }
+            if (targetStatus === ProcessStatus.IN_PROGRESS) {
+              anyInProgress = true;
+            }
+
+            const procUpdateData: any = {
+              sequence: i,
+              technicianId: targetTechId,
+              doctorId: targetDocId,
+              processName: p.processName.trim(),
+              status: targetStatus,
+            };
+
+            // Status transition metadata & activity logging
+            if (isStatusChanged) {
+              if (targetStatus === ProcessStatus.IN_PROGRESS) {
+                procUpdateData.startedAt = existing.startedAt || now;
+                procUpdateData.lastPausedAt = null;
+                await tx.processActivityLog.create({
+                  data: {
+                    workOrderProcessId: p.id,
+                    userId: actor.id,
+                    action: 'START',
+                    notes: 'Process status changed to IN_PROGRESS by Admin',
+                    timestamp: now,
+                  },
+                });
+              } else if (targetStatus === ProcessStatus.PAUSED) {
+                procUpdateData.lastPausedAt = now;
+                procUpdateData.pauseCount = existing.pauseCount + 1;
+                await tx.processActivityLog.create({
+                  data: {
+                    workOrderProcessId: p.id,
+                    userId: actor.id,
+                    action: 'PAUSE',
+                    notes: 'Process status changed to PAUSED by Admin',
+                    timestamp: now,
+                  },
+                });
+              } else if (targetStatus === ProcessStatus.COMPLETED) {
+                procUpdateData.endedAt = now;
+                procUpdateData.lastPausedAt = null;
+                procUpdateData.reworkActive = false;
+                await tx.processActivityLog.create({
+                  data: {
+                    workOrderProcessId: p.id,
+                    userId: actor.id,
+                    action: 'COMPLETE',
+                    notes: 'Process status marked as COMPLETED by Admin',
+                    timestamp: now,
+                  },
+                });
+
+                // Condition 3: When previous process is completed, a notification should be sent to the assigned technician for the next process.
+                if (i + 1 < dto.processes.length) {
+                  const nextStep = dto.processes[i + 1];
+                  const nextTechId = nextStep.processType === ProcessType.EXTERNAL_VERIFICATION ? null : nextStep.technicianId || null;
+                  if (nextTechId) {
+                    completedStepsForNotification.push({
+                      processName: p.processName,
+                      nextTechnicianId: nextTechId,
+                      nextProcessName: nextStep.processName,
+                      nextProcessId: nextStep.id || '',
+                      isNextVerification: Boolean(
+                        nextStep.isVerification ||
+                        nextStep.processType === ProcessType.INTERNAL_VERIFICATION ||
+                        nextStep.processType === ProcessType.EXTERNAL_VERIFICATION,
+                      ),
+                    });
+                  }
+                }
+              } else if (targetStatus === ProcessStatus.FAILED) {
+                procUpdateData.endedAt = now;
+                await tx.processActivityLog.create({
+                  data: {
+                    workOrderProcessId: p.id,
+                    userId: actor.id,
+                    action: 'FAIL',
+                    notes: 'Process status marked as FAILED by Admin',
+                    timestamp: now,
+                  },
+                });
+              }
+            }
+
             await tx.workOrderProcess.update({
               where: { id: p.id },
-              data: {
-                sequence: i,
-                technicianId: targetTechId,
-                doctorId: targetDocId,
-                processName: p.processName.trim(),
-              },
+              data: procUpdateData,
             });
           } else {
             // New process step added
+            if (p.status !== ProcessStatus.COMPLETED) {
+              allCompleted = false;
+            }
             await tx.workOrderProcess.create({
               data: {
                 workOrderId: id,
@@ -1073,10 +1223,17 @@ export class WorkOrdersService {
                     isExt ||
                     p.processType === ProcessType.INTERNAL_VERIFICATION,
                 ),
-                status: ProcessStatus.NOT_STARTED,
+                status: p.status || ProcessStatus.NOT_STARTED,
               },
             });
           }
+        }
+
+        // Automatic Work Order Status progression
+        if (allCompleted && workOrder.status !== WorkOrderStatus.COMPLETED) {
+          updateData.status = WorkOrderStatus.COMPLETED;
+        } else if (anyInProgress && (workOrder.status === WorkOrderStatus.ASSIGNED || workOrder.status === WorkOrderStatus.CREATED)) {
+          updateData.status = WorkOrderStatus.IN_PROGRESS;
         }
       }
 
@@ -1107,6 +1264,31 @@ export class WorkOrdersService {
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
         }
+      }
+    }
+
+    // Condition 3: Dispatch notifications to next technician when a previous process was completed
+    for (const notif of completedStepsForNotification) {
+      try {
+        await this.notificationsService.create({
+          tenantId,
+          userId: notif.nextTechnicianId,
+          moduleKey: 'LAB',
+          type: 'WORK_ORDER',
+          title: notif.isNextVerification ? 'Verification Ready' : 'Process Ready to Start',
+          body: `Previous process "${notif.processName}" has completed on Work Order "${workOrder.folioNumber}". Step "${notif.nextProcessName}" is now ready to begin.`,
+          data: {
+            workOrderId: id,
+            folioNumber: workOrder.folioNumber,
+            processId: notif.nextProcessId,
+          },
+        });
+        this.notificationsGateway.sendToUser(notif.nextTechnicianId, 'work_order:assigned', {
+          workOrderId: id,
+          folioNumber: workOrder.folioNumber,
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to dispatch next process notification: ${(err as any).message}`);
       }
     }
 
@@ -2548,6 +2730,7 @@ export class WorkOrdersService {
         amount: paymentAmount,
         notes: dto.notes?.trim() || null,
         reference: dto.reference?.trim() || null,
+        paymentMethod: dto.paymentMethod?.trim() || null,
         status: 'SETTLED',
         recordedById: actor.id,
         createdAt: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),

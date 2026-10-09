@@ -10,12 +10,27 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            // Gracefully handle proxy errors if backend is reloading
+            if (res && 'writeHead' in res && !(res as any).headersSent) {
+              (res as any).writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ message: 'Backend service temporarily unavailable' }));
+            }
+          });
+        },
       },
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         ws: true,
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (_err) => {
+            // Gracefully ignore WebSocket proxy disconnects when backend restarts
+          });
+        },
       },
     },
   },

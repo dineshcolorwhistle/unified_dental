@@ -16,6 +16,8 @@ import { ProsthesisTypesService } from './prosthesis-types/prosthesis-types.serv
 
 import { DoctorsController } from './doctors/doctors.controller';
 import { DoctorsService } from './doctors/doctors.service';
+import { PaymentMethodsController } from './payment-methods/payment-methods.controller';
+import { PaymentMethodsService } from './payment-methods/payment-methods.service';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
 
 @Module({
@@ -34,6 +36,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     ProcessesController,
     ProsthesisTypesController,
     DoctorsController,
+    PaymentMethodsController,
   ],
   providers: [
     LabUsersService,
@@ -41,6 +44,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     ProcessesService,
     ProsthesisTypesService,
     DoctorsService,
+    PaymentMethodsService,
   ],
   exports: [
     LabUsersService,
@@ -48,6 +52,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     ProcessesService,
     ProsthesisTypesService,
     DoctorsService,
+    PaymentMethodsService,
     WorkOrdersModule,
   ],
 })

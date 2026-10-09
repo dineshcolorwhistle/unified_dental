@@ -61,6 +61,28 @@ export class WorkOrderProcessItemDto {
   status?: ProcessStatus;
 }
 
+export class CreateWorkOrderPaymentItemDto {
+  @ApiProperty({ example: 100.5, description: 'Amount received in this payment transaction' })
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiProperty({ example: 'Payment via bank transfer', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @ApiProperty({ example: 'TX-984214', required: false })
+  @IsString()
+  @IsOptional()
+  reference?: string;
+
+  @ApiProperty({ example: 'Cash', required: false })
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string;
+}
+
 export class CreateWorkOrderDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000', description: 'Doctor ID' })
   @IsUUID()
@@ -124,6 +146,13 @@ export class CreateWorkOrderDto {
   @IsString({ each: true })
   @IsOptional()
   paymentReferenceNumbers?: string[];
+
+  @ApiProperty({ type: [CreateWorkOrderPaymentItemDto], required: false })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateWorkOrderPaymentItemDto)
+  @IsOptional()
+  payments?: CreateWorkOrderPaymentItemDto[];
 
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000', required: false })
   @IsUUID()
@@ -312,6 +341,11 @@ export class RecordWorkOrderPaymentDto {
   @IsString()
   @IsOptional()
   reference?: string;
+
+  @ApiProperty({ example: 'Cash', required: false })
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string;
 
   @ApiProperty({ example: '2026-07-15T06:00:00.000Z', required: false })
   @IsString()

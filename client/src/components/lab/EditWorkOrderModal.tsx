@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Lock,
   RotateCcw,
+  DollarSign,
+  PlusCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
@@ -27,10 +29,12 @@ import {
   workOrderService,
   WorkOrderListItem,
   WorkOrderNoteItem,
+  WorkOrderPaymentItem,
   UpdateWorkOrderPayload,
 } from '../../services/workOrderService';
 import { doctorService, DoctorListItem } from '../../services/doctor.service';
-import { formatDateTime } from '../../core/utils/dateUtils';
+import { paymentMethodService, PaymentMethodItem } from '../../services/paymentMethodService';
+import { formatDateTime, formatCurrency } from '../../core/utils/dateUtils';
 
 export interface ProcessEditItem {
   id?: string;
@@ -113,9 +117,18 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
   // Tab 3: Payments
   const [totalQuote, setTotalQuote] = useState('0');
-  const [initialPayment, setInitialPayment] = useState('0');
+  const [paymentsList, setPaymentsList] = useState<WorkOrderPaymentItem[]>([]);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethodItem[]>([]);
   const [paymentReferences, setPaymentReferences] = useState<string[]>([]);
   const [refInput, setRefInput] = useState('');
+
+  // Tab 3: Add Payment popup modal
+  const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
+  const [recordPaymentAmount, setRecordPaymentAmount] = useState('');
+  const [recordPaymentMethod, setRecordPaymentMethod] = useState('');
+  const [recordPaymentNotes, setRecordPaymentNotes] = useState('');
+  const [recordPaymentReference, setRecordPaymentReference] = useState('');
+  const [submittingRecordPayment, setSubmittingRecordPayment] = useState(false);
 
   // Refs for scrolling to Add Process card
   const addProcessCardRef = useRef<HTMLDivElement>(null);
@@ -137,6 +150,11 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
       setNewProcessId('');
       setNewProcessTechnicianId('');
       setNewNoteText('');
+      setIsRecordPaymentOpen(false);
+      setRecordPaymentAmount('');
+      setRecordPaymentMethod('');
+      setRecordPaymentNotes('');
+      setRecordPaymentReference('');
       loadInitialData(workOrder);
     }
   }, [isOpen, workOrder?.id, reworkMode, initialTab]);
@@ -147,16 +165,19 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
     try {
       setLoadingFresh(true);
-      const [freshWo, doctorsRes, ptRes, techRes, adminRes, procRes] = await Promise.all([
+      const [freshWo, doctorsRes, ptRes, techRes, adminRes, procRes, pmRes] = await Promise.all([
         workOrderService.getById(wo.id).catch(() => wo),
         doctorService.getAll({ branchId: wo.branchId || undefined }).catch(() => []),
         api.get('/lab/prosthesis-types', { params: wo.branchId ? { branchId: wo.branchId } : undefined }).catch(() => ({ data: [] })),
         api.get('/lab/users/technicians', { params: wo.branchId ? { branchId: wo.branchId } : undefined }).catch(() => ({ data: [] })),
         api.get('/lab/users/admin', { params: wo.branchId ? { branchId: wo.branchId } : undefined }).catch(() => ({ data: [] })),
         api.get('/lab/processes', { params: wo.branchId ? { branchId: wo.branchId } : undefined }).catch(() => ({ data: [] })),
+        paymentMethodService.getAll({ branchId: wo.branchId || undefined, activeOnly: true }).catch(() => []),
       ]);
 
       populateForm(freshWo);
+      setPaymentsList((freshWo.payments as WorkOrderPaymentItem[]) || []);
+      setAvailablePaymentMethods(Array.isArray(pmRes) ? pmRes : []);
 
       const activeDocs = Array.isArray(doctorsRes) ? doctorsRes.filter((d) => d.isActive) : [];
       setDoctors(activeDocs);
@@ -204,9 +225,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     setTotalQuote(
       wo.totalQuote !== null && wo.totalQuote !== undefined ? String(wo.totalQuote) : '0'
     );
-    setInitialPayment(
-      wo.initialPayment !== null && wo.initialPayment !== undefined ? String(wo.initialPayment) : '0'
-    );
+    setPaymentsList((wo.payments as WorkOrderPaymentItem[]) || []);
     setPaymentReferences(Array.isArray(wo.paymentReferenceNumbers) ? [...wo.paymentReferenceNumbers] : []);
 
     // Notes
@@ -235,10 +254,42 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
   if (!isOpen || !workOrder) return null;
 
-  // Balance calculation
+  // Balance & Received calculation
   const totalQuoteNum = parseFloat(totalQuote) || 0;
-  const initialPaymentNum = parseFloat(initialPayment) || 0;
-  const balanceDue = Math.max(0, totalQuoteNum - initialPaymentNum);
+  const totalReceivedNum = paymentsList.length > 0
+    ? paymentsList.filter((p) => p.status === 'SETTLED').reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    : (Number(workOrder?.initialPayment) || 0);
+  const balanceDue = Math.max(0, totalQuoteNum - totalReceivedNum);
+
+  // Payment Status
+  let paymentStatusKey = 'statusPending';
+  let paymentStatusColor = 'var(--text-muted)';
+  let paymentStatusBg = 'var(--bg-surface)';
+  if (totalReceivedNum >= totalQuoteNum && totalQuoteNum > 0) {
+    paymentStatusKey = 'statusPaid';
+    paymentStatusColor = '#10b981';
+    paymentStatusBg = 'rgba(16, 185, 129, 0.12)';
+  } else if (totalReceivedNum > 0) {
+    paymentStatusKey = 'statusPartiallyPaid';
+    paymentStatusColor = '#f59e0b';
+    paymentStatusBg = 'rgba(245, 158, 11, 0.12)';
+  }
+
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   // Options
   const doctorOptions = doctors.map((d) => ({
@@ -251,6 +302,11 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     value: pt.id,
     label: pt.name,
     description: pt.price ? `$${Number(pt.price).toFixed(2)}` : undefined,
+  }));
+
+  const paymentMethodSelectOptions = availablePaymentMethods.map((m) => ({
+    value: m.name,
+    label: m.name,
   }));
 
   // Options for Production steps: All Technicians + All Lab Admins (with designation)
@@ -329,11 +385,65 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   const updateProcessTechnician = (index: number, techId: string) => {
     setProcessList((prev) => {
       const copy = [...prev];
-      if (!copy[index].status || copy[index].status === 'NOT_STARTED') {
+      const canChangeTech = isCreatedStatus || !copy[index].status || copy[index].status === 'NOT_STARTED';
+      if (canChangeTech) {
         copy[index] = { ...copy[index], technicianId: techId || undefined };
       }
       return copy;
     });
+  };
+
+  const updateProcessStatus = (index: number, newStatus: ProcessEditItem['status']) => {
+    if (isCreatedStatus) {
+      toast.error(t('workOrders.editModal.statusLockedInCreated', 'Process status cannot be changed when Work Order is in Created status'));
+      return;
+    }
+    if (index > 0) {
+      const prevStep = processList[index - 1];
+      if (prevStep.status !== 'COMPLETED' && prevStep.status !== 'FAILED') {
+        toast.error(t('workOrders.editModal.statusLockedPrevIncomplete', 'Previous process must be Completed or Failed before changing status'));
+        return;
+      }
+    }
+    setProcessList((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], status: newStatus };
+      return copy;
+    });
+  };
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workOrder) return;
+    const amountVal = parseFloat(recordPaymentAmount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      toast.error(t('workOrders.viewModal.paymentTab.invalidAmount', { defaultValue: 'Please enter a valid positive payment amount.' }));
+      return;
+    }
+
+    setSubmittingRecordPayment(true);
+    try {
+      const updated = await workOrderService.recordPayment(workOrder.id, {
+        amount: amountVal,
+        paymentMethod: recordPaymentMethod.trim() || undefined,
+        notes: recordPaymentNotes.trim() || undefined,
+        reference: recordPaymentReference.trim() || undefined,
+      });
+      setPaymentsList((updated.payments as WorkOrderPaymentItem[]) || []);
+      if (recordPaymentReference.trim() && !paymentReferences.includes(recordPaymentReference.trim())) {
+        setPaymentReferences((prev) => [...prev, recordPaymentReference.trim()]);
+      }
+      setIsRecordPaymentOpen(false);
+      setRecordPaymentAmount('');
+      setRecordPaymentMethod('');
+      setRecordPaymentNotes('');
+      setRecordPaymentReference('');
+      toast.success(t('workOrders.viewModal.paymentTab.recordSuccess', 'Payment recorded successfully.'));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('workOrders.viewModal.paymentTab.recordFailed', 'Failed to record payment.'));
+    } finally {
+      setSubmittingRecordPayment(false);
+    }
   };
 
   const removeProcess = (index: number) => {
@@ -589,7 +699,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
         specification: specification.trim(),
         color: color.trim(),
         totalQuote: totalQuote !== '' && !isNaN(Number(totalQuote)) ? Number(totalQuote) : 0,
-        initialPayment: parseFloat(initialPayment) || 0,
+        initialPayment: totalReceivedNum,
         paymentReferenceNumbers: paymentReferences,
         action,
         processes: processList.map((p, idx) => ({
@@ -624,54 +734,53 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     }
   };
 
+  const isCreatedStatus = workOrder?.status === 'CREATED';
+
+  const getStatusBg = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS': return 'rgba(37, 99, 235, 0.1)';
+      case 'PAUSED': return 'rgba(245, 158, 11, 0.1)';
+      case 'COMPLETED': return 'rgba(16, 185, 129, 0.1)';
+      case 'FAILED': return 'rgba(239, 68, 68, 0.1)';
+      default: return 'var(--bg-surface)';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS': return 'var(--primary-600)';
+      case 'PAUSED': return '#d97706';
+      case 'COMPLETED': return '#10b981';
+      case 'FAILED': return 'var(--rose-500)';
+      default: return 'var(--text-muted)';
+    }
+  };
+
+  const getStatusBorder = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS': return 'rgba(37, 99, 235, 0.3)';
+      case 'PAUSED': return 'rgba(245, 158, 11, 0.3)';
+      case 'COMPLETED': return 'rgba(16, 185, 129, 0.3)';
+      case 'FAILED': return 'rgba(239, 68, 68, 0.3)';
+      default: return 'var(--border-color)';
+    }
+  };
+
   // Helper for Status Badge in Tab 2
   const renderStatusBadge = (status: string) => {
-    let bg = 'var(--bg-surface)';
-    let color = 'var(--text-muted)';
-    let borderColor = 'var(--border-color)';
-
-    switch (status) {
-      case 'IN_PROGRESS':
-        bg = 'rgba(37, 99, 235, 0.1)';
-        color = 'var(--primary-600)';
-        borderColor = 'rgba(37, 99, 235, 0.3)';
-        break;
-      case 'PAUSED':
-        bg = 'rgba(245, 158, 11, 0.1)';
-        color = '#d97706';
-        borderColor = 'rgba(245, 158, 11, 0.3)';
-        break;
-      case 'COMPLETED':
-        bg = 'rgba(16, 185, 129, 0.1)';
-        color = '#10b981';
-        borderColor = 'rgba(16, 185, 129, 0.3)';
-        break;
-      case 'FAILED':
-        bg = 'rgba(239, 68, 68, 0.1)';
-        color = 'var(--rose-500)';
-        borderColor = 'rgba(239, 68, 68, 0.3)';
-        break;
-      case 'NOT_STARTED':
-      default:
-        bg = 'var(--bg-surface)';
-        color = 'var(--text-muted)';
-        borderColor = 'var(--border-color)';
-        break;
-    }
-
     return (
       <div
         style={{
-          width: '120px',
+          width: '135px',
           flexShrink: 0,
           fontSize: '12px',
           fontWeight: 700,
-          color,
-          backgroundColor: bg,
+          color: getStatusColor(status),
+          backgroundColor: getStatusBg(status),
           padding: '6px 10px',
           borderRadius: '8px',
           textAlign: 'center',
-          border: `1px solid ${borderColor}`,
+          border: `1px solid ${getStatusBorder(status)}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -683,7 +792,60 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     );
   };
 
-  const isCreatedStatus = workOrder?.status === 'CREATED';
+  // Status Selector (Conditions 1, 2, 4)
+  const renderStatusSelector = (step: ProcessEditItem, idx: number) => {
+    // Condition 1: If WO status is Created, admin cannot change any process status
+    // Condition 2 & 4: Subsequent process status cannot be changed until previous process is marked as Completed or Failed
+    const isStatusEditable =
+      !isCreatedStatus &&
+      (idx === 0 ||
+        processList[idx - 1]?.status === 'COMPLETED' ||
+        processList[idx - 1]?.status === 'FAILED');
+
+    if (isStatusEditable) {
+      return (
+        <div style={{ width: '135px', flexShrink: 0 }}>
+          <select
+            className="form-input"
+            value={step.status}
+            onChange={(e) => updateProcessStatus(idx, e.target.value as any)}
+            style={{
+              fontSize: '12px',
+              fontWeight: 700,
+              padding: '6px 8px',
+              borderRadius: '8px',
+              backgroundColor: getStatusBg(step.status),
+              color: getStatusColor(step.status),
+              border: `1px solid ${getStatusBorder(step.status)}`,
+              cursor: 'pointer',
+              width: '100%',
+              height: '34px',
+            }}
+          >
+            <option value="NOT_STARTED">{t('enums.processStatus.NOT_STARTED', 'Not Started')}</option>
+            <option value="IN_PROGRESS">{t('enums.processStatus.IN_PROGRESS', 'In Progress')}</option>
+            <option value="PAUSED">{t('enums.processStatus.PAUSED', 'Paused')}</option>
+            <option value="COMPLETED">{t('enums.processStatus.COMPLETED', 'Completed')}</option>
+            <option value="FAILED">{t('enums.processStatus.FAILED', 'Failed')}</option>
+          </select>
+        </div>
+      );
+    }
+
+    return (
+      <Tooltip
+        content={
+          isCreatedStatus
+            ? t('workOrders.editModal.statusLockedInCreated', 'Process status cannot be changed when Work Order is in Created status')
+            : t('workOrders.editModal.statusLockedPrevIncomplete', 'Previous process must be Completed or Failed before changing status')
+        }
+      >
+        <div style={{ cursor: 'not-allowed', width: '135px', flexShrink: 0 }}>
+          {renderStatusBadge(step.status)}
+        </div>
+      </Tooltip>
+    );
+  };
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1060 }}>
@@ -1461,7 +1623,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                       {processList.map((step, idx) => {
                         const isExt = step.processType === 'EXTERNAL_VERIFICATION';
                         const isInt = step.processType === 'INTERNAL_VERIFICATION' || step.isVerification;
-                        const isStarted = Boolean(step.status && step.status !== 'NOT_STARTED');
+                        const isStarted = !isCreatedStatus && Boolean(step.status && step.status !== 'NOT_STARTED');
 
                         const currentAssigneeName =
                           technicians.find((t) => t.id === step.technicianId)?.name ||
@@ -1700,8 +1862,8 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                               )}
                             </div>
 
-                            {/* Process Current Status (Requirement 2) */}
-                            {renderStatusBadge(step.status)}
+                            {/* Process Current Status (Conditions 1, 2, 4) */}
+                            {renderStatusSelector(step, idx)}
 
                             {/* Action Buttons: Up, Down, Delete (Hidden in reworkMode) */}
                             {!reworkMode && (
@@ -1978,55 +2140,298 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                       {t('workOrders.viewModal.financials', 'Financial Summary')}
                     </h3>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontWeight: 600 }}>
-                          {t('workOrders.form.totalQuote', 'Total Quote')}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', alignItems: 'start' }}>
+                      {/* 1. Total Quote */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.form.totalQuote', 'Total Quote ($)')}
                         </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="form-input"
-                          value={totalQuote}
-                          onChange={(e) => setTotalQuote(e.target.value)}
-                          placeholder="0.00"
-                        />
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 700 }}>
+                            $
+                          </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className="form-input"
+                            value={totalQuote}
+                            onChange={(e) => setTotalQuote(e.target.value)}
+                            placeholder="0.00"
+                            style={{ paddingLeft: '28px', height: '42px', fontWeight: 700, fontSize: '15px' }}
+                          />
+                        </div>
                       </div>
 
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontWeight: 600 }}>
-                          {t('workOrders.form.initialPayment', 'Initial Payment')}
+                      {/* 2. Total Received */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.viewModal.paymentTab.receivedAmount', 'Total Received')}
                         </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="form-input"
-                          value={initialPayment}
-                          onChange={(e) => setInitialPayment(e.target.value)}
-                          placeholder="0.00"
-                        />
+                        <div
+                          style={{
+                            height: '42px',
+                            padding: '0 14px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontWeight: 800,
+                            color: '#10b981',
+                            fontSize: '15px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          ${totalReceivedNum.toFixed(2)}
+                        </div>
                       </div>
 
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
+                      {/* 3. Balance Due */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {t('workOrders.form.balanceDue', 'Balance Due')}
                         </label>
                         <div
                           style={{
-                            padding: '9px 12px',
+                            height: '42px',
+                            padding: '0 14px',
                             backgroundColor: 'var(--bg-surface)',
                             border: '1px solid var(--border-color)',
                             borderRadius: '8px',
                             fontWeight: 800,
                             color: balanceDue > 0 ? 'var(--rose-500)' : '#10b981',
-                            fontSize: '14px',
+                            fontSize: '15px',
+                            display: 'flex',
+                            alignItems: 'center',
                           }}
                         >
                           ${balanceDue.toFixed(2)}
                         </div>
                       </div>
+
+                      {/* 4. Payment Status */}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            marginBottom: '8px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t('workOrders.viewModal.paymentTab.paymentStatus', 'Payment Status')}
+                        </label>
+                        <div
+                          style={{
+                            height: '42px',
+                            padding: '0 12px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              padding: '4px 12px',
+                              borderRadius: '999px',
+                              backgroundColor: paymentStatusBg,
+                              color: paymentStatusColor,
+                            }}
+                          >
+                            {t(`workOrders.viewModal.paymentTab.${paymentStatusKey}`)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Transactions Section (Add Payment similar to View WO) */}
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: 'var(--text-muted)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        {t('workOrders.viewModal.paymentTab.paymentTransactions', 'PAYMENT TRANSACTIONS')}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setIsRecordPaymentOpen(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 700,
+                          padding: '6px 14px',
+                        }}
+                      >
+                        <PlusCircle size={14} />
+                        <span>{t('workOrders.viewModal.paymentTab.recordPaymentBtn', 'Record Payment')}</span>
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr
+                            style={{
+                              backgroundColor: 'var(--bg-surface)',
+                              borderBottom: '1px solid var(--border-color)',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.paymentDate', 'Payment Date')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.receivedAmount', 'Received Amount')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('labPaymentMethods.fieldMethod', 'Payment Method')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.reference', 'Reference')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('workOrders.viewModal.paymentTab.notes', 'Notes')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>
+                              {t('workOrders.viewModal.generalTab.status', 'Status')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paymentsList.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                                {t('workOrders.viewModal.paymentTab.noTransactions', 'No payment transactions recorded yet.')}
+                              </td>
+                            </tr>
+                          ) : (
+                            paymentsList.map((item, idx) => (
+                              <tr
+                                key={item.id || idx}
+                                style={{
+                                  borderBottom: '1px solid var(--border-color)',
+                                  transition: 'background-color 0.15s ease',
+                                }}
+                              >
+                                <td style={{ padding: '14px 16px', color: 'var(--text-main)' }}>
+                                  {formatDateTime(item.createdAt)}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 700, color: '#10b981' }}>
+                                  ${Number(item.amount || 0).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-main)' }}>
+                                  {item.paymentMethod ? (
+                                    <span
+                                      style={{
+                                        display: 'inline-block',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        padding: '2px 8px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                        color: 'var(--primary-600)',
+                                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                                      }}
+                                    >
+                                      {item.paymentMethod}
+                                    </span>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                  {item.reference || '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {item.notes || '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '3px 10px',
+                                      borderRadius: '999px',
+                                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                      color: '#10b981',
+                                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    }}
+                                  >
+                                    {item.status || 'SETTLED'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
@@ -2398,6 +2803,132 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── RECORD PAYMENT POPUP MODAL ─── */}
+      {isRecordPaymentOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1080 }}>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '440px',
+              padding: '24px',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                  {t('workOrders.viewModal.paymentTab.modalTitle', 'Record Payment')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  {t('workOrders.viewModal.paymentTab.modalSubtitle', 'Register a payment transaction for this work order')}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setIsRecordPaymentOpen(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('workOrders.viewModal.paymentTab.amount', 'Received Amount')} *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    className="form-input"
+                    value={recordPaymentAmount}
+                    onChange={(e) => setRecordPaymentAmount(e.target.value)}
+                    placeholder="0.00"
+                    style={{ paddingLeft: '28px', fontSize: '15px', fontWeight: 700 }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('labPaymentMethods.fieldMethod', 'Payment Method')}
+                </label>
+                <select
+                  className="form-input"
+                  value={recordPaymentMethod}
+                  onChange={(e) => setRecordPaymentMethod(e.target.value)}
+                  style={{ fontSize: '13px' }}
+                >
+                  <option value="">{t('common.select', 'Select payment method...')}</option>
+                  {paymentMethodSelectOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('workOrders.viewModal.paymentTab.reference', 'Reference / Receipt Folio (Optional)')}
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={recordPaymentReference}
+                  onChange={(e) => setRecordPaymentReference(e.target.value)}
+                  placeholder="e.g. REC-10293 or Card Ref"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('workOrders.viewModal.paymentTab.notes', 'Notes')}
+                </label>
+                <textarea
+                  rows={2}
+                  className="form-input"
+                  value={recordPaymentNotes}
+                  onChange={(e) => setRecordPaymentNotes(e.target.value)}
+                  placeholder={t('workOrders.viewModal.paymentTab.notesPlaceholder', 'Enter notes or transaction details...')}
+                  style={{ resize: 'vertical', fontSize: '13px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsRecordPaymentOpen(false)}
+                  disabled={submittingRecordPayment}
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submittingRecordPayment || !recordPaymentAmount}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                >
+                  {submittingRecordPayment ? <Loader2 size={15} className="spinner" /> : <PlusCircle size={15} />}
+                  <span>{t('workOrders.viewModal.paymentTab.recordPaymentBtn', 'Record Payment')}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

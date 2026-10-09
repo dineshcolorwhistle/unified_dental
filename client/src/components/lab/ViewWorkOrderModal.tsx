@@ -32,6 +32,7 @@ import {
   WorkOrderPaymentItem,
   WorkOrderProcessItem,
 } from '../../services/workOrderService';
+import { paymentMethodService, PaymentMethodItem } from '../../services/paymentMethodService';
 import { formatDate, formatDateTime, formatTime, formatCurrency } from '../../core/utils/dateUtils';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
@@ -100,12 +101,23 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   // Payment tab state
   const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentReference, setPaymentReference] = useState<string>('');
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethodItem[]>([]);
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
   // Target ID for fetching
   const targetId = workOrderId || initialWorkOrder?.id;
+
+  const loadPaymentMethods = useCallback(async (branchId?: string) => {
+    try {
+      const methods = await paymentMethodService.getAll({ branchId, activeOnly: true });
+      setAvailablePaymentMethods(methods);
+    } catch (err) {
+      console.error('Failed to load payment methods for ViewWorkOrderModal', err);
+    }
+  }, []);
 
   const fetchFullOrder = useCallback(async (silent = false) => {
     if (!targetId) return;
@@ -114,6 +126,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
       const fresh = await workOrderService.getById(targetId);
       setCurrentWO(fresh);
       setLocalNotes((fresh.notesHistory as WorkOrderNoteItem[]) || []);
+      loadPaymentMethods(fresh.branchId || user?.activeBranchId);
     } catch (err: any) {
       console.error('Failed to load full work order details', err);
       if (!silent) {
@@ -122,7 +135,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
     } finally {
       if (!silent) setLoadingDetails(false);
     }
-  }, [targetId, t, toast]);
+  }, [targetId, t, toast, loadPaymentMethods, user?.activeBranchId]);
 
   useEffect(() => {
     if (isOpen && targetId) {
@@ -133,6 +146,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
       setEditingNoteId(null);
       setExpandedAuditProcessId(null);
       setIsRecordPaymentOpen(false);
+      setPaymentMethod('');
     } else if (!isOpen) {
       setCurrentWO(null);
     }
@@ -279,12 +293,14 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
     try {
       const updated = await workOrderService.recordPayment(currentWO.id, {
         amount: amountVal,
+        paymentMethod: paymentMethod.trim() || undefined,
         notes: paymentNotes.trim() || undefined,
         reference: paymentReference.trim() || undefined,
       });
       setCurrentWO(updated);
       setIsRecordPaymentOpen(false);
       setPaymentAmount('');
+      setPaymentMethod('');
       setPaymentNotes('');
       setPaymentReference('');
       toast.success(t('workOrders.viewModal.paymentTab.recordSuccess', 'Payment recorded successfully.'));
@@ -1833,6 +1849,9 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                               {t('workOrders.viewModal.paymentTab.receivedAmount', 'Received Amount')}
                             </th>
                             <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('labPaymentMethods.fieldMethod', 'Payment Method')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
                               {t('workOrders.viewModal.paymentTab.notes', 'Notes')}
                             </th>
                             <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>
@@ -1843,7 +1862,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                         <tbody>
                           {paymentsList.length === 0 ? (
                             <tr>
-                              <td colSpan={4} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                              <td colSpan={5} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                                 {t('workOrders.viewModal.paymentTab.noTransactions', 'No payment transactions recorded yet.')}
                               </td>
                             </tr>
@@ -1861,6 +1880,26 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                 </td>
                                 <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--text-heading)' }}>
                                   {formatCurrency(item.amount)}
+                                </td>
+                                <td style={{ padding: '14px 16px', color: 'var(--text-main)' }}>
+                                  {item.paymentMethod ? (
+                                    <span
+                                      style={{
+                                        display: 'inline-block',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        padding: '2px 8px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                        color: 'var(--primary-600)',
+                                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                                      }}
+                                    >
+                                      {item.paymentMethod}
+                                    </span>
+                                  ) : (
+                                    '—'
+                                  )}
                                 </td>
                                 <td style={{ padding: '14px 16px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                                   {item.notes || '—'}
@@ -1998,6 +2037,25 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                     autoFocus
                   />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  {t('labPaymentMethods.fieldMethod', 'Payment Method')}
+                </label>
+                <select
+                  className="form-input"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ fontSize: '13px' }}
+                >
+                  <option value="">{t('common.select', 'Select payment method...')}</option>
+                  {availablePaymentMethods.map((m) => (
+                    <option key={m.id || m.name} value={m.name}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
