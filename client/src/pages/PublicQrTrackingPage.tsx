@@ -605,6 +605,16 @@ export const PublicQrTrackingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Box Number */}
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginBottom: '4px' }}>
+                {t('publicQr.boxNumber', 'Box #')}
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#38bdf8' }}>
+                {order.boxNumber ? `#${order.boxNumber}` : '—'}
+              </div>
+            </div>
+
             {/* Doctor */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginBottom: '4px' }}>

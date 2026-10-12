@@ -10,6 +10,8 @@ interface QrCodeModalProps {
     id: string;
     folioNumber: string;
     qrToken: string;
+    patient?: string | null;
+    boxNumber?: string | null;
     doctor?: {
       name?: string | null;
       clinicName?: string | null;
@@ -61,7 +63,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ order, onClose }) => {
       if (!ctx) return;
 
       const width = 480;
-      const height = 580;
+      const height = 670;
       const scale = 2; // High-res retina scale
 
       cardCanvas.width = width * scale;
@@ -83,32 +85,50 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ order, onClose }) => {
       ctx.fillStyle = '#0f172a';
       ctx.font = '800 24px "Outfit", "Inter", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`WO #${order.folioNumber}`, width / 2, 58);
+      ctx.fillText(`WO #${order.folioNumber}`, width / 2, 52);
 
       // 3. Dashed line divider
       ctx.beginPath();
       ctx.setLineDash([6, 6]);
-      ctx.moveTo(40, 84);
-      ctx.lineTo(width - 40, 84);
+      ctx.moveTo(40, 74);
+      ctx.lineTo(width - 40, 74);
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.setLineDash([]); // Reset line dash
 
-      // 4. Doctor Name label
+      // 4. Patient Name Label & Value
       ctx.fillStyle = '#64748b';
-      ctx.font = '600 13px "Inter", sans-serif';
-      ctx.fillText(t('qrModal.doctorNameLabel', 'Doctor Name'), width / 2, 114);
+      ctx.font = '600 12px "Inter", sans-serif';
+      ctx.fillText(t('qrModal.patientNameLabel', 'Patient Name').toUpperCase(), width / 2, 98);
 
-      // 5. Doctor Name value
       ctx.fillStyle = '#0f172a';
-      ctx.font = '700 18px "Inter", sans-serif';
+      ctx.font = '700 17px "Inter", sans-serif';
+      ctx.fillText(order.patient || '—', width / 2, 122);
+
+      // 5. Box # & Doctor Name section (2 columns)
+      // Left: Box #
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px "Inter", sans-serif';
+      ctx.fillText(t('qrModal.boxNumberLabel', 'Box #').toUpperCase(), width / 4, 154);
+
+      ctx.fillStyle = '#0284c7';
+      ctx.font = '800 16px "Inter", sans-serif';
+      ctx.fillText(order.boxNumber ? `#${order.boxNumber}` : '—', width / 4, 178);
+
+      // Right: Doctor Name
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px "Inter", sans-serif';
+      ctx.fillText(t('qrModal.doctorNameLabel', 'Doctor Name').toUpperCase(), (width * 3) / 4, 154);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '700 15px "Inter", sans-serif';
       const doctorDisplayName = order.doctor?.name || '—';
-      ctx.fillText(doctorDisplayName, width / 2, 142);
+      ctx.fillText(doctorDisplayName, (width * 3) / 4, 178);
 
       // 6. QR Code inner rounded frame
       const qrBoxX = 90;
-      const qrBoxY = 168;
+      const qrBoxY = 202;
       const qrBoxSize = 300;
 
       ctx.fillStyle = '#ffffff';
@@ -223,27 +243,52 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ order, onClose }) => {
               .folio-title {
                 font-size: 22px;
                 font-weight: 800;
-                margin: 0 0 10px 0;
+                margin: 0 0 8px 0;
                 letter-spacing: 0.02em;
                 color: #0f172a;
               }
               .divider {
                 border-bottom: 1.5px dashed #94a3b8;
-                margin: 10px 0 12px 0;
+                margin: 8px 0 10px 0;
               }
-              .doctor-label {
-                font-size: 11px;
+              .meta-label {
+                font-size: 10px;
                 font-weight: 600;
                 color: #64748b;
                 text-transform: uppercase;
                 letter-spacing: 0.04em;
-                margin-bottom: 4px;
+                margin-bottom: 2px;
               }
-              .doctor-name {
+              .patient-name {
                 font-size: 16px;
                 font-weight: 700;
                 color: #0f172a;
-                margin: 0 0 14px 0;
+                margin: 0 0 10px 0;
+              }
+              .meta-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 6px 12px;
+                margin-bottom: 12px;
+              }
+              .meta-col {
+                flex: 1;
+                text-align: center;
+              }
+              .box-badge {
+                font-size: 14px;
+                font-weight: 800;
+                color: #0284c7;
+              }
+              .doctor-name {
+                font-size: 13px;
+                font-weight: 700;
+                color: #0f172a;
               }
               .qr-image-wrapper {
                 border: 1px solid #cbd5e1;
@@ -254,8 +299,8 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ order, onClose }) => {
               }
               .qr-image {
                 display: block;
-                width: 210px;
-                height: 210px;
+                width: 200px;
+                height: 200px;
               }
             </style>
           </head>
@@ -263,8 +308,18 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ order, onClose }) => {
             <div class="qr-card">
               <div class="folio-title">WO #${order.folioNumber}</div>
               <div class="divider"></div>
-              <div class="doctor-label">${t('qrModal.doctorNameLabel', 'Doctor Name')}</div>
-              <div class="doctor-name">${order.doctor?.name || '—'}</div>
+              <div class="meta-label">${t('qrModal.patientNameLabel', 'Patient Name')}</div>
+              <div class="patient-name">${order.patient || '—'}</div>
+              <div class="meta-row">
+                <div class="meta-col">
+                  <div class="meta-label">${t('qrModal.boxNumberLabel', 'Box #')}</div>
+                  <div class="box-badge">${order.boxNumber ? '#' + order.boxNumber : '—'}</div>
+                </div>
+                <div class="meta-col">
+                  <div class="meta-label">${t('qrModal.doctorNameLabel', 'Doctor Name')}</div>
+                  <div class="doctor-name">${order.doctor?.name || '—'}</div>
+                </div>
+              </div>
               <div class="qr-image-wrapper">
                 <img id="qr-code-img" class="qr-image" src="${qrDataUrl}" alt="QR Code" />
               </div>
@@ -475,32 +530,77 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ order, onClose }) => {
               style={{
                 width: '100%',
                 borderBottom: '1.5px dashed #cbd5e1',
-                margin: '14px 0 12px 0',
+                margin: '12px 0 10px 0',
               }}
             />
 
-            {/* 3. Doctor Name Label */}
-            <div
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#64748b',
-                marginBottom: '4px',
-              }}
-            >
-              {t('qrModal.doctorNameLabel', 'Doctor Name')}
+            {/* 3. Patient Name */}
+            <div style={{ width: '100%', marginBottom: '10px' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  marginBottom: '2px',
+                }}
+              >
+                {t('qrModal.patientNameLabel', 'Patient Name')}
+              </div>
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                }}
+              >
+                {order.patient || '—'}
+              </div>
             </div>
 
-            {/* 4. Doctor Name Value */}
+            {/* 4. Box # and Doctor Name Row */}
             <div
               style={{
-                fontSize: '16px',
-                fontWeight: 700,
-                color: '#0f172a',
-                marginBottom: '16px',
+                width: '100%',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                padding: '8px 10px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                marginBottom: '14px',
+                textAlign: 'center',
               }}
             >
-              {order.doctor?.name || '—'}
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                  {t('qrModal.boxNumberLabel', 'Box #')}
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0284c7', marginTop: '1px' }}>
+                  {order.boxNumber ? `#${order.boxNumber}` : '—'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                  {t('qrModal.doctorNameLabel', 'Doctor Name')}
+                </div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    marginTop: '1px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={order.doctor?.name || ''}
+                >
+                  {order.doctor?.name || '—'}
+                </div>
+              </div>
             </div>
 
             {/* 5. QR Code Box */}

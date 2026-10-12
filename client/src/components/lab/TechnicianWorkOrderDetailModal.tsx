@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import { formatDate, formatTime } from '../../core/utils/dateUtils';
 import {
   workOrderService,
@@ -44,6 +45,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { socket } = useNotifications();
 
   const [workOrder, setWorkOrder] = useState<WorkOrderListItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,25 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
   useEffect(() => {
     fetchWorkOrder();
   }, [workOrderId]);
+
+  // Real-time socket sync when order or process updates
+  useEffect(() => {
+    if (!socket || !workOrderId) return;
+    const handleRealtimeSync = (payload: any) => {
+      if (payload?.workOrderId === workOrderId) {
+        fetchWorkOrder();
+        if (onRefresh) onRefresh();
+      }
+    };
+
+    socket.on('work_order:updated', handleRealtimeSync);
+    socket.on('work_order:process_updated', handleRealtimeSync);
+
+    return () => {
+      socket.off('work_order:updated', handleRealtimeSync);
+      socket.off('work_order:process_updated', handleRealtimeSync);
+    };
+  }, [socket, workOrderId, onRefresh]);
 
   // Identify assigned step for current technician
   const myProcess: WorkOrderProcessItem | undefined = workOrder?.processes?.find(

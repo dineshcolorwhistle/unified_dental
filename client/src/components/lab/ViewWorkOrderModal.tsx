@@ -36,6 +36,7 @@ import { paymentMethodService, PaymentMethodItem } from '../../services/paymentM
 import { formatDate, formatDateTime, formatTime, formatCurrency } from '../../core/utils/dateUtils';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import { Tooltip } from '../common/Tooltip';
 import { WorkOrderChatTab } from './WorkOrderChatTab';
 
@@ -72,6 +73,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
   const isAdmin = Boolean(isTenantAdmin || isLabAdmin || user?.isSuperAdmin);
   const isTechnician = !isAdmin;
+  const { socket } = useNotifications();
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab || 'general');
   const [currentWO, setCurrentWO] = useState<WorkOrderListItem | null>(initialWorkOrder || null);
@@ -151,6 +153,26 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
       setCurrentWO(null);
     }
   }, [isOpen, targetId, fetchFullOrder, initialTab]);
+
+  // Real-time socket listener for instant Work Order updates
+  useEffect(() => {
+    if (!socket || !isOpen || !targetId) return;
+
+    const handleRealtimeWorkOrderSync = (payload: any) => {
+      if (payload?.workOrderId === targetId) {
+        fetchFullOrder(true);
+        if (onOrderUpdated) onOrderUpdated();
+      }
+    };
+
+    socket.on('work_order:updated', handleRealtimeWorkOrderSync);
+    socket.on('work_order:process_updated', handleRealtimeWorkOrderSync);
+
+    return () => {
+      socket.off('work_order:updated', handleRealtimeWorkOrderSync);
+      socket.off('work_order:process_updated', handleRealtimeWorkOrderSync);
+    };
+  }, [socket, isOpen, targetId, fetchFullOrder, onOrderUpdated]);
 
   if (!isOpen) return null;
 

@@ -102,6 +102,206 @@ export const NotificationDropdown: React.FC = () => {
     removeNotification(id);
   };
 
+  const formatLocalizedNotification = (n: NotificationItem) => {
+    const templateKey = n.data?.templateKey;
+    if (templateKey) {
+      switch (templateKey) {
+        case 'WORK_ORDER_ASSIGNED':
+          return {
+            displayTitle: t('notifications.titles.workOrderAssigned', 'Work Order Assigned'),
+            displayBody: t('notifications.messages.workOrderAssigned', {
+              processName: n.data?.processName || '',
+              folioNumber: n.data?.folioNumber || '',
+              defaultValue: n.body,
+            }),
+          };
+        case 'PROCESS_READY':
+          return {
+            displayTitle: t('notifications.titles.processReady', 'Process Ready to Start'),
+            displayBody: t('notifications.messages.processReady', {
+              prevProcess: n.data?.prevProcess || '',
+              nextProcess: n.data?.nextProcess || '',
+              folioNumber: n.data?.folioNumber || '',
+              defaultValue: n.body,
+            }),
+          };
+        case 'VERIFICATION_READY':
+          return {
+            displayTitle: t('notifications.titles.verificationReady', 'Verification Ready'),
+            displayBody: t('notifications.messages.verificationReady', {
+              actorName: n.data?.actorName || 'Staff',
+              processName: n.data?.processName || '',
+              nextProcess: n.data?.nextProcessName || n.data?.nextProcess || '',
+              folioNumber: n.data?.folioNumber || '',
+              defaultValue: n.body,
+            }),
+          };
+        case 'REWORK_REQUIRED':
+          return {
+            displayTitle: t('notifications.titles.reworkRequired', 'Rework Required'),
+            displayBody: t('notifications.messages.reworkRequired', {
+              processName: n.data?.processName || '',
+              folioNumber: n.data?.folioNumber || '',
+              actorName: n.data?.actorName || 'Admin',
+              defaultValue: n.body,
+            }),
+          };
+        case 'WORK_ORDER_COMPLETED':
+          return {
+            displayTitle: t('notifications.titles.workOrderCompleted', 'Work Order Completed'),
+            displayBody: t('notifications.messages.workOrderCompleted', {
+              folioNumber: n.data?.folioNumber || '',
+              actorName: n.data?.actorName || 'Staff',
+              defaultValue: n.body,
+            }),
+          };
+        case 'REPETITION_INITIATED':
+          return {
+            displayTitle: t('notifications.titles.repetition', 'Work Order Restarted (Repetition)'),
+            displayBody: t('notifications.messages.repetition', {
+              folioNumber: n.data?.folioNumber || '',
+              actorName: n.data?.actorName || 'Admin',
+              step1: n.data?.step1 || '',
+              defaultValue: n.body,
+            }),
+          };
+        case 'EXT_VERIF_AUTO_STARTED':
+          return {
+            displayTitle: t('notifications.titles.extVerifAuto', 'External Verification Auto-Started'),
+            displayBody: t('notifications.messages.extVerifAuto', {
+              folioNumber: n.data?.folioNumber || '',
+              doctorName: n.data?.doctorName || 'Doctor',
+              defaultValue: n.body,
+            }),
+          };
+        case 'NEW_WORK_ORDER_REQUEST':
+          return {
+            displayTitle: t('notifications.titles.newRequest', 'New Work Order Request'),
+            displayBody: t('notifications.messages.newRequest', {
+              folioNumber: n.data?.folioNumber || '',
+              actorName: n.data?.actorName || 'Staff',
+              defaultValue: n.body,
+            }),
+          };
+        case 'NEW_CHAT_MESSAGE':
+          return {
+            displayTitle: t('notifications.titles.newChatMessage', 'New Message'),
+            displayBody: t('notifications.messages.newChatMessage', {
+              folioNumber: n.data?.folioNumber || '',
+              senderName: n.data?.senderName || 'Staff',
+              defaultValue: n.body,
+            }),
+          };
+        default:
+          break;
+      }
+    }
+
+    // Pattern matching fallback for existing database notifications
+    const title = n.title || '';
+    const body = n.body || '';
+
+    if (/Work Order Assigned/i.test(title)) {
+      const match = body.match(/process "(.*?)" on Work Order "(.*?)"/i);
+      return {
+        displayTitle: t('notifications.titles.workOrderAssigned', 'Work Order Assigned'),
+        displayBody: match
+          ? t('notifications.messages.workOrderAssigned', { processName: match[1], folioNumber: match[2], defaultValue: body })
+          : body,
+      };
+    }
+
+    if (/Process Ready to Start/i.test(title)) {
+      const match = body.match(/Previous process "(.*?)" has completed on Work Order "(.*?)". Step "(.*?)" is now ready/i) ||
+                    body.match(/Previous step "(.*?)" completed. You can now start "(.*?)" on Work Order "(.*?)"/i);
+      if (match) {
+        return {
+          displayTitle: t('notifications.titles.processReady', 'Process Ready to Start'),
+          displayBody: t('notifications.messages.processReady', {
+            prevProcess: match[1],
+            folioNumber: match[2] || match[3],
+            nextProcess: match[3] || match[2],
+            defaultValue: body,
+          }),
+        };
+      }
+      return {
+        displayTitle: t('notifications.titles.processReady', 'Process Ready to Start'),
+        displayBody: body,
+      };
+    }
+
+    if (/Verification Ready/i.test(title)) {
+      const match = body.match(/completed step "(.*?)". Verification step "(.*?)" on Work Order "(.*?)"/i) ||
+                    body.match(/Previous step "(.*?)" completed. Verification "(.*?)" is now ready on Work Order "(.*?)"/i);
+      if (match) {
+        return {
+          displayTitle: t('notifications.titles.verificationReady', 'Verification Ready'),
+          displayBody: t('notifications.messages.verificationReady', {
+            processName: match[1],
+            nextProcess: match[2],
+            folioNumber: match[3],
+            actorName: 'Staff',
+            defaultValue: body,
+          }),
+        };
+      }
+      return {
+        displayTitle: t('notifications.titles.verificationReady', 'Verification Ready'),
+        displayBody: body,
+      };
+    }
+
+    if (/Rework Required/i.test(title)) {
+      const match = body.match(/Step "(.*?)" on Work Order "(.*?)" has been flagged for rework by (.*?)\.?$/i);
+      return {
+        displayTitle: t('notifications.titles.reworkRequired', 'Rework Required'),
+        displayBody: match
+          ? t('notifications.messages.reworkRequired', { processName: match[1], folioNumber: match[2], actorName: match[3], defaultValue: body })
+          : body,
+      };
+    }
+
+    if (/Work Order Restarted|Repetition/i.test(title)) {
+      const match = body.match(/Work Order "(.*?)" has been flagged for full repetition by (.*?)\. Please restart from Step 1: "(.*?)"/i);
+      return {
+        displayTitle: t('notifications.titles.repetition', 'Work Order Restarted (Repetition)'),
+        displayBody: match
+          ? t('notifications.messages.repetition', { folioNumber: match[1], actorName: match[2], step1: match[3], defaultValue: body })
+          : body,
+      };
+    }
+
+    if (/External Verification Auto-Started/i.test(title)) {
+      const match = body.match(/Work Order "(.*?)" has automatically started external verification for local Dr\. "(.*?)"/i);
+      return {
+        displayTitle: t('notifications.titles.extVerifAuto', 'External Verification Auto-Started'),
+        displayBody: match
+          ? t('notifications.messages.extVerifAuto', { folioNumber: match[1], doctorName: match[2], defaultValue: body })
+          : body,
+      };
+    }
+
+    if (/New Work Order Request/i.test(title)) {
+      const match = body.match(/Technician (.*?) submitted a new Work Order request "(.*?)"/i);
+      return {
+        displayTitle: t('notifications.titles.newRequest', 'New Work Order Request'),
+        displayBody: match
+          ? t('notifications.messages.newRequest', { actorName: match[1], folioNumber: match[2], defaultValue: body })
+          : body,
+      };
+    }
+
+    if (/New Message/i.test(title)) {
+      return {
+        displayTitle: t('notifications.titles.newChatMessage', 'New Message'),
+        displayBody: body,
+      };
+    }
+
+    return { displayTitle: title, displayBody: body };
+  };
+
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
       <button
@@ -242,12 +442,19 @@ export const NotificationDropdown: React.FC = () => {
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-heading)', marginBottom: '2px' }}>
-                      {n.title}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '4px', wordBreak: 'break-word' }}>
-                      {n.body}
-                    </div>
+                    {(() => {
+                      const { displayTitle, displayBody } = formatLocalizedNotification(n);
+                      return (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-heading)', marginBottom: '2px' }}>
+                            {displayTitle}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '4px', wordBreak: 'break-word' }}>
+                            {displayBody}
+                          </div>
+                        </>
+                      );
+                    })()}
                     <div style={{ fontSize: '10px', color: 'var(--text-subtle)' }}>
                       {formatNotificationTimestamp(n.createdAt)}
                     </div>

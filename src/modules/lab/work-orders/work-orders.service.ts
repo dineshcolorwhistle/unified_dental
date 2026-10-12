@@ -536,7 +536,12 @@ export class WorkOrdersService {
             type: 'WORK_ORDER',
             title: 'Work Order Assigned',
             body: `You have been assigned to process "${firstProcess.processName}" on Work Order "${folioNumber}".`,
-            data: { workOrderId: workOrder.id, folioNumber },
+            data: {
+              templateKey: 'WORK_ORDER_ASSIGNED',
+              workOrderId: workOrder.id,
+              folioNumber,
+              processName: firstProcess.processName,
+            },
           });
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
@@ -563,7 +568,12 @@ export class WorkOrdersService {
             type: 'WORK_ORDER',
             title: 'New Work Order Request',
             body: `Technician ${actor.name || 'Staff'} submitted a new Work Order request "${folioNumber}".`,
-            data: { workOrderId: workOrder.id, folioNumber },
+            data: {
+              templateKey: 'NEW_WORK_ORDER_REQUEST',
+              workOrderId: workOrder.id,
+              folioNumber,
+              actorName: actor.name || 'Staff',
+            },
           });
         }
       } catch (err) {
@@ -1259,7 +1269,12 @@ export class WorkOrdersService {
             type: 'WORK_ORDER',
             title: 'Work Order Assigned',
             body: `You have been assigned to process "${procs[0].processName}" on Work Order "${workOrder.folioNumber}".`,
-            data: { workOrderId: workOrder.id, folioNumber: workOrder.folioNumber },
+            data: {
+              templateKey: 'WORK_ORDER_ASSIGNED',
+              workOrderId: workOrder.id,
+              folioNumber: workOrder.folioNumber,
+              processName: procs[0].processName,
+            },
           });
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
@@ -1278,9 +1293,12 @@ export class WorkOrdersService {
           title: notif.isNextVerification ? 'Verification Ready' : 'Process Ready to Start',
           body: `Previous process "${notif.processName}" has completed on Work Order "${workOrder.folioNumber}". Step "${notif.nextProcessName}" is now ready to begin.`,
           data: {
+            templateKey: notif.isNextVerification ? 'VERIFICATION_READY' : 'PROCESS_READY',
             workOrderId: id,
             folioNumber: workOrder.folioNumber,
             processId: notif.nextProcessId,
+            prevProcess: notif.processName,
+            nextProcess: notif.nextProcessName,
           },
         });
         this.notificationsGateway.sendToUser(notif.nextTechnicianId, 'work_order:assigned', {
@@ -1684,6 +1702,34 @@ export class WorkOrdersService {
       },
     });
 
+    const updatedWo = await this.prisma.workOrder.findUnique({
+      where: { id: workOrderId },
+      select: { status: true },
+    });
+
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        status: updatedWo?.status || workOrder.status,
+        processId,
+        processStatus: ProcessStatus.IN_PROGRESS,
+        updatedAt: now.toISOString(),
+      });
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:process_updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        processId,
+        processName: currentProcess.processName,
+        processStatus: ProcessStatus.IN_PROGRESS,
+        workOrderStatus: updatedWo?.status || workOrder.status,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast startProcess updates: ${(err as any).message}`);
+    }
+
     return this.findOne(tenantId, actor, workOrderId);
   }
 
@@ -1771,6 +1817,29 @@ export class WorkOrdersService {
       },
     });
 
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        status: workOrder.status,
+        processId,
+        processStatus: ProcessStatus.PAUSED,
+        updatedAt: now.toISOString(),
+      });
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:process_updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        processId,
+        processName: currentProcess.processName,
+        processStatus: ProcessStatus.PAUSED,
+        workOrderStatus: workOrder.status,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast pauseProcess updates: ${(err as any).message}`);
+    }
+
     return this.findOne(tenantId, actor, workOrderId);
   }
 
@@ -1854,6 +1923,29 @@ export class WorkOrdersService {
         totalPauseDuration: newTotalPause,
       },
     });
+
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        status: workOrder.status,
+        processId,
+        processStatus: ProcessStatus.IN_PROGRESS,
+        updatedAt: now.toISOString(),
+      });
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:process_updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        processId,
+        processName: currentProcess.processName,
+        processStatus: ProcessStatus.IN_PROGRESS,
+        workOrderStatus: workOrder.status,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast resumeProcess updates: ${(err as any).message}`);
+    }
 
     return this.findOne(tenantId, actor, workOrderId);
   }
@@ -2073,6 +2165,9 @@ export class WorkOrdersService {
 
     // Notify subsequent technician/evaluator if exists
     const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+    const remainingIncomplete = sortedProcs.filter(
+      (p) => p.id !== processId && p.status !== ProcessStatus.COMPLETED,
+    );
     const nextProcess = sortedProcs.find(
       (p) => p.sequence > currentProcess.sequence && p.id !== processId && p.status !== ProcessStatus.COMPLETED,
     );
@@ -2094,15 +2189,92 @@ export class WorkOrdersService {
             ? `Previous step "${currentProcess.processName}" completed. Verification "${nextProcess.processName}" is now ready on Work Order "${workOrder.folioNumber}".`
             : `Previous step "${currentProcess.processName}" completed. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
           data: {
+            templateKey: isNextVerification ? 'VERIFICATION_READY' : 'PROCESS_READY',
             workOrderId: workOrder.id,
             folioNumber: workOrder.folioNumber,
             processId: nextProcess.id,
+            prevProcess: currentProcess.processName,
+            nextProcess: nextProcess.processName,
           },
         });
       } catch (err) {
         this.logger.warn(
           `Failed to dispatch next process notification to technician ${nextProcess.technicianId}: ${(err as any).message}`,
         );
+      }
+    }
+
+    // Notify Lab Administrators if next step is verification
+    const nextIncompleteProcess = sortedProcs.find(
+      (p) => p.sequence > currentProcess.sequence && p.id !== processId && p.status !== ProcessStatus.COMPLETED,
+    );
+    if (
+      nextIncompleteProcess &&
+      (nextIncompleteProcess.isVerification ||
+        nextIncompleteProcess.processType === ProcessType.INTERNAL_VERIFICATION ||
+        nextIncompleteProcess.processType === ProcessType.EXTERNAL_VERIFICATION)
+    ) {
+      try {
+        const adminRoles = await this.prisma.userRole.findMany({
+          where: {
+            tenantId,
+            role: { slug: 'lab-admin' },
+            OR: [{ branchId: workOrder.branchId }, { branchId: null }],
+          },
+          select: { userId: true },
+        });
+        for (const admin of adminRoles) {
+          await this.notificationsService.create({
+            tenantId,
+            userId: admin.userId,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'Verification Ready',
+            body: `Technician ${actor.name || 'Staff'} completed step "${currentProcess.processName}". Verification step "${nextIncompleteProcess.processName}" on Work Order "${workOrder.folioNumber}" is now ready for review.`,
+            data: {
+              templateKey: 'VERIFICATION_READY',
+              workOrderId: workOrder.id,
+              folioNumber: workOrder.folioNumber,
+              processName: currentProcess.processName,
+              nextProcessName: nextIncompleteProcess.processName,
+              actorName: actor.name || 'Staff',
+            },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to dispatch verification ready notification to admins: ${(err as any).message}`);
+      }
+    }
+
+    // Notify Lab Admins if all steps are completed
+    if (remainingIncomplete.length === 0) {
+      try {
+        const adminRoles = await this.prisma.userRole.findMany({
+          where: {
+            tenantId,
+            role: { slug: 'lab-admin' },
+            OR: [{ branchId: workOrder.branchId }, { branchId: null }],
+          },
+          select: { userId: true },
+        });
+        for (const admin of adminRoles) {
+          await this.notificationsService.create({
+            tenantId,
+            userId: admin.userId,
+            moduleKey: 'LAB',
+            type: 'WORK_ORDER',
+            title: 'Work Order Completed',
+            body: `All process steps on Work Order "${workOrder.folioNumber}" have been completed by technician ${actor.name || 'Staff'}.`,
+            data: {
+              templateKey: 'WORK_ORDER_COMPLETED',
+              workOrderId: workOrder.id,
+              folioNumber: workOrder.folioNumber,
+              actorName: actor.name || 'Staff',
+            },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to dispatch work order completion notification to admins: ${(err as any).message}`);
       }
     }
 
@@ -2120,6 +2292,34 @@ export class WorkOrdersService {
         totalActiveDuration: finalActiveDuration,
       },
     });
+
+    const finalWo = await this.prisma.workOrder.findUnique({
+      where: { id: workOrderId },
+      select: { status: true },
+    });
+
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        status: finalWo?.status || workOrder.status,
+        processId,
+        processStatus: ProcessStatus.COMPLETED,
+        updatedAt: now.toISOString(),
+      });
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:process_updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        processId,
+        processName: currentProcess.processName,
+        processStatus: ProcessStatus.COMPLETED,
+        workOrderStatus: finalWo?.status || workOrder.status,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast completeProcess updates: ${(err as any).message}`);
+    }
 
     return this.findOne(tenantId, actor, workOrderId);
   }
@@ -2460,7 +2660,13 @@ export class WorkOrdersService {
             type: 'WORK_ORDER',
             title: 'Process Ready to Start',
             body: `Verification "${verificationProcess.processName}" approved. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
-            data: { workOrderId: workOrder.id, folioNumber: workOrder.folioNumber, processId: nextProcess.id },
+            data: {
+              templateKey: 'PROCESS_READY',
+              workOrderId: workOrder.id,
+              folioNumber: workOrder.folioNumber,
+              processId: nextProcess.id,
+              nextProcess: nextProcess.processName,
+            },
           });
         } catch (err) {
           this.logger.warn(`Failed to dispatch next process notification: ${(err as any).message}`);
@@ -2512,7 +2718,14 @@ export class WorkOrdersService {
             type: 'WORK_ORDER',
             title: 'Work Order Restarted (Repetition)',
             body: `Work Order "${workOrder.folioNumber}" has been flagged for full repetition by ${actor.name || 'Admin'}. Please restart from Step 1: "${step1.processName}".`,
-            data: { workOrderId: workOrder.id, folioNumber: workOrder.folioNumber, processId: step1.id },
+            data: {
+              templateKey: 'REPETITION_INITIATED',
+              workOrderId: workOrder.id,
+              folioNumber: workOrder.folioNumber,
+              processId: step1.id,
+              step1: step1.processName,
+              actorName: actor.name || 'Admin',
+            },
           });
         } catch (err) {
           this.logger.warn(`Failed to dispatch repetition notification: ${(err as any).message}`);
@@ -2535,6 +2748,34 @@ export class WorkOrdersService {
         notes: dto.notes,
       },
     });
+
+    const updatedWo = await this.prisma.workOrder.findUnique({
+      where: { id: workOrderId },
+      select: { status: true },
+    });
+
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        status: updatedWo?.status || workOrder.status,
+        processId,
+        outcome: dto.outcome,
+        updatedAt: now.toISOString(),
+      });
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:process_updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        processId,
+        processName: verificationProcess.processName,
+        outcome: dto.outcome,
+        workOrderStatus: updatedWo?.status || workOrder.status,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast evaluateVerification updates: ${(err as any).message}`);
+    }
 
     return this.findOne(tenantId, actor, workOrderId);
   }
@@ -2644,9 +2885,12 @@ export class WorkOrdersService {
               title: 'Rework Required',
               body: `Step "${proc.processName}" on Work Order "${workOrder.folioNumber}" has been flagged for rework by ${actor.name || 'Admin'}.`,
               data: {
+                templateKey: 'REWORK_REQUIRED',
                 workOrderId: workOrder.id,
                 folioNumber: workOrder.folioNumber,
                 processId: pid,
+                processName: proc.processName,
+                actorName: actor.name || 'Admin',
               },
             });
           } catch (err) {
@@ -2692,6 +2936,26 @@ export class WorkOrdersService {
         verificationStage: verificationStageName,
       },
     });
+
+    try {
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        status: WorkOrderStatus.IN_PROGRESS,
+        reworkProcessIds: dto.processIds,
+        updatedAt: now.toISOString(),
+      });
+      this.notificationsGateway.sendToTenant(tenantId, 'work_order:process_updated', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        reworkProcessIds: dto.processIds,
+        workOrderStatus: WorkOrderStatus.IN_PROGRESS,
+        actorId: actor.id,
+        actorName: actor.name,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to broadcast initiateRework updates: ${(err as any).message}`);
+    }
 
     return this.findOne(tenantId, actor, workOrderId);
   }

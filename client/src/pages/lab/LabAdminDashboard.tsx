@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import {
   workOrderService,
   LabAdminDashboardData,
@@ -29,6 +30,7 @@ export const LabAdminDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { socket } = useNotifications();
 
   const [data, setData] = useState<LabAdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,24 @@ export const LabAdminDashboard: React.FC = () => {
     const interval = setInterval(() => fetchDashboard(true), 30_000);
     return () => clearInterval(interval);
   }, [fetchDashboard]);
+
+  // Real-time socket listener for instant dashboard KPI & queue sync
+  useEffect(() => {
+    if (!socket) return;
+    const handleRealtimeDashboardSync = () => {
+      fetchDashboard(true);
+    };
+
+    socket.on('work_order:updated', handleRealtimeDashboardSync);
+    socket.on('work_order:created', handleRealtimeDashboardSync);
+    socket.on('work_order:process_updated', handleRealtimeDashboardSync);
+
+    return () => {
+      socket.off('work_order:updated', handleRealtimeDashboardSync);
+      socket.off('work_order:created', handleRealtimeDashboardSync);
+      socket.off('work_order:process_updated', handleRealtimeDashboardSync);
+    };
+  }, [socket, fetchDashboard]);
 
   const handleStartVerification = async (workOrderId: string, processId: string) => {
     setStartingProcessId(processId);

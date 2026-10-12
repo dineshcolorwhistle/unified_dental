@@ -113,9 +113,9 @@ export const LabWorkOrdersPage: React.FC = () => {
   }, [unreadChatCounts]);
 
   // Fetch work orders
-  const fetchWorkOrders = useCallback(async () => {
+  const fetchWorkOrders = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await workOrderService.getAll({
         search: search.trim() || undefined,
         status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
@@ -137,15 +137,33 @@ export const LabWorkOrdersPage: React.FC = () => {
       }).catch(() => {});
     } catch (err) {
       console.error('Failed to load work orders', err);
-      toast.error(t('workOrders.alerts.loadFailed', 'Failed to load work orders'));
+      if (!silent) toast.error(t('workOrders.alerts.loadFailed', 'Failed to load work orders'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [search, selectedStatus, selectedBranch, unreadChatFilter, currentPage, pageSize, t]);
 
   useEffect(() => {
     fetchWorkOrders();
   }, [fetchWorkOrders]);
+
+  // Real-time socket listener for instant WO and process status updates
+  useEffect(() => {
+    if (!socket) return;
+    const handleRealtimeWorkOrderSync = () => {
+      fetchWorkOrders(true);
+    };
+
+    socket.on('work_order:updated', handleRealtimeWorkOrderSync);
+    socket.on('work_order:created', handleRealtimeWorkOrderSync);
+    socket.on('work_order:process_updated', handleRealtimeWorkOrderSync);
+
+    return () => {
+      socket.off('work_order:updated', handleRealtimeWorkOrderSync);
+      socket.off('work_order:created', handleRealtimeWorkOrderSync);
+      socket.off('work_order:process_updated', handleRealtimeWorkOrderSync);
+    };
+  }, [socket, fetchWorkOrders]);
 
   // Handle delete order
   const handleDeleteOrder = async () => {
@@ -552,7 +570,7 @@ export const LabWorkOrdersPage: React.FC = () => {
         <Tooltip content={t('common.refresh', 'Refresh')}>
           <button
             type="button"
-            onClick={fetchWorkOrders}
+            onClick={() => fetchWorkOrders()}
             className="btn-icon"
             style={{
               width: '38px',

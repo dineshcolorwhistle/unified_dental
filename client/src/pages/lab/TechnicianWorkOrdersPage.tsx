@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -52,9 +52,9 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
     };
   }, [socket]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await workOrderService.getTechnicianWorkOrders({
         search: search.trim() || undefined,
         status: activeFilter === 'ALL' ? undefined : activeFilter,
@@ -73,18 +73,38 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to load technician work orders:', err);
-      toast.error(err?.response?.data?.message || t('technician.errors.loadOrdersFailed', { defaultValue: 'Failed to load work orders' }));
+      if (!silent) {
+        toast.error(err?.response?.data?.message || t('technician.errors.loadOrdersFailed', { defaultValue: 'Failed to load work orders' }));
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [search, activeFilter, unreadChatFilter, toast, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchOrders();
     }, 250);
     return () => clearTimeout(timer);
-  }, [search, activeFilter, unreadChatFilter]);
+  }, [fetchOrders]);
+
+  // Real-time socket listener for instant assigned/process updates
+  useEffect(() => {
+    if (!socket) return;
+    const handleRealtimeWorkOrdersSync = () => {
+      fetchOrders(true);
+    };
+
+    socket.on('work_order:updated', handleRealtimeWorkOrdersSync);
+    socket.on('work_order:process_updated', handleRealtimeWorkOrdersSync);
+    socket.on('work_order:assigned', handleRealtimeWorkOrdersSync);
+
+    return () => {
+      socket.off('work_order:updated', handleRealtimeWorkOrdersSync);
+      socket.off('work_order:process_updated', handleRealtimeWorkOrdersSync);
+      socket.off('work_order:assigned', handleRealtimeWorkOrdersSync);
+    };
+  }, [socket, fetchOrders]);
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
