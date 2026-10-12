@@ -528,6 +528,25 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                 {t('workOrders.table.boxNumber', 'Box Number')}: {currentWO.boxNumber}
               </span>
             )}
+            {currentWO?.deliveryDate && (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  color: '#059669',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Calendar size={12} />
+                <span>{t('workOrders.table.deliveryDate', 'Delivery Date')}: {formatDate(currentWO.deliveryDate)}</span>
+              </span>
+            )}
           </div>
 
           <button
@@ -922,6 +941,27 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginTop: '3px' }}>
                             {currentWO.branch?.name}
                             {currentWO.branch?.code ? ` (${currentWO.branch.code})` : ''}
+                          </div>
+                        </div>
+
+                        {/* Delivery Date */}
+                        <div>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                            {t('workOrders.viewModal.generalTab.deliveryDate', 'DELIVERY DATE')}
+                          </span>
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              color: currentWO.deliveryDate ? 'var(--primary-600)' : 'var(--text-muted)',
+                              marginTop: '3px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                            }}
+                          >
+                            <Calendar size={13} style={{ color: currentWO.deliveryDate ? 'var(--primary-500)' : 'var(--text-muted)' }} />
+                            <span>{currentWO.deliveryDate ? formatDate(currentWO.deliveryDate) : '—'}</span>
                           </div>
                         </div>
 

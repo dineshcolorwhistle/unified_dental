@@ -530,6 +530,16 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                     </span>
                   </div>
                 </div>
+
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                    {t('technician.deliveryDateUpper', { defaultValue: 'DELIVERY DATE' })}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', fontSize: '13px', fontWeight: 600, color: workOrder.deliveryDate ? 'var(--primary-600)' : 'var(--text-muted)' }}>
+                    <Calendar size={14} style={{ color: workOrder.deliveryDate ? 'var(--primary-500)' : 'var(--text-muted)' }} />
+                    <span>{workOrder.deliveryDate ? formatDate(workOrder.deliveryDate) : '—'}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Dental Spec / Instructions (Screenshot 3) */}

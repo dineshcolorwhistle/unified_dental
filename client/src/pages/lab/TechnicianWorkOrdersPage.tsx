@@ -472,6 +472,12 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                     <strong style={{ color: 'var(--text-heading)' }}>{t('technician.boxNo', { defaultValue: 'Box No.' })}:</strong>{' '}
                     {order.boxNumber || '—'}
                   </div>
+                  <div style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <strong style={{ color: 'var(--text-heading)' }}>{t('technician.deliveryDate', { defaultValue: 'Delivery Date' })}:</strong>{' '}
+                    <span style={{ fontWeight: 600, color: order.deliveryDate ? '#0284c7' : 'var(--text-muted)' }}>
+                      {order.deliveryDate ? formatDate(order.deliveryDate) : '—'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Step Assignment Box (Screenshot 2) */}
@@ -521,9 +527,16 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                     borderTop: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    {t('technician.createdDate', { defaultValue: 'Created' })}: {formatDate(order.createdAt)}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      {t('technician.createdDate', { defaultValue: 'Created' })}: {formatDate(order.createdAt)}
+                    </span>
+                    {order.deliveryDate && (
+                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0284c7' }}>
+                        {t('technician.deliveryDate', { defaultValue: 'Delivery' })}: {formatDate(order.deliveryDate)}
+                      </span>
+                    )}
+                  </div>
 
                   <button
                     type="button"

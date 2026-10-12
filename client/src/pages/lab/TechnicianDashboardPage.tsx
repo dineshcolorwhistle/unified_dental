@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { useNotifications } from '../../core/context/NotificationContext';
+import { formatDate } from '../../core/utils/dateUtils';
 import {
   workOrderService,
   TechnicianDashboardData,
@@ -467,6 +468,11 @@ export const TechnicianDashboardPage: React.FC = () => {
                     <span>{item.prosthesisTypeName}</span>
                     {item.boxNumber && <span> • Box No.: {item.boxNumber}</span>}
                     {item.color && <span> • Shade: {item.color}</span>}
+                    {item.deliveryDate && (
+                      <span style={{ fontWeight: 600, color: '#0284c7' }}>
+                        {' '}• {t('technician.deliveryDate', { defaultValue: 'Delivery' })}: {formatDate(item.deliveryDate)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Current Step Inner Box */}
