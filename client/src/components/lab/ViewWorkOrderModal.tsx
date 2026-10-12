@@ -34,6 +34,7 @@ import {
 } from '../../services/workOrderService';
 import { paymentMethodService, PaymentMethodItem } from '../../services/paymentMethodService';
 import { formatDate, formatDateTime, formatTime, formatCurrency } from '../../core/utils/dateUtils';
+import { formatAuditLog } from '../../core/utils/auditUtils';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { useNotifications } from '../../core/context/NotificationContext';
@@ -68,7 +69,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   onOrderUpdated,
   initialTab,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
   const isAdmin = Boolean(isTenantAdmin || isLabAdmin || user?.isSuperAdmin);
@@ -1638,34 +1639,12 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                         ) : (
                                           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                             {proc.activityLogs?.map((al, alIdx) => {
-                                              const isComplete = al.action === 'COMPLETE';
-                                              const isStart = al.action === 'START';
-                                              const isPause = al.action === 'PAUSE';
-
-                                              const dotColor = isComplete
-                                                ? '#10b981'
-                                                : isStart
-                                                ? 'var(--primary-600)'
-                                                : isPause
-                                                ? '#f59e0b'
-                                                : '#8b5cf6';
-
-                                              const label = isComplete
-                                                ? t('technician.auditLog.processCompleted', 'Process Completed')
-                                                : isStart
-                                                ? t('technician.auditLog.processStarted', 'Process Started')
-                                                : isPause
-                                                ? t('technician.auditLog.processPaused', 'Process Paused')
-                                                : t('technician.auditLog.processResumed', 'Process Resumed');
-
-                                              const subText = al.notes || (isComplete
-                                                ? t('workOrders.viewModal.processesTab.activeTimeMinutes', {
-                                                    minutes: Math.round((proc.totalActiveDuration || 0) / 60),
-                                                    defaultValue: `Process completed. Active time: ${Math.round((proc.totalActiveDuration || 0) / 60)} minutes.`,
-                                                  })
-                                                : isStart
-                                                ? t('workOrders.viewModal.processesTab.startedByTech', 'Process started by technician')
-                                                : null);
+                                              const { actionTitle, dotColor, notesText, isRework } = formatAuditLog(
+                                                al,
+                                                t,
+                                                i18n.language,
+                                                proc.processName,
+                                              );
 
                                               return (
                                                 <div key={al.id || alIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -1677,20 +1656,29 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                                       backgroundColor: dotColor,
                                                       marginTop: '4px',
                                                       flexShrink: 0,
+                                                      boxShadow: isRework ? '0 0 0 3px rgba(239, 68, 68, 0.25)' : undefined,
                                                     }}
                                                   />
                                                   <div style={{ flex: 1 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                       <span style={{ fontSize: '12px', fontWeight: 800, color: dotColor }}>
-                                                        {label}
+                                                        {actionTitle}
                                                       </span>
                                                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                                         {formatDateTime(al.timestamp)}
                                                       </span>
                                                     </div>
-                                                    {subText && (
-                                                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
-                                                        {subText}
+                                                    {notesText && (
+                                                      <div
+                                                        style={{
+                                                          fontSize: '12px',
+                                                          color: isRework ? '#ef4444' : 'var(--text-muted)',
+                                                          fontStyle: isRework ? 'normal' : 'italic',
+                                                          fontWeight: isRework ? 600 : 400,
+                                                          marginTop: '2px',
+                                                        }}
+                                                      >
+                                                        {notesText}
                                                       </div>
                                                     )}
                                                   </div>

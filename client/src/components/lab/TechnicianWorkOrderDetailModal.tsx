@@ -22,6 +22,7 @@ import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { useNotifications } from '../../core/context/NotificationContext';
 import { formatDate, formatTime } from '../../core/utils/dateUtils';
+import { formatAuditLog } from '../../core/utils/auditUtils';
 import {
   workOrderService,
   WorkOrderListItem,
@@ -42,7 +43,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
   onClose,
   onRefresh,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const { socket } = useNotifications();
@@ -248,7 +249,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
       if (Array.isArray(proc.activityLogs)) {
         for (const al of proc.activityLogs) {
           const isMyAction = al.userId === user.id;
-          const isMyStep = proc.technicianId === user.id && (!al.userId || al.userId === user.id);
+          const isMyStep = proc.technicianId === user.id;
           if (isMyAction || isMyStep) {
             logs.push({
               ...al,
@@ -840,6 +841,31 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                 ) : myProcess.status === 'NOT_STARTED' ? (
                   /* Ready to Start */
                   <div>
+                    {Boolean(myProcess.reworkActive) && (
+                      <div
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          borderRadius: '8px',
+                          padding: '10px 14px',
+                          marginBottom: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          color: '#ef4444',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                        <span>
+                          {t('technician.timingPanel.reworkNotice', {
+                            count: myProcess.reworkCount || 1,
+                            defaultValue: 'This process was sent for rework (Cycle #{{count}})',
+                          })}
+                        </span>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={handleStartProcess}
@@ -1194,17 +1220,12 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                 {currentTechnicianLogs.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {currentTechnicianLogs.map((log) => {
-                      const isComp = log.action === 'COMPLETE';
-                      const isPau = log.action === 'PAUSE';
-                      const dotColor = isComp ? '#10b981' : isPau ? '#f59e0b' : '#38bdf8';
-                      const actionTitle =
-                        log.action === 'COMPLETE'
-                          ? t('technician.auditLog.processCompleted', { defaultValue: 'Process Completed' })
-                          : log.action === 'PAUSE'
-                          ? t('technician.auditLog.processPaused', { defaultValue: 'Process Paused' })
-                          : log.action === 'RESUME'
-                          ? t('technician.auditLog.processResumed', { defaultValue: 'Process Resumed' })
-                          : t('technician.auditLog.processStarted', { defaultValue: 'Process Started' });
+                      const { actionTitle, dotColor, notesText, isRework } = formatAuditLog(
+                        log,
+                        t,
+                        i18n.language,
+                        log.processName,
+                      );
 
                       return (
                         <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -1216,19 +1237,44 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                               backgroundColor: dotColor,
                               marginTop: '5px',
                               flexShrink: 0,
+                              boxShadow: isRework ? '0 0 0 3px rgba(239, 68, 68, 0.25)' : undefined,
                             }}
                           />
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: dotColor }}>
-                                {actionTitle}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: dotColor }}>
+                                  {actionTitle}
+                                </span>
+                                {log.processName && (
+                                  <span
+                                    style={{
+                                      fontSize: '11px',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      backgroundColor: isRework ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-surface)',
+                                      color: isRework ? '#ef4444' : 'var(--text-muted)',
+                                      fontWeight: 600,
+                                      border: `1px solid ${isRework ? 'rgba(239, 68, 68, 0.3)' : 'var(--border-subtle)'}`,
+                                    }}
+                                  >
+                                    {log.processName}
+                                  </span>
+                                )}
+                              </div>
                               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                 {formatTime(log.timestamp)}
                               </span>
                             </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-main)', marginTop: '2px' }}>
-                              {log.notes || `${log.processName} - ${log.action}`}
+                            <div
+                              style={{
+                                fontSize: '12px',
+                                color: isRework ? '#ef4444' : 'var(--text-main)',
+                                marginTop: '3px',
+                                fontWeight: isRework ? 600 : 400,
+                              }}
+                            >
+                              {notesText}
                             </div>
                           </div>
                         </div>
