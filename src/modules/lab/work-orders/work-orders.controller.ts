@@ -7,9 +7,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkOrdersService } from './work-orders.service';
 import { AddWorkOrderNoteDto, CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, SendWorkOrderChatMessageDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
@@ -230,6 +233,34 @@ export class WorkOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workOrdersService.sendWorkOrderChatMessage(user.activeTenantId, user, id, dto);
+  }
+
+  @Post(':id/chat/upload')
+  @UseInterceptors(FilesInterceptor('images', 10))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload images to work order chat (Admin and Technician)' })
+  uploadChatImages(
+    @Param('id') id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('message') message: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.uploadWorkOrderChatImages(
+      user.activeTenantId,
+      user,
+      id,
+      files,
+      message,
+    );
+  }
+
+  @Get(':id/chat/storage-usage')
+  @ApiOperation({ summary: 'Get current tenant storage usage status for work order chat' })
+  getChatStorageUsage(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.getWorkOrderChatStorageUsage(user.activeTenantId);
   }
 
   @Post(':id/chat/read')

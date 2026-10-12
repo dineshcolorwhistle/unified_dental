@@ -9,21 +9,26 @@ import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuditService } from '../../../core/audit/audit.service';
 import { NotificationsService } from '../../../core/notifications/notifications.service';
 import { NotificationsGateway } from '../../../core/notifications/notifications.gateway';
+import { FilesService } from '../../../core/files/files.service';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 import { CreateWorkOrderDto, InitiateReworkDto, QueryWorkOrdersDto, RecordWorkOrderPaymentDto, SendWorkOrderChatMessageDto, UpdateWorkOrderDto, VerificationEvaluateDto } from './dto';
 import { generateFolioNumber } from './utils/folio.util';
 import { parseCalendarDate, startOfDayInTz, endOfDayInTz, DEFAULT_TIMEZONE } from '../../../shared/common/utils/timezone.util';
 import { DoctorType, ProcessStatus, ProcessType, UserStatus, WorkOrderStatus } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class WorkOrdersService {
   private readonly logger = new Logger(WorkOrdersService.name);
+  private readonly uploadBaseDir = process.env.UPLOAD_DIR || './uploads';
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly filesService: FilesService,
   ) {}
 
   /**
@@ -3214,6 +3219,7 @@ export class WorkOrdersService {
         workOrderId: m.workOrderId,
         senderId: m.senderId,
         message: m.message,
+        attachments: (m as any).attachments || [],
         createdAt: m.createdAt,
         sender: {
           id: m.sender.id,
@@ -3243,7 +3249,8 @@ export class WorkOrdersService {
     dto: SendWorkOrderChatMessageDto,
   ) {
     const messageText = dto?.message?.trim();
-    if (!messageText) {
+    const attachments = dto?.attachments || [];
+    if (!messageText && (!attachments || attachments.length === 0)) {
       throw new BadRequestException('Message cannot be empty.');
     }
 
@@ -3261,7 +3268,8 @@ export class WorkOrdersService {
       data: {
         workOrderId,
         senderId: actor.id,
-        message: messageText,
+        message: messageText || null,
+        attachments,
       },
       include: {
         sender: {
@@ -3295,6 +3303,7 @@ export class WorkOrdersService {
       workOrderId: chatMessage.workOrderId,
       senderId: chatMessage.senderId,
       message: chatMessage.message,
+      attachments: (chatMessage as any).attachments || [],
       createdAt: chatMessage.createdAt,
       sender: {
         id: chatMessage.sender.id,
@@ -3310,7 +3319,9 @@ export class WorkOrdersService {
       .map((p) => p.id)
       .filter((id) => id !== actor.id);
 
-    const messagePreview = messageText.length > 60 ? `${messageText.substring(0, 57)}...` : messageText;
+    const messagePreview = messageText
+      ? (messageText.length > 60 ? `${messageText.substring(0, 57)}...` : messageText)
+      : '📷 Sent image attachments';
 
     for (const recipientId of recipientIds) {
       // 1. Real-time chat message event (for open chat tab and unread badge update)
@@ -3341,6 +3352,189 @@ export class WorkOrdersService {
     }
 
     return formattedMessage;
+  }
+
+  /**
+   * Upload multiple images for a Work Order Chat, validating 5 MB limit and tenant storage quota
+   */
+  async uploadWorkOrderChatImages(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    workOrderId: string,
+    files: Express.Multer.File[],
+    messageText?: string,
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No images provided for upload.');
+    }
+
+    if (files.length > 10) {
+      throw new BadRequestException('A maximum of 10 images can be uploaded at once.');
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const maxFileSize = 5 * 1024 * 1024; // 5 MB per image
+
+    for (const file of files) {
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          `Invalid file format for "${file.originalname}". Only JPEG, PNG, WEBP, and GIF images are allowed.`,
+        );
+      }
+      if (file.size > maxFileSize) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        throw new BadRequestException(
+          `Image "${file.originalname}" (${sizeMb} MB) exceeds the 5 MB maximum limit per image.`,
+        );
+      }
+    }
+
+    // Validate tenant storage capacity
+    const totalIncomingBytes = files.reduce((sum, f) => sum + f.size, 0);
+    await this.filesService.validateTenantStorageCapacity(tenantId, totalIncomingBytes);
+
+    const workOrder = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { id: true, folioNumber: true, boxNumber: true, branchId: true },
+    });
+
+    if (!workOrder) {
+      throw new NotFoundException(`Work Order with ID "${workOrderId}" not found.`);
+    }
+
+    // Save each image file record
+    const savedAttachments: Array<{
+      id: string;
+      originalName: string;
+      mimeType: string;
+      size: number;
+      url: string;
+    }> = [];
+
+    for (const file of files) {
+      const fileRecord = await this.filesService.saveFile({
+        tenantId,
+        branchId: workOrder.branchId || actor.activeBranchId,
+        moduleKey: 'LAB',
+        resourceType: 'WORK_ORDER_CHAT',
+        resourceId: workOrderId,
+        file,
+        uploadedBy: actor.id,
+      });
+
+      savedAttachments.push({
+        id: fileRecord.id,
+        originalName: fileRecord.originalName,
+        mimeType: fileRecord.mimeType,
+        size: fileRecord.size,
+        url: `/api/files/${fileRecord.id}/download`,
+      });
+    }
+
+    const trimmedText = messageText?.trim() || null;
+
+    // Save message with attachments
+    const chatMessage = await this.prisma.workOrderChatMessage.create({
+      data: {
+        workOrderId,
+        senderId: actor.id,
+        message: trimmedText,
+        attachments: savedAttachments,
+      },
+      include: {
+        sender: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Mark as read for the sender
+    await this.prisma.workOrderChatRead.upsert({
+      where: {
+        workOrderId_userId: {
+          workOrderId,
+          userId: actor.id,
+        },
+      },
+      update: { lastReadAt: new Date() },
+      create: {
+        workOrderId,
+        userId: actor.id,
+        lastReadAt: new Date(),
+      },
+    });
+
+    // Retrieve participants to notify
+    const participants = await this.getWorkOrderChatParticipants(tenantId, workOrderId);
+    const senderParticipant = participants.find((p) => p.id === actor.id);
+
+    const formattedMessage = {
+      id: chatMessage.id,
+      workOrderId: chatMessage.workOrderId,
+      senderId: chatMessage.senderId,
+      message: chatMessage.message,
+      attachments: savedAttachments,
+      createdAt: chatMessage.createdAt,
+      sender: {
+        id: chatMessage.sender.id,
+        name: chatMessage.sender.name,
+        email: chatMessage.sender.email,
+        role: senderParticipant?.role || 'User',
+        branchName: senderParticipant?.branchName,
+      },
+    };
+
+    // Broadcast to all participants (except sender)
+    const recipientIds = participants
+      .map((p) => p.id)
+      .filter((id) => id !== actor.id);
+
+    const countLabel = `${savedAttachments.length} image${savedAttachments.length > 1 ? 's' : ''}`;
+    const notificationBody = trimmedText
+      ? `${actor.name || 'Team member'}: 📷 [${countLabel}] ${trimmedText.substring(0, 50)}`
+      : `${actor.name || 'Team member'} sent ${countLabel}`;
+
+    for (const recipientId of recipientIds) {
+      // 1. Real-time chat message event
+      this.notificationsGateway.sendToUser(recipientId, 'work_order:chat_message', {
+        workOrderId,
+        folioNumber: workOrder.folioNumber,
+        message: formattedMessage,
+      });
+
+      // 2. In-app Notification for recipient
+      try {
+        await this.notificationsService.create({
+          tenantId,
+          userId: recipientId,
+          moduleKey: 'LAB',
+          type: 'WORK_ORDER_CHAT',
+          title: `WO# ${workOrder.folioNumber} - New Message`,
+          body: notificationBody,
+          data: {
+            workOrderId,
+            folioNumber: workOrder.folioNumber,
+            type: 'WORK_ORDER_CHAT',
+          },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Failed to dispatch chat notification to user ${recipientId}: ${err.message}`);
+      }
+    }
+
+    const storageUsage = await this.filesService.getTenantStorageUsage(tenantId);
+
+    return {
+      message: formattedMessage,
+      storageUsage,
+    };
+  }
+
+  /**
+   * Get storage usage for work order chat
+   */
+  async getWorkOrderChatStorageUsage(tenantId: string) {
+    return this.filesService.getTenantStorageUsage(tenantId);
   }
 
   /**

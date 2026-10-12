@@ -755,7 +755,8 @@ model WorkOrderChatMessage {
   id          String   @id @default(uuid())
   workOrderId String   @map("work_order_id")
   senderId    String   @map("sender_id")
-  message     String
+  message     String?
+  attachments Json?    @default("[]")
   createdAt   DateTime @default(now()) @map("created_at")
 
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)

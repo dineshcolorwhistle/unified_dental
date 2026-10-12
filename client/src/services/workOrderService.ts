@@ -383,6 +383,27 @@ export const workOrderService = {
     return res.data;
   },
 
+  uploadChatImages: async (
+    workOrderId: string,
+    files: File[],
+    message?: string,
+  ): Promise<{ message: WorkOrderChatMessageItem; storageUsage: TenantStorageUsage }> => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+    if (message && message.trim()) {
+      formData.append('message', message.trim());
+    }
+    const res = await api.post(`/lab/work-orders/${workOrderId}/chat/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  getChatStorageUsage: async (workOrderId: string): Promise<TenantStorageUsage> => {
+    const res = await api.get(`/lab/work-orders/${workOrderId}/chat/storage-usage`);
+    return res.data;
+  },
+
   markChatRead: async (workOrderId: string): Promise<{ success: boolean }> => {
     const res = await api.post(`/lab/work-orders/${workOrderId}/chat/read`);
     return res.data;
@@ -397,6 +418,24 @@ export const workOrderService = {
 
 // ─── Dedicated Chat Types ───
 
+export interface WorkOrderChatAttachment {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+}
+
+export interface TenantStorageUsage {
+  usedBytes: number;
+  usedMb: number;
+  limitBytes: number;
+  limitMb: number;
+  remainingBytes: number;
+  remainingMb: number;
+  percentageUsed: number;
+}
+
 export interface WorkOrderChatParticipant {
   id: string;
   name: string;
@@ -410,7 +449,8 @@ export interface WorkOrderChatMessageItem {
   id: string;
   workOrderId: string;
   senderId: string;
-  message: string;
+  message: string | null;
+  attachments?: WorkOrderChatAttachment[];
   createdAt: string;
   sender: {
     id: string;

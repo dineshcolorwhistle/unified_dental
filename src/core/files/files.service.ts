@@ -114,4 +114,58 @@ export class FilesService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  /**
+   * Get tenant's total storage usage by aggregating all FileRecord sizes.
+   * Resolves the effective storage limit from tenant settings or plan.
+   */
+  async getTenantStorageUsage(tenantId: string) {
+    const aggregation = await this.prisma.fileRecord.aggregate({
+      where: { tenantId },
+      _sum: { size: true },
+    });
+
+    const usedBytes = Number(aggregation._sum.size || 0);
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { plan: true },
+    });
+
+    // Resolve storage limit: tenant settings override > plan > default 1024 MB
+    const settings = (tenant?.settings || {}) as Record<string, any>;
+    const limitMb =
+      settings.storageLimitMb !== undefined && settings.storageLimitMb !== null
+        ? Number(settings.storageLimitMb)
+        : (tenant?.plan as any)?.storageLimitMb !== undefined && (tenant?.plan as any)?.storageLimitMb !== null
+        ? Number((tenant.plan as any).storageLimitMb)
+        : 1024; // Default: 1 GB
+
+    const limitBytes = limitMb * 1024 * 1024;
+
+    return {
+      usedBytes,
+      usedMb: Number((usedBytes / (1024 * 1024)).toFixed(2)),
+      limitBytes,
+      limitMb,
+      remainingBytes: Math.max(0, limitBytes - usedBytes),
+      remainingMb: Number((Math.max(0, limitBytes - usedBytes) / (1024 * 1024)).toFixed(2)),
+      percentageUsed: limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0,
+    };
+  }
+
+  /**
+   * Validate that the tenant has enough storage capacity for the incoming upload(s).
+   * Throws BadRequestException if the upload would exceed the tenant's storage limit.
+   */
+  async validateTenantStorageCapacity(tenantId: string, incomingBytes: number) {
+    const usage = await this.getTenantStorageUsage(tenantId);
+    if (usage.usedBytes + incomingBytes > usage.limitBytes) {
+      const attemptedMb = (incomingBytes / (1024 * 1024)).toFixed(2);
+      throw new BadRequestException(
+        `Tenant storage limit reached. Available: ${usage.remainingMb} MB, Attempted: ${attemptedMb} MB. Please upgrade your subscription plan or delete older files.`,
+      );
+    }
+    return usage;
+  }
 }
