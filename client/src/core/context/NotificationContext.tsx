@@ -63,6 +63,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setUnreadCount((prev) => prev + 1);
     });
 
+    newSocket.on('notification:refresh', () => {
+      fetchNotifications();
+    });
+
     setSocket(newSocket);
 
     return () => {

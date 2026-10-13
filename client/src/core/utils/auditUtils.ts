@@ -239,3 +239,146 @@ export function formatAuditLog(
     isRework,
   };
 }
+
+/**
+ * Extract or compute structured rework cycle audit trail entries for a work order on the client.
+ */
+export function extractReworkCycles(workOrder: any) {
+  if (!workOrder) return [];
+  if (Array.isArray(workOrder.reworkCycles) && workOrder.reworkCycles.length > 0) {
+    return workOrder.reworkCycles;
+  }
+  if (!Array.isArray(workOrder.processes)) return [];
+
+  const cycles: any[] = [];
+  const sortedProcs = [...workOrder.processes].sort((a: any, b: any) => (a.sequence || 0) - (b.sequence || 0));
+
+  for (const proc of sortedProcs) {
+    const logs = Array.isArray(proc.activityLogs)
+      ? [...proc.activityLogs].sort(
+          (a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        )
+      : [];
+
+    for (let i = 0; i < logs.length; i++) {
+      const log = logs[i];
+      const isReworkAction =
+        log.action === 'REWORK_ASSIGNED' ||
+        /rework cycle/i.test(log.notes || '') ||
+        /rework initiated/i.test(log.notes || '');
+
+      if (!isReworkAction) continue;
+
+      // Parse rework count
+      const countMatch = (log.notes || '').match(/rework cycle #?(\d+)/i);
+      const reworkCount = countMatch ? parseInt(countMatch[1], 10) : proc.reworkCount || 1;
+
+      // Parse initiator
+      const initMatch = (log.notes || '').match(/initiated by (.*?) in stage:/i);
+      const initiatedBy = log.user?.name || (initMatch ? initMatch[1].trim() : 'Admin');
+
+      // Parse triggering stage
+      const stageMatch = (log.notes || '').match(/in stage:\s*([^\.]+)/i);
+      const triggeringStage = stageMatch ? stageMatch[1].trim() : 'External Verification';
+
+      // Find the next COMPLETE log on this process after this rework log
+      const logTime = new Date(log.timestamp).getTime();
+      const nextCompleteLog = logs.slice(i + 1).find((l: any) => {
+        const lTime = new Date(l.timestamp).getTime();
+        return lTime >= logTime && l.action === 'COMPLETE';
+      });
+
+      const completionDateTime = nextCompleteLog
+        ? nextCompleteLog.timestamp
+        : proc.status === 'COMPLETED' && !proc.reworkActive && proc.endedAt
+        ? proc.endedAt
+        : null;
+
+      // Check for subsequent approval in verification steps
+      let approvalDateTime: any = null;
+      if (completionDateTime) {
+        const compTime = new Date(completionDateTime).getTime();
+        for (const vProc of sortedProcs) {
+          if (
+            (vProc.isVerification ||
+              vProc.processType === 'INTERNAL_VERIFICATION' ||
+              vProc.processType === 'EXTERNAL_VERIFICATION') &&
+            (vProc.sequence || 0) > (proc.sequence || 0)
+          ) {
+            const vLogs = Array.isArray(vProc.activityLogs) ? vProc.activityLogs : [];
+            const approvedLog = vLogs.find(
+              (vl: any) =>
+                vl.action === 'VERIFICATION_APPROVED' &&
+                new Date(vl.timestamp).getTime() >= compTime,
+            );
+            if (approvedLog) {
+              approvalDateTime = approvedLog.timestamp;
+              break;
+            }
+          }
+        }
+      }
+
+      // Determine status
+      let status: 'Completed' | 'In Progress' | 'Not Started' | 'Approved' = 'Not Started';
+      if (approvalDateTime) {
+        status = 'Completed';
+      } else if (completionDateTime) {
+        status = 'Completed';
+      } else if (proc.status === 'IN_PROGRESS' || proc.status === 'PAUSED') {
+        status = 'In Progress';
+      } else {
+        status = 'Not Started';
+      }
+
+      cycles.push({
+        processId: proc.id,
+        processName: proc.processName,
+        reworkCount,
+        initiatedBy,
+        initiatedById: log.userId || log.user?.id,
+        initiationDateTime: log.timestamp,
+        triggeringStage,
+        assignedTechnician: proc.technician?.name || '—',
+        assignedTechnicianId: proc.technicianId,
+        completionDateTime: completionDateTime ? new Date(completionDateTime).toISOString() : null,
+        approvalDateTime: approvalDateTime ? new Date(approvalDateTime).toISOString() : null,
+        status,
+      });
+    }
+  }
+
+  // Fallback: If no activity logs matched but processes have rework flags
+  if (cycles.length === 0) {
+    for (const proc of sortedProcs) {
+      if ((proc.reworkCount && proc.reworkCount > 0) || proc.reworkActive) {
+        cycles.push({
+          processId: proc.id,
+          processName: proc.processName,
+          reworkCount: proc.reworkCount || 1,
+          initiatedBy: 'Admin',
+          initiatedById: null,
+          initiationDateTime: proc.updatedAt || new Date().toISOString(),
+          triggeringStage: 'Verification',
+          assignedTechnician: proc.technician?.name || '—',
+          assignedTechnicianId: proc.technicianId,
+          completionDateTime: proc.status === 'COMPLETED' ? proc.endedAt : null,
+          approvalDateTime: null,
+          status:
+            proc.status === 'COMPLETED'
+              ? 'Completed'
+              : proc.status === 'IN_PROGRESS' || proc.status === 'PAUSED'
+              ? 'In Progress'
+              : 'Not Started',
+        });
+      }
+    }
+  }
+
+  cycles.sort(
+    (a, b) =>
+      new Date(a.initiationDateTime).getTime() - new Date(b.initiationDateTime).getTime(),
+  );
+
+  return cycles;
+}

@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Inbox,
   FileText,
+  Search,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
@@ -21,9 +23,11 @@ import {
   LabAdminVerificationAlertItem,
   LabAdminInProgressItem,
   LabAdminVerificationItem,
+  WorkOrderListItem,
 } from '../../services/workOrderService';
 import { VerifyWorkOrderModal } from '../../components/lab/VerifyWorkOrderModal';
 import { ViewWorkOrderModal } from '../../components/lab/ViewWorkOrderModal';
+import { EditWorkOrderModal } from '../../components/lab/EditWorkOrderModal';
 import { Tooltip } from '../../components/common/Tooltip';
 
 export const LabAdminDashboard: React.FC = () => {
@@ -36,6 +40,8 @@ export const LabAdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [inProgressSearch, setInProgressSearch] = useState('');
+  const [verificationSearch, setVerificationSearch] = useState('');
 
   // Modal state
   const [verifyModal, setVerifyModal] = useState<{
@@ -51,6 +57,7 @@ export const LabAdminDashboard: React.FC = () => {
   } | null>(null);
 
   const [detailModalWOId, setDetailModalWOId] = useState<string | null>(null);
+  const [orderToEdit, setOrderToEdit] = useState<WorkOrderListItem | null>(null);
   const [startingProcessId, setStartingProcessId] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async (silent = false) => {
@@ -154,6 +161,32 @@ export const LabAdminDashboard: React.FC = () => {
   const inProgress = data?.inProgressOrders || [];
   const verifications = data?.verificationOrders || [];
   const isDefaultAdmin = data?.isDefaultAdmin ?? true;
+
+  const inProgressQuery = inProgressSearch.trim().toLowerCase();
+  const filteredInProgress = inProgress.filter((item: LabAdminInProgressItem) => {
+    if (!inProgressQuery) return true;
+    return Boolean(
+      (item.folioNumber && item.folioNumber.toLowerCase().includes(inProgressQuery)) ||
+      (item.patient && item.patient.toLowerCase().includes(inProgressQuery)) ||
+      (item.doctorName && item.doctorName.toLowerCase().includes(inProgressQuery)) ||
+      (item.prosthesisName && item.prosthesisName.toLowerCase().includes(inProgressQuery)) ||
+      (item.currentStepName && item.currentStepName.toLowerCase().includes(inProgressQuery)) ||
+      (item.technicianName && item.technicianName.toLowerCase().includes(inProgressQuery))
+    );
+  });
+
+  const verificationQuery = verificationSearch.trim().toLowerCase();
+  const filteredVerifications = verifications.filter((item: LabAdminVerificationItem) => {
+    if (!verificationQuery) return true;
+    return Boolean(
+      (item.folioNumber && item.folioNumber.toLowerCase().includes(verificationQuery)) ||
+      (item.patient && item.patient.toLowerCase().includes(verificationQuery)) ||
+      (item.doctorName && item.doctorName.toLowerCase().includes(verificationQuery)) ||
+      (item.prosthesisName && item.prosthesisName.toLowerCase().includes(verificationQuery)) ||
+      (item.processName && item.processName.toLowerCase().includes(verificationQuery)) ||
+      (item.evaluatorName && item.evaluatorName.toLowerCase().includes(verificationQuery))
+    );
+  });
 
   const kpiCards = [
     {
@@ -659,22 +692,92 @@ export const LabAdminDashboard: React.FC = () => {
           flexDirection: 'column',
         }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '14px 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: '10px',
+            padding: '12px 18px',
             borderBottom: '1px solid var(--border-subtle)',
             background: 'var(--bg-surface-muted)',
           }}>
-            <Activity size={18} style={{ color: 'var(--primary-600)' }} />
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
-              {t('dashboard.labAdmin.inProgressWorkOrders')}
-            </span>
-            <span style={{
-              fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-              borderRadius: '10px', backgroundColor: 'var(--badge-info-bg)',
-              color: 'var(--sky-600)', minWidth: '20px', textAlign: 'center',
-            }}>
-              {inProgress.length}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Activity size={18} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+              <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                {t('dashboard.labAdmin.inProgressWorkOrders')}
+              </span>
+              <span style={{
+                fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+                borderRadius: '10px', backgroundColor: 'var(--badge-info-bg)',
+                color: 'var(--sky-600)', minWidth: '20px', textAlign: 'center',
+              }}>
+                {inProgressSearch.trim() ? `${filteredInProgress.length} / ${inProgress.length}` : inProgress.length}
+              </span>
+            </div>
+
+            {/* Search Input */}
+            <div style={{ position: 'relative', width: '200px', maxWidth: '100%' }}>
+              <Search
+                size={14}
+                style={{
+                  position: 'absolute',
+                  left: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
+                }}
+              />
+              <input
+                type="text"
+                value={inProgressSearch}
+                onChange={(e) => setInProgressSearch(e.target.value)}
+                placeholder={t('dashboard.labAdmin.searchOrders', 'Search orders...')}
+                style={{
+                  width: '100%',
+                  height: '32px',
+                  padding: '0 28px 0 30px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-card)',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--primary-500)';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.12)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              />
+              {inProgressSearch && (
+                <button
+                  type="button"
+                  onClick={() => setInProgressSearch('')}
+                  aria-label="Clear search"
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    padding: '2px',
+                    borderRadius: '4px',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '10px' }}>
@@ -692,8 +795,39 @@ export const LabAdminDashboard: React.FC = () => {
                   {t('dashboard.labAdmin.noInProgressDesc')}
                 </div>
               </div>
+            ) : filteredInProgress.length === 0 ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', padding: '48px 16px',
+                color: 'var(--text-muted)',
+              }}>
+                <Search size={36} style={{ marginBottom: '10px', opacity: 0.35, color: 'var(--text-muted)' }} />
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                  {t('dashboard.labAdmin.noMatchingOrders', 'No matching orders found')}
+                </div>
+                <div style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text-muted)' }}>
+                  {t('dashboard.labAdmin.noMatchingDesc', 'No orders match your search criteria.')}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInProgressSearch('')}
+                  style={{
+                    marginTop: '12px',
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--primary-600)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t('dashboard.labAdmin.clearSearch', 'Clear search')}
+                </button>
+              </div>
             ) : (
-              inProgress.map((item: LabAdminInProgressItem) => (
+              filteredInProgress.map((item: LabAdminInProgressItem) => (
                 <div
                   key={item.workOrderId}
                   style={{
@@ -797,22 +931,92 @@ export const LabAdminDashboard: React.FC = () => {
           flexDirection: 'column',
         }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '14px 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: '10px',
+            padding: '12px 18px',
             borderBottom: '1px solid var(--border-subtle)',
             background: 'var(--bg-surface-muted)',
           }}>
-            <ShieldCheck size={18} style={{ color: 'var(--emerald-500)' }} />
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
-              {t('dashboard.labAdmin.workOrdersInVerification')}
-            </span>
-            <span style={{
-              fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-              borderRadius: '10px', backgroundColor: 'var(--badge-success-bg)',
-              color: 'var(--emerald-600)', minWidth: '20px', textAlign: 'center',
-            }}>
-              {verifications.length}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <ShieldCheck size={18} style={{ color: 'var(--emerald-500)', flexShrink: 0 }} />
+              <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                {t('dashboard.labAdmin.workOrdersInVerification')}
+              </span>
+              <span style={{
+                fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+                borderRadius: '10px', backgroundColor: 'var(--badge-success-bg)',
+                color: 'var(--emerald-600)', minWidth: '20px', textAlign: 'center',
+              }}>
+                {verificationSearch.trim() ? `${filteredVerifications.length} / ${verifications.length}` : verifications.length}
+              </span>
+            </div>
+
+            {/* Search Input */}
+            <div style={{ position: 'relative', width: '200px', maxWidth: '100%' }}>
+              <Search
+                size={14}
+                style={{
+                  position: 'absolute',
+                  left: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
+                }}
+              />
+              <input
+                type="text"
+                value={verificationSearch}
+                onChange={(e) => setVerificationSearch(e.target.value)}
+                placeholder={t('dashboard.labAdmin.searchOrders', 'Search orders...')}
+                style={{
+                  width: '100%',
+                  height: '32px',
+                  padding: '0 28px 0 30px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-card)',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--emerald-500)';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.12)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              />
+              {verificationSearch && (
+                <button
+                  type="button"
+                  onClick={() => setVerificationSearch('')}
+                  aria-label="Clear search"
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    padding: '2px',
+                    borderRadius: '4px',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '10px' }}>
@@ -830,8 +1034,39 @@ export const LabAdminDashboard: React.FC = () => {
                   {t('dashboard.labAdmin.noVerificationDesc')}
                 </div>
               </div>
+            ) : filteredVerifications.length === 0 ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', padding: '48px 16px',
+                color: 'var(--text-muted)',
+              }}>
+                <Search size={36} style={{ marginBottom: '10px', opacity: 0.35, color: 'var(--text-muted)' }} />
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                  {t('dashboard.labAdmin.noMatchingOrders', 'No matching orders found')}
+                </div>
+                <div style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text-muted)' }}>
+                  {t('dashboard.labAdmin.noMatchingDesc', 'No orders match your search criteria.')}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVerificationSearch('')}
+                  style={{
+                    marginTop: '12px',
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--emerald-600)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t('dashboard.labAdmin.clearSearch', 'Clear search')}
+                </button>
+              </div>
             ) : (
-              verifications.map((item: LabAdminVerificationItem) => (
+              filteredVerifications.map((item: LabAdminVerificationItem) => (
                 <div
                   key={`${item.workOrderId}-${item.processId}`}
                   style={{
@@ -1016,6 +1251,19 @@ export const LabAdminDashboard: React.FC = () => {
           isOpen={Boolean(detailModalWOId)}
           onClose={() => { setDetailModalWOId(null); fetchDashboard(true); }}
           onOrderUpdated={() => fetchDashboard(true)}
+          onNavigateToEdit={(order) => {
+            setDetailModalWOId(null);
+            setOrderToEdit(order);
+          }}
+        />
+      )}
+
+      {orderToEdit && (
+        <EditWorkOrderModal
+          workOrder={orderToEdit}
+          isOpen={Boolean(orderToEdit)}
+          onClose={() => setOrderToEdit(null)}
+          onSuccess={() => fetchDashboard(true)}
         />
       )}
     </div>

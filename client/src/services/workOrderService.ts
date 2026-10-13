@@ -37,6 +37,21 @@ export interface WorkOrderProcessItem {
   activityLogs?: ProcessActivityLogItem[];
 }
 
+export interface ReworkCycleItem {
+  processId: string;
+  processName: string;
+  reworkCount: number;
+  initiatedBy: string;
+  initiatedById?: string;
+  initiationDateTime: string;
+  triggeringStage: string;
+  assignedTechnician: string;
+  assignedTechnicianId?: string;
+  completionDateTime: string | null;
+  approvalDateTime: string | null;
+  status: 'Completed' | 'In Progress' | 'Not Started' | 'Approved';
+}
+
 export interface TechnicianQueueItem {
   workOrderId: string;
   folioNumber: string;
@@ -54,6 +69,7 @@ export interface TechnicianQueueItem {
   currentStepStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED';
   isReadyToStart: boolean;
   reworkActive?: boolean;
+  reworkCount?: number;
   doctorName?: string | null;
   clinicName?: string | null;
   createdAt: string;
@@ -121,6 +137,8 @@ export interface WorkOrderListItem {
   qrToken: string;
   reworkCount?: number;
   reworkActive?: boolean;
+  reworkCycles?: ReworkCycleItem[];
+  myProcess?: WorkOrderProcessItem | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -357,7 +375,7 @@ export const workOrderService = {
 
   initiateRework: async (
     workOrderId: string,
-    payload: { processIds: string[]; notes?: string },
+    payload: { processIds: string[]; notes?: string; verificationProcessId?: string },
   ): Promise<WorkOrderListItem> => {
     const res = await api.post(`/lab/work-orders/${workOrderId}/rework`, payload);
     return res.data;

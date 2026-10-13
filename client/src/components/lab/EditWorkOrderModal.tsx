@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
   Plus,
@@ -18,6 +18,9 @@ import {
   RotateCcw,
   DollarSign,
   PlusCircle,
+  PlayCircle,
+  XCircle,
+  CircleDot,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../core/context/ToastContext';
@@ -47,6 +50,8 @@ export interface ProcessEditItem {
   sequence: number;
   isVerification: boolean;
   status: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  reworkCount?: number;
+  reworkActive?: boolean;
 }
 
 interface EditWorkOrderModalProps {
@@ -139,6 +144,26 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   const [submittingAction, setSubmittingAction] = useState<'save' | 'saveAndAssign' | null>(null);
   const [showConfirmAssignModal, setShowConfirmAssignModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Determine current active / ongoing process index in the sequential workflow:
+  // 1. Any process explicitly IN_PROGRESS
+  // 2. Any process explicitly PAUSED (if none IN_PROGRESS)
+  // 3. The first incomplete process (NOT_STARTED / awaiting execution)
+  const currentProcessIndex = useMemo(() => {
+    if (workOrder?.status === 'COMPLETED' || workOrder?.status === 'CANCELLED') {
+      return -1;
+    }
+    const inProgressIdx = processList.findIndex((p) => p.status === 'IN_PROGRESS');
+    if (inProgressIdx !== -1) return inProgressIdx;
+
+    const pausedIdx = processList.findIndex((p) => p.status === 'PAUSED');
+    if (pausedIdx !== -1) return pausedIdx;
+
+    const incompleteIdx = processList.findIndex(
+      (p) => !p.status || (p.status !== 'COMPLETED' && p.status !== 'FAILED' && p.status !== 'CANCELLED')
+    );
+    return incompleteIdx;
+  }, [processList, workOrder?.status]);
 
   // Fetch fresh Work Order data and reference data when modal opens
   useEffect(() => {
@@ -244,6 +269,8 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
         sequence: p.sequence !== undefined ? p.sequence : idx,
         isVerification: Boolean(p.isVerification),
         status: p.status || 'NOT_STARTED',
+        reworkCount: p.reworkCount || 0,
+        reworkActive: Boolean(p.reworkActive),
       }));
       mapped.sort((a, b) => a.sequence - b.sequence);
       setProcessList(mapped);
@@ -373,22 +400,22 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   // Tab validation
   const validateTab1 = (): boolean => {
     const errs: Record<string, string> = {};
-    if (!doctorId) errs.doctorId = t('workOrders.validation.doctorRequired', 'Doctor is required');
-    if (!prosthesisTypeId) errs.prosthesisTypeId = t('workOrders.validation.prosthesisRequired', 'Prosthesis type is required');
     if (!specification.trim()) errs.specification = t('workOrders.validation.specRequired', 'Clinical specification is required');
     if (!color.trim()) errs.color = t('workOrders.validation.colorRequired', 'Color / shade is required');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  // Process steps mutations
+  // Process steps mutations - technician dropdown is editable ONLY when status is Not Started
   const updateProcessTechnician = (index: number, techId: string) => {
     setProcessList((prev) => {
       const copy = [...prev];
-      const canChangeTech = isCreatedStatus || !copy[index].status || copy[index].status === 'NOT_STARTED';
-      if (canChangeTech) {
-        copy[index] = { ...copy[index], technicianId: techId || undefined };
+      const step = copy[index];
+      const isNotStarted = !step?.status || step.status === 'NOT_STARTED';
+      if (!isNotStarted) {
+        return prev;
       }
+      copy[index] = { ...step, technicianId: techId || undefined };
       return copy;
     });
   };
@@ -651,6 +678,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     try {
       await workOrderService.initiateRework(workOrder.id, {
         processIds: reworkSelectedProcessIds,
+        verificationProcessId: reworkVerificationProcessId || undefined,
       });
       toast.success(t('rework.initiateSuccess', 'Rework initiated successfully.'));
       onSuccess();
@@ -766,82 +794,122 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     }
   };
 
-  // Helper for Status Badge in Tab 2
-  const renderStatusBadge = (status: string) => {
-    return (
-      <div
-        style={{
-          width: '135px',
-          flexShrink: 0,
-          fontSize: '12px',
-          fontWeight: 700,
-          color: getStatusColor(status),
-          backgroundColor: getStatusBg(status),
-          padding: '6px 10px',
-          borderRadius: '8px',
-          textAlign: 'center',
-          border: `1px solid ${getStatusBorder(status)}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '5px',
-        }}
-      >
-        <span>{t(`enums.processStatus.${status}`, status.replace('_', ' '))}</span>
-      </div>
-    );
+  // Helper for Work Order Status Badge in Modal Header (Top-Right)
+  const getWorkOrderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'CREATED':
+        return {
+          label: t('enums.workOrderStatus.CREATED', 'Created'),
+          bg: 'rgba(107, 114, 128, 0.12)',
+          color: '#6b7280',
+          border: 'rgba(107, 114, 128, 0.3)',
+          icon: <CircleDot size={12} />,
+        };
+      case 'ASSIGNED':
+        return {
+          label: t('enums.workOrderStatus.ASSIGNED', 'Assigned'),
+          bg: 'rgba(59, 130, 246, 0.12)',
+          color: '#3b82f6',
+          border: 'rgba(59, 130, 246, 0.3)',
+          icon: <Clock size={12} />,
+        };
+      case 'IN_PROGRESS':
+        return {
+          label: t('enums.workOrderStatus.IN_PROGRESS', 'In Progress'),
+          bg: 'rgba(245, 158, 11, 0.12)',
+          color: '#f59e0b',
+          border: 'rgba(245, 158, 11, 0.3)',
+          icon: <PlayCircle size={12} />,
+        };
+      case 'INTERNAL_VERIFICATION':
+        return {
+          label: t('enums.workOrderStatus.INTERNAL_VERIFICATION', 'Internal Verification'),
+          bg: 'rgba(139, 92, 246, 0.12)',
+          color: '#8b5cf6',
+          border: 'rgba(139, 92, 246, 0.3)',
+          icon: <ShieldCheck size={12} />,
+        };
+      case 'EXTERNAL_VERIFICATION':
+        return {
+          label: t('enums.workOrderStatus.EXTERNAL_VERIFICATION', 'External Verification'),
+          bg: 'rgba(99, 102, 241, 0.12)',
+          color: '#6366f1',
+          border: 'rgba(99, 102, 241, 0.3)',
+          icon: <ShieldCheck size={12} />,
+        };
+      case 'COMPLETED':
+        return {
+          label: t('enums.workOrderStatus.COMPLETED', 'Completed'),
+          bg: 'rgba(16, 185, 129, 0.12)',
+          color: '#10b981',
+          border: 'rgba(16, 185, 129, 0.3)',
+          icon: <CheckCircle2 size={12} />,
+        };
+      case 'FAILED':
+        return {
+          label: t('enums.workOrderStatus.FAILED', 'Failed'),
+          bg: 'rgba(239, 68, 68, 0.12)',
+          color: '#ef4444',
+          border: 'rgba(239, 68, 68, 0.3)',
+          icon: <AlertCircle size={12} />,
+        };
+      case 'CANCELLED':
+        return {
+          label: t('enums.workOrderStatus.CANCELLED', 'Cancelled'),
+          bg: 'rgba(239, 68, 68, 0.12)',
+          color: '#ef4444',
+          border: 'rgba(239, 68, 68, 0.3)',
+          icon: <XCircle size={12} />,
+        };
+      default:
+        return {
+          label: status,
+          bg: 'var(--bg-surface)',
+          color: 'var(--text-muted)',
+          border: 'var(--border-color)',
+          icon: <CircleDot size={12} />,
+        };
+    }
   };
 
-  // Status Selector (Conditions 1, 2, 4)
-  const renderStatusSelector = (step: ProcessEditItem, idx: number) => {
-    // Condition 1: If WO status is Created, admin cannot change any process status
-    // Condition 2 & 4: Subsequent process status cannot be changed until previous process is marked as Completed or Failed
-    const isStatusEditable =
-      !isCreatedStatus &&
-      (idx === 0 ||
-        processList[idx - 1]?.status === 'COMPLETED' ||
-        processList[idx - 1]?.status === 'FAILED');
-
-    if (isStatusEditable) {
-      return (
-        <div style={{ width: '135px', flexShrink: 0 }}>
-          <select
-            className="form-input"
-            value={step.status}
-            onChange={(e) => updateProcessStatus(idx, e.target.value as any)}
-            style={{
-              fontSize: '12px',
-              fontWeight: 700,
-              padding: '6px 8px',
-              borderRadius: '8px',
-              backgroundColor: getStatusBg(step.status),
-              color: getStatusColor(step.status),
-              border: `1px solid ${getStatusBorder(step.status)}`,
-              cursor: 'pointer',
-              width: '100%',
-              height: '34px',
-            }}
-          >
-            <option value="NOT_STARTED">{t('enums.processStatus.NOT_STARTED', 'Not Started')}</option>
-            <option value="IN_PROGRESS">{t('enums.processStatus.IN_PROGRESS', 'In Progress')}</option>
-            <option value="PAUSED">{t('enums.processStatus.PAUSED', 'Paused')}</option>
-            <option value="COMPLETED">{t('enums.processStatus.COMPLETED', 'Completed')}</option>
-            <option value="FAILED">{t('enums.processStatus.FAILED', 'Failed')}</option>
-          </select>
-        </div>
-      );
-    }
+  // Helper for Process Step Status Badge in Tab 2 (View-only for admin, all verification & production non-editable)
+  const renderStatusBadge = (status: string) => {
+    let icon = <CircleDot size={12} />;
+    if (status === 'COMPLETED') icon = <CheckCircle2 size={12} />;
+    else if (status === 'IN_PROGRESS') icon = <PlayCircle size={12} />;
+    else if (status === 'PAUSED') icon = <Clock size={12} />;
+    else if (status === 'FAILED') icon = <AlertCircle size={12} />;
+    else if (status === 'CANCELLED') icon = <XCircle size={12} />;
 
     return (
       <Tooltip
-        content={
-          isCreatedStatus
-            ? t('workOrders.editModal.statusLockedInCreated', 'Process status cannot be changed when Work Order is in Created status')
-            : t('workOrders.editModal.statusLockedPrevIncomplete', 'Previous process must be Completed or Failed before changing status')
-        }
+        content={t(
+          'workOrders.editModal.processStatusReadOnly',
+          'Process status is view-only and managed by technicians/verification workflow'
+        )}
       >
-        <div style={{ cursor: 'not-allowed', width: '135px', flexShrink: 0 }}>
-          {renderStatusBadge(step.status)}
+        <div
+          style={{
+            width: '135px',
+            flexShrink: 0,
+            fontSize: '12px',
+            fontWeight: 700,
+            color: getStatusColor(status),
+            backgroundColor: getStatusBg(status),
+            padding: '6px 10px',
+            borderRadius: '8px',
+            textAlign: 'center',
+            border: `1px solid ${getStatusBorder(status)}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            cursor: 'default',
+            userSelect: 'none',
+          }}
+        >
+          {icon}
+          <span>{t(`enums.processStatus.${status}`, status.replace('_', ' '))}</span>
         </div>
       </Tooltip>
     );
@@ -869,7 +937,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
         <div
           className="modal-header"
           style={{
-            padding: '18px 24px',
+            padding: '16px 24px',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
@@ -878,61 +946,63 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
-                {t('workOrders.editModal.title', 'Edit Work Order')}
-              </h2>
-              <span
-                style={{
-                  fontFamily: 'monospace',
-                  fontWeight: 800,
-                  fontSize: '12px',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                  color: 'var(--primary-600)',
-                }}
-              >
-                {workOrder.folioNumber}
-              </span>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '999px',
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {t(`enums.workOrderStatus.${workOrder.status}`, workOrder.status)}
-              </span>
-            </div>
+            <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+              {t('workOrders.editModal.titleWithFolio', {
+                folio: workOrder.folioNumber?.replace(/^#/, '') || '',
+                defaultValue: `#${workOrder.folioNumber?.replace(/^#/, '')} – Edit`,
+              })}
+            </h2>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
               {t('workOrders.editModal.subtitle', 'Edit existing dental lab work order details')}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-icon"
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* WO Status in Top-Right Corner */}
+            {(() => {
+              const statusCfg = getWorkOrderStatusBadge(workOrder.status);
+              return (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 12px',
+                    borderRadius: '999px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    backgroundColor: statusCfg.bg,
+                    color: statusCfg.color,
+                    border: `1px solid ${statusCfg.border}`,
+                  }}
+                  title={t('workOrders.statusCalculatedTooltip', 'Work Order status derived from process workflow')}
+                >
+                  {statusCfg.icon}
+                  <span>{statusCfg.label}</span>
+                </div>
+              );
+            })()}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-icon"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* ─── TAB NAVIGATION (Matching Screenshot) ─── */}
@@ -1060,44 +1130,47 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
               ══════════════════════════════════════════════════════════════ */}
               {activeTab === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Doctor & Patient */}
+                  {/* Doctor & Patient (Non-editable) */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600 }}>
-                        {t('workOrders.form.doctor', 'Doctor')}{' '}
-                        <span style={{ color: 'var(--rose-500)' }}>*</span>
+                      <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>{t('workOrders.form.doctor', 'Doctor')}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Lock size={11} /> {t('common.readOnly', 'Read-only')}
+                        </span>
                       </label>
                       <SearchableSelect
                         options={doctorOptions}
                         value={doctorId}
-                        onChange={(val) => {
-                          setDoctorId(val);
-                          setErrors((prev) => {
-                            const copy = { ...prev };
-                            delete copy.doctorId;
-                            return copy;
-                          });
-                        }}
+                        onChange={() => {}}
+                        disabled={true}
                         placeholder={t('workOrders.form.selectDoctor', 'Select a doctor')}
                         searchPlaceholder={t('workOrders.form.searchDoctor', 'Search doctor or clinic...')}
+                        style={{ cursor: 'not-allowed', opacity: 0.85 }}
                       />
-                      {errors.doctorId && (
-                        <p style={{ color: 'var(--rose-500)', fontSize: '12px', margin: '4px 0 0' }}>
-                          {errors.doctorId}
-                        </p>
-                      )}
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600 }}>
-                        {t('workOrders.form.patient', 'Patient')}
+                      <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>{t('workOrders.form.patient', 'Patient')}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Lock size={11} /> {t('common.readOnly', 'Read-only')}
+                        </span>
                       </label>
                       <input
                         type="text"
                         className="form-input"
-                        placeholder="e.g., John Doe"
+                        placeholder="—"
                         value={patient}
-                        onChange={(e) => setPatient(e.target.value)}
+                        disabled={true}
+                        readOnly
+                        style={{
+                          backgroundColor: 'var(--bg-surface)',
+                          cursor: 'not-allowed',
+                          color: 'var(--text-main)',
+                          opacity: 0.85,
+                          fontWeight: 500,
+                        }}
                       />
                     </div>
                   </div>
@@ -1131,7 +1204,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Delivery Date & Prosthesis Type */}
+                  {/* Delivery Date & Prosthesis Type (Prosthesis Non-editable) */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600 }}>
@@ -1146,29 +1219,21 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600 }}>
-                        {t('workOrders.form.prosthesisType', 'Prosthesis Type')}{' '}
-                        <span style={{ color: 'var(--rose-500)' }}>*</span>
+                      <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>{t('workOrders.form.prosthesisType', 'Prosthesis Type')}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Lock size={11} /> {t('common.readOnly', 'Read-only')}
+                        </span>
                       </label>
                       <SearchableSelect
                         options={prosthesisTypeOptions}
                         value={prosthesisTypeId}
-                        onChange={(val) => {
-                          setProsthesisTypeId(val);
-                          setErrors((prev) => {
-                            const copy = { ...prev };
-                            delete copy.prosthesisTypeId;
-                            return copy;
-                          });
-                        }}
+                        onChange={() => {}}
+                        disabled={true}
                         placeholder={t('workOrders.form.selectProsthesisType', 'Select prosthesis type...')}
                         searchPlaceholder={t('workOrders.form.searchProsthesis', 'Search prosthesis type...')}
+                        style={{ cursor: 'not-allowed', opacity: 0.85 }}
                       />
-                      {errors.prosthesisTypeId && (
-                        <p style={{ color: 'var(--rose-500)', fontSize: '12px', margin: '4px 0 0' }}>
-                          {errors.prosthesisTypeId}
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -1623,250 +1688,372 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                       {processList.map((step, idx) => {
                         const isExt = step.processType === 'EXTERNAL_VERIFICATION';
                         const isInt = step.processType === 'INTERNAL_VERIFICATION' || step.isVerification;
-                        const isStarted = !isCreatedStatus && Boolean(step.status && step.status !== 'NOT_STARTED');
+                        // Technician dropdown is editable ONLY when status is Not Started
+                        const isStepNotStarted = !step.status || step.status === 'NOT_STARTED';
+                        const isStepStarted = !isStepNotStarted;
+                        const isStarted = isStepStarted;
 
-                        const currentAssigneeName =
-                          technicians.find((t) => t.id === step.technicianId)?.name ||
-                          labAdmins.find((a) => a.id === step.technicianId)?.name;
+                        // Highlight currently ongoing / active process step
+                        const isCurrentProcess = idx === currentProcessIndex;
+                        const isOngoing = step.status === 'IN_PROGRESS';
+                        const isPaused = step.status === 'PAUSED';
 
-                        // Filter existing process assignee options based on process type:
-                        // - Internal Verification: All Admins
-                        // - Production: All Technicians and Admins
-                        const stepAssigneeOptions = isInt
-                          ? internalVerificationOptions.some((o) => o.value === step.technicianId)
-                            ? internalVerificationOptions
+                          const currentAssigneeName =
+                            technicians.find((t) => t.id === step.technicianId)?.name ||
+                            labAdmins.find((a) => a.id === step.technicianId)?.name;
+
+                          // Filter existing process assignee options based on process type:
+                          // - Internal Verification: All Admins
+                          // - Production: All Technicians and Admins
+                          const stepAssigneeOptions = isInt
+                            ? internalVerificationOptions.some((o) => o.value === step.technicianId)
+                              ? internalVerificationOptions
+                              : step.technicianId
+                              ? [
+                                  ...internalVerificationOptions,
+                                  {
+                                    value: step.technicianId,
+                                    label: currentAssigneeName || step.technicianId,
+                                    badge: t('labUsers.labAdmin', 'Lab Admin'),
+                                  },
+                                ]
+                              : internalVerificationOptions
+                            : productionOptions.some((o) => o.value === step.technicianId)
+                            ? productionOptions
                             : step.technicianId
                             ? [
-                                ...internalVerificationOptions,
+                                ...productionOptions,
                                 {
                                   value: step.technicianId,
                                   label: currentAssigneeName || step.technicianId,
-                                  badge: t('labUsers.labAdmin', 'Lab Admin'),
+                                  badge: t('labUsers.technician', 'Technician'),
                                 },
                               ]
-                            : internalVerificationOptions
-                          : productionOptions.some((o) => o.value === step.technicianId)
-                          ? productionOptions
-                          : step.technicianId
-                          ? [
-                              ...productionOptions,
-                              {
-                                value: step.technicianId,
-                                label: currentAssigneeName || step.technicianId,
-                                badge: t('labUsers.technician', 'Technician'),
-                              },
-                            ]
-                          : productionOptions;
+                            : productionOptions;
 
-                        return (
-                          <div
-                            key={step.tempId}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              padding: '10px 14px',
-                              backgroundColor: 'var(--bg-card)',
-                              border: isExt
-                                ? '1px solid rgba(99, 102, 241, 0.35)'
-                                : isInt
-                                ? '1px solid rgba(245, 158, 11, 0.35)'
-                                : '1px solid var(--border-color)',
-                              borderRadius: '10px',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            {/* Sequence Circle */}
+                          return (
                             <div
+                              key={step.tempId}
                               style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                backgroundColor: isExt
-                                  ? 'rgba(99, 102, 241, 0.15)'
-                                  : isInt
-                                  ? 'rgba(245, 158, 11, 0.15)'
-                                  : 'rgba(37, 99, 235, 0.15)',
-                                color: isExt
-                                  ? '#4f46e5'
-                                  : isInt
-                                  ? '#d97706'
-                                  : 'var(--primary-600)',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '12px',
-                                fontWeight: 800,
-                                flexShrink: 0,
+                                gap: '12px',
+                                padding: isCurrentProcess ? '12px 14px' : '10px 14px',
+                                backgroundColor: isCurrentProcess ? 'rgba(37, 99, 235, 0.06)' : 'var(--bg-card)',
+                                border: isCurrentProcess
+                                  ? '2px solid var(--primary-600)'
+                                  : isExt
+                                  ? '1px solid rgba(99, 102, 241, 0.35)'
+                                  : isInt
+                                  ? '1px solid rgba(245, 158, 11, 0.35)'
+                                  : '1px solid var(--border-color)',
+                                borderLeft: isCurrentProcess
+                                  ? '6px solid var(--primary-600)'
+                                  : isExt
+                                  ? '4px solid #6366f1'
+                                  : isInt
+                                  ? '4px solid #f59e0b'
+                                  : '1px solid var(--border-color)',
+                                borderRadius: '10px',
+                                boxShadow: isCurrentProcess
+                                  ? '0 4px 18px -2px rgba(37, 99, 235, 0.22), 0 0 0 1px rgba(37, 99, 235, 0.18)'
+                                  : 'none',
+                                transition: 'all 0.15s ease',
                               }}
                             >
-                              {idx + 1}
-                            </div>
-
-                            {/* Process Name & Badges */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <div
-                                  style={{
-                                    fontSize: '13px',
-                                    fontWeight: 700,
-                                    color: 'var(--text-heading)',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                  }}
-                                >
-                                  {step.processName}
-                                </div>
-
-                                {/* Rework Selection Checkbox (beside process name) */}
-                                {reworkMode && step.status === 'COMPLETED' && !step.isVerification && step.processType === 'PRODUCTION' && (
-                                  <label
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '5px',
-                                      padding: '3px 8px',
-                                      borderRadius: '6px',
-                                      backgroundColor: reworkSelectedProcessIds.includes(step.id || step.processId || '')
-                                        ? 'rgba(239, 68, 68, 0.12)'
-                                        : 'var(--bg-surface)',
-                                      border: reworkSelectedProcessIds.includes(step.id || step.processId || '')
-                                        ? '1.5px solid var(--rose-500)'
-                                        : '1px solid var(--border-color)',
-                                      color: reworkSelectedProcessIds.includes(step.id || step.processId || '')
-                                        ? 'var(--rose-600)'
-                                        : 'var(--text-muted)',
-                                      fontWeight: 700,
-                                      fontSize: '11px',
-                                      cursor: 'pointer',
-                                      userSelect: 'none',
-                                      transition: 'all 0.15s ease',
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={reworkSelectedProcessIds.includes(step.id || step.processId || '')}
-                                      onChange={(e) => {
-                                        const id = step.id || step.processId || '';
-                                        if (e.target.checked) {
-                                          setReworkSelectedProcessIds((prev) => [...prev, id]);
-                                        } else {
-                                          setReworkSelectedProcessIds((prev) => prev.filter((x) => x !== id));
-                                        }
-                                      }}
-                                      style={{ accentColor: 'var(--rose-600)', width: '14px', height: '14px', cursor: 'pointer' }}
-                                    />
-                                    <span>{t('rework.checkboxLabel', 'Rework')}</span>
-                                  </label>
-                                )}
+                              {/* Sequence Circle */}
+                              <div
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  backgroundColor: isCurrentProcess
+                                    ? 'var(--primary-600)'
+                                    : isExt
+                                    ? 'rgba(99, 102, 241, 0.15)'
+                                    : isInt
+                                    ? 'rgba(245, 158, 11, 0.15)'
+                                    : 'rgba(37, 99, 235, 0.15)',
+                                  color: isCurrentProcess
+                                    ? '#ffffff'
+                                    : isExt
+                                    ? '#4f46e5'
+                                    : isInt
+                                    ? '#d97706'
+                                    : 'var(--primary-600)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '12px',
+                                  fontWeight: 800,
+                                  flexShrink: 0,
+                                  boxShadow: isCurrentProcess ? '0 0 0 3px rgba(37, 99, 235, 0.28)' : 'none',
+                                }}
+                              >
+                                {idx + 1}
                               </div>
-                              {isExt ? (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    color: '#4f46e5',
-                                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                                    padding: '2px 7px',
-                                    borderRadius: '5px',
-                                    marginTop: '3px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                  }}
-                                >
-                                  <ShieldCheck size={11} />
-                                  <span>{t('labProcesses.types.EXTERNAL_VERIFICATION', 'External Verification')}</span>
-                                </span>
-                              ) : isInt ? (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    color: '#d97706',
-                                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                                    border: '1px solid rgba(245, 158, 11, 0.25)',
-                                    padding: '2px 7px',
-                                    borderRadius: '5px',
-                                    marginTop: '3px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                  }}
-                                >
-                                  <ShieldCheck size={11} />
-                                  <span>{t('labProcesses.types.INTERNAL_VERIFICATION', 'Internal Verification')}</span>
-                                </span>
-                              ) : null}
-                            </div>
 
-                            {/* Assignee Selector (Locked once started & Filtered by type) */}
-                            <div style={{ width: '210px', flexShrink: 0 }}>
-                              {isExt ? (
-                                <input
-                                  type="text"
-                                  readOnly
-                                  className="form-input"
-                                  value={selectedDoctor ? selectedDoctor.name : t('workOrders.assignedDoctor', 'Assigned Doctor')}
-                                  style={{
-                                    fontSize: '12px',
-                                    backgroundColor: 'var(--bg-surface)',
-                                    cursor: 'default',
-                                    fontWeight: 600,
-                                  }}
-                                />
-                              ) : isStarted ? (
-                                <Tooltip content={t('workOrders.editModal.cannotChangeStartedTech', 'Assigned technician cannot be changed after process has started')}>
+                              {/* Process Name & Badges */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                   <div
                                     style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      padding: '7px 10px',
-                                      borderRadius: '8px',
-                                      backgroundColor: 'var(--bg-surface)',
-                                      border: '1px solid var(--border-color)',
-                                      fontSize: '12px',
-                                      fontWeight: 600,
-                                      color: 'var(--text-main)',
-                                      cursor: 'not-allowed',
+                                      fontSize: isCurrentProcess ? '14px' : '13px',
+                                      fontWeight: isCurrentProcess ? 800 : 700,
+                                      color: isCurrentProcess ? 'var(--primary-600)' : 'var(--text-heading)',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
                                     }}
                                   >
-                                    <Lock size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {currentAssigneeName || t('common.unassigned', 'Unassigned')}
-                                    </span>
+                                    {step.processName}
                                   </div>
-                                </Tooltip>
-                              ) : isInt ? (
-                                <SearchableSelect
-                                  options={stepAssigneeOptions}
-                                  value={step.technicianId || ''}
-                                  onChange={(val) => updateProcessTechnician(idx, val)}
-                                  placeholder={t('workOrders.selectAdmin', 'Select administrator...')}
-                                  searchPlaceholder={t('workOrders.searchAdmin', 'Search admin...')}
-                                  style={{ fontSize: '12px' }}
-                                />
-                              ) : (
-                                <SearchableSelect
-                                  options={stepAssigneeOptions}
-                                  value={step.technicianId || ''}
-                                  onChange={(val) => updateProcessTechnician(idx, val)}
-                                  placeholder={t('workOrders.form.selectTechnicianOrAdmin', 'Select technician or admin...')}
-                                  searchPlaceholder={t('workOrders.form.searchTechOrAdmin', 'Search technician or admin...')}
-                                  style={{ fontSize: '12px' }}
-                                />
-                              )}
-                            </div>
 
-                            {/* Process Current Status (Conditions 1, 2, 4) */}
-                            {renderStatusSelector(step, idx)}
+                                  {/* Highlight Badge for Current Process */}
+                                  {isCurrentProcess && (
+                                    <span
+                                      style={{
+                                        fontSize: '10px',
+                                        fontWeight: 800,
+                                        color: isPaused ? '#d97706' : 'var(--primary-600)',
+                                        backgroundColor: isPaused ? 'rgba(245, 158, 11, 0.12)' : 'rgba(37, 99, 235, 0.12)',
+                                        border: isPaused ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(37, 99, 235, 0.35)',
+                                        padding: '2px 8px',
+                                        borderRadius: '999px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        letterSpacing: '0.02em',
+                                        textTransform: 'uppercase',
+                                        flexShrink: 0,
+                                        boxShadow: isPaused ? 'none' : '0 1px 3px rgba(37, 99, 235, 0.15)',
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          width: '6px',
+                                          height: '6px',
+                                          borderRadius: '50%',
+                                          backgroundColor: isPaused ? '#d97706' : 'var(--primary-600)',
+                                          boxShadow: isPaused ? 'none' : '0 0 6px var(--primary-600)',
+                                        }}
+                                      />
+                                      <span>
+                                        {isOngoing
+                                          ? t('workOrders.editModal.currentOngoingProcess', 'In Progress (Current)')
+                                          : isPaused
+                                          ? t('workOrders.editModal.currentPausedProcess', 'Paused (Current)')
+                                          : t('workOrders.editModal.currentProcess', 'Current Process')}
+                                      </span>
+                                    </span>
+                                  )}
 
-                            {/* Action Buttons: Up, Down, Delete (Hidden in reworkMode) */}
-                            {!reworkMode && (
+                                  {/* Rework Active Badge */}
+                                  {step.reworkActive && (
+                                    <span
+                                      style={{
+                                        fontSize: '10px',
+                                        fontWeight: 800,
+                                        color: '#ef4444',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        padding: '2px 8px',
+                                        borderRadius: '999px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <RotateCcw size={10} />
+                                      <span>
+                                        {t('rework.activeAlertTitle', {
+                                          count: step.reworkCount || 1,
+                                          defaultValue: `Rework Active (Cycle #${step.reworkCount || 1})`,
+                                        })}
+                                      </span>
+                                    </span>
+                                  )}
+
+                                  {/* Rework History Count Badge */}
+                                  {!step.reworkActive && (step.reworkCount || 0) > 0 && (
+                                    <span
+                                      style={{
+                                        fontSize: '10px',
+                                        fontWeight: 700,
+                                        color: '#d97706',
+                                        backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                                        padding: '2px 7px',
+                                        borderRadius: '999px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <RotateCcw size={10} />
+                                      <span>
+                                        {t('rework.repeatedBadge', {
+                                          count: step.reworkCount,
+                                          defaultValue: `Reworked (${step.reworkCount}x)`,
+                                        })}
+                                      </span>
+                                    </span>
+                                  )}
+
+                                  {/* Rework Selection Checkbox (beside process name) */}
+                                  {reworkMode && step.status === 'COMPLETED' && !step.isVerification && step.processType === 'PRODUCTION' && (
+                                    <label
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        padding: '3px 8px',
+                                        borderRadius: '6px',
+                                        backgroundColor: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                          ? 'rgba(239, 68, 68, 0.12)'
+                                          : 'var(--bg-surface)',
+                                        border: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                          ? '1.5px solid var(--rose-500)'
+                                          : '1px solid var(--border-color)',
+                                        color: reworkSelectedProcessIds.includes(step.id || step.processId || '')
+                                          ? 'var(--rose-600)'
+                                          : 'var(--text-muted)',
+                                        fontWeight: 700,
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        userSelect: 'none',
+                                        transition: 'all 0.15s ease',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={reworkSelectedProcessIds.includes(step.id || step.processId || '')}
+                                        onChange={(e) => {
+                                          const id = step.id || step.processId || '';
+                                          if (e.target.checked) {
+                                            setReworkSelectedProcessIds((prev) => [...prev, id]);
+                                          } else {
+                                            setReworkSelectedProcessIds((prev) => prev.filter((x) => x !== id));
+                                          }
+                                        }}
+                                        style={{ accentColor: 'var(--rose-600)', width: '14px', height: '14px', cursor: 'pointer' }}
+                                      />
+                                      <span>{t('rework.checkboxLabel', 'Rework')}</span>
+                                    </label>
+                                  )}
+                                </div>
+                                {isExt ? (
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      color: '#4f46e5',
+                                      backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                                      padding: '2px 7px',
+                                      borderRadius: '5px',
+                                      marginTop: '3px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    <ShieldCheck size={11} />
+                                    <span>{t('labProcesses.types.EXTERNAL_VERIFICATION', 'External Verification')}</span>
+                                  </span>
+                                ) : isInt ? (
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      color: '#d97706',
+                                      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                                      padding: '2px 7px',
+                                      borderRadius: '5px',
+                                      marginTop: '3px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    <ShieldCheck size={11} />
+                                    <span>{t('labProcesses.types.INTERNAL_VERIFICATION', 'Internal Verification')}</span>
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              {/* Assignee Selector:
+                                  - External verification: Doctor (read-only)
+                                  - Started process: Technician locked (read-only)
+                                  - Not Started process: Editable dropdown
+                              */}
+                              <div style={{ width: '210px', flexShrink: 0 }}>
+                                {isExt ? (
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    className="form-input"
+                                    value={selectedDoctor ? selectedDoctor.name : t('workOrders.assignedDoctor', 'Assigned Doctor')}
+                                    style={{
+                                      fontSize: '12px',
+                                      backgroundColor: 'var(--bg-surface)',
+                                      cursor: 'default',
+                                      fontWeight: 600,
+                                    }}
+                                  />
+                                ) : isStepStarted ? (
+                                  <Tooltip content={t('workOrders.editModal.cannotChangeStartedTech', 'Assigned technician cannot be changed after process has started')}>
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '7px 10px',
+                                        borderRadius: '8px',
+                                        backgroundColor: 'var(--bg-surface)',
+                                        border: '1px solid var(--border-color)',
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                        color: 'var(--text-main)',
+                                        cursor: 'not-allowed',
+                                      }}
+                                    >
+                                      <Lock size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {currentAssigneeName || t('common.unassigned', 'Unassigned')}
+                                      </span>
+                                    </div>
+                                  </Tooltip>
+                                ) : isInt ? (
+                                  <SearchableSelect
+                                    options={stepAssigneeOptions}
+                                    value={step.technicianId || ''}
+                                    onChange={(val) => updateProcessTechnician(idx, val)}
+                                    placeholder={t('workOrders.selectAdmin', 'Select administrator...')}
+                                    searchPlaceholder={t('workOrders.searchAdmin', 'Search admin...')}
+                                    style={{ fontSize: '12px' }}
+                                  />
+                                ) : (
+                                  <SearchableSelect
+                                    options={stepAssigneeOptions}
+                                    value={step.technicianId || ''}
+                                    onChange={(val) => updateProcessTechnician(idx, val)}
+                                    placeholder={t('workOrders.form.selectTechnicianOrAdmin', 'Select technician or admin...')}
+                                    searchPlaceholder={t('workOrders.form.searchTechOrAdmin', 'Search technician or admin...')}
+                                    style={{ fontSize: '12px' }}
+                                  />
+                                )}
+                              </div>
+
+                              {/* Process Status (View-only for admin across all process types) */}
+                              {renderStatusBadge(step.status)}
+
+                              {/* Action Buttons: Up, Down, Delete (Hidden in reworkMode) */}
+                              {!reworkMode && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                               <Tooltip content={t('common.moveUp', 'Move Up')}>
                                 <button

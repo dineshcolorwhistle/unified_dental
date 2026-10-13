@@ -17,6 +17,7 @@ import {
   Activity,
   FileText,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
@@ -1167,8 +1168,11 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                               {proc.reworkActive && (
                                 <span
                                   style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
                                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                                    color: 'var(--rose-600)',
+                                    color: 'var(--rose-600, #ef4444)',
                                     fontSize: '11px',
                                     fontWeight: 800,
                                     padding: '2px 8px',
@@ -1176,7 +1180,33 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                                     border: '1px solid rgba(239, 68, 68, 0.3)',
                                   }}
                                 >
-                                  {t('rework.activeBadge', { defaultValue: 'Rework Active' })}
+                                  <RotateCcw size={11} />
+                                  {t('rework.activeAlertTitle', {
+                                    count: proc.reworkCount || 1,
+                                    defaultValue: `Rework Active (Cycle #${proc.reworkCount || 1})`,
+                                  })}
+                                </span>
+                              )}
+                              {!proc.reworkActive && (proc.reworkCount || 0) > 0 && (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                    color: '#d97706',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  }}
+                                >
+                                  <RotateCcw size={11} />
+                                  {t('rework.repeatedBadge', {
+                                    count: proc.reworkCount,
+                                    defaultValue: `Reworked (${proc.reworkCount}x)`,
+                                  })}
                                 </span>
                               )}
                             </div>

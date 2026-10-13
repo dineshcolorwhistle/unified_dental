@@ -6,6 +6,7 @@ import {
   MessageSquare,
   ClipboardList,
   Eye,
+  RotateCcw,
 } from 'lucide-react';
 import { useToast } from '../../core/context/ToastContext';
 import { useNotifications } from '../../core/context/NotificationContext';
@@ -98,11 +99,13 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
     socket.on('work_order:updated', handleRealtimeWorkOrdersSync);
     socket.on('work_order:process_updated', handleRealtimeWorkOrdersSync);
     socket.on('work_order:assigned', handleRealtimeWorkOrdersSync);
+    socket.on('work_order:unassigned', handleRealtimeWorkOrdersSync);
 
     return () => {
       socket.off('work_order:updated', handleRealtimeWorkOrdersSync);
       socket.off('work_order:process_updated', handleRealtimeWorkOrdersSync);
       socket.off('work_order:assigned', handleRealtimeWorkOrdersSync);
+      socket.off('work_order:unassigned', handleRealtimeWorkOrdersSync);
     };
   }, [socket, fetchOrders]);
 
@@ -496,8 +499,56 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                     <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                       {t('technician.myStepAssignment', { defaultValue: 'My Step Assignment' })}
                     </div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)', marginTop: '2px' }}>
-                      {stepName}
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span>{stepName}</span>
+                      {myProcess?.reworkActive && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            padding: '2px 7px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            color: 'var(--rose-600)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <RotateCcw size={10} />
+                          <span>
+                            {t('rework.activeAlertTitle', {
+                              count: myProcess.reworkCount || 1,
+                              defaultValue: `Rework Active (Cycle #${myProcess.reworkCount || 1})`,
+                            })}
+                          </span>
+                        </span>
+                      )}
+                      {!myProcess?.reworkActive && (myProcess?.reworkCount || 0) > 0 && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '2px 7px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            color: '#d97706',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <RotateCcw size={10} />
+                          <span>
+                            {t('rework.repeatedBadge', {
+                              count: myProcess.reworkCount,
+                              defaultValue: `Reworked (${myProcess.reworkCount}x)`,
+                            })}
+                          </span>
+                        </span>
+                      )}
                     </div>
                   </div>
 

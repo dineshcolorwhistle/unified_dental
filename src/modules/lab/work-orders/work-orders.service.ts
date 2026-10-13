@@ -704,6 +704,8 @@ export class WorkOrdersService {
               sequence: true,
               isVerification: true,
               status: true,
+              reworkCount: true,
+              reworkActive: true,
               technician: { select: { id: true, name: true } },
               doctor: { select: { id: true, name: true, clinicName: true } },
             },
@@ -802,7 +804,148 @@ export class WorkOrdersService {
       }
     }
 
+    (workOrder as any).reworkCycles = this.computeReworkCycles(workOrder);
+
     return workOrder;
+  }
+
+  /**
+   * Compute structured rework cycle audit trail entries for a work order
+   */
+  computeReworkCycles(workOrder: any) {
+    if (!workOrder || !Array.isArray(workOrder.processes)) return [];
+
+    const cycles: any[] = [];
+    const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
+
+    for (const proc of sortedProcs) {
+      const logs = Array.isArray(proc.activityLogs)
+        ? [...proc.activityLogs].sort(
+            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+          )
+        : [];
+
+      for (let i = 0; i < logs.length; i++) {
+        const log = logs[i];
+        const isReworkAction =
+          log.action === 'REWORK_ASSIGNED' ||
+          /rework cycle/i.test(log.notes || '') ||
+          /rework initiated/i.test(log.notes || '');
+
+        if (!isReworkAction) continue;
+
+        // Parse rework count
+        const countMatch = (log.notes || '').match(/rework cycle #?(\d+)/i);
+        const reworkCount = countMatch ? parseInt(countMatch[1], 10) : proc.reworkCount || 1;
+
+        // Parse initiator
+        const initMatch = (log.notes || '').match(/initiated by (.*?) in stage:/i);
+        const initiatedBy = log.user?.name || (initMatch ? initMatch[1].trim() : 'Admin');
+
+        // Parse triggering stage
+        const stageMatch = (log.notes || '').match(/in stage:\s*([^\.]+)/i);
+        const triggeringStage = stageMatch ? stageMatch[1].trim() : 'External Verification';
+
+        // Find the next COMPLETE log on this process after this rework log
+        const logTime = new Date(log.timestamp).getTime();
+        const nextCompleteLog = logs.slice(i + 1).find((l) => {
+          const lTime = new Date(l.timestamp).getTime();
+          return lTime >= logTime && l.action === 'COMPLETE';
+        });
+
+        const completionDateTime = nextCompleteLog
+          ? nextCompleteLog.timestamp
+          : proc.status === ProcessStatus.COMPLETED && !proc.reworkActive && proc.endedAt
+          ? proc.endedAt
+          : null;
+
+        // Check for subsequent approval in verification steps
+        let approvalDateTime: any = null;
+        if (completionDateTime) {
+          const compTime = new Date(completionDateTime).getTime();
+          for (const vProc of sortedProcs) {
+            if (
+              (vProc.isVerification ||
+                vProc.processType === ProcessType.INTERNAL_VERIFICATION ||
+                vProc.processType === ProcessType.EXTERNAL_VERIFICATION) &&
+              vProc.sequence > proc.sequence
+            ) {
+              const vLogs = Array.isArray(vProc.activityLogs) ? vProc.activityLogs : [];
+              const approvedLog = vLogs.find(
+                (vl: any) =>
+                  vl.action === 'VERIFICATION_APPROVED' &&
+                  new Date(vl.timestamp).getTime() >= compTime,
+              );
+              if (approvedLog) {
+                approvalDateTime = approvedLog.timestamp;
+                break;
+              }
+            }
+          }
+        }
+
+        // Determine status
+        let status = 'Not Started';
+        if (approvalDateTime) {
+          status = 'Completed';
+        } else if (completionDateTime) {
+          status = 'Completed';
+        } else if (proc.status === ProcessStatus.IN_PROGRESS || proc.status === ProcessStatus.PAUSED) {
+          status = 'In Progress';
+        } else {
+          status = 'Not Started';
+        }
+
+        cycles.push({
+          processId: proc.id,
+          processName: proc.processName,
+          reworkCount,
+          initiatedBy,
+          initiatedById: log.userId || log.user?.id,
+          initiationDateTime: log.timestamp,
+          triggeringStage,
+          assignedTechnician: proc.technician?.name || '—',
+          assignedTechnicianId: proc.technicianId,
+          completionDateTime: completionDateTime ? new Date(completionDateTime).toISOString() : null,
+          approvalDateTime: approvalDateTime ? new Date(approvalDateTime).toISOString() : null,
+          status,
+        });
+      }
+    }
+
+    // Fallback: If no activity logs matched but processes have rework flags
+    if (cycles.length === 0) {
+      for (const proc of sortedProcs) {
+        if ((proc.reworkCount && proc.reworkCount > 0) || proc.reworkActive) {
+          cycles.push({
+            processId: proc.id,
+            processName: proc.processName,
+            reworkCount: proc.reworkCount || 1,
+            initiatedBy: 'Admin',
+            initiatedById: null,
+            initiationDateTime: proc.updatedAt ? new Date(proc.updatedAt).toISOString() : new Date().toISOString(),
+            triggeringStage: 'Verification',
+            assignedTechnician: proc.technician?.name || '—',
+            assignedTechnicianId: proc.technicianId,
+            completionDateTime: proc.status === ProcessStatus.COMPLETED && proc.endedAt ? new Date(proc.endedAt).toISOString() : null,
+            approvalDateTime: null,
+            status:
+              proc.status === ProcessStatus.COMPLETED
+                ? 'Completed'
+                : proc.status === ProcessStatus.IN_PROGRESS || proc.status === ProcessStatus.PAUSED
+                ? 'In Progress'
+                : 'Not Started',
+          });
+        }
+      }
+    }
+
+    cycles.sort(
+      (a, b) =>
+        new Date(a.initiationDateTime).getTime() - new Date(b.initiationDateTime).getTime(),
+    );
+
+    return cycles;
   }
 
   /**
@@ -1042,6 +1185,17 @@ export class WorkOrdersService {
       nextProcessId: string;
       isNextVerification: boolean;
     }> = [];
+    const reassignedStepsForNotification: Array<{
+      processName: string;
+      nextTechnicianId: string;
+      nextProcessName: string;
+      nextProcessId: string;
+      isNextVerification: boolean;
+    }> = [];
+    const unassignedTechnicians: Array<{
+      technicianId: string;
+      processId: string;
+    }> = [];
 
     await this.prisma.$transaction(async (tx) => {
       // Record new note if provided
@@ -1094,6 +1248,51 @@ export class WorkOrdersService {
             const existing = existingMap.get(p.id)!;
             const targetStatus = p.status || existing.status;
             const isStatusChanged = targetStatus !== existing.status;
+            const isTechChanged = existing.technicianId !== targetTechId;
+            const prevTechId = existing.technicianId;
+
+            // Track previous technician for unassignment cleanup and real-time sync
+            if (isTechChanged && prevTechId && prevTechId !== targetTechId) {
+              unassignedTechnicians.push({
+                technicianId: prevTechId,
+                processId: p.id,
+              });
+            }
+
+            // Check if step is reassigned to a new technician AND is ready to start
+            if (isTechChanged && targetTechId && targetStatus === ProcessStatus.NOT_STARTED) {
+              let isStepReady = false;
+              if (i === 0) {
+                isStepReady = !isWOCreated || isSaveAndAssign;
+              } else {
+                let allPriorCompleted = true;
+                for (let k = 0; k < i; k++) {
+                  const priorStep = dto.processes[k];
+                  const priorExisting = priorStep.id ? existingMap.get(priorStep.id) : null;
+                  const priorStatus = priorStep.status || priorExisting?.status || ProcessStatus.NOT_STARTED;
+                  if (priorStatus !== ProcessStatus.COMPLETED) {
+                    allPriorCompleted = false;
+                    break;
+                  }
+                }
+                isStepReady = allPriorCompleted;
+              }
+
+              if (isStepReady) {
+                const prevProcessName = i > 0 ? dto.processes[i - 1].processName : p.processName;
+                reassignedStepsForNotification.push({
+                  processName: prevProcessName,
+                  nextTechnicianId: targetTechId,
+                  nextProcessName: p.processName,
+                  nextProcessId: p.id,
+                  isNextVerification: Boolean(
+                    p.isVerification ||
+                    p.processType === ProcessType.INTERNAL_VERIFICATION ||
+                    p.processType === ProcessType.EXTERNAL_VERIFICATION,
+                  ),
+                });
+              }
+            }
 
             // Condition 1: If WO status is CREATED, admin cannot change any process status, but CAN change technician
             if (isWOCreated && isStatusChanged) {
@@ -1244,6 +1443,34 @@ export class WorkOrdersService {
           }
         }
 
+        // Clean up obsolete unread notifications for any unassigned technicians
+        for (const unassigned of unassignedTechnicians) {
+          try {
+            const unreadNotifs = await tx.notification.findMany({
+              where: {
+                userId: unassigned.technicianId,
+                type: 'WORK_ORDER',
+                readAt: null,
+              },
+            });
+            const matchingIds = unreadNotifs
+              .filter((n) => {
+                const d = n.data as any;
+                return d && d.workOrderId === id && (!unassigned.processId || d.processId === unassigned.processId);
+              })
+              .map((n) => n.id);
+
+            if (matchingIds.length > 0) {
+              await tx.notification.updateMany({
+                where: { id: { in: matchingIds } },
+                data: { readAt: now },
+              });
+            }
+          } catch (err) {
+            this.logger.warn(`Failed to clean up obsolete notification for user ${unassigned.technicianId}: ${(err as any).message}`);
+          }
+        }
+
         // Automatic Work Order Status progression
         if (allCompleted && workOrder.status !== WorkOrderStatus.COMPLETED) {
           updateData.status = WorkOrderStatus.COMPLETED;
@@ -1281,14 +1508,28 @@ export class WorkOrdersService {
               processName: procs[0].processName,
             },
           });
+          this.notificationsGateway.sendToUser(procs[0].technicianId, 'work_order:assigned', {
+            workOrderId: id,
+            folioNumber: workOrder.folioNumber,
+          });
         } catch (err) {
           this.logger.warn(`Failed to dispatch assignment notification: ${(err as any).message}`);
         }
       }
     }
 
-    // Condition 3: Dispatch notifications to next technician when a previous process was completed
-    for (const notif of completedStepsForNotification) {
+    // Merge and deduplicate notifications from completed steps and reassigned steps
+    const allStepsToNotify = [...completedStepsForNotification, ...reassignedStepsForNotification];
+    const seenNotifKeys = new Set<string>();
+    const deduplicatedStepsToNotify = allStepsToNotify.filter((item) => {
+      const key = `${item.nextTechnicianId}:${item.nextProcessId}`;
+      if (seenNotifKeys.has(key)) return false;
+      seenNotifKeys.add(key);
+      return true;
+    });
+
+    // Condition 3: Dispatch notifications to next technician when a previous process was completed or reassigned when ready
+    for (const notif of deduplicatedStepsToNotify) {
       try {
         await this.notificationsService.create({
           tenantId,
@@ -1315,6 +1556,24 @@ export class WorkOrdersService {
       }
     }
 
+    // Real-time synchronization events for unassigned technicians
+    for (const unassigned of unassignedTechnicians) {
+      try {
+        this.notificationsGateway.sendToUser(unassigned.technicianId, 'work_order:unassigned', {
+          workOrderId: id,
+          folioNumber: workOrder.folioNumber,
+          processId: unassigned.processId,
+        });
+        this.notificationsGateway.sendToUser(unassigned.technicianId, 'work_order:updated', {
+          workOrderId: id,
+          folioNumber: workOrder.folioNumber,
+        });
+        this.notificationsGateway.sendToUser(unassigned.technicianId, 'notification:refresh', {});
+      } catch (err) {
+        this.logger.warn(`Failed to send unassigned socket event to tech ${unassigned.technicianId}: ${(err as any).message}`);
+      }
+    }
+
     // Real-time socket broadcast to tenant room
     try {
       this.notificationsGateway.sendToTenant(tenantId, 'work_order:updated', {
@@ -1324,21 +1583,6 @@ export class WorkOrdersService {
       });
     } catch (err) {
       this.logger.warn(`Failed to broadcast work_order:updated: ${(err as any).message}`);
-    }
-
-    if (dto.processes) {
-      for (const p of dto.processes) {
-        if (p.technicianId) {
-          try {
-            this.notificationsGateway.sendToUser(p.technicianId, 'work_order:assigned', {
-              workOrderId: id,
-              folioNumber: workOrder.folioNumber,
-            });
-          } catch (err) {
-            this.logger.warn(`Failed to send work_order:assigned to tech ${p.technicianId}: ${(err as any).message}`);
-          }
-        }
-      }
     }
 
     // Audit log
@@ -1432,8 +1676,9 @@ export class WorkOrdersService {
 
     // Queue of active work orders (NOT_STARTED, IN_PROGRESS, PAUSED)
     const workOrderMap = new Map<string, any>();
+    const sortedActiveProcesses = [...assignedProcesses].sort((a, b) => a.sequence - b.sequence);
 
-    for (const ap of assignedProcesses) {
+    for (const ap of sortedActiveProcesses) {
       if (ap.status === ProcessStatus.COMPLETED) continue;
       if (!workOrderMap.has(ap.workOrderId)) {
         const wo = ap.workOrder;
@@ -1558,6 +1803,8 @@ export class WorkOrdersService {
               startedAt: true,
               endedAt: true,
               totalActiveDuration: true,
+              reworkActive: true,
+              reworkCount: true,
               technician: { select: { id: true, name: true } },
               doctor: { select: { id: true, name: true, clinicName: true } },
             },
@@ -2013,6 +2260,8 @@ export class WorkOrdersService {
         ? `${mins} minute${mins > 1 ? 's' : ''}${secs > 0 ? ` ${secs}s` : ''}`
         : `${secs}s`;
 
+    const wasRework = Boolean(currentProcess.reworkActive || currentProcess.reworkCount > 0);
+
     let autoStartedExtVerif: {
       processId: string;
       processName: string;
@@ -2189,18 +2438,28 @@ export class WorkOrdersService {
           userId: nextProcess.technicianId,
           moduleKey: 'LAB',
           type: 'WORK_ORDER',
-          title: isNextVerification ? 'Verification Ready' : 'Process Ready to Start',
+          title: isNextVerification
+            ? (wasRework ? 'Rework Completed - Verification Ready' : 'Verification Ready')
+            : 'Process Ready to Start',
           body: isNextVerification
-            ? `Previous step "${currentProcess.processName}" completed. Verification "${nextProcess.processName}" is now ready on Work Order "${workOrder.folioNumber}".`
+            ? (wasRework
+                ? `Rework for step "${currentProcess.processName}" completed on Work Order "${workOrder.folioNumber}". Verification "${nextProcess.processName}" is now ready to restart.`
+                : `Previous step "${currentProcess.processName}" completed. Verification "${nextProcess.processName}" is now ready on Work Order "${workOrder.folioNumber}".`)
             : `Previous step "${currentProcess.processName}" completed. You can now start "${nextProcess.processName}" on Work Order "${workOrder.folioNumber}".`,
           data: {
-            templateKey: isNextVerification ? 'VERIFICATION_READY' : 'PROCESS_READY',
+            templateKey: isNextVerification
+              ? (wasRework ? 'REWORK_COMPLETED_VERIFICATION_READY' : 'VERIFICATION_READY')
+              : 'PROCESS_READY',
             workOrderId: workOrder.id,
             folioNumber: workOrder.folioNumber,
             processId: nextProcess.id,
             prevProcess: currentProcess.processName,
             nextProcess: nextProcess.processName,
           },
+        });
+        this.notificationsGateway.sendToUser(nextProcess.technicianId, 'work_order:assigned', {
+          workOrderId: workOrder.id,
+          folioNumber: workOrder.folioNumber,
         });
       } catch (err) {
         this.logger.warn(
@@ -2234,10 +2493,12 @@ export class WorkOrdersService {
             userId: admin.userId,
             moduleKey: 'LAB',
             type: 'WORK_ORDER',
-            title: 'Verification Ready',
-            body: `Technician ${actor.name || 'Staff'} completed step "${currentProcess.processName}". Verification step "${nextIncompleteProcess.processName}" on Work Order "${workOrder.folioNumber}" is now ready for review.`,
+            title: wasRework ? 'Rework Completed - Verification Ready' : 'Verification Ready',
+            body: wasRework
+              ? `Technician ${actor.name || 'Staff'} completed rework on step "${currentProcess.processName}". Verification step "${nextIncompleteProcess.processName}" on Work Order "${workOrder.folioNumber}" is now ready to restart.`
+              : `Technician ${actor.name || 'Staff'} completed step "${currentProcess.processName}". Verification step "${nextIncompleteProcess.processName}" on Work Order "${workOrder.folioNumber}" is now ready for review.`,
             data: {
-              templateKey: 'VERIFICATION_READY',
+              templateKey: wasRework ? 'REWORK_COMPLETED_VERIFICATION_READY' : 'VERIFICATION_READY',
               workOrderId: workOrder.id,
               folioNumber: workOrder.folioNumber,
               processName: currentProcess.processName,
@@ -2835,17 +3096,49 @@ export class WorkOrdersService {
       }
     }
 
-    // Find the verification step that triggered this rework (current active verification)
+    // Find the verification step that triggered this rework
     const sortedProcs = [...workOrder.processes].sort((a, b) => a.sequence - b.sequence);
-    const verificationStep = sortedProcs.find(
+    let verificationStep = dto.verificationProcessId
+      ? sortedProcs.find((p) => p.id === dto.verificationProcessId)
+      : undefined;
+
+    if (!verificationStep) {
+      verificationStep = sortedProcs.find(
+        (p) =>
+          (p.isVerification ||
+            p.processType === ProcessType.INTERNAL_VERIFICATION ||
+            p.processType === ProcessType.EXTERNAL_VERIFICATION) &&
+          (p.status === ProcessStatus.IN_PROGRESS || p.status === ProcessStatus.NOT_STARTED),
+      );
+    }
+
+    if (!verificationStep) {
+      verificationStep = sortedProcs
+        .slice()
+        .reverse()
+        .find(
+          (p) =>
+            p.isVerification ||
+            p.processType === ProcessType.INTERNAL_VERIFICATION ||
+            p.processType === ProcessType.EXTERNAL_VERIFICATION,
+        );
+    }
+
+    const verificationStageName = verificationStep?.processName || 'External Verification';
+    const minReworkSequence = Math.min(...dto.processIds.map((pid) => processMap.get(pid)!.sequence));
+    const triggeringSequence = verificationStep ? verificationStep.sequence : 999999;
+
+    // Reset all verification steps between min rework sequence and triggering stage (inclusive)
+    const verificationStepsToReset = sortedProcs.filter(
       (p) =>
         (p.isVerification ||
           p.processType === ProcessType.INTERNAL_VERIFICATION ||
           p.processType === ProcessType.EXTERNAL_VERIFICATION) &&
-        (p.status === ProcessStatus.IN_PROGRESS || p.status === ProcessStatus.NOT_STARTED),
+        p.sequence >= minReworkSequence &&
+        p.sequence <= triggeringSequence,
     );
 
-    const verificationStageName = verificationStep?.processName || 'Verification';
+    const reworkedNames = dto.processIds.map((pid) => processMap.get(pid)?.processName || pid);
     const now = new Date();
 
     await this.prisma.$transaction(async (tx) => {
@@ -2904,10 +3197,10 @@ export class WorkOrdersService {
         }
       }
 
-      // Reset verification step to NOT_STARTED (it waits for rework to finish)
-      if (verificationStep) {
+      // Reset all verification steps in the rework pipeline to NOT_STARTED (intermediate + triggering stage)
+      for (const vStep of verificationStepsToReset) {
         await tx.workOrderProcess.update({
-          where: { id: verificationStep.id },
+          where: { id: vStep.id },
           data: {
             status: ProcessStatus.NOT_STARTED,
             startedAt: null,
@@ -2916,6 +3209,16 @@ export class WorkOrdersService {
             totalActiveDuration: 0,
             totalPauseDuration: 0,
             pauseCount: 0,
+          },
+        });
+
+        await tx.processActivityLog.create({
+          data: {
+            workOrderProcessId: vStep.id,
+            userId: actor.id,
+            action: 'VERIFICATION_RESET',
+            notes: `Verification step reset to Not Started due to rework in step(s): ${reworkedNames.join(', ')} (triggered from stage: ${verificationStageName}).`,
+            timestamp: now,
           },
         });
       }
@@ -2939,6 +3242,7 @@ export class WorkOrdersService {
         processIds: dto.processIds,
         notes: dto.notes,
         verificationStage: verificationStageName,
+        resetVerificationStepIds: verificationStepsToReset.map((v) => v.id),
       },
     });
 

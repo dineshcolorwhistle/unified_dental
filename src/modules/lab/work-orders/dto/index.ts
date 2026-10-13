@@ -324,6 +324,15 @@ export class InitiateReworkDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiProperty({
+    example: 'uuid-verification-step',
+    required: false,
+    description: 'ID of the verification process step triggering this rework',
+  })
+  @IsUUID('4')
+  @IsOptional()
+  verificationProcessId?: string;
 }
 
 export class RecordWorkOrderPaymentDto {

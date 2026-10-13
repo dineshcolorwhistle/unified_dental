@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   X,
   ClipboardList,
@@ -23,6 +23,7 @@ import {
   FileText,
   History,
   Check,
+  RotateCcw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -34,12 +35,13 @@ import {
 } from '../../services/workOrderService';
 import { paymentMethodService, PaymentMethodItem } from '../../services/paymentMethodService';
 import { formatDate, formatDateTime, formatTime, formatCurrency } from '../../core/utils/dateUtils';
-import { formatAuditLog } from '../../core/utils/auditUtils';
+import { formatAuditLog, extractReworkCycles } from '../../core/utils/auditUtils';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { useNotifications } from '../../core/context/NotificationContext';
 import { Tooltip } from '../common/Tooltip';
 import { WorkOrderChatTab } from './WorkOrderChatTab';
+import { EditWorkOrderModal } from './EditWorkOrderModal';
 
 export interface ViewWorkOrderModalProps {
   workOrder?: WorkOrderListItem | null;
@@ -47,10 +49,11 @@ export interface ViewWorkOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOrderUpdated?: () => void;
-  initialTab?: 'general' | 'processes' | 'payments' | 'chat';
+  initialTab?: 'general' | 'processes' | 'reworks' | 'payments' | 'chat';
+  onNavigateToEdit?: (workOrder: WorkOrderListItem) => void;
 }
 
-type TabKey = 'general' | 'processes' | 'payments' | 'chat';
+type TabKey = 'general' | 'processes' | 'reworks' | 'payments' | 'chat';
 
 const TIMELINE_STAGES = [
   'CREATED',
@@ -68,23 +71,61 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   onClose,
   onOrderUpdated,
   initialTab,
+  onNavigateToEdit,
 }) => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
   const isAdmin = Boolean(isTenantAdmin || isLabAdmin || user?.isSuperAdmin);
   const isTechnician = !isAdmin;
+  const canEdit = isAdmin;
   const { socket } = useNotifications();
 
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab || 'general');
   const [currentWO, setCurrentWO] = useState<WorkOrderListItem | null>(initialWorkOrder || null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleNavigateToEdit = () => {
+    if (!currentWO) return;
+    if (onNavigateToEdit) {
+      onNavigateToEdit(currentWO);
+    } else {
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const reworkCycles = useMemo(() => {
+    return extractReworkCycles(currentWO);
+  }, [currentWO]);
+  const hasReworks =
+    reworkCycles.length > 0 ||
+    Boolean(
+      currentWO?.processes &&
+        currentWO.processes.some(
+          (p: any) => (p.reworkCount && p.reworkCount > 0) || p.reworkActive,
+        ),
+    );
+
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (initialTab === 'reworks' && !hasReworks) return 'general';
+    return initialTab || 'general';
+  });
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab || 'general');
+      if (initialTab === 'reworks' && !hasReworks) {
+        setActiveTab('general');
+      } else {
+        setActiveTab(initialTab || 'general');
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, hasReworks]);
+
+  useEffect(() => {
+    if (activeTab === 'reworks' && !hasReworks) {
+      setActiveTab('general');
+    }
+  }, [activeTab, hasReworks]);
 
   // General tab: Notes state
   const [isNotesOpen, setIsNotesOpen] = useState(true);
@@ -143,7 +184,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   useEffect(() => {
     if (isOpen && targetId) {
       fetchFullOrder(false);
-      setActiveTab(initialTab || 'general');
+      setActiveTab(initialTab === 'reworks' && !hasReworks ? 'general' : initialTab || 'general');
       setShowAddNoteInput(false);
       setNewNote('');
       setEditingNoteId(null);
@@ -335,7 +376,31 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
     }
   };
 
-  const getStepStatusBadge = (status: string) => {
+  const getStepStatusBadge = (status: string, reworkActive?: boolean) => {
+    if (reworkActive) {
+      return (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            fontSize: '11px',
+            fontWeight: 700,
+            padding: '4px 12px',
+            borderRadius: '999px',
+            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+            color: 'var(--rose-600, #ef4444)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            whiteSpace: 'nowrap',
+            lineHeight: 1.3,
+          }}
+        >
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444', flexShrink: 0 }} />
+          {t('rework.activeBadge', 'Rework Active')}
+        </span>
+      );
+    }
     switch (status) {
       case 'COMPLETED':
         return (
@@ -550,25 +615,53 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-icon"
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleNavigateToEdit}
+                className="btn btn-secondary"
+                title={t('workOrders.editModal.title', { defaultValue: 'Edit Work Order' })}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-heading)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Pencil size={13} style={{ color: 'var(--primary-600)' }} />
+                <span>{t('common.edit', 'Edit')}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-icon"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Tab Headers */}
@@ -617,6 +710,26 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
           >
             {t('workOrders.viewModal.tabs.processes', 'Processes')}
           </button>
+
+          {hasReworks && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('reworks')}
+              style={{
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: activeTab === 'reworks' ? 800 : 600,
+                border: 'none',
+                borderBottom: activeTab === 'reworks' ? '2.5px solid var(--primary-600)' : '2.5px solid transparent',
+                color: activeTab === 'reworks' ? 'var(--primary-600)' : 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {t('rework.tabTitle', 'Reworks')}
+            </button>
+          )}
 
           {!isTechnician && (
             <button
@@ -1522,8 +1635,58 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                     {pIdx + 1}
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
-                                    <div style={{ fontWeight: 800, color: 'var(--text-heading)' }}>
-                                      {proc.processName}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                      <span style={{ fontWeight: 800, color: 'var(--text-heading)' }}>
+                                        {proc.processName}
+                                      </span>
+                                      {proc.reworkActive && (
+                                        <span
+                                          style={{
+                                            fontSize: '10px',
+                                            fontWeight: 800,
+                                            color: '#ef4444',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                                            padding: '2px 7px',
+                                            borderRadius: '999px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                          }}
+                                        >
+                                          <RotateCcw size={10} />
+                                          <span>
+                                            {t('rework.activeAlertTitle', {
+                                              count: proc.reworkCount || 1,
+                                              defaultValue: `Rework Active (Cycle #${proc.reworkCount || 1})`,
+                                            })}
+                                          </span>
+                                        </span>
+                                      )}
+                                      {!proc.reworkActive && (proc.reworkCount || 0) > 0 && (
+                                        <span
+                                          style={{
+                                            fontSize: '10px',
+                                            fontWeight: 700,
+                                            color: '#d97706',
+                                            backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                                            padding: '2px 7px',
+                                            borderRadius: '999px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                          }}
+                                        >
+                                          <RotateCcw size={10} />
+                                          <span>
+                                            {t('rework.repeatedBadge', {
+                                              count: proc.reworkCount,
+                                              defaultValue: `Reworked (${proc.reworkCount}x)`,
+                                            })}
+                                          </span>
+                                        </span>
+                                      )}
                                     </div>
                                     {isExt ? (
                                       <span
@@ -1600,7 +1763,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                     </button>
                                   </td>
                                   <td style={{ padding: '12px 14px', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                    {getStepStatusBadge(proc.status)}
+                                    {getStepStatusBadge(proc.status, proc.reworkActive)}
                                   </td>
                                 </tr>
 
@@ -1694,6 +1857,195 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                               </React.Fragment>
                             );
                           })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ═════════════════════════════════════════════════════════════ */}
+              {/* TAB: REWORKS AUDIT TRAIL                                      */}
+              {/* ═════════════════════════════════════════════════════════════ */}
+              {activeTab === 'reworks' && hasReworks && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div
+                    style={{
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* Header Row: Title & Total Rework Cycles Badge */}
+                    <div
+                      style={{
+                        padding: '16px 20px',
+                        borderBottom: '1px solid var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: 'var(--text-muted)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        {t('rework.auditTrailTitle', 'REWORK CYCLE AUDIT TRAIL')}
+                      </div>
+
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#ef4444',
+                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          padding: '4px 12px',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        {t('rework.totalCycles', {
+                          count: reworkCycles.length,
+                          defaultValue: `Total Rework Cycles: ${reworkCycles.length}`,
+                        })}
+                      </span>
+                    </div>
+
+                    {/* Table */}
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr
+                            style={{
+                              backgroundColor: 'var(--bg-surface)',
+                              borderBottom: '1px solid var(--border-color)',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('rework.columns.processName', 'Process Name')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('rework.columns.reworkCount', 'Rework Count')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('rework.columns.initiatedBy', 'Initiated By')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                              {t('rework.columns.initiationDateTime', 'Initiation Date/Time')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('rework.columns.triggeringStage', 'Triggering Stage')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              {t('rework.columns.assignedTechnician', 'Assigned Technician')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                              {t('rework.columns.completionDateTime', 'Completion Date/Time')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                              {t('rework.columns.approvalDateTime', 'Approval Date/Time')}
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>
+                              {t('rework.columns.status', 'Status')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reworkCycles.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={9}
+                                style={{
+                                  padding: '32px 16px',
+                                  textAlign: 'center',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '13px',
+                                }}
+                              >
+                                {t('rework.noCycles', 'No rework cycles recorded for this work order.')}
+                              </td>
+                            </tr>
+                          ) : (
+                            reworkCycles.map((cycle, cIdx) => {
+                            const isCompleted = cycle.status === 'Completed' || cycle.status === 'Approved';
+                            const isInProgress = cycle.status === 'In Progress';
+
+                            const statusBg = isCompleted
+                              ? 'rgba(14, 165, 233, 0.12)'
+                              : isInProgress
+                              ? 'rgba(245, 158, 11, 0.12)'
+                              : 'rgba(100, 116, 139, 0.12)';
+
+                            const statusColor = isCompleted
+                              ? '#0284c7'
+                              : isInProgress
+                              ? '#d97706'
+                              : '#64748b';
+
+                            const statusBorder = isCompleted
+                              ? '1px solid rgba(14, 165, 233, 0.25)'
+                              : isInProgress
+                              ? '1px solid rgba(245, 158, 11, 0.25)'
+                              : '1px solid rgba(100, 116, 139, 0.25)';
+
+                            return (
+                              <tr
+                                key={cycle.processId + '-' + cIdx}
+                                style={{
+                                  borderBottom: '1px solid var(--border-color)',
+                                  transition: 'background-color 0.15s ease',
+                                }}
+                              >
+                                <td style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--text-heading)' }}>
+                                  {cycle.processName}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                  {cycle.reworkCount}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                                  {cycle.initiatedBy}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                                  {cycle.initiationDateTime ? formatDateTime(cycle.initiationDateTime) : '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                  {cycle.triggeringStage}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                  {cycle.assignedTechnician}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                                  {cycle.completionDateTime ? formatDateTime(cycle.completionDateTime) : '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                                  {cycle.approvalDateTime ? formatDateTime(cycle.approvalDateTime) : '—'}
+                                </td>
+                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      padding: '4px 12px',
+                                      borderRadius: '999px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      backgroundColor: statusBg,
+                                      color: statusColor,
+                                      border: statusBorder,
+                                    }}
+                                  >
+                                    {cycle.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          }))}
                         </tbody>
                       </table>
                     </div>
@@ -2019,17 +2371,41 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             backgroundColor: 'var(--bg-card)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
           }}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-primary"
-            style={{ fontWeight: 700, padding: '8px 24px', minWidth: '90px' }}
-          >
-            {t('common.close', 'Close')}
-          </button>
+          <div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleNavigateToEdit}
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 700,
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                }}
+              >
+                <Pencil size={14} style={{ color: 'var(--primary-600)' }} />
+                <span>{t('workOrders.editModal.title', { defaultValue: 'Edit Work Order' })}</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-primary"
+              style={{ fontWeight: 700, padding: '8px 24px', minWidth: '90px' }}
+            >
+              {t('common.close', 'Close')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2220,6 +2596,19 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* ─── EDIT WORK ORDER MODAL (INTERNAL FALLBACK) ─────────── */}
+      {isEditModalOpen && currentWO && (
+        <EditWorkOrderModal
+          workOrder={currentWO}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={() => {
+            fetchFullOrder(false);
+            if (onOrderUpdated) onOrderUpdated();
+            setIsEditModalOpen(false);
+          }}
+        />
       )}
     </div>
   );

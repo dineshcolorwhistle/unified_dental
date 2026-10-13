@@ -1127,6 +1127,10 @@ export const LabWorkOrdersPage: React.FC = () => {
         initialTab={modalInitialTab}
         onClose={() => setOrderToView(null)}
         onOrderUpdated={fetchWorkOrders}
+        onNavigateToEdit={(order) => {
+          setOrderToView(null);
+          setOrderToEdit(order);
+        }}
       />
 
       {/* ─── EDIT WORK ORDER MODAL ──────────────────────────────── */}

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Sparkles,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
@@ -63,6 +64,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
     socket.on('work_order:created', handleRealtimeSync);
     socket.on('work_order:assigned', handleRealtimeSync);
+    socket.on('work_order:unassigned', handleRealtimeSync);
     socket.on('work_order:updated', handleRealtimeSync);
     socket.on('process:status_changed', handleRealtimeSync);
     socket.on('notification:new', handleRealtimeSync);
@@ -75,6 +77,7 @@ export const TechnicianDashboardPage: React.FC = () => {
     return () => {
       socket.off('work_order:created', handleRealtimeSync);
       socket.off('work_order:assigned', handleRealtimeSync);
+      socket.off('work_order:unassigned', handleRealtimeSync);
       socket.off('work_order:updated', handleRealtimeSync);
       socket.off('process:status_changed', handleRealtimeSync);
       socket.off('notification:new', handleRealtimeSync);
@@ -499,9 +502,42 @@ export const TechnicianDashboardPage: React.FC = () => {
                             backgroundColor: 'rgba(239, 68, 68, 0.15)',
                             color: 'var(--rose-600)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
                           }}
                         >
-                          {t('rework.activeBadge', 'Rework Active')}
+                          <RotateCcw size={10} />
+                          <span>
+                            {t('rework.activeAlertTitle', {
+                              count: item.reworkCount || 1,
+                              defaultValue: `Rework Active (Cycle #${item.reworkCount || 1})`,
+                            })}
+                          </span>
+                        </span>
+                      )}
+                      {!item.reworkActive && (item.reworkCount || 0) > 0 && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            color: '#d97706',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <RotateCcw size={10} />
+                          <span>
+                            {t('rework.repeatedBadge', {
+                              count: item.reworkCount,
+                              defaultValue: `Reworked (${item.reworkCount}x)`,
+                            })}
+                          </span>
                         </span>
                       )}
                     </div>
