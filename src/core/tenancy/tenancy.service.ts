@@ -574,31 +574,65 @@ export class TenancyService {
 
     const totalBranchesUsed = tenant.branches.length;
 
-    // Calculate members breakdown by role
+    // Clean up any orphaned tenant memberships where the user has no roles in this tenant and is not an owner
+    const orphanedMemberships = (tenant.memberships || []).filter(
+      (m) => !m.isOwner && (!m.user?.userRoles || m.user.userRoles.length === 0),
+    );
+    if (orphanedMemberships.length > 0) {
+      const orphanedIds = orphanedMemberships.map((m) => m.id);
+      this.prisma.tenantMembership
+        .deleteMany({
+          where: { id: { in: orphanedIds } },
+        })
+        .catch((err) => console.error('Failed to clean up orphaned memberships:', err));
+    }
+
+    // Calculate members breakdown strictly by legitimate assigned role
     let ownerCount = 0;
     let labAdminCount = 0;
     let technicianCount = 0;
     let clinicAdminCount = 0;
     let doctorCount = 0;
-    let generalStaffCount = 0;
+    let explicitStaffCount = 0;
 
     for (const m of tenant.memberships || []) {
       const isOwner = Boolean(m.isOwner);
       const roleSlugs = (m.user?.userRoles || []).map((ur) => ur.role?.slug?.toLowerCase() || '');
+      const roleNames = (m.user?.userRoles || []).map((ur) => ur.role?.name?.toLowerCase() || '');
 
-      if (isOwner || roleSlugs.some((s) => s === 'tenant-admin' || s === 'admin')) {
+      if (
+        isOwner ||
+        roleSlugs.some((s) => s === 'tenant-admin' || s === 'admin') ||
+        roleNames.some((n) => n.includes('tenant admin'))
+      ) {
         ownerCount++;
-      } else if (roleSlugs.some((s) => s === 'lab-admin')) {
+      } else if (
+        roleSlugs.some((s) => s === 'lab-admin') ||
+        roleNames.some((n) => n.includes('lab admin'))
+      ) {
         labAdminCount++;
-      } else if (roleSlugs.some((s) => s === 'technician' || s === 'lab-technician')) {
+      } else if (
+        roleSlugs.some((s) => s === 'technician' || s === 'lab-technician') ||
+        roleNames.some((n) => n.includes('technician'))
+      ) {
         technicianCount++;
-      } else if (roleSlugs.some((s) => s === 'clinic-admin')) {
+      } else if (
+        roleSlugs.some((s) => s === 'clinic-admin') ||
+        roleNames.some((n) => n.includes('clinic admin'))
+      ) {
         clinicAdminCount++;
-      } else if (roleSlugs.some((s) => s === 'doctor' || s === 'dentist')) {
+      } else if (
+        roleSlugs.some((s) => s === 'doctor' || s === 'dentist' || s === 'clinic-doctor') ||
+        roleNames.some((n) => n.includes('doctor') || n.includes('dentist'))
+      ) {
         doctorCount++;
-      } else {
-        generalStaffCount++;
+      } else if (
+        roleSlugs.some((s) => s === 'staff' || s === 'clinic-staff') ||
+        roleNames.some((n) => n.includes('staff'))
+      ) {
+        explicitStaffCount++;
       }
+      // Note: Orphaned/unassigned accounts with NO roles are NOT counted as "other" or included in total
     }
 
     const memberBreakdownDetails: Array<{ role: string; count: number }> = [];
@@ -607,9 +641,10 @@ export class TenancyService {
     if (technicianCount > 0) memberBreakdownDetails.push({ role: 'Technician', count: technicianCount });
     if (clinicAdminCount > 0) memberBreakdownDetails.push({ role: 'Clinic Admin', count: clinicAdminCount });
     if (doctorCount > 0) memberBreakdownDetails.push({ role: 'Doctor', count: doctorCount });
-    if (generalStaffCount > 0) memberBreakdownDetails.push({ role: 'Staff / Other', count: generalStaffCount });
+    if (explicitStaffCount > 0) memberBreakdownDetails.push({ role: 'Staff', count: explicitStaffCount });
 
-    const totalMembersUsed = tenant.memberships?.length ?? tenant._count.memberships;
+    // Total members used is strictly the sum of active, allocated members with valid roles
+    const totalMembersUsed = memberBreakdownDetails.reduce((sum, item) => sum + item.count, 0);
     const enabledModulesList = tenant.modules.map((m) => m.moduleKey);
 
     const subscriptionData = {
