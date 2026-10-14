@@ -98,6 +98,7 @@ model Tenant {
   qrInquiries          QrInquiry[]
   reminders            Reminder[]
   paymentMethods       PaymentMethod[]
+  whatsappTemplates    WhatsappTemplate[]
 
   @@map("tenants")
 }
@@ -180,6 +181,7 @@ model Branch {
   inventoryItems      InventoryItem[]
   reminders           Reminder[]
   paymentMethods      PaymentMethod[]
+  whatsappTemplates   WhatsappTemplate[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -221,6 +223,7 @@ model User {
   portalExchangeTokens       PortalExchangeToken[]
   createdReminders           Reminder[] @relation("ReminderCreatedBy")
   reminderAssignments        ReminderAssignee[]
+  createdWhatsappTemplates   WhatsappTemplate[] @relation("WhatsappTemplateCreatedBy")
 
   @@map("users")
 }
@@ -617,6 +620,35 @@ model PaymentMethod {
   @@index([tenantId, moduleKey])
   @@index([tenantId, branchId])
   @@map("payment_methods")
+}
+
+// ─── Dental Lab WhatsApp Templates ─────────────────────────
+
+enum WhatsappTemplateStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model WhatsappTemplate {
+  id          String                 @id @default(uuid())
+  tenantId    String                 @map("tenant_id")
+  branchId    String?                @map("branch_id")
+  name        String
+  status      WhatsappTemplateStatus @default(ACTIVE)
+  message     String                 @db.Text
+  createdById String?                @map("created_by_id")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy   User?                  @relation("WhatsappTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, status])
+  @@map("whatsapp_templates")
 }
 
 // ─── Dental Lab Work Orders & Process Tracking (Phase 2.2) ──

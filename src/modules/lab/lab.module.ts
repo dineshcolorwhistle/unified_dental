@@ -18,6 +18,8 @@ import { DoctorsController } from './doctors/doctors.controller';
 import { DoctorsService } from './doctors/doctors.service';
 import { PaymentMethodsController } from './payment-methods/payment-methods.controller';
 import { PaymentMethodsService } from './payment-methods/payment-methods.service';
+import { WhatsappTemplatesController } from './whatsapp-templates/whatsapp-templates.controller';
+import { WhatsappTemplatesService } from './whatsapp-templates/whatsapp-templates.service';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
 
 @Module({
@@ -37,6 +39,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     ProsthesisTypesController,
     DoctorsController,
     PaymentMethodsController,
+    WhatsappTemplatesController,
   ],
   providers: [
     LabUsersService,
@@ -45,6 +48,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     ProsthesisTypesService,
     DoctorsService,
     PaymentMethodsService,
+    WhatsappTemplatesService,
   ],
   exports: [
     LabUsersService,
@@ -53,6 +57,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     ProsthesisTypesService,
     DoctorsService,
     PaymentMethodsService,
+    WhatsappTemplatesService,
     WorkOrdersModule,
   ],
 })
