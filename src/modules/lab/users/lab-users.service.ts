@@ -940,6 +940,19 @@ export class LabUsersService {
         where: { userId: adminId, tenantId },
       });
 
+      // If user has no other roles or owner status in this tenant, remove tenant membership
+      const remainingRoles = await tx.userRole.count({
+        where: { userId: adminId, tenantId },
+      });
+      const membership = await tx.tenantMembership.findUnique({
+        where: { userId_tenantId: { userId: adminId, tenantId } },
+      });
+      if (remainingRoles === 0 && !membership?.isOwner) {
+        await tx.tenantMembership.deleteMany({
+          where: { userId: adminId, tenantId },
+        });
+      }
+
       // Audit Log
       await tx.auditLog.create({
         data: {

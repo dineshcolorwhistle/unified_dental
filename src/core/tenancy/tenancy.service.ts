@@ -527,6 +527,22 @@ export class TenancyService {
             settings: true,
           },
         },
+        memberships: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                status: true,
+                userRoles: {
+                  where: { tenantId },
+                  include: { role: true },
+                },
+              },
+            },
+          },
+        },
         _count: {
           select: {
             memberships: true,
@@ -557,7 +573,43 @@ export class TenancyService {
         : (tenant.plan?.moduleCount ?? 1);
 
     const totalBranchesUsed = tenant.branches.length;
-    const totalMembersUsed = tenant._count.memberships;
+
+    // Calculate members breakdown by role
+    let ownerCount = 0;
+    let labAdminCount = 0;
+    let technicianCount = 0;
+    let clinicAdminCount = 0;
+    let doctorCount = 0;
+    let generalStaffCount = 0;
+
+    for (const m of tenant.memberships || []) {
+      const isOwner = Boolean(m.isOwner);
+      const roleSlugs = (m.user?.userRoles || []).map((ur) => ur.role?.slug?.toLowerCase() || '');
+
+      if (isOwner || roleSlugs.some((s) => s === 'tenant-admin' || s === 'admin')) {
+        ownerCount++;
+      } else if (roleSlugs.some((s) => s === 'lab-admin')) {
+        labAdminCount++;
+      } else if (roleSlugs.some((s) => s === 'technician' || s === 'lab-technician')) {
+        technicianCount++;
+      } else if (roleSlugs.some((s) => s === 'clinic-admin')) {
+        clinicAdminCount++;
+      } else if (roleSlugs.some((s) => s === 'doctor' || s === 'dentist')) {
+        doctorCount++;
+      } else {
+        generalStaffCount++;
+      }
+    }
+
+    const memberBreakdownDetails: Array<{ role: string; count: number }> = [];
+    if (ownerCount > 0) memberBreakdownDetails.push({ role: 'Tenant Owner', count: ownerCount });
+    if (labAdminCount > 0) memberBreakdownDetails.push({ role: 'Lab Admin', count: labAdminCount });
+    if (technicianCount > 0) memberBreakdownDetails.push({ role: 'Technician', count: technicianCount });
+    if (clinicAdminCount > 0) memberBreakdownDetails.push({ role: 'Clinic Admin', count: clinicAdminCount });
+    if (doctorCount > 0) memberBreakdownDetails.push({ role: 'Doctor', count: doctorCount });
+    if (generalStaffCount > 0) memberBreakdownDetails.push({ role: 'Staff / Other', count: generalStaffCount });
+
+    const totalMembersUsed = tenant.memberships?.length ?? tenant._count.memberships;
     const enabledModulesList = tenant.modules.map((m) => m.moduleKey);
 
     const subscriptionData = {
@@ -582,6 +634,7 @@ export class TenancyService {
           used: totalMembersUsed,
           remaining: Math.max(0, effectiveMaxMembers - totalMembersUsed),
           percentage: Math.min(100, Math.round((totalMembersUsed / effectiveMaxMembers) * 100)),
+          breakdown: memberBreakdownDetails,
         },
         modules: {
           allocated: effectiveMaxModules,

@@ -321,6 +321,37 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({ data
               {t('dashboard.tenantAdmin.subscription.remaining')}
             </span>
           </div>
+
+          {/* Role Breakdown Tags */}
+          {quotas.members.breakdown && quotas.members.breakdown.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '5px',
+                marginTop: '10px',
+                paddingTop: '8px',
+                borderTop: '1px dashed var(--border-subtle)',
+              }}
+            >
+              {quotas.members.breakdown.map((item) => (
+                <span
+                  key={item.role}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 7px',
+                    borderRadius: '6px',
+                    backgroundColor: 'var(--bg-app)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
+                  }}
+                >
+                  <strong style={{ color: 'var(--primary-600)' }}>{item.count}</strong> {item.role}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quota 3: Enabled Modules */}

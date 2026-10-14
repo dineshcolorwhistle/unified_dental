@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -77,5 +78,14 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.usersService.assignModules(dto, user.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Remove a user from active tenant organization (Tenant Admin only)' })
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.usersService.removeMemberFromTenant(id, user.activeTenantId, user);
   }
 }

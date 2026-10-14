@@ -65,19 +65,124 @@ export class BranchesService {
             userBranches: true,
           },
         },
+        userBranches: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                status: true,
+                isSuperAdmin: true,
+                memberships: {
+                  where: { tenantId },
+                  select: { isOwner: true, status: true },
+                },
+                userRoles: {
+                  where: { tenantId },
+                  include: { role: true },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
+    const enrichedBranches = branches.map((b) => {
+      const branchModule = (b.moduleKey || (b.settings as any)?.moduleKey || 'CLINIC').toUpperCase();
+
+      let labAdminCount = 0;
+      let technicianCount = 0;
+      let clinicAdminCount = 0;
+      let doctorCount = 0;
+      let clinicStaffCount = 0;
+
+      for (const ub of b.userBranches || []) {
+        const user = ub.user;
+        if (!user || user.isSuperAdmin) continue;
+
+        const isOwner = Boolean(user.memberships?.[0]?.isOwner);
+
+        // Filter roles scoped to this tenant and either specific to this branch or tenant-wide
+        const branchRoles = (user.userRoles || []).filter(
+          (ur) => !ur.branchId || ur.branchId === b.id,
+        );
+
+        const roleSlugs = branchRoles.map((ur) => ur.role?.slug?.toLowerCase() || '');
+        const roleNames = branchRoles.map((ur) => ur.role?.name?.toLowerCase() || '');
+
+        // Branch Staff Members count ONLY roles matching this branch's module scope.
+        // Organization Owner and Tenant Admin are tenant-wide governance roles, NOT branch staff.
+        if (branchModule === 'LAB') {
+          const isLabAdmin =
+            roleSlugs.some((s) => s === 'lab-admin' || s === 'lab_admin' || s === 'lab-administrator') ||
+            roleNames.some((n) => n.includes('lab admin'));
+
+          const isTechnician =
+            roleSlugs.some((s) => s === 'lab-technician' || s === 'technician' || s === 'lab_technician') ||
+            roleNames.some((n) => n.includes('technician'));
+
+          if (isLabAdmin) {
+            labAdminCount++;
+          } else if (isTechnician) {
+            technicianCount++;
+          }
+        } else if (branchModule === 'CLINIC') {
+          const isClinicAdmin =
+            roleSlugs.some((s) => s === 'clinic-admin' || s === 'clinic_admin' || s === 'clinic-administrator') ||
+            roleNames.some((n) => n.includes('clinic admin'));
+
+          const isDoctor =
+            roleSlugs.some((s) => s === 'clinic-doctor' || s === 'doctor' || s === 'dentist' || s === 'clinic_doctor') ||
+            roleNames.some((n) => n.includes('doctor') || n.includes('dentist'));
+
+          const isStaff =
+            roleSlugs.some((s) => s === 'clinic-staff' || s === 'receptionist' || s === 'nurse' || s === 'staff') ||
+            roleNames.some((n) => n.includes('receptionist') || n.includes('nurse') || n.includes('staff'));
+
+          if (isClinicAdmin) {
+            clinicAdminCount++;
+          } else if (isDoctor) {
+            doctorCount++;
+          } else if (isStaff && !isOwner) {
+            clinicStaffCount++;
+          }
+        }
+      }
+
+      const details: Array<{ role: string; count: number }> = [];
+      if (labAdminCount > 0) details.push({ role: 'Lab Admin', count: labAdminCount });
+      if (technicianCount > 0) details.push({ role: 'Technician', count: technicianCount });
+      if (clinicAdminCount > 0) details.push({ role: 'Clinic Admin', count: clinicAdminCount });
+      if (doctorCount > 0) details.push({ role: 'Doctor', count: doctorCount });
+      if (clinicStaffCount > 0) details.push({ role: 'Staff', count: clinicStaffCount });
+
+      const total = details.reduce((sum, d) => sum + d.count, 0);
+
+      return {
+        ...b,
+        _count: {
+          ...b._count,
+          userBranches: total,
+        },
+        staffBreakdown: {
+          total,
+          details,
+        },
+      };
+    });
+
     if (moduleKey) {
       const target = moduleKey.toUpperCase();
-      return branches.filter((b) => {
+      return enrichedBranches.filter((b) => {
         const bMod = b.moduleKey || (b.settings as any)?.moduleKey || 'CLINIC';
         return bMod.toUpperCase() === target;
       });
     }
 
-    return branches;
+    return enrichedBranches;
   }
 
   async findById(id: string, tenantId?: string) {

@@ -108,6 +108,31 @@ export const DashboardPage: React.FC = () => {
               : t('dashboard.superAdminSubtitle')}
           </p>
         </div>
+
+        {isTenantContext && isLabMode && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '20px',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            color: '#059669',
+            fontSize: '12px',
+            fontWeight: 700,
+          }}>
+            <span style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              backgroundColor: '#10b981',
+              display: 'inline-block',
+              boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.25)',
+            }} />
+            <span>{t('dashboard.labAdmin.realtimeMonitoring', { defaultValue: 'Real-time Active Monitoring' })}</span>
+          </div>
+        )}
       </div>
 
       {/* ─── Platform Super Admin Metric Cards ─── */}

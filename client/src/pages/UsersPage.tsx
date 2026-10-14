@@ -13,11 +13,13 @@ import {
   Shield,
   Building,
   CheckCircle2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const UsersPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, isTenantAdmin } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
@@ -25,6 +27,10 @@ export const UsersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<any | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const canDeleteUser = Boolean(isTenantAdmin || user?.isSuperAdmin);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -95,6 +101,28 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!deletingUser) return;
+    try {
+      setDeleteLoading(true);
+      await api.delete(`/users/${deletingUser.id}`);
+      toast.success(
+        t('users.removeSuccess', {
+          name: deletingUser.name || deletingUser.email,
+          defaultValue: `User "${deletingUser.name || deletingUser.email}" removed from organization`,
+        }),
+        'User Removed'
+      );
+      setDeletingUser(null);
+      loadData();
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to remove user';
+      toast.error(msg, 'Removal Failed');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -133,18 +161,23 @@ export const UsersPage: React.FC = () => {
                 <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.branch')}</th>
                 <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.modules')}</th>
                 <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('users.status')}</th>
+                {canDeleteUser && (
+                  <th style={{ padding: '10px 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                    {t('common.actions', { defaultValue: 'Actions' })}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
+                  <td colSpan={canDeleteUser ? 7 : 6} style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-600)' }}>
                     {t('common.loading')}
                   </td>
                 </tr>
               ) : paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan={canDeleteUser ? 7 : 6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     No users found in this organization.
                   </td>
                 </tr>
@@ -209,6 +242,34 @@ export const UsersPage: React.FC = () => {
                           {u.status}
                         </span>
                       </td>
+                      {canDeleteUser && (
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          {u.memberships?.[0]?.isOwner ? (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('users.ownerBadge', { defaultValue: 'Owner' })}
+                            </span>
+                          ) : u.id === user?.id ? (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {t('users.youBadge', { defaultValue: 'You' })}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingUser(u)}
+                              className="btn btn-secondary btn-sm"
+                              title={t('users.removeBtn', { defaultValue: 'Remove from Organization' })}
+                              aria-label={t('users.removeBtn', { defaultValue: 'Remove from Organization' })}
+                              style={{
+                                padding: '5px 8px',
+                                color: '#ef4444',
+                                borderColor: 'rgba(239, 68, 68, 0.25)',
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -361,6 +422,79 @@ export const UsersPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {deletingUser && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
+                <AlertTriangle size={18} />
+                <h3 style={{ fontSize: '16px', margin: 0, fontWeight: 700 }}>
+                  {t('users.removeModalTitle', { defaultValue: 'Remove User from Organization' })}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                className="btn-secondary btn-sm"
+                disabled={deleteLoading}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 24px' }}>
+              <p style={{ fontSize: '13.5px', color: 'var(--text-main)', margin: '0 0 12px 0' }}>
+                {t('users.removeModalPrompt', {
+                  defaultValue: 'Are you sure you want to remove this user from the organization? Their roles, module access, and branch assignments will be revoked, and their seat will be freed.',
+                })}
+              </p>
+              <div
+                style={{
+                  padding: '12px',
+                  backgroundColor: 'var(--bg-app)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '13px',
+                }}
+              >
+                <div><strong>{deletingUser.name}</strong></div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{deletingUser.email}</div>
+              </div>
+            </div>
+            <div
+              className="modal-footer"
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                padding: '14px 24px',
+                borderTop: '1px solid var(--border-color)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                className="btn btn-secondary"
+                disabled={deleteLoading}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="btn btn-danger"
+                disabled={deleteLoading}
+                style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#ffffff' }}
+              >
+                {deleteLoading
+                  ? t('common.loading')
+                  : t('users.confirmRemoveBtn', { defaultValue: 'Remove User' })}
+              </button>
+            </div>
           </div>
         </div>
       )}

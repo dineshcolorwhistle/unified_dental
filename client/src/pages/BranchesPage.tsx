@@ -486,11 +486,49 @@ export const BranchesPage: React.FC = () => {
                       )}
                     </td>
 
-                    {/* Staff Count */}
-                    <td style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                      <span className="badge badge-info" style={{ fontSize: '11px' }}>
-                        {b._count?.userBranches || 0} staff
-                      </span>
+                    {/* Staff Count & Role Breakdown */}
+                    <td style={{ padding: '10px 12px', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                        {((b as any).staffBreakdown?.total ?? b._count?.userBranches ?? 0) > 0 ? (
+                          <span className="badge badge-info" style={{ fontSize: '11px', fontWeight: 700 }}>
+                            {(b as any).staffBreakdown?.total ?? b._count?.userBranches} {t('branches.staff', { defaultValue: 'staff' })}
+                          </span>
+                        ) : (
+                          <span
+                            className="badge badge-secondary"
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: 'var(--text-muted)',
+                              backgroundColor: 'var(--bg-app)',
+                              border: '1px solid var(--border-color)',
+                            }}
+                          >
+                            0 {t('branches.staff', { defaultValue: 'staff' })}
+                          </span>
+                        )}
+                        {(b as any).staffBreakdown?.details && (b as any).staffBreakdown.details.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
+                            {(b as any).staffBreakdown.details.map((item: any) => (
+                              <span
+                                key={item.role}
+                                style={{
+                                  fontSize: '10.5px',
+                                  fontWeight: 600,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                                  color: 'var(--primary-700)',
+                                  border: '1px solid rgba(2, 132, 199, 0.18)',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <strong>{item.count}</strong> {item.role}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Actions */}

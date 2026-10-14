@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
 } from './dto/users.dto';
 import * as bcrypt from 'bcrypt';
 import { UserStatus } from '@prisma/client';
+import { AuthenticatedUser } from '../../shared/common/decorators/current-user.decorator';
 
 @Injectable()
 export class UsersService {
@@ -347,5 +349,124 @@ export class UsersService {
     });
 
     return { success: true };
+  }
+
+  /**
+   * Verify that the actor is a Tenant Administrator or Platform Super Admin
+   */
+  async assertTenantAdmin(actor: AuthenticatedUser, tenantId: string): Promise<void> {
+    if (!actor) {
+      throw new ForbiddenException('Authentication required');
+    }
+
+    if (actor.isSuperAdmin) {
+      return;
+    }
+
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { userId_tenantId: { userId: actor.id, tenantId } },
+    });
+
+    if (membership?.isOwner) {
+      return;
+    }
+
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId: actor.id, tenantId },
+      include: { role: true },
+    });
+
+    const hasTenantAdminRole = userRoles.some((ur) => {
+      const lower = ur.role?.slug?.toLowerCase() || '';
+      return (
+        lower === 'tenant-admin' ||
+        lower === 'admin' ||
+        lower.includes('tenant administrator') ||
+        lower.includes('tenant admin')
+      );
+    });
+
+    if (!hasTenantAdminRole) {
+      throw new ForbiddenException('Only Tenant Administrators can remove users from the organization.');
+    }
+  }
+
+  /**
+   * Remove a member from the active tenant organization.
+   * Enforced strictly for Tenant Admin / Super Admin only.
+   * Cannot remove the organization owner or yourself.
+   */
+  async removeMemberFromTenant(userId: string, tenantId: string, actor: AuthenticatedUser) {
+    if (!tenantId) {
+      throw new BadRequestException('Organization context (tenant ID) is required.');
+    }
+
+    await this.assertTenantAdmin(actor, tenantId);
+
+    if (userId === actor.id) {
+      throw new BadRequestException('You cannot remove yourself from the organization.');
+    }
+
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { userId_tenantId: { userId, tenantId } },
+      include: { user: true },
+    });
+
+    if (!membership) {
+      throw new NotFoundException(`User with ID '${userId}' is not a member of this organization.`);
+    }
+
+    if (membership.isOwner) {
+      throw new BadRequestException('The organization owner / primary tenant administrator cannot be removed.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Remove all roles in this tenant
+      await tx.userRole.deleteMany({
+        where: { userId, tenantId },
+      });
+
+      // 2. Remove branch links for branches belonging to this tenant
+      const tenantBranches = await tx.branch.findMany({
+        where: { tenantId },
+        select: { id: true },
+      });
+      const branchIds = tenantBranches.map((b) => b.id);
+      if (branchIds.length > 0) {
+        await tx.userBranch.deleteMany({
+          where: { userId, branchId: { in: branchIds } },
+        });
+      }
+
+      // 3. Remove personal module accesses for this tenant
+      await tx.userModuleAccess.deleteMany({
+        where: { userId, tenantId },
+      });
+
+      // 4. Remove the TenantMembership record
+      await tx.tenantMembership.delete({
+        where: { userId_tenantId: { userId, tenantId } },
+      });
+
+      // 5. Audit Log
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          userId: actor.id,
+          action: 'REMOVE_MEMBER',
+          resourceType: 'USER',
+          resourceId: userId,
+          oldValues: {
+            email: membership.user?.email,
+            name: membership.user?.name,
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: `User '${membership.user?.name || membership.user?.email}' has been removed from the organization.`,
+      };
+    });
   }
 }

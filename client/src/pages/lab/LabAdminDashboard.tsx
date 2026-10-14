@@ -6,6 +6,8 @@ import {
   Clock,
   CheckCircle2,
   Play,
+  Pause,
+  Lock,
   Eye,
   RefreshCw,
   ChevronRight,
@@ -21,6 +23,7 @@ import {
   workOrderService,
   LabAdminDashboardData,
   LabAdminVerificationAlertItem,
+  LabAdminProductionTaskItem,
   LabAdminInProgressItem,
   LabAdminVerificationItem,
   WorkOrderListItem,
@@ -40,6 +43,9 @@ export const LabAdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [activeQueueTab, setActiveQueueTab] = useState<'production' | 'verification'>('production');
+  const [showAllQueueItems, setShowAllQueueItems] = useState(false);
+  const [actionLoadingProcessId, setActionLoadingProcessId] = useState<string | null>(null);
   const [inProgressSearch, setInProgressSearch] = useState('');
   const [verificationSearch, setVerificationSearch] = useState('');
 
@@ -114,6 +120,58 @@ export const LabAdminDashboard: React.FC = () => {
     }
   };
 
+  const handleStartProductionProcess = async (workOrderId: string, processId: string) => {
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.startProcess(workOrderId, processId);
+      toast.success(t('dashboard.labAdmin.processStarted', { defaultValue: 'Production process step started' }));
+      fetchDashboard(true);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('dashboard.labAdmin.actionFailed'));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
+  const handlePauseProductionProcess = async (workOrderId: string, processId: string) => {
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.pauseProcess(workOrderId, processId);
+      toast.success(t('dashboard.labAdmin.processPaused', { defaultValue: 'Production process step paused' }));
+      fetchDashboard(true);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('dashboard.labAdmin.actionFailed'));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
+  const handleResumeProductionProcess = async (workOrderId: string, processId: string) => {
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.resumeProcess(workOrderId, processId);
+      toast.success(t('dashboard.labAdmin.processResumed', { defaultValue: 'Production process step resumed' }));
+      fetchDashboard(true);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('dashboard.labAdmin.actionFailed'));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
+  const handleCompleteProductionProcess = async (workOrderId: string, processId: string) => {
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.completeProcess(workOrderId, processId);
+      toast.success(t('dashboard.labAdmin.processCompleted', { defaultValue: 'Production process step completed' }));
+      fetchDashboard(true);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('dashboard.labAdmin.actionFailed'));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
   const handleOpenVerifyModal = (item: {
     workOrderId: string;
     folioNumber: string;
@@ -158,9 +216,13 @@ export const LabAdminDashboard: React.FC = () => {
 
   const stats = data?.stats || { activeOrders: 0, pendingVerifications: 0, pendingTechSteps: 0, completedToday: 0 };
   const alerts = data?.pendingVerificationAlerts || [];
+  const myProductionTasks = data?.myProductionTasks || [];
   const inProgress = data?.inProgressOrders || [];
   const verifications = data?.verificationOrders || [];
   const isDefaultAdmin = data?.isDefaultAdmin ?? true;
+
+  const currentQueueList = activeQueueTab === 'production' ? myProductionTasks : alerts;
+  const displayedQueueItems = showAllQueueItems ? currentQueueList : currentQueueList.slice(0, 3);
 
   const inProgressQuery = inProgressSearch.trim().toLowerCase();
   const filteredInProgress = inProgress.filter((item: LabAdminInProgressItem) => {
@@ -281,354 +343,7 @@ export const LabAdminDashboard: React.FC = () => {
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-      {/* ─── Pending Verification Alerts (Unified Single Card) ─── */}
-      {alerts.length > 0 && (
-        <div style={{
-          marginBottom: '28px',
-          borderRadius: '16px',
-          border: '1px solid rgba(147, 51, 234, 0.22)',
-          backgroundColor: 'var(--bg-card)',
-          boxShadow: '0 4px 20px -2px rgba(147, 51, 234, 0.08)',
-          overflow: 'hidden',
-        }}>
-          {/* Card Header */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-            padding: '16px 20px',
-            background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.08) 0%, rgba(99, 102, 241, 0.03) 100%)',
-            borderBottom: '1px solid rgba(147, 51, 234, 0.15)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(147, 51, 234, 0.15)',
-                color: '#9333ea',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h3 style={{
-                    fontSize: '16px',
-                    fontWeight: 800,
-                    color: 'var(--text-heading)',
-                    margin: 0,
-                    fontFamily: 'var(--font-heading)',
-                  }}>
-                    {t('dashboard.labAdmin.pendingVerificationAlerts')}
-                  </h3>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '2px 9px',
-                    borderRadius: '999px',
-                    background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
-                    color: '#ffffff',
-                    minWidth: '20px',
-                    textAlign: 'center',
-                    boxShadow: '0 2px 6px rgba(147, 51, 234, 0.35)',
-                  }}>
-                    {alerts.length}
-                  </span>
-                </div>
-                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {t('dashboard.labAdmin.alertSubtitle')}
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {alerts.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllAlerts((prev) => !prev)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    backgroundColor: showAllAlerts ? 'rgba(147, 51, 234, 0.15)' : 'var(--bg-card)',
-                    border: '1px solid rgba(147, 51, 234, 0.3)',
-                    color: showAllAlerts ? '#7c3aed' : 'var(--text-main)',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {showAllAlerts
-                    ? t('dashboard.labAdmin.showLess')
-                    : `${t('dashboard.labAdmin.showAll')} (${alerts.length})`}
-                </button>
-              )}
-
-              {/* Live Attention Indicator */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '20px',
-                backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                color: 'var(--amber-600)',
-                fontSize: '11px',
-                fontWeight: 700,
-              }}>
-                <span style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  backgroundColor: '#f59e0b',
-                  display: 'inline-block',
-                  boxShadow: '0 0 0 2px rgba(245, 158, 11, 0.25)',
-                }} />
-                <span>{t('dashboard.labAdmin.actionRequired')}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* List of WOs inside the single card (Displays latest 2; on Show All, scrolls within same 2-item height) */}
-          <div style={{
-            maxHeight: showAllAlerts ? '108px' : 'none',
-            overflowY: showAllAlerts ? 'auto' : 'visible',
-            paddingRight: showAllAlerts ? '4px' : '0',
-          }}>
-            {(showAllAlerts ? alerts : alerts.slice(0, 2)).map((alert: LabAdminVerificationAlertItem, index: number, arr: LabAdminVerificationAlertItem[]) => (
-              <div
-                key={`${alert.workOrderId}-${alert.processId}`}
-                style={{
-                  padding: '10px 20px',
-                  borderBottom: index < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                  transition: 'background-color 0.15s ease',
-                  backgroundColor: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                {/* Left Side: Folio + Patient + Badges */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  flexWrap: 'wrap',
-                  minWidth: '280px',
-                  flex: '1 1 auto',
-                }}>
-                  <span style={{
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    color: '#2563eb',
-                    fontFamily: 'monospace',
-                    letterSpacing: '0.02em',
-                    border: '1px solid rgba(59, 130, 246, 0.25)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}>
-                    <FileText size={12} />
-                    {alert.folioNumber}
-                  </span>
-
-                  <span style={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    color: 'var(--text-heading)',
-                    fontFamily: 'var(--font-heading)',
-                  }}>
-                    {alert.patient || '—'}
-                  </span>
-
-                  {getStatusBadge(alert.processType)}
-
-                  {alert.status === 'IN_PROGRESS' ? (
-                    <span style={{
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: '5px',
-                      backgroundColor: 'var(--badge-success-bg)',
-                      color: 'var(--emerald-600)',
-                      border: '1px solid var(--emerald-200)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
-                      {t('dashboard.labAdmin.statusInProgress')}
-                    </span>
-                  ) : (
-                    <span style={{
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: '5px',
-                      backgroundColor: 'var(--badge-warning-bg)',
-                      color: 'var(--amber-600)',
-                      border: '1px solid var(--amber-200)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} />
-                      {t('dashboard.labAdmin.statusNotStarted')}
-                    </span>
-                  )}
-                </div>
-
-                {/* Right Side: Action Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={() => setDetailModalWOId(alert.workOrderId)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '6px 14px',
-                      borderRadius: '7px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'var(--bg-card)',
-                      color: 'var(--text-main)',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--primary-400)';
-                      e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border-color)';
-                      e.currentTarget.style.backgroundColor = 'var(--bg-card)';
-                    }}
-                  >
-                    <Eye size={14} />
-                    <span>{t('dashboard.labAdmin.viewWO')}</span>
-                  </button>
-
-                  {alert.status === 'IN_PROGRESS' ? (
-                    isDefaultAdmin ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenVerifyModal(alert)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 16px',
-                          borderRadius: '7px',
-                          border: 'none',
-                          background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                          color: '#ffffff',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-                          transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.45)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
-                        }}
-                      >
-                        <ShieldCheck size={14} />
-                        <span>{t('dashboard.labAdmin.endVerification')}</span>
-                      </button>
-                    ) : (
-                      <Tooltip content={t('dashboard.labAdmin.onlyDefaultAdminCanEnd')}>
-                        <span>
-                          <button
-                            type="button"
-                            disabled
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px 16px',
-                              borderRadius: '7px',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--bg-surface-muted)',
-                              color: 'var(--text-muted)',
-                              cursor: 'not-allowed',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              opacity: 0.6,
-                            }}
-                          >
-                            <ShieldCheck size={14} />
-                            <span>{t('dashboard.labAdmin.endVerification')}</span>
-                          </button>
-                        </span>
-                      </Tooltip>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleStartVerification(alert.workOrderId, alert.processId)}
-                      disabled={startingProcessId === alert.processId}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 16px',
-                        borderRadius: '7px',
-                        border: 'none',
-                        background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
-                        color: '#ffffff',
-                        cursor: startingProcessId === alert.processId ? 'wait' : 'pointer',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        opacity: startingProcessId === alert.processId ? 0.7 : 1,
-                        boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
-                        transition: 'all 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (startingProcessId !== alert.processId) {
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(56, 189, 248, 0.45)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(56, 189, 248, 0.3)';
-                      }}
-                    >
-                      <Play size={13} fill="currentColor" />
-                      <span>{t('dashboard.labAdmin.startVerification')}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ─── KPI Cards ─── */}
+      {/* ─── 4 KPI Cards (Rendered First as in Screenshot) ─── */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
@@ -674,6 +389,552 @@ export const LabAdminDashboard: React.FC = () => {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ─── Unified Tabbed Action Card: My Production Tasks & Verification Alerts ─── */}
+      <div style={{
+        marginBottom: '28px',
+        borderRadius: '16px',
+        border: '1px solid rgba(56, 189, 248, 0.25)',
+        backgroundColor: 'rgba(240, 247, 255, 0.75)',
+        padding: '16px 20px',
+        boxShadow: '0 2px 12px rgba(2, 132, 199, 0.05)',
+      }}>
+        {/* Tab Switcher Header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '14px',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}>
+          {/* Pill Tabs */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: '4px',
+            borderRadius: '999px',
+            border: '1px solid rgba(2, 132, 199, 0.15)',
+          }}>
+            {/* Tab 1: My Production Tasks */}
+            <button
+              type="button"
+              onClick={() => { setActiveQueueTab('production'); setShowAllQueueItems(false); }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '999px',
+                border: 'none',
+                backgroundColor: activeQueueTab === 'production' ? '#ffffff' : 'transparent',
+                color: activeQueueTab === 'production' ? '#0284c7' : 'var(--text-muted)',
+                fontWeight: activeQueueTab === 'production' ? 700 : 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: activeQueueTab === 'production' ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Play size={13} fill={activeQueueTab === 'production' ? '#0284c7' : 'none'} />
+              <span>{t('dashboard.labAdmin.myProductionTasks', { defaultValue: 'My Production Tasks' })}</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '1px 7px',
+                borderRadius: '999px',
+                backgroundColor: activeQueueTab === 'production' ? '#0284c7' : 'var(--border-color)',
+                color: activeQueueTab === 'production' ? '#ffffff' : 'var(--text-muted)',
+              }}>
+                {myProductionTasks.length}
+              </span>
+            </button>
+
+            {/* Tab 2: Verification Alerts */}
+            <button
+              type="button"
+              onClick={() => { setActiveQueueTab('verification'); setShowAllQueueItems(false); }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '999px',
+                border: 'none',
+                backgroundColor: activeQueueTab === 'verification' ? '#ffffff' : 'transparent',
+                color: activeQueueTab === 'verification' ? '#7c3aed' : 'var(--text-muted)',
+                fontWeight: activeQueueTab === 'verification' ? 700 : 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: activeQueueTab === 'verification' ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <ShieldCheck size={14} />
+              <span>{t('dashboard.labAdmin.verificationAlerts', { defaultValue: 'Verification Alerts' })}</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '1px 7px',
+                borderRadius: '999px',
+                backgroundColor: activeQueueTab === 'verification' ? '#7c3aed' : 'var(--border-color)',
+                color: activeQueueTab === 'verification' ? '#ffffff' : 'var(--text-muted)',
+              }}>
+                {alerts.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Right Controls: Show All toggle */}
+          {currentQueueList.length > 3 && (
+            <button
+              type="button"
+              onClick={() => setShowAllQueueItems((prev) => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 14px',
+                borderRadius: '20px',
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {showAllQueueItems
+                ? t('dashboard.labAdmin.showLess', { defaultValue: 'Show Less' })
+                : `${t('dashboard.labAdmin.showAll', { defaultValue: 'Show All' })} (${currentQueueList.length})`}
+            </button>
+          )}
+        </div>
+
+        {/* Tab Content List (Top 3 records by default) */}
+        {currentQueueList.length === 0 ? (
+          <div style={{
+            padding: '28px 16px',
+            textAlign: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            borderRadius: '10px',
+            border: '1px dashed rgba(2, 132, 199, 0.25)',
+            color: 'var(--text-muted)',
+            fontSize: '13px',
+          }}>
+            {activeQueueTab === 'production'
+              ? t('dashboard.labAdmin.noProductionTasks', { defaultValue: 'No active production tasks assigned to you.' })
+              : t('dashboard.labAdmin.noVerificationAlerts', { defaultValue: 'No pending verification alerts.' })}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {displayedQueueItems.map((item: any) => {
+              const itemStatus = item.status || item.stepStatus || 'NOT_STARTED';
+              const isInProgress = itemStatus === 'IN_PROGRESS';
+              const isPaused = itemStatus === 'PAUSED';
+              const isReady = activeQueueTab === 'production' ? Boolean(item.isReadyToStart) : true;
+              const isExtVerif = item.processType === 'EXTERNAL_VERIFICATION';
+
+              return (
+                <div
+                  key={`${item.workOrderId}-${item.processId}`}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(2, 132, 199, 0.18)',
+                    padding: '12px 18px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary-400)';
+                    e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(2, 132, 199, 0.18)';
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.03)';
+                  }}
+                >
+                  {/* Top Line: Badges + Patient + Actions */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    marginBottom: '8px',
+                  }}>
+                    {/* Left Badges */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        color: '#2563eb',
+                        fontFamily: 'monospace',
+                        letterSpacing: '0.02em',
+                        border: '1px solid rgba(59, 130, 246, 0.25)',
+                      }}>
+                        {item.folioNumber}
+                      </span>
+
+                      {item.boxNumber && (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: '#e0f2fe',
+                          color: '#0284c7',
+                          border: '1px solid rgba(2, 132, 199, 0.25)',
+                        }}>
+                          {t('dashboard.labAdmin.boxNumber', { box: item.boxNumber, defaultValue: `Box Number #${item.boxNumber}` })}
+                        </span>
+                      )}
+
+                      <span style={{
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: 'var(--text-heading)',
+                      }}>
+                        {item.patient || '—'}
+                      </span>
+
+                      {/* Status Badge */}
+                      {isInProgress ? (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--badge-success-bg)',
+                          color: 'var(--emerald-600)',
+                          border: '1px solid var(--emerald-200)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+                          {t('dashboard.labAdmin.statusInProgress')}
+                        </span>
+                      ) : isPaused ? (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--badge-warning-bg)',
+                          color: 'var(--amber-600)',
+                          border: '1px solid var(--amber-200)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#f59e0b', display: 'inline-block' }} />
+                          {t('technician.status.paused', { defaultValue: 'Paused' })}
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
+                          color: 'var(--text-muted)',
+                          border: '1px solid var(--border-color)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#94a3b8', display: 'inline-block' }} />
+                          {t('dashboard.labAdmin.statusNotStarted')}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Right Action Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => setDetailModalWOId(item.workOrderId)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '6px 14px',
+                          borderRadius: '7px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: '#ffffff',
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--primary-400)';
+                          e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
+                          e.currentTarget.style.backgroundColor = '#ffffff';
+                        }}
+                      >
+                        <Eye size={14} />
+                        <span>{t('dashboard.labAdmin.viewWO')}</span>
+                      </button>
+
+                      {/* Dynamic Action Button based on Active Tab */}
+                      {activeQueueTab === 'production' ? (
+                        isInProgress ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handlePauseProductionProcess(item.workOrderId, item.processId)}
+                              disabled={actionLoadingProcessId === item.processId}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                borderRadius: '7px',
+                                border: '1px solid #fde68a',
+                                backgroundColor: '#fef3c7',
+                                color: '#d97706',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                              }}
+                            >
+                              <Pause size={13} />
+                              <span>{t('dashboard.labAdmin.pauseProcess', { defaultValue: 'Pause' })}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCompleteProductionProcess(item.workOrderId, item.processId)}
+                              disabled={actionLoadingProcessId === item.processId}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 16px',
+                                borderRadius: '7px',
+                                border: 'none',
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                              }}
+                            >
+                              <CheckCircle2 size={14} />
+                              <span>{t('dashboard.labAdmin.completeProcess', { defaultValue: 'Complete' })}</span>
+                            </button>
+                          </>
+                        ) : isPaused ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleResumeProductionProcess(item.workOrderId, item.processId)}
+                              disabled={actionLoadingProcessId === item.processId}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                borderRadius: '7px',
+                                border: 'none',
+                                backgroundColor: '#38bdf8',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                              }}
+                            >
+                              <Play size={13} fill="currentColor" />
+                              <span>{t('dashboard.labAdmin.resumeProcess', { defaultValue: 'Resume' })}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCompleteProductionProcess(item.workOrderId, item.processId)}
+                              disabled={actionLoadingProcessId === item.processId}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 16px',
+                                borderRadius: '7px',
+                                border: 'none',
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                              }}
+                            >
+                              <CheckCircle2 size={14} />
+                              <span>{t('dashboard.labAdmin.completeProcess', { defaultValue: 'Complete' })}</span>
+                            </button>
+                          </>
+                        ) : isReady ? (
+                          <button
+                            type="button"
+                            onClick={() => handleStartProductionProcess(item.workOrderId, item.processId)}
+                            disabled={actionLoadingProcessId === item.processId}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 18px',
+                              borderRadius: '7px',
+                              border: 'none',
+                              background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+                              color: '#ffffff',
+                              cursor: actionLoadingProcessId === item.processId ? 'wait' : 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <Play size={13} fill="currentColor" />
+                            <span>{t('dashboard.labAdmin.startProcess', { defaultValue: 'Start Process' })}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 14px',
+                              borderRadius: '7px',
+                              border: '1px solid var(--border-color)',
+                              backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+                              color: 'var(--text-muted)',
+                              cursor: 'not-allowed',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Lock size={13} />
+                            <span>{t('dashboard.labAdmin.waitingPriorStep', { defaultValue: 'Waiting Prior Step' })}</span>
+                          </button>
+                        )
+                      ) : (
+                        /* Verification Tab Actions */
+                        isInProgress ? (
+                          isDefaultAdmin ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenVerifyModal(item)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 16px',
+                                borderRadius: '7px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <ShieldCheck size={14} />
+                              <span>{t('dashboard.labAdmin.endVerification')}</span>
+                            </button>
+                          ) : (
+                            <Tooltip content={t('dashboard.labAdmin.onlyDefaultAdminCanEnd')}>
+                              <span>
+                                <button
+                                  type="button"
+                                  disabled
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '6px 16px',
+                                    borderRadius: '7px',
+                                    border: '1px solid var(--border-color)',
+                                    backgroundColor: 'var(--bg-surface-muted)',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'not-allowed',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    opacity: 0.6,
+                                  }}
+                                >
+                                  <ShieldCheck size={14} />
+                                  <span>{t('dashboard.labAdmin.endVerification')}</span>
+                                </button>
+                              </span>
+                            </Tooltip>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleStartVerification(item.workOrderId, item.processId)}
+                            disabled={startingProcessId === item.processId}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 16px',
+                              borderRadius: '7px',
+                              border: 'none',
+                              background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+                              color: '#ffffff',
+                              cursor: startingProcessId === item.processId ? 'wait' : 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <Play size={13} fill="currentColor" />
+                            <span>{t('dashboard.labAdmin.startVerification')}</span>
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Subtitle / Details Line (Matching Screenshot) */}
+                  <div style={{
+                    fontSize: '12.5px',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                  }}>
+                    <span>
+                      {t('dashboard.labAdmin.process')}: <strong style={{ color: 'var(--text-heading)' }}>{item.processName} (#{item.sequence || item.currentStepSequence || 1})</strong>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {t('dashboard.labAdmin.doctor')}: <strong style={{ color: 'var(--text-heading)' }}>{item.doctorName || '—'}</strong>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ─── Two Column Layout: In-Progress & Verification ─── */}

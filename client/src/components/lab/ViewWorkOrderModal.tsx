@@ -24,6 +24,9 @@ import {
   History,
   Check,
   RotateCcw,
+  Play,
+  Pause,
+  Lock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -42,6 +45,7 @@ import { useNotifications } from '../../core/context/NotificationContext';
 import { Tooltip } from '../common/Tooltip';
 import { WorkOrderChatTab } from './WorkOrderChatTab';
 import { EditWorkOrderModal } from './EditWorkOrderModal';
+import { VerifyWorkOrderModal } from './VerifyWorkOrderModal';
 
 export interface ViewWorkOrderModalProps {
   workOrder?: WorkOrderListItem | null;
@@ -141,6 +145,72 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
   // Processes tab state
   const [expandedAuditProcessId, setExpandedAuditProcessId] = useState<string | null>(null);
+  const [actionLoadingProcessId, setActionLoadingProcessId] = useState<string | null>(null);
+  const [verifyModalProcess, setVerifyModalProcess] = useState<{
+    processId: string;
+    processName: string;
+    processType: string;
+  } | null>(null);
+
+  const handleStartStep = async (processId: string) => {
+    if (!targetId) return;
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.startProcess(targetId, processId);
+      toast.success(t('technician.alerts.processStarted', { defaultValue: 'Process started successfully' }));
+      fetchFullOrder(true);
+      if (onOrderUpdated) onOrderUpdated();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('technician.errors.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
+  const handlePauseStep = async (processId: string) => {
+    if (!targetId) return;
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.pauseProcess(targetId, processId);
+      toast.success(t('technician.alerts.processPaused', { defaultValue: 'Process paused' }));
+      fetchFullOrder(true);
+      if (onOrderUpdated) onOrderUpdated();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('technician.errors.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
+  const handleResumeStep = async (processId: string) => {
+    if (!targetId) return;
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.resumeProcess(targetId, processId);
+      toast.success(t('technician.alerts.processResumed', { defaultValue: 'Process resumed' }));
+      fetchFullOrder(true);
+      if (onOrderUpdated) onOrderUpdated();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('technician.errors.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
+
+  const handleCompleteStep = async (processId: string) => {
+    if (!targetId) return;
+    setActionLoadingProcessId(processId);
+    try {
+      await workOrderService.completeProcess(targetId, processId);
+      toast.success(t('technician.alerts.processCompleted', { defaultValue: 'Process completed! Next step notified.' }));
+      fetchFullOrder(true);
+      if (onOrderUpdated) onOrderUpdated();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || t('technician.errors.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoadingProcessId(null);
+    }
+  };
 
   // Payment tab state
   const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
@@ -1611,6 +1681,9 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                             <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                               {t('workOrders.viewModal.processesTab.status', 'Status')}
                             </th>
+                            <th style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-muted)', width: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              {t('workOrders.viewModal.processesTab.actions', 'Actions')}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1762,15 +1835,214 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                       </span>
                                     </button>
                                   </td>
-                                  <td style={{ padding: '12px 14px', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                   <td style={{ padding: '12px 14px', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     {getStepStatusBadge(proc.status, proc.reworkActive)}
+                                  </td>
+                                  <td style={{ padding: '12px 14px', width: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                    {(() => {
+                                      const isProcReady = sortedProcesses
+                                        .filter((p) => p.sequence < proc.sequence)
+                                        .every((p) => p.status === 'COMPLETED');
+                                      const isLoadingThis = actionLoadingProcessId === proc.id;
+
+                                      if (proc.status === 'COMPLETED') {
+                                        return (
+                                          <span style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: 700,
+                                            color: '#10b981',
+                                          }}>
+                                            <CheckCircle2 size={13} />
+                                            <span>{t('technician.status.completed', 'Completed')}</span>
+                                          </span>
+                                        );
+                                      }
+
+                                      if (proc.status === 'IN_PROGRESS') {
+                                        if (isInt || isExt) {
+                                          return (
+                                            <button
+                                              type="button"
+                                              onClick={() => setVerifyModalProcess({
+                                                processId: proc.id,
+                                                processName: proc.processName,
+                                                processType: proc.processType,
+                                              })}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                border: 'none',
+                                                backgroundColor: '#10b981',
+                                                color: '#ffffff',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                              }}
+                                            >
+                                              <ShieldCheck size={12} />
+                                              <span>{t('dashboard.labAdmin.endVerification', 'End Process')}</span>
+                                            </button>
+                                          );
+                                        }
+
+                                        return (
+                                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => handlePauseStep(proc.id)}
+                                              disabled={isLoadingThis}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #fde68a',
+                                                backgroundColor: '#fef3c7',
+                                                color: '#d97706',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                              }}
+                                            >
+                                              <Pause size={11} />
+                                              <span>{t('workOrders.viewModal.processesTab.pause', 'Pause')}</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleCompleteStep(proc.id)}
+                                              disabled={isLoadingThis}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                border: 'none',
+                                                backgroundColor: '#10b981',
+                                                color: '#ffffff',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                              }}
+                                            >
+                                              <CheckCircle2 size={12} />
+                                              <span>{t('workOrders.viewModal.processesTab.complete', 'Complete')}</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      }
+
+                                      if (proc.status === 'PAUSED') {
+                                        return (
+                                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleResumeStep(proc.id)}
+                                              disabled={isLoadingThis}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                border: 'none',
+                                                backgroundColor: '#38bdf8',
+                                                color: '#ffffff',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                              }}
+                                            >
+                                              <Play size={11} fill="currentColor" />
+                                              <span>{t('workOrders.viewModal.processesTab.resume', 'Resume')}</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleCompleteStep(proc.id)}
+                                              disabled={isLoadingThis}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                border: 'none',
+                                                backgroundColor: '#10b981',
+                                                color: '#ffffff',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                              }}
+                                            >
+                                              <CheckCircle2 size={12} />
+                                              <span>{t('workOrders.viewModal.processesTab.complete', 'Complete')}</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      }
+
+                                      if (proc.status === 'NOT_STARTED') {
+                                        if (isProcReady) {
+                                          return (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleStartStep(proc.id)}
+                                              disabled={isLoadingThis}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                padding: '4px 12px',
+                                                borderRadius: '6px',
+                                                border: 'none',
+                                                backgroundColor: isInt || isExt ? '#0284c7' : '#38bdf8',
+                                                color: '#ffffff',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                cursor: isLoadingThis ? 'wait' : 'pointer',
+                                              }}
+                                            >
+                                              <Play size={11} fill="currentColor" />
+                                              <span>
+                                                {isInt || isExt
+                                                  ? t('dashboard.labAdmin.startVerification', 'Start Verification')
+                                                  : t('workOrders.viewModal.processesTab.startProcess', 'Start Process')}
+                                              </span>
+                                            </button>
+                                          );
+                                        }
+
+                                        return (
+                                          <span style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            color: 'var(--text-muted)',
+                                          }}>
+                                            <Lock size={12} />
+                                            <span>{t('workOrders.viewModal.processesTab.waitingPrior', { n: proc.sequence, defaultValue: 'Waiting Prior' })}</span>
+                                          </span>
+                                        );
+                                      }
+
+                                      return null;
+                                    })()}
                                   </td>
                                 </tr>
 
                                 {/* Expanded Process Activity History */}
                                 {isAuditExpanded && (
                                   <tr>
-                                    <td colSpan={5} style={{ padding: '14px 20px', backgroundColor: 'var(--bg-surface)' }}>
+                                    <td colSpan={6} style={{ padding: '14px 20px', backgroundColor: 'var(--bg-surface)' }}>
                                       <div
                                         style={{
                                           borderRadius: '8px',
@@ -2607,6 +2879,26 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             fetchFullOrder(false);
             if (onOrderUpdated) onOrderUpdated();
             setIsEditModalOpen(false);
+          }}
+        />
+      )}
+      {/* ─── VERIFY WORK ORDER MODAL ─────────── */}
+      {verifyModalProcess && currentWO && (
+        <VerifyWorkOrderModal
+          isOpen={Boolean(verifyModalProcess)}
+          onClose={() => setVerifyModalProcess(null)}
+          workOrderId={currentWO.id}
+          folioNumber={currentWO.folioNumber}
+          patient={currentWO.patient || ''}
+          processId={verifyModalProcess.processId}
+          processName={verifyModalProcess.processName}
+          processType={verifyModalProcess.processType}
+          doctorName={currentWO.doctor?.name}
+          doctorType={currentWO.doctor?.type}
+          onComplete={() => {
+            setVerifyModalProcess(null);
+            fetchFullOrder(true);
+            if (onOrderUpdated) onOrderUpdated();
           }}
         />
       )}

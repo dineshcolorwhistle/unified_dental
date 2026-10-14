@@ -511,9 +511,31 @@ export interface LabAdminVerificationAlertItem {
   totalActiveDuration?: number;
 }
 
+export interface LabAdminProductionTaskItem {
+  workOrderId: string;
+  folioNumber: string;
+  boxNumber?: string | null;
+  patient?: string | null;
+  doctorName?: string | null;
+  clinicName?: string | null;
+  prosthesisName?: string | null;
+  processId: string;
+  processName: string;
+  sequence: number;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | string;
+  isReadyToStart: boolean;
+  reworkActive?: boolean;
+  reworkCount?: number;
+  startedAt?: string | null;
+  totalActiveDuration?: number;
+  deliveryDate?: string | null;
+  color?: string | null;
+}
+
 export interface LabAdminInProgressItem {
   workOrderId: string;
   folioNumber: string;
+  boxNumber?: string | null;
   patient?: string | null;
   doctorName?: string | null;
   prosthesisName?: string | null;
@@ -522,6 +544,8 @@ export interface LabAdminInProgressItem {
   currentStepStatus: string;
   currentStepSequence: number;
   technicianName?: string | null;
+  technicianId?: string | null;
+  isAssignedToMe?: boolean;
 }
 
 export interface LabAdminVerificationItem {
@@ -548,9 +572,12 @@ export interface LabAdminDashboardData {
     pendingVerifications: number;
     pendingTechSteps: number;
     completedToday: number;
+    myProductionTasksCount?: number;
   };
   isDefaultAdmin?: boolean;
   pendingVerificationAlerts: LabAdminVerificationAlertItem[];
+  myProductionTasks?: LabAdminProductionTaskItem[];
   inProgressOrders: LabAdminInProgressItem[];
   verificationOrders: LabAdminVerificationItem[];
 }
+

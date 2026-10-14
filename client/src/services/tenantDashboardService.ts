@@ -5,6 +5,7 @@ export interface SubscriptionQuotaItem {
   used: number;
   remaining: number;
   percentage: number;
+  breakdown?: Array<{ role: string; count: number }>;
 }
 
 export interface SubscriptionModulesQuota {

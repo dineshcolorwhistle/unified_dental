@@ -1933,7 +1933,11 @@ export class WorkOrdersService {
           workOrderProcessId: processId,
           userId: actor.id,
           action: 'START',
-          notes: isVerificationStep ? 'Verification started by admin' : 'Process started by technician',
+          notes: isVerificationStep
+            ? 'Verification started by admin'
+            : isAdmin
+            ? 'Process started by admin'
+            : 'Process started by technician',
           timestamp: now,
         },
       });
@@ -2644,6 +2648,7 @@ export class WorkOrdersService {
 
     // Categorize
     const pendingVerificationAlerts: any[] = [];
+    const myProductionTasks: any[] = [];
     const inProgressOrders: any[] = [];
     const verificationOrders: any[] = [];
     let pendingVerificationsCount = 0;
@@ -2651,6 +2656,41 @@ export class WorkOrdersService {
 
     for (const wo of activeOrders) {
       const sortedProcs = [...wo.processes].sort((a, b) => a.sequence - b.sequence);
+
+      // Check for production steps assigned to the logged-in admin
+      for (const p of sortedProcs) {
+        if (
+          p.processType === ProcessType.PRODUCTION &&
+          !p.isVerification &&
+          p.technicianId === actor.id &&
+          p.status !== ProcessStatus.COMPLETED
+        ) {
+          const isReadyToStart = sortedProcs
+            .filter((prev) => prev.sequence < p.sequence)
+            .every((prev) => prev.status === ProcessStatus.COMPLETED);
+
+          myProductionTasks.push({
+            workOrderId: wo.id,
+            folioNumber: wo.folioNumber,
+            boxNumber: wo.boxNumber || null,
+            patient: wo.patient || null,
+            doctorName: wo.doctor?.name || null,
+            clinicName: wo.doctor?.clinicName || null,
+            prosthesisName: wo.prosthesisType?.name || null,
+            processId: p.id,
+            processName: p.processName,
+            sequence: p.sequence + 1,
+            status: p.status,
+            isReadyToStart,
+            reworkActive: Boolean(p.reworkActive),
+            reworkCount: p.reworkCount || 0,
+            startedAt: p.startedAt,
+            totalActiveDuration: p.totalActiveDuration,
+            deliveryDate: wo.deliveryDate,
+            color: wo.color,
+          });
+        }
+      }
 
       // Count pending tech steps (production NOT_STARTED)
       for (const p of sortedProcs) {
@@ -2751,6 +2791,7 @@ export class WorkOrdersService {
           inProgressOrders.push({
             workOrderId: wo.id,
             folioNumber: wo.folioNumber,
+            boxNumber: wo.boxNumber || null,
             patient: wo.patient,
             doctorName: wo.doctor?.name || null,
             prosthesisName: wo.prosthesisType?.name || null,
@@ -2759,10 +2800,23 @@ export class WorkOrdersService {
             currentStepStatus: readyStep.status,
             currentStepSequence: readyStep.sequence + 1,
             technicianName: readyStep.technician?.name || null,
+            technicianId: readyStep.technicianId || null,
+            isAssignedToMe: readyStep.technicianId === actor.id,
           });
         }
       }
     }
+
+    // Sort production tasks: in progress / paused first, then ready to start, then pending
+    myProductionTasks.sort((a, b) => {
+      const getPriority = (status: string, ready: boolean) => {
+        if (status === ProcessStatus.IN_PROGRESS) return 1;
+        if (status === ProcessStatus.PAUSED) return 2;
+        if (status === ProcessStatus.NOT_STARTED && ready) return 3;
+        return 4;
+      };
+      return getPriority(a.status, a.isReadyToStart) - getPriority(b.status, b.isReadyToStart);
+    });
 
     return {
       stats: {
@@ -2770,9 +2824,11 @@ export class WorkOrdersService {
         pendingVerifications: pendingVerificationsCount,
         pendingTechSteps,
         completedToday,
+        myProductionTasksCount: myProductionTasks.length,
       },
       isDefaultAdmin,
       pendingVerificationAlerts,
+      myProductionTasks,
       inProgressOrders,
       verificationOrders,
     };
