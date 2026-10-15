@@ -6,3 +6,4 @@ export * from './VerifyWorkOrderModal';
 export * from './ViewWorkOrderModal';
 export * from './WorkOrderNotesModal';
 export * from './WorkOrderChatTab';
+export * from './LabBulkUploadModal';

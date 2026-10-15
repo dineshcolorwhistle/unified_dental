@@ -21,6 +21,7 @@ import { PaymentMethodsService } from './payment-methods/payment-methods.service
 import { WhatsappTemplatesController } from './whatsapp-templates/whatsapp-templates.controller';
 import { WhatsappTemplatesService } from './whatsapp-templates/whatsapp-templates.service';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
+import { BulkUploadModule } from './bulk-upload/bulk-upload.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     BranchesModule,
     ModulesModule,
     WorkOrdersModule,
+    BulkUploadModule,
   ],
   controllers: [
     LabUsersController,
@@ -59,6 +61,7 @@ import { WorkOrdersModule } from './work-orders/work-orders.module';
     PaymentMethodsService,
     WhatsappTemplatesService,
     WorkOrdersModule,
+    BulkUploadModule,
   ],
 })
 export class LabModule {}

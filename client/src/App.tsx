@@ -39,6 +39,7 @@ import { LabProsthesisPage } from './pages/lab/LabProsthesisPage';
 import { LabDoctorsPage } from './pages/lab/LabDoctorsPage';
 import { LabPaymentMethodsPage } from './pages/lab/LabPaymentMethodsPage';
 import { LabSupportPortalPage } from './pages/lab/LabSupportPortalPage';
+import { LabBulkUploadPage } from './pages/lab/LabBulkUploadPage';
 import { PlatformSupportPortalPage } from './pages/PlatformSupportPortalPage';
 // Clinic Module Pages
 import { ClinicStaffPage } from './pages/clinic/ClinicStaffPage';
@@ -176,6 +177,7 @@ export const App: React.FC = () => {
                     <Route path="lab/whatsapp-templates" element={<ProtectedRoute><LabWhatsappTemplatesPage /></ProtectedRoute>} />
                     <Route path="lab/deliveries" element={<ProtectedRoute><LabDeliveriesPage /></ProtectedRoute>} />
                     <Route path="lab/doctors" element={<ProtectedRoute><LabDoctorsPage /></ProtectedRoute>} />
+                    <Route path="lab/bulk-upload" element={<ProtectedRoute><LabBulkUploadPage /></ProtectedRoute>} />
                     <Route path="lab/support" element={<ProtectedRoute><LabSupportPortalPage /></ProtectedRoute>} />
 
                     {/* Clinic Module Routes */}

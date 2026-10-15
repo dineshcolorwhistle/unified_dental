@@ -28,6 +28,7 @@ import {
   Workflow,
   Layers,
   MessageSquare,
+  FileSpreadsheet,
   // Clinic module icons
   Stethoscope,
   CalendarCheck,
@@ -567,6 +568,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   label={t('nav.processAreas')}
                   isCollapsed={isCollapsed}
                 />
+
+                {isLabAdmin && (
+                  <SidebarNavItem
+                    to="/lab/bulk-upload"
+                    icon={<FileSpreadsheet size={17} />}
+                    label={t('nav.bulkUpload', 'Bulk Upload')}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
 
                 <SidebarNavItem
                   to="/lab/payment-methods"
