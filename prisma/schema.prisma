@@ -99,6 +99,7 @@ model Tenant {
   reminders            Reminder[]
   paymentMethods       PaymentMethod[]
   whatsappTemplates    WhatsappTemplate[]
+  supportTickets       SupportTicket[]
 
   @@map("tenants")
 }
@@ -182,6 +183,7 @@ model Branch {
   reminders           Reminder[]
   paymentMethods      PaymentMethod[]
   whatsappTemplates   WhatsappTemplate[]
+  supportTickets      SupportTicket[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -224,6 +226,8 @@ model User {
   createdReminders           Reminder[] @relation("ReminderCreatedBy")
   reminderAssignments        ReminderAssignee[]
   createdWhatsappTemplates   WhatsappTemplate[] @relation("WhatsappTemplateCreatedBy")
+  createdSupportTickets      SupportTicket[] @relation("SupportTicketCreatedBy")
+  supportTicketMessages      SupportTicketMessage[]
 
   @@map("users")
 }
@@ -1041,5 +1045,56 @@ model ReminderNotificationLog {
   @@unique([reminderId, occurrenceKey])
   @@index([reminderId])
   @@map("reminder_notification_logs")
+}
+
+// ─── Lab Support Portal Entities ───────────────────────────
+
+enum SupportTicketStatus {
+  CREATED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model SupportTicket {
+  id           String              @id @default(uuid())
+  ticketNumber String              @unique @map("ticket_number")
+  title        String
+  description  String              @db.Text
+  status       SupportTicketStatus @default(CREATED)
+  images       Json?               @default("[]")
+  moduleKey    String              @default("LAB") @map("module_key")
+  tenantId     String              @map("tenant_id")
+  branchId     String?             @map("branch_id")
+  createdById  String              @map("created_by_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy    User                   @relation("SupportTicketCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  messages     SupportTicketMessage[]
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, status])
+  @@index([createdById])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id          String        @id @default(uuid())
+  ticketId    String        @map("ticket_id")
+  senderId    String        @map("sender_id")
+  message     String        @db.Text
+  attachments Json?         @default("[]")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender      User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([senderId])
+  @@map("support_ticket_messages")
 }
 

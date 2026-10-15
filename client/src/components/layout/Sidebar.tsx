@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Clock,
   QrCode,
+  LifeBuoy,
   // Lab module icons
   FlaskConical,
   Users,
@@ -329,6 +330,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               label={t('nav.qrInquiries', 'QR Inquiries')}
               isCollapsed={isCollapsed}
             />
+            <SidebarNavItem
+              to="/support-portal"
+              icon={<LifeBuoy size={17} />}
+              label={t('nav.supportPortal', 'Support Portal')}
+              isCollapsed={isCollapsed}
+            />
           </div>
         ) : isLabTechnician ? (
           /* ───── 2. Flat Menu for Lab Technician (Finalized) ───── */
@@ -572,6 +579,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   to="/lab/whatsapp-templates"
                   icon={<MessageSquare size={17} />}
                   label={t('nav.whatsappTemplate')}
+                  isCollapsed={isCollapsed}
+                />
+
+                <SidebarNavItem
+                  to="/lab/support"
+                  icon={<LifeBuoy size={17} />}
+                  label={t('nav.supportPortal', 'Support Portal')}
                   isCollapsed={isCollapsed}
                 />
               </div>

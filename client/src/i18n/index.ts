@@ -38,6 +38,7 @@ const resources = {
         processAreas: 'Process Areas',
         paymentMethods: 'Payment Methods',
         whatsappTemplate: 'Whatsapp Template',
+        supportPortal: 'Support Portal',
         // Dental Clinic Group & Menus
         dentalClinic: 'Dental Clinic',
         clinicUsers: 'Users',

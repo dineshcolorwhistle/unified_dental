@@ -38,6 +38,8 @@ import { LabDeliveriesPage } from './pages/lab/LabDeliveriesPage';
 import { LabProsthesisPage } from './pages/lab/LabProsthesisPage';
 import { LabDoctorsPage } from './pages/lab/LabDoctorsPage';
 import { LabPaymentMethodsPage } from './pages/lab/LabPaymentMethodsPage';
+import { LabSupportPortalPage } from './pages/lab/LabSupportPortalPage';
+import { PlatformSupportPortalPage } from './pages/PlatformSupportPortalPage';
 // Clinic Module Pages
 import { ClinicStaffPage } from './pages/clinic/ClinicStaffPage';
 import { ClinicUsersAdminPage } from './pages/clinic/ClinicUsersAdminPage';
@@ -174,6 +176,7 @@ export const App: React.FC = () => {
                     <Route path="lab/whatsapp-templates" element={<ProtectedRoute><LabWhatsappTemplatesPage /></ProtectedRoute>} />
                     <Route path="lab/deliveries" element={<ProtectedRoute><LabDeliveriesPage /></ProtectedRoute>} />
                     <Route path="lab/doctors" element={<ProtectedRoute><LabDoctorsPage /></ProtectedRoute>} />
+                    <Route path="lab/support" element={<ProtectedRoute><LabSupportPortalPage /></ProtectedRoute>} />
 
                     {/* Clinic Module Routes */}
                     <Route path="clinic/staff" element={<ProtectedRoute><ClinicStaffPage /></ProtectedRoute>} />
@@ -218,6 +221,14 @@ export const App: React.FC = () => {
                       element={
                         <ProtectedRoute superAdminOnly>
                           <QrInquiriesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="support-portal"
+                      element={
+                        <ProtectedRoute superAdminOnly>
+                          <PlatformSupportPortalPage />
                         </ProtectedRoute>
                       }
                     />
