@@ -41,6 +41,7 @@ import { LabPaymentMethodsPage } from './pages/lab/LabPaymentMethodsPage';
 import { LabSupportPortalPage } from './pages/lab/LabSupportPortalPage';
 import { LabBulkUploadPage } from './pages/lab/LabBulkUploadPage';
 import { PlatformSupportPortalPage } from './pages/PlatformSupportPortalPage';
+import { OnboardingInstructionsPage } from './pages/OnboardingInstructionsPage';
 // Clinic Module Pages
 import { ClinicStaffPage } from './pages/clinic/ClinicStaffPage';
 import { ClinicUsersAdminPage } from './pages/clinic/ClinicUsersAdminPage';
@@ -161,8 +162,17 @@ export const App: React.FC = () => {
                         </ProtectedRoute>
                       }
                     />
+                    <Route
+                      path="onboarding"
+                      element={
+                        <ProtectedRoute>
+                          <OnboardingInstructionsPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Lab Module Routes */}
+                    <Route path="lab/onboarding" element={<ProtectedRoute><OnboardingInstructionsPage /></ProtectedRoute>} />
                     <Route path="lab/staff" element={<ProtectedRoute><LabStaffPage /></ProtectedRoute>} />
                     <Route path="lab/users/admin" element={<ProtectedRoute><LabUsersAdminPage /></ProtectedRoute>} />
                     <Route path="lab/users/technicians" element={<ProtectedRoute><LabUsersTechniciansPage /></ProtectedRoute>} />

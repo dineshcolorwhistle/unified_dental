@@ -21,6 +21,7 @@ import {
   Clock,
   QrCode,
   LifeBuoy,
+  Compass,
   // Lab module icons
   FlaskConical,
   Users,
@@ -337,6 +338,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               label={t('nav.supportPortal', 'Support Portal')}
               isCollapsed={isCollapsed}
             />
+            <SidebarNavItem
+              to="/onboarding"
+              icon={<Compass size={17} />}
+              label={t('nav.onboardingGuide', 'Onboarding Instructions')}
+              isCollapsed={isCollapsed}
+            />
           </div>
         ) : isLabTechnician ? (
           /* ───── 2. Flat Menu for Lab Technician (Finalized) ───── */
@@ -360,6 +367,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               to="/lab/work-orders/requested"
               icon={<Clock size={17} />}
               label={t('nav.requestedOrder')}
+              isCollapsed={isCollapsed}
+            />
+
+            <SidebarNavItem
+              to="/lab/onboarding"
+              icon={<Compass size={17} />}
+              label={t('nav.onboardingGuide', 'Onboarding Instructions')}
               isCollapsed={isCollapsed}
             />
           </div>
@@ -598,6 +612,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
                   label={t('nav.supportPortal', 'Support Portal')}
                   isCollapsed={isCollapsed}
                 />
+
+                <SidebarNavItem
+                  to="/lab/onboarding"
+                  icon={<Compass size={17} />}
+                  label={t('nav.onboardingGuide', 'Onboarding Instructions')}
+                  isCollapsed={isCollapsed}
+                />
               </div>
             </div>
           </>
@@ -807,6 +828,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               end
               icon={<LayoutDashboard size={17} />}
               label={t('nav.dashboard')}
+              isCollapsed={isCollapsed}
+            />
+            <SidebarNavItem
+              to="/onboarding"
+              icon={<Compass size={17} />}
+              label={t('nav.onboardingGuide', 'Onboarding Instructions')}
               isCollapsed={isCollapsed}
             />
           </div>
