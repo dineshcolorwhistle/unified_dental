@@ -691,13 +691,16 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
 
         {/* Tab Navigation */}
         <div
+          className="modal-tab-bar"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '0 24px',
+            padding: '0 20px',
             borderBottom: '1px solid var(--border-color)',
             backgroundColor: 'var(--bg-surface)',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
           }}
         >
           <button
@@ -811,7 +814,7 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
               {activeTab === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {/* Row 1: Doctor * & Patient */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-grid-2">
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600 }}>
                         {t('workOrders.form.doctor', 'Doctor')}{' '}
@@ -853,7 +856,7 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                   </div>
 
                   {/* Row 2: Folio Number | File Number | Box Number | Delivery Date */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.2fr', gap: '12px' }}>
+                  <div className="form-grid-4">
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600 }}>
                         {t('workOrders.form.folioNumber', 'Folio Number')}
@@ -1413,7 +1416,7 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
                       borderRadius: '12px',
                     }}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', alignItems: 'start' }}>
+                    <div className="form-grid-4" style={{ alignItems: 'start' }}>
                       {/* 1. Total Quote */}
                       <div>
                         <label

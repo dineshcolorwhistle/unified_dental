@@ -522,6 +522,7 @@ export const TenantsPage: React.FC = () => {
 
       {/* Search & Counter Bar */}
       <div
+        className="filter-bar-responsive"
         style={{
           display: 'flex',
           justifyContent: 'space-between',

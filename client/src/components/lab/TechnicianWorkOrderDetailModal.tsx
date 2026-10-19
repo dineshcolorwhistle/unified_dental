@@ -411,6 +411,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
 
         {/* Tab Navigation */}
         <div
+          className="tabs-header-scrollable"
           style={{
             display: 'flex',
             padding: '0 24px',

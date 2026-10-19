@@ -736,13 +736,16 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
         {/* Tab Headers */}
         <div
+          className="modal-tab-bar"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '0 24px',
+            padding: '0 20px',
             borderBottom: '1px solid var(--border-color)',
             backgroundColor: 'var(--bg-surface)',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
           }}
         >
           <button
@@ -871,13 +874,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
               {activeTab === 'general' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                   {/* Top 3 Cards Grid */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1.2fr 1fr 1.3fr',
-                      gap: '14px',
-                    }}
-                  >
+                  <div className="form-grid-3">
                     {/* Card 1: SPECIFICATIONS */}
                     <div
                       style={{
@@ -1057,13 +1054,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                       }}
                     >
                       {/* Grid Row 1 & 2 */}
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(4, 1fr)',
-                          gap: '16px',
-                        }}
-                      >
+                      <div className="form-grid-4">
                         {/* Patient */}
                         <div>
                           <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>

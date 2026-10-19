@@ -367,7 +367,7 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} style={{ overflowY: 'auto', padding: '20px 24px' }}>
           {/* Row 1: Title and Priority */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '14px', marginBottom: '16px' }}>
+          <div className="form-grid-2" style={{ marginBottom: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
                 {t('reminders.title', 'Title')} <span style={{ color: 'var(--rose-500, #ef4444)' }}>*</span>
@@ -411,7 +411,7 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
           </div>
 
           {/* Row 3: Assigned To and Recurrence */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+          <div className="form-grid-2" style={{ marginBottom: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
                 {t('reminders.assignedTo', 'Assigned To')} <span style={{ color: 'var(--rose-500, #ef4444)' }}>*</span>
@@ -438,7 +438,7 @@ export const CreateReminderModal: React.FC<CreateReminderModalProps> = ({
           </div>
 
           {/* Row 4: Date & Time */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+          <div className="form-grid-2" style={{ marginBottom: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
                 {recurrence === 'ONE_TIME'

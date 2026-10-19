@@ -258,7 +258,7 @@ export const RemindersPage: React.FC = () => {
       <>
       {/* Filter Row */}
       <div
-        className="card"
+        className="card filter-bar-responsive"
         style={{
           padding: '16px 20px',
           display: 'flex',

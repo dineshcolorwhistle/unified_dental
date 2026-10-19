@@ -344,12 +344,7 @@ export const LabAdminDashboard: React.FC = () => {
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* ─── 4 KPI Cards (Rendered First as in Screenshot) ─── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '16px',
-        marginBottom: '24px',
-      }}>
+      <div className="grid-kpi-4">
         {kpiCards.map((kpi, idx) => (
           <div
             key={idx}
@@ -938,11 +933,7 @@ export const LabAdminDashboard: React.FC = () => {
       </div>
 
       {/* ─── Two Column Layout: In-Progress & Verification ─── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '20px',
-      }}>
+      <div className="grid-split-2">
         {/* In-Progress Work Orders */}
         <div style={{
           borderRadius: '14px',

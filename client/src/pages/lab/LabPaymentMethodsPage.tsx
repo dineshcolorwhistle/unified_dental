@@ -251,7 +251,7 @@ export const LabPaymentMethodsPage: React.FC = () => {
   }, [branches]);
 
   return (
-    <div className="page-container">
+    <div>
       {/* ─── PAGE HEADER ─── */}
       <div
         style={{

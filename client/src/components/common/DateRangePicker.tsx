@@ -376,6 +376,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
       {/* Popover Dropdown */}
       {isOpen && (
         <div
+          className="date-picker-popover"
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
@@ -391,6 +392,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         >
           {/* Left Presets Sidebar */}
           <div
+            className="date-picker-presets"
             style={{
               width: '160px',
               padding: '12px 8px',
@@ -430,7 +432,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
           </div>
 
           {/* Right Dual Calendar */}
-          <div style={{ padding: '16px 20px', position: 'relative' }}>
+          <div className="date-picker-calendar-area" style={{ padding: '16px 20px', position: 'relative' }}>
             {/* Prev / Next Navigation buttons */}
             <div
               style={{
@@ -487,9 +489,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             </div>
 
             {/* Calendars side-by-side */}
-            <div style={{ display: 'flex', gap: '32px' }}>
-              {renderMonth(leftMonth)}
-              {renderMonth(rightMonth)}
+            <div className="date-picker-dual-calendar" style={{ display: 'flex', gap: '32px' }}>
+              <div className="date-picker-month-first">{renderMonth(leftMonth)}</div>
+              <div className="date-picker-month-second">{renderMonth(rightMonth)}</div>
             </div>
           </div>
         </div>

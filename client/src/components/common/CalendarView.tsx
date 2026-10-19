@@ -293,10 +293,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // ─── RENDER MONTH VIEW ───────────────────────────────────
   const renderMonthView = () => (
-    <div style={{ border: '1px solid var(--border-color)', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
-      {/* Day name header row */}
-      <div
-        style={{
+    <div className="table-responsive" style={{ border: '1px solid var(--border-color)', borderRadius: '0 0 12px 12px' }}>
+      <div style={{ minWidth: '680px' }}>
+        {/* Day name header row */}
+        <div
+          style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
           backgroundColor: 'var(--table-th-bg, var(--bg-surface))',
@@ -409,12 +410,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           );
         })}
       </div>
+      </div>
     </div>
   );
 
   // ─── RENDER WEEK VIEW ────────────────────────────────────
   const renderWeekView = () => (
-    <div style={{ border: '1px solid var(--border-color)', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+    <div className="table-responsive" style={{ border: '1px solid var(--border-color)', borderRadius: '0 0 12px 12px' }}>
+      <div style={{ minWidth: '680px' }}>
       <div
         style={{
           display: 'grid',
@@ -492,6 +495,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

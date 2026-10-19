@@ -517,7 +517,7 @@ export const FinancePage: React.FC = () => {
 
       {/* ────── Unified Common Filter Bar (Branch + Date Range + Reset + Tab Search) ────── */}
       <div
-        className="card"
+        className="card filter-bar-responsive"
         style={{
           padding: '12px 18px',
           marginBottom: '22px',
@@ -689,10 +689,8 @@ export const FinancePage: React.FC = () => {
                 <>
                   {/* 2x2 Analytics Grid for Tenant Admin All Branches */}
                   <div
+                    className="grid-split-2"
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: '16px',
                       marginBottom: '24px',
                     }}
                   >

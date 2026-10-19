@@ -297,6 +297,7 @@ export const BranchesPage: React.FC = () => {
 
       {/* Filter / Search Bar */}
       <div
+        className="filter-bar-responsive"
         style={{
           display: 'flex',
           alignItems: 'center',

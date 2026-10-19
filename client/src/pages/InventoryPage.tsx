@@ -554,7 +554,7 @@ export const InventoryPage: React.FC = () => {
   };
 
   return (
-    <div className="page-container" style={{ paddingBottom: '60px' }}>
+    <div style={{ paddingBottom: '60px' }}>
       {/* Page Header */}
       <div
         style={{

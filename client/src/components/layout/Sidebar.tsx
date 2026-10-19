@@ -12,6 +12,7 @@ import {
   Receipt,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
   Shield,
   LogOut,
   ChevronDown,
@@ -38,6 +39,8 @@ import {
 
 interface SidebarProps {
   activeModuleMode: 'PLATFORM' | 'CLINIC' | 'LAB';
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 interface SidebarNavItemProps {
@@ -97,7 +100,11 @@ function getBrandInitials(name: string): string {
   return (words[0]?.charAt(0) || 'U').toUpperCase();
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeModuleMode,
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const { t } = useTranslation();
   const location = useLocation();
   const { user, isTenantAdmin, isLabAdmin, logout } = useAuth();
@@ -156,7 +163,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
       // Core Operations: '/', '/branches', '/finance', '/reminders', '/inventory', '/expenses'
       setExpandedGroup('core');
     }
-  }, [location.pathname]);
+
+    // Automatically close mobile drawer upon navigation
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  }, [location.pathname, onCloseMobile]);
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
@@ -190,9 +202,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
     location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
 
   return (
-    <aside className={`app-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-      {/* Brand & Collapse Header */}
-      <div className="sidebar-brand">
+    <>
+      {isMobileOpen && (
+        <div
+          className="sidebar-mobile-overlay"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`app-sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
+        {/* Brand & Collapse Header */}
+        <div className="sidebar-brand">
         {!isCollapsed ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, overflow: 'hidden' }}>
@@ -256,14 +276,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
               </div>
             </div>
 
-            <button
-              onClick={toggleCollapse}
-              className="sidebar-collapse-btn"
-              title={t('nav.collapseSidebar')}
-              aria-label={t('nav.collapseSidebar')}
-            >
-              <PanelLeftClose size={16} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {onCloseMobile && (
+                <button
+                  type="button"
+                  onClick={onCloseMobile}
+                  className="sidebar-mobile-close-btn"
+                  title="Close navigation"
+                  aria-label="Close navigation"
+                >
+                  <X size={18} />
+                </button>
+              )}
+              <button
+                onClick={toggleCollapse}
+                className="sidebar-collapse-btn"
+                title={t('nav.collapseSidebar')}
+                aria-label={t('nav.collapseSidebar')}
+              >
+                <PanelLeftClose size={16} />
+              </button>
+            </div>
           </>
         ) : (
           <div className="sidebar-collapsed-brand">
@@ -913,5 +946,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleMode }) => {
         )}
       </div>
     </aside>
+    </>
   );
 };

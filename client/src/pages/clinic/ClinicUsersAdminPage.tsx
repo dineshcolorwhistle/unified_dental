@@ -447,7 +447,7 @@ export const ClinicUsersAdminPage: React.FC = () => {
 
       {/* Control Bar: Search & Branch Filter */}
       <div
-        className="card"
+        className="card filter-bar-responsive"
         style={{
           padding: '14px 18px',
           marginBottom: '20px',

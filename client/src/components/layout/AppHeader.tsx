@@ -16,16 +16,19 @@ import {
   ChevronDown,
   ArrowLeft,
   Settings,
+  Menu,
 } from 'lucide-react';
 
 interface AppHeaderProps {
   activeModuleMode: 'PLATFORM' | 'CLINIC' | 'LAB';
   onModuleModeChange: (mode: 'PLATFORM' | 'CLINIC' | 'LAB') => void;
+  onToggleMobileSidebar?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   activeModuleMode,
   onModuleModeChange,
+  onToggleMobileSidebar,
 }) => {
   const { user, logout } = useAuth();
   const { canSwitchModules, isClinicEnabled, isLabEnabled } = useModule();
@@ -55,6 +58,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     <header className="app-header">
       {/* Header Left */}
       <div className="header-left">
+        {onToggleMobileSidebar && (
+          <button
+            type="button"
+            className="header-mobile-menu-btn"
+            onClick={onToggleMobileSidebar}
+            title="Open navigation menu"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
         {user?.isSuperAdmin && !tenant && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield size={18} style={{ color: 'var(--primary-600)' }} />
@@ -265,7 +280,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             >
               {user?.name.charAt(0).toUpperCase()}
             </div>
-            <div style={{ textAlign: 'left', maxWidth: '120px' }}>
+            <div className="header-user-details" style={{ textAlign: 'left', maxWidth: '120px' }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user?.name}
               </div>

@@ -1007,6 +1007,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
         {/* ─── TAB NAVIGATION (Matching Screenshot) ─── */}
         <div
+          className="tabs-header-scrollable"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -1131,7 +1132,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
               {activeTab === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {/* Doctor & Patient (Non-editable) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-grid-2" style={{ gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span>{t('workOrders.form.doctor', 'Doctor')}</span>
@@ -1176,7 +1177,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                   </div>
 
                   {/* File Number & Box Number */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-grid-2" style={{ gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600 }}>
                         {t('workOrders.form.fileNumber', 'File Number')}
@@ -1205,7 +1206,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                   </div>
 
                   {/* Delivery Date & Prosthesis Type (Prosthesis Non-editable) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-grid-2" style={{ gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600 }}>
                         {t('workOrders.form.deliveryDate', 'Delivery Date')}
@@ -1734,6 +1735,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                           return (
                             <div
                               key={step.tempId}
+                              className="process-edit-item-row"
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1991,7 +1993,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                                   - Started process: Technician locked (read-only)
                                   - Not Started process: Editable dropdown
                               */}
-                              <div style={{ width: '210px', flexShrink: 0 }}>
+                              <div className="process-edit-assignee-col" style={{ width: '210px', flexShrink: 0 }}>
                                 {isExt ? (
                                   <input
                                     type="text"
@@ -2173,7 +2175,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                       }}
                     >
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                      <div className="form-grid-2" style={{ gap: '14px' }}>
                         <div>
                           <label className="form-label" style={{ fontSize: '12px', fontWeight: 600 }}>
                             {t('workOrders.selectProcess', 'Select Process')}
@@ -2327,7 +2329,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                       {t('workOrders.viewModal.financials', 'Financial Summary')}
                     </h3>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px', alignItems: 'start' }}>
+                    <div className="form-grid-4" style={{ gap: '16px', alignItems: 'start' }}>
                       {/* 1. Total Quote */}
                       <div>
                         <label
@@ -2514,11 +2516,11 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                     </div>
 
                     <div
+                      className="table-responsive"
                       style={{
                         borderRadius: '12px',
                         backgroundColor: 'var(--bg-card)',
                         border: '1px solid var(--border-color)',
-                        overflow: 'hidden',
                       }}
                     >
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>

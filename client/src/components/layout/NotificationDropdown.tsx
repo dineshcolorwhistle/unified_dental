@@ -345,11 +345,13 @@ export const NotificationDropdown: React.FC = () => {
 
       {open && (
         <div
+          className="notification-dropdown-menu"
           style={{
             position: 'absolute',
             top: '110%',
             right: 0,
             width: '360px',
+            maxWidth: 'calc(100vw - 24px)',
             backgroundColor: 'var(--bg-dropdown)',
             borderRadius: '12px',
             boxShadow: 'var(--shadow-xl)',

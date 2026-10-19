@@ -58,6 +58,7 @@ export const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div
+      className="pagination-container"
       style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -87,7 +88,7 @@ export const Pagination: React.FC<PaginationProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         {/* Rows per page selector */}
         {onPageSizeChange && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+          <div className="pagination-pages-desktop" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
             <span>{t('common.rowsPerPage', 'Rows per page')}:</span>
             <select
               value={pageSize}
@@ -124,8 +125,8 @@ export const Pagination: React.FC<PaginationProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '30px',
-              height: '30px',
+              width: '32px',
+              height: '32px',
               borderRadius: '6px',
               border: '1px solid var(--border-color)',
               backgroundColor: 'var(--bg-surface)',
@@ -147,8 +148,8 @@ export const Pagination: React.FC<PaginationProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '30px',
-              height: '30px',
+              width: '32px',
+              height: '32px',
               borderRadius: '6px',
               border: '1px solid var(--border-color)',
               backgroundColor: 'var(--bg-surface)',
@@ -161,51 +162,66 @@ export const Pagination: React.FC<PaginationProps> = ({
             <ChevronLeft size={15} />
           </button>
 
-          {/* Page Number Buttons */}
-          {pageNumbers.map((p, idx) => {
-            if (p === '...') {
+          {/* Mobile Current Page Indicator */}
+          <span
+            className="pagination-page-indicator-mobile"
+            style={{
+              fontSize: '12.5px',
+              fontWeight: 700,
+              color: 'var(--text-main)',
+              padding: '0 8px',
+            }}
+          >
+            {currentPage} / {totalPages}
+          </span>
+
+          {/* Desktop Page Number Buttons */}
+          <div className="pagination-pages-desktop" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {pageNumbers.map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    style={{
+                      padding: '0 6px',
+                      color: 'var(--text-subtle)',
+                      userSelect: 'none',
+                    }}
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              const pageNum = p as number;
+              const isActive = pageNum === currentPage;
+
               return (
-                <span
-                  key={`ellipsis-${idx}`}
+                <button
+                  key={pageNum}
+                  onClick={() => onPageChange(pageNum)}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '32px',
+                    height: '32px',
                     padding: '0 6px',
-                    color: 'var(--text-subtle)',
-                    userSelect: 'none',
+                    borderRadius: '6px',
+                    border: isActive ? '1px solid var(--primary-600)' : '1px solid var(--border-color)',
+                    backgroundColor: isActive ? 'var(--primary-600)' : 'var(--bg-surface)',
+                    color: isActive ? '#ffffff' : 'var(--text-main)',
+                    fontWeight: isActive ? 700 : 500,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  ...
-                </span>
+                  {pageNum}
+                </button>
               );
-            }
-
-            const pageNum = p as number;
-            const isActive = pageNum === currentPage;
-
-            return (
-              <button
-                key={pageNum}
-                onClick={() => onPageChange(pageNum)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: '30px',
-                  height: '30px',
-                  padding: '0 6px',
-                  borderRadius: '6px',
-                  border: isActive ? '1px solid var(--primary-600)' : '1px solid var(--border-color)',
-                  backgroundColor: isActive ? 'var(--primary-600)' : 'var(--bg-surface)',
-                  color: isActive ? '#ffffff' : 'var(--text-main)',
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
+            })}
+          </div>
 
           {/* Next Page */}
           <button

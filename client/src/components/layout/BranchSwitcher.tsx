@@ -55,7 +55,7 @@ export const BranchSwitcher: React.FC = () => {
         aria-label={t('header.activeBranch')}
       >
         <Building2 size={16} style={{ color: 'var(--primary-600)' }} />
-        <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
+        <span className="branch-switcher-name" style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
           {branchName}
         </span>
         <span
@@ -92,7 +92,7 @@ export const BranchSwitcher: React.FC = () => {
         ) : (
           <Building2 size={16} style={{ color: 'var(--primary-600)' }} />
         )}
-        <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
+        <span className="branch-switcher-name" style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
           {isAllSelected ? t('header.allBranches') : activeBranch?.name || t('header.selectBranch')}
         </span>
         <span

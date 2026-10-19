@@ -1098,7 +1098,8 @@ button {
 .table-container, .table-responsive {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
@@ -1109,7 +1110,8 @@ button {
 .card > .table-responsive {
   border: none;
   border-radius: 0;
-  overflow-x: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .data-table, .table, .ud-table {
@@ -1547,4 +1549,338 @@ button {
     max-width: 360px;
   }
 }
+
+/* ==========================================================================
+   UNIFIED DENTAL RESPONSIVE DESIGN SYSTEM (Mobile, Tablet, Desktop)
+   Guarantees 100% normal desktop application behavior; optimizes on mobile/tablet.
+   ========================================================================== */
+
+/* Responsive Grid Utilities */
+.grid-kpi-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.grid-split-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* Base Mobile Helpers */
+.header-mobile-menu-btn {
+  display: none;
+}
+
+.sidebar-mobile-overlay,
+.sidebar-mobile-close-btn,
+.pagination-page-indicator-mobile {
+  display: none;
+}
+
+/* Desktop Only: Ensure Normal Window Application stays intact */
+@media (min-width: 1025px) {
+  .app-sidebar {
+    position: relative !important;
+    transform: none !important;
+    display: flex !important;
+  }
+  .sidebar-mobile-overlay,
+  .sidebar-mobile-close-btn {
+    display: none !important;
+  }
+  .header-mobile-menu-btn {
+    display: none !important;
+  }
+}
+
+/* Tablet & Mobile Screens (<= 1024px) */
+@media (max-width: 1024px) {
+  .app-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    width: 280px !important;
+    max-width: 85vw !important;
+    z-index: 1000 !important;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: none !important;
+  }
+
+  .app-sidebar.mobile-open {
+    transform: translateX(0) !important;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .sidebar-mobile-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  .sidebar-mobile-close-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sidebar-mobile-close-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  .sidebar-collapse-btn {
+    display: none !important;
+  }
+
+  .header-mobile-menu-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .header-mobile-menu-btn:hover {
+    background: var(--bg-surface-hover);
+  }
+
+  .app-header {
+    padding: 0 16px;
+    height: 62px;
+    min-height: 62px;
+  }
+
+  .page-container {
+    padding: 20px 20px;
+  }
+
+  .grid-kpi-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-split-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Medium Tablets & Large Phones (<= 768px) */
+@media (max-width: 768px) {
+  .form-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* DateRangePicker on mobile/tablet */
+  .date-picker-popover {
+    flex-direction: column !important;
+    max-width: calc(100vw - 24px) !important;
+    overflow-y: auto !important;
+    max-height: 85vh !important;
+    max-height: 85dvh !important;
+  }
+
+  .date-picker-presets {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    padding: 8px 10px !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .date-picker-presets button {
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  .date-picker-dual-calendar {
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: center !important;
+  }
+
+  .date-picker-month-second {
+    display: none !important;
+  }
+
+  .date-picker-calendar-area {
+    padding: 12px 14px !important;
+  }
+}
+
+/* Mobile Phones (<= 640px) */
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0 12px;
+    height: 56px;
+    min-height: 56px;
+  }
+
+  .header-left, .header-right {
+    gap: 6px;
+  }
+
+  .header-user-details {
+    display: none !important;
+  }
+
+  .branch-switcher-name {
+    max-width: 70px !important;
+  }
+
+  .page-container {
+    padding: 14px 12px;
+  }
+
+  .grid-kpi-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid-4,
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Filter rows on mobile */
+  .filter-bar-responsive {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .filter-bar-responsive > * {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Modals: Mobile bottom sheet */
+  .modal-overlay, .modal-backdrop {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  .modal-content, .modal-dialog, .modal-card {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 94vh !important;
+    max-height: 94dvh !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-bottom: none !important;
+  }
+
+  .modal-header {
+    padding: 14px 16px !important;
+  }
+
+  .modal-body {
+    padding: 16px 14px !important;
+  }
+
+  .modal-footer {
+    padding: 12px 14px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .modal-footer button {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+
+  /* Pagination on mobile */
+  .pagination-container {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+
+  .pagination-pages-desktop {
+    display: none !important;
+  }
+}
+
+/* Extra Small Phones (<= 480px) */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0 8px;
+  }
+
+  .header-left, .header-right {
+    gap: 4px;
+  }
+}
+
+/* Process steps list on mobile */
+@media (max-width: 640px) {
+  .process-edit-item-row {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+
+  .process-edit-assignee-col {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Scrollable tabs helper (hides track on mobile touch devices) */
+.tabs-header-scrollable {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+}
+.tabs-header-scrollable::-webkit-scrollbar {
+  display: none !important;
+}
+
+
 
