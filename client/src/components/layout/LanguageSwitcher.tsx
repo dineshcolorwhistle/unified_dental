@@ -61,6 +61,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
       {/* Trigger Button */}
       <button
         type="button"
+        className="language-switcher-btn"
         onClick={() => setIsOpen((prev) => !prev)}
         style={{
           display: 'inline-flex',
@@ -89,11 +90,15 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
             flexShrink: 0,
           }}
         />
-        <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
+        <span className="lang-switcher-text-full" style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
           {compact ? activeLangObj.short : activeLangObj.label}
+        </span>
+        <span className="lang-switcher-text-short" style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
+          {activeLangObj.short}
         </span>
         <ChevronDown
           size={12}
+          className="lang-switcher-chevron"
           style={{
             color: isDark ? '#94a3b8' : 'var(--text-muted)',
             transition: 'transform 0.2s ease',

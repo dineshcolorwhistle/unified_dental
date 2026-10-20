@@ -72,7 +72,7 @@ export const BranchSwitcher: React.FC = () => {
     <div style={{ position: 'relative' }} ref={dropdownRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="btn btn-secondary btn-sm"
+        className="btn btn-secondary btn-sm branch-switcher-btn"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -96,7 +96,7 @@ export const BranchSwitcher: React.FC = () => {
           {isAllSelected ? t('header.allBranches') : activeBranch?.name || t('header.selectBranch')}
         </span>
         <span
-          className={isAllSelected ? 'badge badge-info' : 'badge badge-primary'}
+          className={`header-branch-badge ${isAllSelected ? 'badge badge-info' : 'badge badge-primary'}`}
           style={{ fontSize: '10px', padding: '1px 6px', letterSpacing: '0.04em' }}
         >
           {isAllSelected ? t('header.allBranchesBadge') : activeBranch?.code || 'BR'}
@@ -106,17 +106,19 @@ export const BranchSwitcher: React.FC = () => {
 
       {open && (
         <div
+          className="branch-switcher-dropdown"
           style={{
             position: 'absolute',
             top: '115%',
-            left: 0,
+            right: 0,
             width: '260px',
+            maxWidth: 'calc(100vw - 24px)',
             backgroundColor: 'var(--bg-dropdown)',
             borderRadius: '10px',
             boxShadow: 'var(--shadow-lg)',
             border: '1px solid var(--border-color)',
             padding: '6px',
-            zIndex: 60,
+            zIndex: 1100,
             animation: 'fadeIn 0.15s ease-out',
           }}
         >

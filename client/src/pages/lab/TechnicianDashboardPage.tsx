@@ -110,10 +110,11 @@ export const TechnicianDashboardPage: React.FC = () => {
   );
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+    <div className="technician-dashboard" style={{ maxWidth: '1280px', margin: '0 auto' }}>
       {/* Header Greeting (Screenshot 1) */}
-      <div style={{ marginBottom: '28px' }}>
+      <div className="technician-greeting" style={{ marginBottom: '28px' }}>
         <h1
+          className="technician-greeting-title"
           style={{
             fontSize: '28px',
             fontWeight: 800,
@@ -132,6 +133,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
       {/* 4 KPI Metric Cards (Screenshot 1) */}
       <div
+        className="technician-kpi-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -141,6 +143,7 @@ export const TechnicianDashboardPage: React.FC = () => {
       >
         {/* Card 1: Pending Steps */}
         <div
+          className="technician-kpi-card technician-kpi-card-pending"
           style={{
             backgroundColor: 'var(--bg-card)',
             borderRadius: '16px',
@@ -180,6 +183,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
         {/* Card 2: Active Steps */}
         <div
+          className="technician-kpi-card technician-kpi-card-active"
           style={{
             backgroundColor: 'var(--bg-card)',
             borderRadius: '16px',
@@ -219,6 +223,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
         {/* Card 3: Paused Steps */}
         <div
+          className="technician-kpi-card technician-kpi-card-paused"
           style={{
             backgroundColor: 'var(--bg-card)',
             borderRadius: '16px',
@@ -258,6 +263,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
         {/* Card 4: Completed Today */}
         <div
+          className="technician-kpi-card technician-kpi-card-completed"
           style={{
             backgroundColor: 'var(--bg-card)',
             borderRadius: '16px',
@@ -298,6 +304,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
       {/* My Work Queue Section */}
       <div
+        className="technician-queue-card"
         style={{
           backgroundColor: 'var(--bg-card)',
           borderRadius: '16px',
@@ -417,6 +424,7 @@ export const TechnicianDashboardPage: React.FC = () => {
               return (
                 <div
                   key={item.workOrderId}
+                  className="technician-queue-item"
                   style={{
                     backgroundColor: 'var(--bg-surface)',
                     border: '1px solid var(--border-color)',

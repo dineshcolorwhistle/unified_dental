@@ -297,6 +297,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
 
   return (
     <div
+      className="modal-overlay technician-wo-overlay"
       style={{
         position: 'fixed',
         top: 0,
@@ -316,6 +317,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
       }}
     >
       <div
+        className="modal-content technician-wo-modal view-wo-modal"
         style={{
           backgroundColor: 'var(--bg-modal, var(--bg-card))',
           borderRadius: '16px',
@@ -331,6 +333,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
       >
         {/* Modal Header */}
         <div
+          className="view-wo-header"
           style={{
             padding: '20px 24px 16px',
             borderBottom: '1px solid var(--border-color)',
@@ -340,7 +343,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
             backgroundColor: 'var(--bg-card)',
           }}
         >
-          <div>
+          <div className="view-wo-header-info">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <h2
                 style={{

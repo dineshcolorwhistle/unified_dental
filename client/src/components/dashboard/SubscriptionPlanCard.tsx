@@ -20,7 +20,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({ data
 
   return (
     <div
-      className="card"
+      className="card subscription-plan-card"
       style={{
         padding: '24px',
         marginBottom: '24px',
@@ -133,6 +133,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({ data
 
       {/* Resource Quotas Grid: Branches, Members, Modules */}
       <div
+        className="subscription-quotas-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',

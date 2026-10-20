@@ -120,7 +120,7 @@ export const TenantAdminLabSection: React.FC<TenantAdminLabSectionProps> = ({ da
 
       {/* Lab Branch Count Highlight Card */}
       <div
-        className="card"
+        className="card tenant-admin-highlight-card"
         style={{
           padding: '18px 24px',
           marginBottom: '20px',
@@ -202,6 +202,7 @@ export const TenantAdminLabSection: React.FC<TenantAdminLabSectionProps> = ({ da
 
       {/* Aggregate KPI Cards Grid */}
       <div
+        className="tenant-admin-kpi-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -212,6 +213,7 @@ export const TenantAdminLabSection: React.FC<TenantAdminLabSectionProps> = ({ da
           <div
             key={idx}
             onClick={kpi.onClick}
+            className="tenant-admin-kpi-card"
             style={{
               display: 'flex',
               alignItems: 'center',

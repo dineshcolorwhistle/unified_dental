@@ -357,7 +357,7 @@ export const NotificationDropdown: React.FC = () => {
             boxShadow: 'var(--shadow-xl)',
             border: '1px solid var(--border-color)',
             padding: '12px',
-            zIndex: 60,
+            zIndex: 1100,
             animation: 'fadeIn 0.15s ease-out',
           }}
         >

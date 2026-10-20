@@ -41,6 +41,8 @@ interface SidebarProps {
   activeModuleMode: 'PLATFORM' | 'CLINIC' | 'LAB';
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  isCollapsedProp?: boolean;
+  onToggleCollapseProp?: () => void;
 }
 
 interface SidebarNavItemProps {
@@ -104,15 +106,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeModuleMode,
   isMobileOpen = false,
   onCloseMobile,
+  isCollapsedProp,
+  onToggleCollapseProp,
 }) => {
   const { t } = useTranslation();
   const location = useLocation();
   const { user, isTenantAdmin, isLabAdmin, logout } = useAuth();
   const { isClinicEnabled, isLabEnabled } = useModule();
 
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+  const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('ud_sidebar_collapsed') === 'true';
   });
+
+  const isUserCollapsed = isCollapsedProp !== undefined ? isCollapsedProp : internalCollapsed;
+
+  // Responsive mobile screen detection
+  const [isMobileScreen, setIsMobileScreen] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth <= 1024 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth <= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // When on mobile screen or mobile drawer is open, sidebar should NEVER be rendered in collapsed state
+  const isCollapsed = isMobileScreen || isMobileOpen ? false : isUserCollapsed;
 
   const isTenantContext = Boolean(user?.activeTenant);
   const isPlatformAdmin = Boolean(user?.isSuperAdmin && !isTenantContext);
@@ -146,7 +168,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
   });
 
+  const onCloseMobileRef = React.useRef(onCloseMobile);
+  useEffect(() => {
+    onCloseMobileRef.current = onCloseMobile;
+  }, [onCloseMobile]);
+
   // Automatically keep accordion in sync with the currently active / selected menu route
+  const prevPathRef = React.useRef(location.pathname);
   useEffect(() => {
     const p = location.pathname;
     if (p.startsWith('/lab')) {
@@ -164,19 +192,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setExpandedGroup('core');
     }
 
-    // Automatically close mobile drawer upon navigation
-    if (onCloseMobile) {
-      onCloseMobile();
+    // Automatically close mobile drawer only upon actual route change
+    if (prevPathRef.current !== p) {
+      prevPathRef.current = p;
+      onCloseMobileRef.current?.();
     }
-  }, [location.pathname, onCloseMobile]);
+  }, [location.pathname]);
 
-  const toggleCollapse = () => {
-    setIsCollapsed((prev) => {
+  const toggleCollapse = onToggleCollapseProp || (() => {
+    setInternalCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem('ud_sidebar_collapsed', String(next));
       return next;
     });
-  };
+  });
 
   const handleGroupToggle = (groupKey: 'core' | 'lab' | 'clinic') => {
     setExpandedGroup((prev) => (prev === groupKey ? null : groupKey));
@@ -330,7 +359,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation Links */}
-      <nav className="sidebar-nav">
+      <nav
+        className="sidebar-nav"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('a')) {
+            onCloseMobileRef.current?.();
+          }
+        }}
+      >
         {/* ───── 1. Flat Menu for Platform Super Admin ───── */}
         {isPlatformAdmin ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 0' }}>

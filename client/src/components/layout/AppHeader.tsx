@@ -22,13 +22,17 @@ import {
 interface AppHeaderProps {
   activeModuleMode: 'PLATFORM' | 'CLINIC' | 'LAB';
   onModuleModeChange: (mode: 'PLATFORM' | 'CLINIC' | 'LAB') => void;
+  onToggleSidebar?: () => void;
   onToggleMobileSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   activeModuleMode,
   onModuleModeChange,
+  onToggleSidebar,
   onToggleMobileSidebar,
+  isSidebarCollapsed = false,
 }) => {
   const { user, logout } = useAuth();
   const { canSwitchModules, isClinicEnabled, isLabEnabled } = useModule();
@@ -36,6 +40,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const handleToggle = onToggleSidebar || onToggleMobileSidebar;
 
   const handleModuleSwitch = (mode: 'PLATFORM' | 'CLINIC' | 'LAB') => {
     onModuleModeChange(mode);
@@ -56,15 +62,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   return (
     <header className="app-header">
-      {/* Header Left */}
+      {/* Header Left: Unified Sidebar / Navigation Toggle */}
       <div className="header-left">
-        {onToggleMobileSidebar && (
+        {handleToggle && (
           <button
             type="button"
-            className="header-mobile-menu-btn"
-            onClick={onToggleMobileSidebar}
-            title="Open navigation menu"
-            aria-label="Open navigation menu"
+            className="header-sidebar-toggle-btn header-mobile-menu-btn"
+            onClick={handleToggle}
+            title={isSidebarCollapsed ? t('nav.expandSidebar', 'Expand sidebar navigation') : t('nav.collapseSidebar', 'Toggle navigation menu')}
+            aria-label="Toggle navigation menu"
           >
             <Menu size={20} />
           </button>
@@ -78,8 +84,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
 
         {user?.isSuperAdmin && tenant && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="header-impersonation-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div
+              className="header-impersonation-badge"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -94,14 +101,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               }}
             >
               <Shield size={14} />
-              <span>{t('tenants.superAdminImpersonating', { tenant: tenant.name })}</span>
+              <span className="header-impersonation-text">{t('tenants.superAdminImpersonating', { tenant: tenant.name })}</span>
             </div>
 
             <button
               onClick={() => {
                 window.location.href = getPlatformRootUrl('tenants');
               }}
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-sm header-impersonation-exit"
               style={{
                 fontSize: '11.5px',
                 padding: '4px 10px',
@@ -114,7 +121,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               title={t('tenants.exitImpersonation')}
             >
               <ArrowLeft size={13} />
-              <span>{t('tenants.exitImpersonation')}</span>
+              <span className="header-exit-btn-text">{t('tenants.exitImpersonation')}</span>
             </button>
           </div>
         )}
@@ -125,6 +132,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {/* Module Mode Selector / Badge */}
         {user?.isSuperAdmin && !tenant ? (
           <div
+            className="header-role-badge header-platform-badge"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -138,11 +146,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               color: 'var(--primary-600)',
             }}
           >
-            <Shield size={14} /> {t('header.platformAdmin')}
+            <Shield size={14} /> <span className="header-role-badge-text">{t('header.platformAdmin')}</span>
           </div>
         ) : canSwitchModules ? (
           /* Tenant Admin with Multiple Modules: Render Interactive Switcher Tabs */
           <div
+            className="header-module-tabs"
             style={{
               display: 'flex',
               backgroundColor: 'var(--bg-surface-hover)',
@@ -155,6 +164,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {isClinicEnabled && (
               <button
                 onClick={() => handleModuleSwitch('CLINIC')}
+                className={`header-module-tab ${activeModuleMode === 'CLINIC' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -171,13 +181,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   transition: 'all 0.15s ease',
                 }}
               >
-                <Stethoscope size={13} /> {t('header.clinicModule')}
+                <Stethoscope size={13} /> <span className="header-module-label">{t('header.clinicModule')}</span>
               </button>
             )}
 
             {isLabEnabled && (
               <button
                 onClick={() => handleModuleSwitch('LAB')}
+                className={`header-module-tab ${activeModuleMode === 'LAB' ? 'active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -194,13 +205,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   transition: 'all 0.15s ease',
                 }}
               >
-                <FlaskConical size={13} /> {t('header.labModule')}
+                <FlaskConical size={13} /> <span className="header-module-label">{t('header.labModule')}</span>
               </button>
             )}
           </div>
         ) : activeModuleMode === 'LAB' ? (
           /* Non-Tenant Admin locked to Lab: Static Badge */
           <div
+            className="header-role-badge header-locked-module"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -214,11 +226,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               color: 'var(--primary-600)',
             }}
           >
-            <FlaskConical size={14} /> {t('header.labModule')}
+            <FlaskConical size={14} /> <span className="header-module-label">{t('header.labModule')}</span>
           </div>
         ) : activeModuleMode === 'CLINIC' ? (
           /* Non-Tenant Admin locked to Clinic: Static Badge */
           <div
+            className="header-role-badge header-locked-module"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -232,7 +245,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               color: 'var(--primary-600)',
             }}
           >
-            <Stethoscope size={14} /> {t('header.clinicModule')}
+            <Stethoscope size={14} /> <span className="header-module-label">{t('header.clinicModule')}</span>
           </div>
         ) : null}
 
@@ -252,6 +265,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <div style={{ position: 'relative' }} ref={profileRef}>
           <button
             onClick={() => setProfileOpen(!profileOpen)}
+            className="header-profile-btn"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -288,22 +302,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 {user?.roles?.[0] || (user?.isTenantAdmin ? t('roles.tenantAdmin', 'Tenant Admin') : user?.isSuperAdmin ? 'Super Admin' : 'User')}
               </div>
             </div>
-            <ChevronDown size={14} style={{ color: 'var(--text-subtle)' }} />
+            <ChevronDown size={14} className="header-profile-chevron" style={{ color: 'var(--text-subtle)' }} />
           </button>
 
           {profileOpen && (
             <div
+              className="header-profile-dropdown"
               style={{
                 position: 'absolute',
                 top: '110%',
                 right: 0,
                 width: '220px',
+                maxWidth: 'calc(100vw - 20px)',
                 backgroundColor: 'var(--bg-dropdown)',
                 borderRadius: '10px',
                 boxShadow: 'var(--shadow-lg)',
                 border: '1px solid var(--border-color)',
                 padding: '6px',
-                zIndex: 60,
+                zIndex: 1100,
                 animation: 'fadeIn 0.15s ease-out',
               }}
             >

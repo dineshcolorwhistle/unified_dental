@@ -594,7 +594,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
   return (
     <div
-      className="modal-overlay"
+      className="modal-overlay view-wo-overlay"
       style={{
         zIndex: 1060,
         backgroundColor: 'rgba(15, 23, 42, 0.65)',
@@ -611,7 +611,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
       }}
     >
       <div
-        className="modal-content"
+        className="modal-content view-wo-modal"
         style={{
           maxWidth: '840px',
           width: '100%',
@@ -628,6 +628,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
       >
         {/* Modal Header */}
         <div
+          className="view-wo-header"
           style={{
             padding: '18px 24px',
             borderBottom: '1px solid var(--border-color)',
@@ -637,60 +638,67 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             backgroundColor: 'var(--bg-card)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2
-              style={{
-                fontSize: '19px',
-                fontWeight: 800,
-                color: 'var(--text-heading)',
-                margin: 0,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              WO#: {currentWO?.folioNumber || '—'}
-            </h2>
-            {currentWO?.boxNumber && (
-              <span
+          <div className="view-wo-header-info">
+            <div className="view-wo-title-row">
+              <h2
+                className="view-wo-title"
                 style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '3px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  border: '1px solid rgba(37, 99, 235, 0.25)',
-                  color: 'var(--primary-600)',
+                  fontSize: '19px',
+                  fontWeight: 800,
+                  color: 'var(--text-heading)',
+                  margin: 0,
+                  letterSpacing: '-0.02em',
                 }}
               >
-                {t('workOrders.table.boxNumber', 'Box Number')}: {currentWO.boxNumber}
-              </span>
-            )}
-            {currentWO?.deliveryDate && (
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '3px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  color: '#059669',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Calendar size={12} />
-                <span>{t('workOrders.table.deliveryDate', 'Delivery Date')}: {formatDate(currentWO.deliveryDate)}</span>
-              </span>
-            )}
+                WO#: {currentWO?.folioNumber || '—'}
+              </h2>
+            </div>
+            <div className="view-wo-badges-row">
+              {currentWO?.boxNumber && (
+                <span
+                  className="view-wo-badge view-wo-box-badge"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    border: '1px solid rgba(37, 99, 235, 0.25)',
+                    color: 'var(--primary-600)',
+                  }}
+                >
+                  {t('workOrders.table.boxNumber', 'Box Number')}: {currentWO.boxNumber}
+                </span>
+              )}
+              {currentWO?.deliveryDate && (
+                <span
+                  className="view-wo-badge view-wo-delivery-badge"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    color: '#059669',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Calendar size={12} />
+                  <span>{t('workOrders.table.deliveryDate', 'Delivery Date')}: {formatDate(currentWO.deliveryDate)}</span>
+                </span>
+              )}
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="view-wo-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {canEdit && (
               <button
                 type="button"
                 onClick={handleNavigateToEdit}
-                className="btn btn-secondary"
+                className="btn btn-secondary view-wo-edit-btn"
                 title={t('workOrders.editModal.title', { defaultValue: 'Edit Work Order' })}
                 style={{
                   display: 'inline-flex',
@@ -715,7 +723,9 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="btn-icon"
+              className="btn-icon view-wo-close-btn"
+              title={t('common.close', 'Close')}
+              aria-label={t('common.close', 'Close')}
               style={{
                 width: '32px',
                 height: '32px',
@@ -736,7 +746,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
         {/* Tab Headers */}
         <div
-          className="modal-tab-bar"
+          className="modal-tab-bar view-wo-tab-bar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -845,7 +855,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
         {/* Modal Body Container */}
         <div
-          className="modal-body"
+          className="modal-body view-wo-body"
           style={{
             padding: '20px 24px',
             overflowY: 'auto',
@@ -2627,7 +2637,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
         {/* Modal Footer */}
         <div
-          className="modal-footer"
+          className="modal-footer view-wo-footer"
           style={{
             padding: '14px 24px',
             borderTop: '1px solid var(--border-color)',
