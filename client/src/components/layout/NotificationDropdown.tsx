@@ -306,7 +306,7 @@ export const NotificationDropdown: React.FC = () => {
     <div style={{ position: 'relative' }} ref={dropdownRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="btn btn-secondary btn-sm"
+        className="btn btn-secondary btn-sm header-notification-btn"
         style={{
           position: 'relative',
           padding: '7px 10px',
@@ -317,6 +317,7 @@ export const NotificationDropdown: React.FC = () => {
           transition: 'all 0.15s ease',
         }}
         title={t('header.notifications')}
+        aria-label={t('header.notifications')}
       >
         <Bell size={17} style={{ color: 'var(--text-muted)' }} />
         {unreadCount > 0 && (

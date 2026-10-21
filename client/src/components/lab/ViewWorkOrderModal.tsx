@@ -1457,97 +1457,110 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                     </div>
 
                     <div
+                      className="view-wo-timeline-scroll"
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        position: 'relative',
-                        padding: '0 10px',
+                        overflowX: 'auto',
+                        WebkitOverflowScrolling: 'touch',
+                        paddingBottom: '8px',
                       }}
                     >
-                      {TIMELINE_STAGES.map((stageKey, idx) => {
-                        const isCompletedOrPassed = idx <= currentStageIndex;
-                        const isCurrent = idx === currentStageIndex;
+                      <div
+                        className="view-wo-timeline-track"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                          position: 'relative',
+                          padding: '0 10px',
+                          minWidth: '540px',
+                        }}
+                      >
+                        {TIMELINE_STAGES.map((stageKey, idx) => {
+                          const isCompletedOrPassed = idx <= currentStageIndex;
+                          const isCurrent = idx === currentStageIndex;
 
-                        return (
-                          <div
-                            key={stageKey}
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              position: 'relative',
-                              flex: 1,
-                            }}
-                          >
-                            {/* Connecting Line */}
-                            {idx > 0 && (
+                          return (
+                            <div
+                              key={stageKey}
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                position: 'relative',
+                                flex: 1,
+                              }}
+                            >
+                              {/* Connecting Line */}
+                              {idx > 0 && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: '14px',
+                                    right: '50%',
+                                    width: '100%',
+                                    height: '2.5px',
+                                    backgroundColor: idx <= currentStageIndex ? '#10b981' : 'var(--border-color)',
+                                    zIndex: 1,
+                                    transition: 'background-color 0.2s ease',
+                                  }}
+                                />
+                              )}
+
+                              {/* Circle Node */}
                               <div
                                 style={{
-                                  position: 'absolute',
-                                  top: '14px',
-                                  right: '50%',
-                                  width: '100%',
-                                  height: '2.5px',
-                                  backgroundColor: idx <= currentStageIndex ? '#10b981' : 'var(--border-color)',
-                                  zIndex: 1,
-                                  transition: 'background-color 0.2s ease',
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  backgroundColor: isCompletedOrPassed ? '#10b981' : 'var(--bg-card)',
+                                  border: isCompletedOrPassed
+                                    ? '2px solid #10b981'
+                                    : isCurrent
+                                    ? '2px solid var(--primary-600)'
+                                    : '2px solid var(--border-color)',
+                                  color: isCompletedOrPassed ? '#ffffff' : 'var(--text-muted)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  zIndex: 2,
+                                  boxShadow: isCurrent ? '0 0 0 3px rgba(37, 99, 235, 0.2)' : 'none',
+                                  transition: 'all 0.2s ease',
                                 }}
-                              />
-                            )}
+                              >
+                                {isCompletedOrPassed ? (
+                                  <Check size={16} strokeWidth={3} />
+                                ) : (
+                                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--border-color)' }} />
+                                )}
+                              </div>
 
-                            {/* Circle Node */}
-                            <div
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                backgroundColor: isCompletedOrPassed ? '#10b981' : 'var(--bg-card)',
-                                border: isCompletedOrPassed
-                                  ? '2px solid #10b981'
-                                  : isCurrent
-                                  ? '2px solid var(--primary-600)'
-                                  : '2px solid var(--border-color)',
-                                color: isCompletedOrPassed ? '#ffffff' : 'var(--text-muted)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                                zIndex: 2,
-                                boxShadow: isCurrent ? '0 0 0 3px rgba(37, 99, 235, 0.2)' : 'none',
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              {isCompletedOrPassed ? (
-                                <Check size={16} strokeWidth={3} />
-                              ) : (
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--border-color)' }} />
-                              )}
+                              {/* Label */}
+                              <span
+                                className="view-wo-timeline-label"
+                                style={{
+                                  marginTop: '10px',
+                                  fontSize: '11px',
+                                  fontWeight: isCompletedOrPassed ? 700 : 500,
+                                  color: isCompletedOrPassed ? 'var(--text-main)' : 'var(--text-muted)',
+                                  textAlign: 'center',
+                                  maxWidth: '85px',
+                                  lineHeight: 1.25,
+                                  minHeight: '28px',
+                                }}
+                              >
+                                {t(`workOrders.viewModal.processesTab.timelineStages.${stageKey}`, stageKey)}
+                              </span>
                             </div>
-
-                            {/* Label */}
-                            <span
-                              style={{
-                                marginTop: '10px',
-                                fontSize: '11px',
-                                fontWeight: isCompletedOrPassed ? 700 : 500,
-                                color: isCompletedOrPassed ? 'var(--text-main)' : 'var(--text-muted)',
-                                textAlign: 'center',
-                                maxWidth: '100px',
-                                lineHeight: 1.3,
-                                minHeight: '30px',
-                              }}
-                            >
-                              {t(`workOrders.viewModal.processesTab.timelineStages.${stageKey}`, stageKey)}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
                   {/* Card 2: TOTAL COMPLETED WORK TIME */}
                   <div
+                    className="view-wo-time-card"
                     style={{
                       borderRadius: '12px',
                       backgroundColor: 'var(--bg-card)',
@@ -1596,6 +1609,7 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                     </div>
 
                     <div
+                      className="view-wo-time-card-value"
                       style={{
                         padding: '8px 24px',
                         borderRadius: '10px',
@@ -1651,14 +1665,16 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                     </div>
 
                     <div
+                      className="view-wo-table-responsive"
                       style={{
                         borderRadius: '12px',
                         backgroundColor: 'var(--bg-card)',
                         border: '1px solid var(--border-color)',
-                        overflow: 'hidden',
+                        overflowX: 'auto',
+                        WebkitOverflowScrolling: 'touch',
                       }}
                     >
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <table style={{ width: '100%', minWidth: '680px', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                           <tr
                             style={{
@@ -2501,14 +2517,16 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                     </div>
 
                     <div
+                      className="view-wo-table-responsive"
                       style={{
                         borderRadius: '12px',
                         backgroundColor: 'var(--bg-card)',
                         border: '1px solid var(--border-color)',
-                        overflow: 'hidden',
+                        overflowX: 'auto',
+                        WebkitOverflowScrolling: 'touch',
                       }}
                     >
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <table style={{ width: '100%', minWidth: '640px', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                           <tr
                             style={{

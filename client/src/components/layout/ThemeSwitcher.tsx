@@ -46,7 +46,7 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ variant = 'icon' }
   return (
     <button
       onClick={toggleTheme}
-      className="btn btn-secondary btn-sm"
+      className="btn btn-secondary btn-sm header-theme-btn"
       title={tooltipText}
       aria-label={tooltipText}
       style={{

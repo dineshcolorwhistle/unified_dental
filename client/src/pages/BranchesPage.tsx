@@ -622,7 +622,7 @@ export const BranchesPage: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                <div className="branch-modal-contact-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">{t('branches.phone')}</label>
                     <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>
@@ -719,7 +719,7 @@ export const BranchesPage: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                <div className="branch-modal-contact-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">{t('branches.phone')}</label>
                     <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>

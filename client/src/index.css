@@ -2051,6 +2051,21 @@ button {
   display: none;
 }
 
+/* Guard: Prevent Branch Switcher Dropdown from overflowing viewport on tablets/mobile */
+@media (max-width: 768px) {
+  .branch-switcher-dropdown {
+    position: fixed !important;
+    top: 58px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: 320px !important;
+    margin: 0 auto !important;
+    z-index: 1200 !important;
+    box-shadow: var(--shadow-xl) !important;
+  }
+}
+
 /* Mobile Phones (<= 640px) */
 @media (max-width: 640px) {
   /* ─── Header: Compact, beautiful alignment for ALL ROLES ─── */
@@ -2145,9 +2160,14 @@ button {
 
   /* 4. Language Switcher (Shows 'EN' / 'ES' badge) */
   .language-switcher-btn {
-    padding: 5px 6px !important;
+    padding: 0 6px !important;
+    height: 32px !important;
+    min-height: 32px !important;
     gap: 3px !important;
+    border-radius: 8px !important;
     flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
   }
 
   .lang-switcher-text-full {
@@ -2165,6 +2185,7 @@ button {
   }
 
   /* 5. Theme Switcher: 32x32px circular/rounded button */
+  .header-theme-btn,
   .header-right button[title*="Dark"],
   .header-right button[title*="Light"],
   .header-right button[title*="Oscuro"],
@@ -2175,15 +2196,24 @@ button {
     padding: 0 !important;
     border-radius: 8px !important;
     flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   /* 6. Notifications Bell: 32x32px button */
+  .header-notification-btn,
   .header-right .notification-trigger-btn,
   .header-right button[aria-label="Notifications"] {
     width: 32px !important;
     min-width: 32px !important;
     height: 32px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
     flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   /* 7. Profile Button: Circle avatar only */
@@ -2209,12 +2239,17 @@ button {
     z-index: 1200 !important;
   }
 
+  /* Branch Switcher Dropdown: fixed position so it is never out of frame */
   .branch-switcher-dropdown {
-    right: 0 !important;
-    top: calc(100% + 8px) !important;
-    width: 250px !important;
-    max-width: calc(100vw - 20px) !important;
+    position: fixed !important;
+    top: 58px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: 320px !important;
+    margin: 0 auto !important;
     z-index: 1200 !important;
+    box-shadow: var(--shadow-xl) !important;
   }
 
   /* ─── Notification Dropdown: Fixed viewport modal on mobile ─── */
@@ -2319,20 +2354,49 @@ button {
     max-width: 100% !important;
   }
 
-  /* ─── Modals: Bottom Sheet Styling ─── */
+  /* ─── Modals: Clean Centered Popup with Viewport Padding ─── */
   .modal-overlay, .modal-backdrop {
-    padding: 0 !important;
-    align-items: flex-end !important;
+    padding: 16px 12px !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .modal-content, .modal-dialog, .modal-card {
-    max-width: 100% !important;
+    max-width: calc(100vw - 24px) !important;
     width: 100% !important;
-    max-height: 95vh !important;
-    max-height: 95dvh !important;
-    border-radius: 20px 20px 0 0 !important;
-    border-bottom: none !important;
-    animation: mobileModalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    max-height: calc(100vh - 32px) !important;
+    max-height: calc(100dvh - 32px) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+    margin: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: modalIn 0.2s ease-out !important;
+  }
+
+  .modal-header {
+    padding: 14px 16px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .modal-body {
+    padding: 16px !important;
+    max-height: calc(100dvh - 150px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal-footer {
+    padding: 12px 16px !important;
+    flex-shrink: 0 !important;
+    gap: 8px !important;
+  }
+
+  /* Responsive contact/form grids inside modals */
+  .branch-modal-contact-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
   }
 
   /* ═════════════════════════════════════════════════════════════════════ */
@@ -2340,34 +2404,40 @@ button {
   /* ═════════════════════════════════════════════════════════════════════ */
   .view-wo-overlay,
   .technician-wo-overlay {
-    padding: 0 !important;
-    align-items: flex-end !important;
+    padding: 16px 12px !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .view-wo-modal,
   .technician-wo-modal {
-    max-width: 100% !important;
+    max-width: calc(100vw - 24px) !important;
     width: 100% !important;
-    max-height: 95vh !important;
-    max-height: 95dvh !important;
-    border-radius: 20px 20px 0 0 !important;
-    border-bottom: none !important;
-    animation: mobileModalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    max-height: calc(100vh - 32px) !important;
+    max-height: calc(100dvh - 32px) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+    margin: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: modalIn 0.2s ease-out !important;
   }
 
   .view-wo-header {
     padding: 12px 14px !important;
     display: flex !important;
     flex-direction: row !important;
-    align-items: flex-start !important;
+    align-items: center !important;
     justify-content: space-between !important;
     gap: 8px !important;
+    flex-shrink: 0 !important;
   }
 
   .view-wo-header-info {
     display: flex !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 4px !important;
     min-width: 0 !important;
     flex: 1 !important;
   }
@@ -2379,7 +2449,7 @@ button {
   }
 
   .view-wo-title {
-    font-size: 16px !important;
+    font-size: 15px !important;
     font-weight: 800 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
@@ -2390,12 +2460,12 @@ button {
     display: flex !important;
     align-items: center !important;
     flex-wrap: wrap !important;
-    gap: 5px !important;
+    gap: 4px !important;
   }
 
   .view-wo-badge {
-    font-size: 10.5px !important;
-    padding: 2px 7px !important;
+    font-size: 10px !important;
+    padding: 2px 6px !important;
     border-radius: 5px !important;
     line-height: 1.3 !important;
   }
@@ -2408,25 +2478,26 @@ button {
   }
 
   .view-wo-edit-btn {
-    padding: 5px 9px !important;
-    font-size: 11.5px !important;
-    border-radius: 7px !important;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
   }
 
   .view-wo-close-btn {
-    width: 30px !important;
-    height: 30px !important;
-    border-radius: 7px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
   }
 
   /* WO Tabs on Mobile: Scrollable strip */
   .view-wo-tab-bar,
   .modal-tab-bar {
-    padding: 0 10px !important;
-    gap: 4px !important;
+    padding: 0 8px !important;
+    gap: 2px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
+    flex-shrink: 0 !important;
   }
 
   .view-wo-tab-bar::-webkit-scrollbar,
@@ -2436,8 +2507,9 @@ button {
 
   .view-wo-tab-bar button,
   .modal-tab-bar button {
-    padding: 10px 13px !important;
+    padding: 9px 12px !important;
     font-size: 12px !important;
+    font-weight: 700 !important;
     white-space: nowrap !important;
     flex-shrink: 0 !important;
   }
@@ -2445,7 +2517,62 @@ button {
   .view-wo-body,
   .modal-body {
     padding: 14px 12px !important;
-    gap: 14px !important;
+    gap: 12px !important;
+    max-height: calc(100dvh - 165px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Timeline horizontal scroll & overlap prevention */
+  .view-wo-timeline-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 6px !important;
+    scrollbar-width: thin !important;
+  }
+
+  .view-wo-timeline-track {
+    min-width: 520px !important;
+  }
+
+  .view-wo-timeline-label {
+    font-size: 10px !important;
+    max-width: 80px !important;
+    line-height: 1.25 !important;
+    margin-top: 6px !important;
+    word-break: normal !important;
+  }
+
+  /* Table horizontal scroll & compact responsive sizing */
+  .view-wo-table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 10px !important;
+  }
+
+  .view-wo-table-responsive table {
+    min-width: 640px !important;
+  }
+
+  .view-wo-table-responsive th {
+    padding: 9px 10px !important;
+    font-size: 11px !important;
+  }
+
+  .view-wo-table-responsive td {
+    padding: 9px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* Total completed work time card */
+  .view-wo-time-card {
+    padding: 12px 14px !important;
+    gap: 8px !important;
+  }
+
+  .view-wo-time-card-value {
+    font-size: 17px !important;
+    padding: 6px 12px !important;
   }
 
   .view-wo-footer,
@@ -2454,14 +2581,17 @@ button {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    flex-wrap: wrap !important;
     gap: 8px !important;
+    border-top: 1px solid var(--border-color) !important;
+    background-color: var(--bg-card) !important;
+    flex-shrink: 0 !important;
   }
 
   .view-wo-footer button,
   .modal-footer button {
-    padding: 8px 14px !important;
-    font-size: 12.5px !important;
+    padding: 7px 14px !important;
+    font-size: 12px !important;
+    border-radius: 7px !important;
   }
 
   /* ─── Pagination on mobile ─── */

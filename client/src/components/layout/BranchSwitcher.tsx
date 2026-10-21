@@ -5,11 +5,21 @@ import { Building2, ChevronDown, Check, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const BranchSwitcher: React.FC = () => {
-  const { user, switchBranch, isTenantAdmin } = useAuth();
+  const { user, switchBranch, isTenantAdmin, isLabAdmin, isLabTechnician } = useAuth();
   const { activeModuleMode } = useModule();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Selected branch section not required to display for Lab admin & technician role.
+  // It only displays for Lab owner role (tenant admin / superadmin in LAB mode).
+  const isLabOwner = Boolean(isTenantAdmin || user?.isSuperAdmin);
+  if (isLabAdmin || isLabTechnician) {
+    return null;
+  }
+  if (activeModuleMode === 'LAB' && !isLabOwner) {
+    return null;
+  }
 
   const allBranches = user?.availableBranches || [];
   const branches = allBranches.filter((b) => {
