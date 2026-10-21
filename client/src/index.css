@@ -1591,6 +1591,25 @@ button {
   gap: 20px;
 }
 
+.finance-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.chart-card-responsive {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.filter-dropdowns-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .form-grid-4 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1849,8 +1868,10 @@ button {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .grid-split-2 {
-    grid-template-columns: 1fr;
+  .grid-split-2,
+  .finance-charts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
 
   /* ─── Tables: horizontal scroll ─── */
@@ -2786,7 +2807,43 @@ button {
   .filter-bar-responsive > * {
     width: 100% !important;
     max-width: 100% !important;
+    flex-basis: auto !important;
   }
+
+  /* ─── Reminders Filter Bar Mobile (< 640px) ─── */
+  .reminders-filter-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .reminders-filter-search {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .reminders-filter-dropdowns {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .reminders-filter-dropdowns > div {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .reminders-filter-reset-btn {
+    width: 100% !important;
+  }
+
+  /* ─── Finance & Chart Cards Mobile ─── */
+  .chart-card-responsive {
+    padding: 14px 12px !important;
+  }
+
 
   /* ─── Modals: Clean Centered Popup with Viewport Padding ─── */
   .modal-overlay, .modal-backdrop {

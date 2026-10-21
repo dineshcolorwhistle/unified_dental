@@ -282,8 +282,8 @@ export const FinancePage: React.FC = () => {
     mode: 'revenue' | 'collectionsVsOutstanding';
   }) => {
     const width = 460;
-    const height = 230;
-    const pad = { top: 20, right: 20, bottom: mode === 'collectionsVsOutstanding' ? 52 : 36, left: 70 };
+    const height = 210;
+    const pad = { top: 20, right: 20, bottom: 28, left: 70 };
     const chartW = width - pad.left - pad.right;
     const chartH = height - pad.top - pad.bottom;
     const baselineY = pad.top + chartH;
@@ -304,7 +304,7 @@ export const FinancePage: React.FC = () => {
     });
 
     return (
-      <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+      <div className="card chart-card-responsive">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
           <span style={{ color: 'var(--primary-600)' }}>{icon}</span>
           <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>{title}</span>
@@ -395,21 +395,35 @@ export const FinancePage: React.FC = () => {
                 </g>
               );
             })}
-
-            {mode === 'collectionsVsOutstanding' && (
-              <g transform={`translate(${pad.left}, ${height - 12})`}>
-                <rect x={0} y={-7} width={8} height={8} rx={2} fill="#10b981" />
-                <text x={12} y={0} fontSize="8.5" fontWeight={500} fill="var(--text-muted)">
-                  {t('finance.overview.paidCollections')}
-                </text>
-                <rect x={155} y={-7} width={8} height={8} rx={2} fill="#f59e0b" />
-                <text x={167} y={0} fontSize="8.5" fontWeight={500} fill="var(--text-muted)">
-                  {t('finance.overview.outstandingLabel')}
-                </text>
-              </g>
-            )}
           </svg>
         </div>
+
+        {mode === 'collectionsVsOutstanding' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '20px',
+              marginTop: '12px',
+              flexWrap: 'wrap',
+              paddingTop: '2px',
+            }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '9px', height: '9px', borderRadius: '2px', backgroundColor: '#10b981', display: 'inline-block' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                {t('finance.overview.paidCollections')}
+              </span>
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '9px', height: '9px', borderRadius: '2px', backgroundColor: '#f59e0b', display: 'inline-block' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                {t('finance.overview.outstandingLabel')}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -684,18 +698,25 @@ export const FinancePage: React.FC = () => {
                 <KpiCard label={t('finance.overview.pendingPayments')} value={overviewData.kpis.pendingPayments} icon={<TrendingDown size={20} />} color="#ef4444" bg="var(--badge-danger-bg)" />
               </div>
 
-              {/* Charts */}
+              {/* Financial Analytics & Charts Section */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <BarChart3 size={17} style={{ color: 'var(--primary-600)' }} />
+                <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  {t('finance.overview.analyticsSection', 'Financial Analytics & Charts')}
+                </span>
+              </div>
+
               {overviewData.isAllBranches && overviewData.branchCharts ? (
                 <>
-                  {/* 2x2 Analytics Grid for Tenant Admin All Branches */}
+                  {/* 2x2 Analytics Grid (Desktop) / 1-Column Stacked (Mobile & Tablet) */}
                   <div
-                    className="grid-split-2"
+                    className="grid-split-2 finance-charts-grid"
                     style={{
                       marginBottom: '24px',
                     }}
                   >
                     {/* Card 1: Monthly Revenue & Collections Trend */}
-                    <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+                    <div className="card chart-card-responsive">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                         <TrendingUp size={16} style={{ color: 'var(--primary-600)' }} />
                         <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
@@ -724,7 +745,7 @@ export const FinancePage: React.FC = () => {
                     />
 
                     {/* Card 4: % Payment Status Distribution */}
-                    <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+                    <div className="card chart-card-responsive">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                         <Percent size={16} style={{ color: 'var(--primary-600)' }} />
                         <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
@@ -772,16 +793,14 @@ export const FinancePage: React.FC = () => {
                   )}
                 </>
               ) : (
-                /* Single Branch Mode (Lab Admin or Tenant Admin viewing specific branch) */
+                /* Single Branch Mode (Lab Admin or Tenant Admin viewing specific branch): 1-Column Stacked on mobile/tablet, 2-col on desktop */
                 <div
+                  className="grid-split-2 finance-charts-grid"
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    gap: '16px',
                     marginBottom: '24px',
                   }}
                 >
-                  <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+                  <div className="card chart-card-responsive">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                       <TrendingUp size={16} style={{ color: 'var(--primary-600)' }} />
                       <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>{t('finance.overview.monthlyTrend')}</span>
@@ -790,7 +809,8 @@ export const FinancePage: React.FC = () => {
                       <MonthlyTrendChart data={overviewData.monthlyTrend} />
                     </div>
                   </div>
-                  <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column' }}>
+
+                  <div className="card chart-card-responsive">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                       <Percent size={16} style={{ color: 'var(--primary-600)' }} />
                       <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>{t('finance.overview.paymentStatusDist')}</span>

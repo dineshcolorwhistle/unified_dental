@@ -180,12 +180,19 @@ export const LabSupportPortalPage: React.FC = () => {
           gap: '16px',
         }}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
             <div
               style={{
-                width: '38px',
-                height: '38px',
+                width: '40px',
+                height: '40px',
+                minWidth: '40px',
+                minHeight: '40px',
+                maxWidth: '40px',
+                maxHeight: '40px',
+                flexShrink: 0,
+                flexGrow: 0,
+                aspectRatio: '1 / 1',
                 borderRadius: '10px',
                 background: 'linear-gradient(135deg, #0d9488, #0f766e)',
                 color: '#ffffff',
@@ -193,11 +200,12 @@ export const LabSupportPortalPage: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)',
+                marginTop: '2px',
               }}
             >
-              <LifeBuoy size={20} />
+              <LifeBuoy size={22} style={{ flexShrink: 0, minWidth: '22px', minHeight: '22px' }} />
             </div>
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)' }}>
                 {t('support.labPortalTitle', 'Dental Lab Support Portal')}
               </h1>
@@ -398,6 +406,12 @@ export const LabSupportPortalPage: React.FC = () => {
               style={{
                 width: '48px',
                 height: '48px',
+                minWidth: '48px',
+                minHeight: '48px',
+                maxWidth: '48px',
+                maxHeight: '48px',
+                flexShrink: 0,
+                aspectRatio: '1 / 1',
                 borderRadius: '14px',
                 background: 'rgba(13, 148, 136, 0.1)',
                 color: '#0d9488',
@@ -406,7 +420,7 @@ export const LabSupportPortalPage: React.FC = () => {
                 justifyContent: 'center',
               }}
             >
-              <LifeBuoy size={24} />
+              <LifeBuoy size={24} style={{ flexShrink: 0, minWidth: '24px', minHeight: '24px' }} />
             </div>
             <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
               {t('support.noTicketsFound', 'No support tickets found')}

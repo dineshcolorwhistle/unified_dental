@@ -283,5 +283,7 @@ npm run start:prod
 - [instructions.md](file:///d:/Projects/unified_dental/instructions.md) — Master architectural & domain design document (80 sections).
 - [docs/README.md](file:///d:/Projects/unified_dental/docs/README.md) — Complete Documentation Hub across all roles and modules.
 - [docs/lab-module/work-orders.md](file:///d:/Projects/unified_dental/docs/lab-module/work-orders.md) — Work orders lifecycle, QR code generation, download/print, public tracking, payment status tracking, and interactive delivery calendar.
-- [docs/lab-module/reminders.md](file:///d:/Projects/unified_dental/docs/lab-module/reminders.md) — Recurring task reminders, doctor follow-ups, automated 2-hour email alerts, and interactive reminders calendar.
+- [docs/lab-module/reminders.md](file:///d:/Projects/unified_dental/docs/lab-module/reminders.md) — Recurring task reminders, doctor follow-ups, automated 2-hour email alerts, interactive reminders calendar, and mobile-optimized filter controls.
+- [docs/lab-module/finance.md](file:///d:/Projects/unified_dental/docs/lab-module/finance.md) — Financial analytics, accounts receivable, doctor balances, and mobile-responsive stacked/one-by-one chart viewing.
+- [docs/lab-module/payment-methods.md](file:///d:/Projects/unified_dental/docs/lab-module/payment-methods.md) — Branch payment methods management, work order payments integration, and responsive data table.
 - [docs/platform-admin/qr-inquiries.md](file:///d:/Projects/unified_dental/docs/platform-admin/qr-inquiries.md) — Platform Super Admin QR leads and inquiries management.

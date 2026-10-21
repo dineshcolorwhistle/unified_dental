@@ -152,6 +152,18 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
     return options;
   }, [branches, t]);
 
+  // Status Options for SearchableSelect
+  const statusFilterOptions: SearchableSelectOption[] = useMemo(() => [
+    { value: 'ALL', label: t('labWhatsappTemplates.allStatuses', 'All Statuses') },
+    { value: 'ACTIVE', label: t('labWhatsappTemplates.active', 'Active') },
+    { value: 'INACTIVE', label: t('labWhatsappTemplates.inactive', 'Inactive') },
+  ], [t]);
+
+  const statusFormOptions: SearchableSelectOption[] = useMemo(() => [
+    { value: 'ACTIVE', label: t('labWhatsappTemplates.active', 'Active') },
+    { value: 'INACTIVE', label: t('labWhatsappTemplates.inactive', 'Inactive') },
+  ], [t]);
+
   // Open Create Form
   const handleOpenCreateForm = () => {
     setEditingTemplate(null);
@@ -517,7 +529,9 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: isTenantAdmin ? '2fr 1fr 1fr' : '3fr 1fr',
+                gridTemplateColumns: isTenantAdmin
+                  ? 'repeat(auto-fit, minmax(220px, 1fr))'
+                  : 'repeat(auto-fit, minmax(240px, 1fr))',
                 gap: '20px',
                 marginBottom: '20px',
               }}
@@ -577,23 +591,14 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
                   {t('labWhatsappTemplates.status', 'Status')}{' '}
                   <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <select
-                  className="form-input"
+                <SearchableSelect
+                  options={statusFormOptions}
                   value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value as WhatsappTemplateStatus })
+                  onChange={(val) =>
+                    setFormData({ ...formData, status: val as WhatsappTemplateStatus })
                   }
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="ACTIVE">{t('labWhatsappTemplates.active', 'Active')}</option>
-                  <option value="INACTIVE">{t('labWhatsappTemplates.inactive', 'Inactive')}</option>
-                </select>
+                  placeholder={t('labWhatsappTemplates.status', 'Status')}
+                />
               </div>
 
               {/* Branch (Tenant Admin only) */}
@@ -995,24 +1000,17 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             {/* Status Filter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                 {t('labWhatsappTemplates.status', 'Status')}:
               </span>
-              <select
-                className="form-input"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                style={{
-                  padding: '7px 12px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="ALL">{t('labWhatsappTemplates.allStatuses', 'All Statuses')}</option>
-                <option value="ACTIVE">{t('labWhatsappTemplates.active', 'Active')}</option>
-                <option value="INACTIVE">{t('labWhatsappTemplates.inactive', 'Inactive')}</option>
-              </select>
+              <div style={{ width: '160px', minWidth: '140px' }}>
+                <SearchableSelect
+                  options={statusFilterOptions}
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val as any)}
+                  placeholder={t('labWhatsappTemplates.allStatuses', 'All Statuses')}
+                />
+              </div>
             </div>
 
             {/* Branch Filter (Tenant Admin only) */}

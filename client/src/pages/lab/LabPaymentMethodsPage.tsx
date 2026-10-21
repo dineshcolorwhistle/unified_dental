@@ -390,14 +390,17 @@ export const LabPaymentMethodsPage: React.FC = () => {
 
       {/* ─── TABLE VIEW ─── */}
       <div
+        className="card"
         style={{
+          padding: 0,
           backgroundColor: 'var(--bg-card)',
           borderRadius: '12px',
           border: '1px solid var(--border-color)',
           overflow: 'hidden',
         }}
       >
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+        <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
+          <table className="table" style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
           <thead>
             <tr
               style={{
@@ -578,6 +581,7 @@ export const LabPaymentMethodsPage: React.FC = () => {
             )}
           </tbody>
         </table>
+        </div>
 
         {filteredMethods.length > pageSize && (
           <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border-color)' }}>

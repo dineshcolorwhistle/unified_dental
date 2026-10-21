@@ -258,22 +258,30 @@ export const RemindersPage: React.FC = () => {
       <>
       {/* Filter Row */}
       <div
-        className="card filter-bar-responsive"
+        className="card reminders-filter-bar"
         style={{
-          padding: '16px 20px',
+          padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '12px',
           backgroundColor: 'var(--bg-card)',
           borderRadius: '12px',
+          marginBottom: '20px',
         }}
       >
         {/* Search */}
-        <div style={{ flex: '1 1 240px', position: 'relative' }}>
+        <div className="reminders-filter-search" style={{ position: 'relative', flex: 1, minWidth: '240px', maxWidth: '380px' }}>
           <Search
             size={16}
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted)',
+              pointerEvents: 'none',
+            }}
           />
           <input
             type="text"
@@ -288,37 +296,38 @@ export const RemindersPage: React.FC = () => {
           />
         </div>
 
-        {/* Priority Filter */}
-        <div style={{ width: '160px' }}>
-          <SearchableSelect
-            options={priorityOptions}
-            value={priorityFilter}
-            onChange={(val) => {
-              setPriorityFilter(val);
-              setPage(1);
-            }}
-          />
-        </div>
+        {/* Priority & Recurrence Dropdowns Row */}
+        <div className="reminders-filter-dropdowns" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ width: '160px', minWidth: '140px' }}>
+            <SearchableSelect
+              options={priorityOptions}
+              value={priorityFilter}
+              onChange={(val) => {
+                setPriorityFilter(val);
+                setPage(1);
+              }}
+            />
+          </div>
 
-        {/* Recurrence Filter */}
-        <div style={{ width: '170px' }}>
-          <SearchableSelect
-            options={recurrenceOptions}
-            value={recurrenceFilter}
-            onChange={(val) => {
-              setRecurrenceFilter(val);
-              setPage(1);
-            }}
-          />
+          <div style={{ width: '170px', minWidth: '140px' }}>
+            <SearchableSelect
+              options={recurrenceOptions}
+              value={recurrenceFilter}
+              onChange={(val) => {
+                setRecurrenceFilter(val);
+                setPage(1);
+              }}
+            />
+          </div>
         </div>
 
         {/* Reset Filter Button */}
         {(search || priorityFilter !== 'ALL' || recurrenceFilter !== 'ALL') && (
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary reminders-filter-reset-btn"
             onClick={handleResetFilters}
-            style={{ height: '38px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
           >
             <RotateCcw size={14} />
             <span>{t('reminders.filters.reset', 'Reset Filters')}</span>

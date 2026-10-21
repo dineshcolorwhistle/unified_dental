@@ -136,11 +136,18 @@ export const PlatformSupportPortalPage: React.FC = () => {
           gap: '16px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', minWidth: 0, flex: 1 }}>
           <div
             style={{
               width: '42px',
               height: '42px',
+              minWidth: '42px',
+              minHeight: '42px',
+              maxWidth: '42px',
+              maxHeight: '42px',
+              flexShrink: 0,
+              flexGrow: 0,
+              aspectRatio: '1 / 1',
               borderRadius: '12px',
               background: 'linear-gradient(135deg, #0284c7, #0369a1)',
               color: '#ffffff',
@@ -148,11 +155,12 @@ export const PlatformSupportPortalPage: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+              marginTop: '2px',
             }}
           >
-            <LifeBuoy size={22} />
+            <LifeBuoy size={22} style={{ flexShrink: 0, minWidth: '22px', minHeight: '22px' }} />
           </div>
-          <div>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)' }}>
               {t('support.platformPortalTitle', 'Platform Support Portal')}
             </h1>
@@ -213,6 +221,10 @@ export const PlatformSupportPortalPage: React.FC = () => {
             style={{
               width: '42px',
               height: '42px',
+              minWidth: '42px',
+              minHeight: '42px',
+              flexShrink: 0,
+              aspectRatio: '1 / 1',
               borderRadius: '10px',
               background: 'rgba(148, 163, 184, 0.12)',
               color: '#94a3b8',
@@ -221,7 +233,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
               justifyContent: 'center',
             }}
           >
-            <Inbox size={20} />
+            <Inbox size={20} style={{ flexShrink: 0 }} />
           </div>
         </div>
 
@@ -250,6 +262,10 @@ export const PlatformSupportPortalPage: React.FC = () => {
             style={{
               width: '42px',
               height: '42px',
+              minWidth: '42px',
+              minHeight: '42px',
+              flexShrink: 0,
+              aspectRatio: '1 / 1',
               borderRadius: '10px',
               background: 'rgba(245, 158, 11, 0.12)',
               color: '#f59e0b',
@@ -258,7 +274,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
               justifyContent: 'center',
             }}
           >
-            <Clock size={20} />
+            <Clock size={20} style={{ flexShrink: 0 }} />
           </div>
         </div>
 
@@ -287,6 +303,10 @@ export const PlatformSupportPortalPage: React.FC = () => {
             style={{
               width: '42px',
               height: '42px',
+              minWidth: '42px',
+              minHeight: '42px',
+              flexShrink: 0,
+              aspectRatio: '1 / 1',
               borderRadius: '10px',
               background: 'rgba(56, 189, 248, 0.12)',
               color: '#38bdf8',
@@ -295,7 +315,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
               justifyContent: 'center',
             }}
           >
-            <RefreshCw size={20} />
+            <RefreshCw size={20} style={{ flexShrink: 0 }} />
           </div>
         </div>
 
@@ -324,6 +344,10 @@ export const PlatformSupportPortalPage: React.FC = () => {
             style={{
               width: '42px',
               height: '42px',
+              minWidth: '42px',
+              minHeight: '42px',
+              flexShrink: 0,
+              aspectRatio: '1 / 1',
               borderRadius: '10px',
               background: 'rgba(16, 185, 129, 0.12)',
               color: '#10b981',
@@ -332,7 +356,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
               justifyContent: 'center',
             }}
           >
-            <CheckCircle2 size={20} />
+            <CheckCircle2 size={20} style={{ flexShrink: 0 }} />
           </div>
         </div>
       </div>
@@ -493,6 +517,12 @@ export const PlatformSupportPortalPage: React.FC = () => {
               style={{
                 width: '48px',
                 height: '48px',
+                minWidth: '48px',
+                minHeight: '48px',
+                maxWidth: '48px',
+                maxHeight: '48px',
+                flexShrink: 0,
+                aspectRatio: '1 / 1',
                 borderRadius: '14px',
                 background: 'rgba(2, 132, 199, 0.1)',
                 color: '#0284c7',
@@ -501,7 +531,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
                 justifyContent: 'center',
               }}
             >
-              <LifeBuoy size={24} />
+              <LifeBuoy size={24} style={{ flexShrink: 0, minWidth: '24px', minHeight: '24px' }} />
             </div>
             <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
               {t('support.noTicketsPlatform', 'No support tickets found')}
