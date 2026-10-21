@@ -2044,6 +2044,11 @@ button {
   .technician-queue-item {
     padding: 12px 10px !important;
   }
+
+  /* Hide Platform Admin badge on tablet/mobile */
+  .header-platform-admin-badge {
+    display: none !important;
+  }
 }
 
 /* Base Language Switcher Text Behavior */
@@ -2134,7 +2139,8 @@ button {
 
   /* 2. Static Locked Module Badges (Hide on mobile to give full room to controls & hamburger) */
   .header-locked-module,
-  .header-platform-badge {
+  .header-platform-badge,
+  .header-platform-admin-badge {
     display: none !important;
   }
 
@@ -2636,6 +2642,125 @@ button {
     font-size: 12px !important;
     padding-left: 16px !important;
     gap: 8px !important;
+  }
+
+  /* ─── Platform & Lab Support Portal Mobile ─── */
+  .platform-support-page,
+  .lab-support-page {
+    gap: 16px !important;
+  }
+
+  .support-portal-header {
+    gap: 12px !important;
+  }
+
+  .support-refresh-btn {
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .support-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .support-kpi-grid > div {
+    padding: 12px 14px !important;
+  }
+
+  .support-filter-bar {
+    padding: 12px 10px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .support-filter-left {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .support-tenant-select-wrap {
+    width: 100% !important;
+  }
+
+  .support-tenant-select-wrap select {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .support-status-pills {
+    width: 100% !important;
+    gap: 4px !important;
+  }
+
+  .support-status-pills button {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+  }
+
+  .support-search-wrap {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .support-table-card .table-responsive table {
+    min-width: 680px !important;
+  }
+
+  /* ─── Onboarding Instructions Page Mobile ─── */
+  .onboarding-instructions-page {
+    padding-bottom: 30px !important;
+  }
+
+  .onboarding-header {
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .onboarding-header-actions {
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .onboarding-header-actions button {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .onboarding-progress-card {
+    padding: 12px 14px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .onboarding-filter-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .onboarding-role-pills {
+    width: 100% !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+    white-space: nowrap !important;
+  }
+
+  .onboarding-role-pills button {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .onboarding-search-wrap {
+    width: 100% !important;
+    min-width: 100% !important;
   }
 
   /* ─── Grids: single column on mobile ─── */

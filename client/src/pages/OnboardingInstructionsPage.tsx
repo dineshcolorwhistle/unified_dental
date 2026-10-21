@@ -610,9 +610,10 @@ export const OnboardingInstructionsPage: React.FC = () => {
   }, [user, isTenantAdmin, isLabAdmin, navigate, t, i18n.language]);
 
   return (
-    <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '28px 20px 80px' }}>
+    <div className="onboarding-instructions-page" style={{ maxWidth: '1180px', margin: '0 auto', paddingBottom: '40px' }}>
       {/* ──────────────── Top Header Bar ──────────────── */}
       <div
+        className="onboarding-header"
         style={{
           display: 'flex',
           alignItems: 'flex-start',
@@ -671,7 +672,7 @@ export const OnboardingInstructionsPage: React.FC = () => {
         </div>
 
         {/* Top Action CTAs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="onboarding-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setShowGlossary((prev) => !prev)}
@@ -723,6 +724,7 @@ export const OnboardingInstructionsPage: React.FC = () => {
 
       {/* ──────────────── Progress Tracker Bar ──────────────── */}
       <div
+        className="onboarding-progress-card"
         style={{
           background: 'var(--bg-card)',
           border: '1px solid var(--border-color)',
@@ -822,6 +824,7 @@ export const OnboardingInstructionsPage: React.FC = () => {
 
       {/* ──────────────── Filter Tabs & Search Controls ──────────────── */}
       <div
+        className="onboarding-filter-bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -833,6 +836,7 @@ export const OnboardingInstructionsPage: React.FC = () => {
       >
         {/* Role Pills matching permissions: Platform Admin sees all tabs; each role only sees their own tabs */}
         <div
+          className="onboarding-role-pills tabs-header-scrollable"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -1029,7 +1033,7 @@ export const OnboardingInstructionsPage: React.FC = () => {
         </div>
 
         {/* Live Search Input */}
-        <div style={{ position: 'relative', minWidth: '220px' }}>
+        <div className="onboarding-search-wrap" style={{ position: 'relative', minWidth: '220px' }}>
           <Search
             size={15}
             style={{

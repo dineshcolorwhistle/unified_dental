@@ -169,7 +169,7 @@ export const LabSupportPortalPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="lab-support-page" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Top Header */}
       <div
         style={{
@@ -434,8 +434,8 @@ export const LabSupportPortalPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ width: '100%', minWidth: '720px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
                 <tr
                   style={{

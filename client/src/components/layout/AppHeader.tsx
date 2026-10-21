@@ -77,7 +77,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
 
         {user?.isSuperAdmin && !tenant && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="header-platform-badge header-platform-admin-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield size={18} style={{ color: 'var(--primary-600)' }} />
             <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Platform Super Admin</span>
           </div>

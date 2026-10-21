@@ -124,9 +124,10 @@ export const PlatformSupportPortalPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="platform-support-page" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Top Header */}
       <div
+        className="support-portal-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -167,7 +168,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
         <button
           type="button"
           onClick={() => fetchDashboardData()}
-          className="btn btn-secondary"
+          className="btn btn-secondary support-refresh-btn"
           title={t('common.refresh', 'Refresh')}
           style={{
             padding: '9px 14px',
@@ -186,7 +187,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
       </div>
 
       {/* KPI Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+      <div className="support-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         {/* Total Tickets */}
         <div
           style={{
@@ -338,6 +339,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
 
       {/* Global Filter Bar */}
       <div
+        className="support-filter-bar"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -350,9 +352,9 @@ export const PlatformSupportPortalPage: React.FC = () => {
           padding: '12px 18px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+        <div className="support-filter-left" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
           {/* Tenant Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="support-tenant-select-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Building2 size={16} style={{ color: 'var(--text-muted)' }} />
             <select
               value={selectedTenantId}
@@ -380,7 +382,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
           </div>
 
           {/* Status Pills */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <div className="support-status-pills" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {[
               { id: 'ALL', label: t('common.all', 'All') },
               { id: 'CREATED', label: t('support.statusCreated', 'Created') },
@@ -416,6 +418,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
 
         {/* Search */}
         <div
+          className="support-search-wrap"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -450,6 +453,7 @@ export const PlatformSupportPortalPage: React.FC = () => {
 
       {/* Tickets Table */}
       <div
+        className="support-table-card"
         style={{
           background: 'var(--bg-surface)',
           borderRadius: '14px',
@@ -510,8 +514,8 @@ export const PlatformSupportPortalPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ width: '100%', minWidth: '720px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
                 <tr
                   style={{
