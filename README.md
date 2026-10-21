@@ -272,6 +272,7 @@ npm run start:prod
 3. **Update Documentation**: Whenever a new module or feature is implemented, you **MUST** update this [README.md](file:///d:/Projects/unified_dental/README.md) file to reflect current progress, usage instructions, and configuration.
 4. **Tenant Isolation**: Never bypass tenant validation. Always resolve the tenant from the subdomain and JWT context.
 5. **Sibling Independence**: Never couple Clinic and Lab code directly. Use domain events and application service interfaces.
+6. **Mobile-First & Responsive UI**: All frontend components, pages, forms, tables, and dialogs in `client/` must be fully responsive across mobile (<640px, <768px), tablet, and desktop viewports. Mobile responsiveness is a primary requirement for all implementations.
 
 ---
 

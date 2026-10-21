@@ -5,6 +5,10 @@ module.exports = {
       script: 'dist/main.js',
       instances: 1,
       autorestart: true,
+      restart_delay: 4000,
+      exp_backoff_restart_delay: 100,
+      max_restarts: 15,
+      min_uptime: '10s',
       watch: false,
       max_memory_restart: '1G',
       env: {
