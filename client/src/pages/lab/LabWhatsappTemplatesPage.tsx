@@ -32,16 +32,70 @@ import {
   WhatsappTemplateStatus,
 } from '../../services/whatsappTemplateService';
 
-const AVAILABLE_PLACEHOLDERS = [
+interface PlaceholderTagConfig {
+  key: string;
+  tagKey: string;
+  defaultTag: string;
+  hintKey: string;
+  defaultHint: string;
+}
+
+const PLACEHOLDER_CONFIGS: PlaceholderTagConfig[] = [
+  {
+    key: 'doctorName',
+    tagKey: 'labWhatsappTemplates.placeholders.doctorName',
+    defaultTag: '{doctor_name}',
+    hintKey: 'labWhatsappTemplates.placeholders.doctorNameHint',
+    defaultHint: 'Doctor Name',
+  },
+  {
+    key: 'workorderNumber',
+    tagKey: 'labWhatsappTemplates.placeholders.workorderNumber',
+    defaultTag: '{workorder_number}',
+    hintKey: 'labWhatsappTemplates.placeholders.workorderNumberHint',
+    defaultHint: 'Work Order Number',
+  },
+  {
+    key: 'folioNumber',
+    tagKey: 'labWhatsappTemplates.placeholders.folioNumber',
+    defaultTag: '{folio_number}',
+    hintKey: 'labWhatsappTemplates.placeholders.folioNumberHint',
+    defaultHint: 'Folio Number',
+  },
+  {
+    key: 'boxNumber',
+    tagKey: 'labWhatsappTemplates.placeholders.boxNumber',
+    defaultTag: '{boxnumber}',
+    hintKey: 'labWhatsappTemplates.placeholders.boxNumberHint',
+    defaultHint: 'Box Number',
+  },
+  {
+    key: 'verificationLink',
+    tagKey: 'labWhatsappTemplates.placeholders.verificationLink',
+    defaultTag: '{verification_link}',
+    hintKey: 'labWhatsappTemplates.placeholders.verificationLinkHint',
+    defaultHint: 'Verification Link',
+  },
+];
+
+const ALL_SUPPORTED_PLACEHOLDERS = [
   '{doctor_name}',
+  '{nombre_doctor}',
   '{workorder_number}',
+  '{numero_orden_trabajo}',
+  '{numero_orden}',
   '{folio_number}',
+  '{numero_folio}',
   '{boxnumber}',
+  '{numero_caja}',
+  '{caja}',
   '{verification_link}',
+  '{enlace_verificacion}',
+  '{link_verificacion}',
 ];
 
 export const LabWhatsappTemplatesPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isTenantAdmin } = useAuth();
   const { toast } = useToast();
 
@@ -196,11 +250,19 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
     }, 100);
   };
 
+  // Active localized placeholders for insertion
+  const activePlaceholders = useMemo(() => {
+    return PLACEHOLDER_CONFIGS.map((cfg) => ({
+      tag: t(cfg.tagKey, cfg.defaultTag),
+      hint: t(cfg.hintKey, cfg.defaultHint),
+    }));
+  }, [t]);
+
   // Duplicate Template
   const handleDuplicate = (item: WhatsappTemplateItem) => {
     setEditingTemplate(null);
     setFormData({
-      name: `${item.name} (Copy)`,
+      name: `${item.name} (${t('labWhatsappTemplates.copySuffix', 'Copy')})`,
       status: item.status,
       message: item.message,
       branchId: item.branchId || branches[0]?.id || '',
@@ -362,20 +424,22 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
   // Helper to generate live simulated WhatsApp preview
   const getSimulatedPreviewText = (text: string) => {
     if (!text) return '';
+    const isEs = i18n.language?.startsWith('es');
     return text
-      .replace(/{doctor_name}/g, 'Dr. Sarah Jenkins')
-      .replace(/{workorder_number}/g, 'WO-2026-089')
-      .replace(/{folio_number}/g, 'FOL-7841')
-      .replace(/{boxnumber}/g, 'BOX-04')
-      .replace(/{verification_link}/g, `${window.location.origin}/qr/sample-token`);
+      .replace(/{doctor_name}|{nombre_doctor}/gi, isEs ? 'Dra. Sarah Jenkins' : 'Dr. Sarah Jenkins')
+      .replace(/{workorder_number}|{numero_orden_trabajo}|{numero_orden}/gi, 'WO-2026-089')
+      .replace(/{folio_number}|{numero_folio}/gi, 'FOL-7841')
+      .replace(/{boxnumber}|{numero_caja}|{caja}/gi, isEs ? 'CAJA-04' : 'BOX-04')
+      .replace(/{verification_link}|{enlace_verificacion}|{link_verificacion}/gi, `${window.location.origin}/qr/sample-token`);
   };
 
   // Helper to highlight placeholder tags in raw message display
   const renderHighlightedMessage = (text: string) => {
     if (!text) return null;
-    const parts = text.split(/({[a-zA-Z0-9_]+})/g);
+    const parts = text.split(/({[a-zA-Z0-9_áéíóúñÁÉÍÓÚÑ]+})/g);
     return parts.map((part, idx) => {
-      if (AVAILABLE_PLACEHOLDERS.includes(part)) {
+      const lower = part.toLowerCase();
+      if (ALL_SUPPORTED_PLACEHOLDERS.some((p) => p.toLowerCase() === lower)) {
         return (
           <span
             key={idx}
@@ -724,10 +788,11 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {AVAILABLE_PLACEHOLDERS.map((tag) => (
+                {activePlaceholders.map(({ tag, hint }) => (
                   <button
                     key={tag}
                     type="button"
+                    title={hint}
                     onClick={() => handleInsertPlaceholder(tag)}
                     style={{
                       backgroundColor: 'var(--bg-card, #ffffff)',
@@ -782,7 +847,7 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
                   {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
                   <span>
                     {showPreview
-                      ? 'Hide Live WhatsApp Preview'
+                      ? t('labWhatsappTemplates.hidePreview', 'Hide Live WhatsApp Preview')
                       : t('labWhatsappTemplates.livePreview', 'WhatsApp Live Preview')}
                   </span>
                 </button>
@@ -1692,7 +1757,9 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
                 {t('labWhatsappTemplates.viewModal.placeholdersDetected', 'Placeholders In Use')}
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {AVAILABLE_PLACEHOLDERS.filter((p) => viewingTemplate.message.includes(p)).map((tag) => (
+                {ALL_SUPPORTED_PLACEHOLDERS.filter((p) =>
+                  viewingTemplate.message.toLowerCase().includes(p.toLowerCase()),
+                ).map((tag) => (
                   <span
                     key={tag}
                     style={{
@@ -1709,7 +1776,9 @@ export const LabWhatsappTemplatesPage: React.FC = () => {
                     {tag}
                   </span>
                 ))}
-                {AVAILABLE_PLACEHOLDERS.filter((p) => viewingTemplate.message.includes(p)).length === 0 && (
+                {ALL_SUPPORTED_PLACEHOLDERS.filter((p) =>
+                  viewingTemplate.message.toLowerCase().includes(p.toLowerCase()),
+                ).length === 0 && (
                   <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     {t('labWhatsappTemplates.viewModal.noneDetected', 'No placeholders detected')}
                   </span>

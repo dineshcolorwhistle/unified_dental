@@ -286,4 +286,5 @@ npm run start:prod
 - [docs/lab-module/reminders.md](file:///d:/Projects/unified_dental/docs/lab-module/reminders.md) — Recurring task reminders, doctor follow-ups, automated 2-hour email alerts, interactive reminders calendar, and mobile-optimized filter controls.
 - [docs/lab-module/finance.md](file:///d:/Projects/unified_dental/docs/lab-module/finance.md) — Financial analytics, accounts receivable, doctor balances, and mobile-responsive stacked/one-by-one chart viewing.
 - [docs/lab-module/payment-methods.md](file:///d:/Projects/unified_dental/docs/lab-module/payment-methods.md) — Branch payment methods management, work order payments integration, and responsive data table.
+- [docs/lab-module/whatsapp-templates.md](file:///d:/Projects/unified_dental/docs/lab-module/whatsapp-templates.md) — WhatsApp notification templates, localized dynamic placeholders, and interactive preview.
 - [docs/platform-admin/qr-inquiries.md](file:///d:/Projects/unified_dental/docs/platform-admin/qr-inquiries.md) — Platform Super Admin QR leads and inquiries management.
