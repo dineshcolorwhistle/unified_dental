@@ -299,7 +299,7 @@ export const LabSupportPortalPage: React.FC = () => {
         {/* Status Filter Pills */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {[
-            { id: 'ALL', label: t('common.all', 'All Tickets') },
+            { id: 'ALL', label: t('support.allTickets', 'All Tickets') },
             { id: 'CREATED', label: t('support.statusCreated', 'Created') },
             { id: 'IN_PROGRESS', label: t('support.statusInProgress', 'In Progress') },
             { id: 'COMPLETED', label: t('support.statusCompleted', 'Completed') },

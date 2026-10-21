@@ -41,13 +41,13 @@ import api from '../../services/api';
 export const LabWorkOrdersPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { user, isTenantAdmin, isLabAdmin } = useAuth();
+  const { user, isTenantAdmin, isLabAdmin, isLabTechnician } = useAuth();
 
   // View mode: list or calendar
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
-  // Role permissions
-  const canCreate = isLabAdmin;
+  // Role permissions: Lab Admins and Technicians can create Work Orders
+  const canCreate = isLabAdmin || isLabTechnician;
   const canDelete = isTenantAdmin || Boolean(user?.isSuperAdmin);
 
   // Data state
@@ -323,7 +323,7 @@ export const LabWorkOrdersPage: React.FC = () => {
               <span>{t('workOrders.newWorkOrderBtn', 'New Work Order')}</span>
             </button>
           ) : (
-            <Tooltip content={t('workOrders.adminOnlyCreateNotice', 'Only Lab Administrators can create Work Orders')}>
+            <Tooltip content={t('workOrders.adminOnlyCreateNotice', 'Only Lab Administrators and Technicians can create Work Orders.')}>
               <span style={{ display: 'inline-block' }}>
                 <button
                   type="button"
