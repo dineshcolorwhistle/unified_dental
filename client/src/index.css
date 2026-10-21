@@ -2329,6 +2329,315 @@ button {
     gap: 10px !important;
   }
 
+  /* ─── Technician Dashboard: Queue Header Mobile ─── */
+  .technician-queue-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .technician-queue-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .technician-queue-header h2 {
+    font-size: 16px !important;
+    white-space: nowrap !important;
+  }
+
+  .technician-queue-active-badge {
+    font-size: 11px !important;
+    padding: 2px 7px !important;
+    white-space: nowrap !important;
+  }
+
+  .technician-queue-view-all-btn {
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+    white-space: nowrap !important;
+    margin-left: auto !important;
+  }
+
+  /* Queue item top line: stack on mobile */
+  .technician-queue-item > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  /* Queue item subtitle text */
+  .technician-queue-item > div:nth-child(2) {
+    font-size: 11.5px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Queue item current step box */
+  .technician-queue-item > div:nth-child(3) {
+    padding: 10px 12px !important;
+  }
+
+  /* Queue item action buttons */
+  .technician-queue-item > div:last-child {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .technician-queue-item > div:last-child button {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+
+  /* ─── Technician WO Detail Modal: Header & Scrolling Fix ─── */
+  .technician-wo-modal,
+  .view-wo-modal {
+    max-height: calc(100vh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    margin: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .technician-wo-modal .view-wo-header,
+  .technician-wo-overlay .view-wo-header {
+    padding: 12px 14px 10px !important;
+    flex-shrink: 0 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    background-color: var(--bg-card) !important;
+    min-height: auto !important;
+    display: flex !important;
+    align-items: flex-start !important;
+  }
+
+  .technician-wo-modal .view-wo-header-info {
+    min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .technician-wo-modal .view-wo-header-info > div:first-child {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .technician-wo-modal .view-wo-header-info > div:first-child h2 {
+    font-size: 16px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .technician-wo-modal .view-wo-header-info > div:first-child span {
+    font-size: 11px !important;
+    padding: 2px 7px !important;
+  }
+
+  .technician-wo-modal .view-wo-header-info > div:first-child button {
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+  }
+
+  .technician-wo-modal .view-wo-header-info > p {
+    font-size: 11.5px !important;
+    margin-top: 4px !important;
+    display: none !important;
+  }
+
+  /* Tab navigation inside technician modal */
+  .technician-wo-modal .tabs-header-scrollable {
+    padding: 0 10px !important;
+    gap: 12px !important;
+    flex-shrink: 0 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 19 !important;
+    background-color: var(--bg-card) !important;
+  }
+
+  .technician-wo-modal .tabs-header-scrollable button {
+    font-size: 12.5px !important;
+    padding: 10px 2px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Modal scrollable body */
+  .technician-wo-body,
+  .technician-wo-modal .technician-wo-body,
+  .technician-wo-modal .modal-body,
+  .technician-wo-modal > div:last-child {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding: 14px 12px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ─── Technician Modal: Notes History Fix ─── */
+  .technician-note-form,
+  .technician-wo-modal form.technician-note-form {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .technician-note-input,
+  .technician-note-form input[type="text"],
+  .technician-wo-modal form.technician-note-form input[type="text"] {
+    width: 100% !important;
+    flex: unset !important;
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+  }
+
+  .technician-note-submit-btn,
+  .technician-note-form button[type="submit"],
+  .technician-wo-modal form.technician-note-form button[type="submit"] {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Notes accordion header */
+  .technician-wo-modal form ~ div,
+  .technician-wo-modal button[type="button"] {
+    font-size: 13px !important;
+  }
+
+  /* Notes history items compact */
+  .technician-wo-modal [style*="notesHistory"] div,
+  .technician-wo-modal div[style*="NOTES HISTORY"] ~ div div {
+    font-size: 12px !important;
+  }
+
+  /* ─── Technician Modal: Process Tab Compact ─── */
+  /* Timing control panel */
+  .technician-wo-modal div[style*="PROCESS TIMING"] {
+    padding: 14px 12px !important;
+  }
+
+  /* Process buttons (Start, Pause, Resume, Complete) */
+  .technician-wo-modal div[style*="PROCESS TIMING"] button {
+    font-size: 12.5px !important;
+    padding: 10px 12px !important;
+  }
+
+  /* Workflow stepper cards */
+  .technician-wo-modal div[style*="WORKFLOW STEPPER"] {
+    padding: 14px 12px !important;
+  }
+
+  /* Stepper step detail cards */
+  .technician-wo-modal div[style*="WORKFLOW STEPPER"] > div > div > div:nth-child(2) {
+    padding: 10px 12px !important;
+  }
+
+  /* Audit log section */
+  .technician-wo-modal div[style*="AUDIT LOG"] {
+    padding: 14px 12px !important;
+  }
+
+  /* ─── Technician: Metadata Grid Compact ─── */
+  .technician-wo-modal div[style*="auto-fit"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+
+  /* Spec / Instructions box */
+  .technician-wo-modal div[style*="DENTAL SPEC"] {
+    padding: 12px !important;
+  }
+
+  /* ─── Technician Work Orders Page ─── */
+  .technician-page-header {
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .technician-search-wrap,
+  .technician-search-bar {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .technician-filter-tabs {
+    gap: 6px !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .technician-filter-tabs button {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .technician-wo-card {
+    padding: 14px 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  /* ─── Technician Requested Orders Page ─── */
+  .technician-filter-bar {
+    padding: 12px !important;
+    gap: 10px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .technician-filters-group {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .technician-status-select-wrap {
+    flex: 1 !important;
+    width: auto !important;
+  }
+
+  .technician-create-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 9px 16px !important;
+    font-size: 13px !important;
+  }
+
+  .technician-table-wrapper table {
+    min-width: 680px !important;
+  }
+
+  /* ─── Technician: Operational Rules Section Compact ─── */
+  .technician-dashboard > div:last-of-type {
+    padding: 14px 12px !important;
+    margin-top: 14px !important;
+  }
+
+  .technician-dashboard > div:last-of-type h2 {
+    font-size: 14px !important;
+  }
+
+  .technician-dashboard > div:last-of-type ul {
+    font-size: 12px !important;
+    padding-left: 16px !important;
+    gap: 8px !important;
+  }
+
   /* ─── Grids: single column on mobile ─── */
   .grid-kpi-4 {
     grid-template-columns: 1fr;

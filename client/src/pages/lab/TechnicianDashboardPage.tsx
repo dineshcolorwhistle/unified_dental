@@ -315,20 +315,41 @@ export const TechnicianDashboardPage: React.FC = () => {
       >
         {/* Queue Header */}
         <div
+          className="technician-queue-header"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: '20px',
+            flexWrap: 'wrap',
+            gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Activity size={18} style={{ color: '#10b981' }} />
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', fontFamily: 'var(--font-heading)' }}>
+          <div
+            className="technician-queue-header-left"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Activity size={18} style={{ color: '#10b981', flexShrink: 0 }} />
+            <h2
+              style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 800,
+                color: 'var(--text-heading)',
+                fontFamily: 'var(--font-heading)',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {t('technician.queue.title', { defaultValue: 'My Work Queue' })}
             </h2>
             {activeQueue.length > 0 && (
               <span
+                className="technician-queue-active-badge"
                 style={{
                   fontSize: '12px',
                   fontWeight: 700,
@@ -337,6 +358,7 @@ export const TechnicianDashboardPage: React.FC = () => {
                   padding: '2px 8px',
                   borderRadius: '12px',
                   border: '1px solid var(--border-subtle)',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {t('technician.queue.activeCount', { count: activeQueue.length, defaultValue: '{{count}} Active' })}
@@ -346,6 +368,7 @@ export const TechnicianDashboardPage: React.FC = () => {
 
           <button
             type="button"
+            className="technician-queue-view-all-btn"
             onClick={() => navigate('/lab/work-orders/my')}
             style={{
               display: 'flex',
@@ -359,6 +382,8 @@ export const TechnicianDashboardPage: React.FC = () => {
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             <span>{t('technician.queue.viewAll', { defaultValue: 'View All Queue' })}</span>

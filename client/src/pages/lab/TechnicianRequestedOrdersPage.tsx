@@ -194,6 +194,7 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* ─── PAGE HEADER ─────────────────────────────────────────── */}
       <div
+        className="technician-page-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -245,7 +246,7 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsCreateModalOpen(true)}
-          className="btn btn-primary"
+          className="btn btn-primary technician-create-btn"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -264,6 +265,7 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
 
       {/* ─── SEARCH & FILTER CONTROLS ───────────────────────────── */}
       <div
+        className="technician-filter-bar"
         style={{
           backgroundColor: 'var(--bg-card)',
           borderRadius: '14px',
@@ -278,7 +280,7 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
         }}
       >
         {/* Search Bar */}
-        <div style={{ position: 'relative', flex: '1 1 300px', maxWidth: '460px' }}>
+        <div className="technician-search-bar" style={{ position: 'relative', flex: '1 1 300px', maxWidth: '460px' }}>
           <Search
             size={16}
             style={{
@@ -315,9 +317,9 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
         </div>
 
         {/* Filters Group */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="technician-filters-group" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Status Filter */}
-          <div style={{ width: '190px' }}>
+          <div className="technician-status-select-wrap" style={{ width: '190px' }}>
             <SearchableSelect
               options={statusOptions}
               value={selectedStatus}
@@ -352,6 +354,7 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
 
       {/* ─── DATA TABLE ─────────────────────────────────────────── */}
       <div
+        className="technician-table-wrapper"
         style={{
           backgroundColor: 'var(--bg-card)',
           borderRadius: '14px',
@@ -360,8 +363,8 @@ export const TechnicianRequestedOrdersPage: React.FC = () => {
           marginBottom: '20px',
         }}
       >
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr
                 style={{

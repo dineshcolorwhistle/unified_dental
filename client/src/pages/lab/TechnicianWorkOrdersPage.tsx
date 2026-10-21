@@ -113,6 +113,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
       {/* Header & Search (Screenshot 2) */}
       <div
+        className="technician-page-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -140,7 +141,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
         </div>
 
         {/* Live Search Input */}
-        <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+        <div className="technician-search-wrap" style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
           <Search
             size={16}
             style={{
@@ -173,6 +174,7 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
 
       {/* Filter Tabs (Screenshot 2) */}
       <div
+        className="technician-filter-tabs tabs-header-scrollable"
         style={{
           display: 'flex',
           gap: '8px',
@@ -341,7 +343,8 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
             return (
               <div
                 key={order.id}
-                className="card card-interactive"
+                className="card card-interactive technician-wo-card"
+                onClick={() => setSelectedWorkOrderId(order.id)}
                 style={{
                   backgroundColor: 'var(--bg-card)',
                   borderRadius: '16px',
@@ -353,13 +356,17 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
                   position: 'relative',
                   overflow: 'hidden',
+                  cursor: 'pointer',
                 }}
               >
                 {/* Card Hover Overlay */}
                 <div className="card-hover-overlay">
                   <button
                     type="button"
-                    onClick={() => setSelectedWorkOrderId(order.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedWorkOrderId(order.id);
+                    }}
                     className="btn btn-primary card-hover-overlay-btn"
                     style={{ gap: '8px', padding: '10px 20px', borderRadius: '10px' }}
                   >
@@ -388,7 +395,8 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                       return (
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setChatWorkOrder(order);
                             setUnreadChatCounts((prev) => ({ ...prev, [order.id]: 0 }));
                           }}
@@ -441,7 +449,10 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
                     <Tooltip content={t('workOrders.table.qrTooltip', 'View QR Code')}>
                       <button
                         type="button"
-                        onClick={() => setQrWorkOrder(order)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQrWorkOrder(order);
+                        }}
                         aria-label={t('workOrders.table.qrTooltip', 'View QR Code')}
                         style={{
                           background: 'transparent',
@@ -591,7 +602,10 @@ export const TechnicianWorkOrdersPage: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => setSelectedWorkOrderId(order.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedWorkOrderId(order.id);
+                    }}
                     style={{
                       background: 'transparent',
                       border: 'none',

@@ -223,6 +223,7 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
       >
         {/* Modal Header */}
         <div
+          className="modal-header"
           style={{
             padding: '18px 24px',
             borderBottom: '1px solid var(--border-color)',
@@ -230,6 +231,7 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
             alignItems: 'center',
             justifyContent: 'space-between',
             backgroundColor: 'var(--bg-surface)',
+            flexShrink: 0,
           }}
         >
           <div>
@@ -299,10 +301,12 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
         {/* Modal Body */}
         <form
           onSubmit={handleSubmit}
+          className="modal-body"
           style={{
             display: 'flex',
             flexDirection: 'column',
-            flex: 1,
+            flex: '1 1 auto',
+            minHeight: 0,
             overflowY: 'auto',
           }}
         >
@@ -791,6 +795,7 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
 
           {/* Modal Footer */}
           <div
+            className="modal-footer"
             style={{
               padding: '16px 24px',
               borderTop: '1px solid var(--border-color)',
@@ -799,6 +804,7 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
               justifyContent: 'flex-end',
               gap: '12px',
               backgroundColor: 'var(--bg-modal-footer, var(--bg-surface))',
+              flexShrink: 0,
             }}
           >
             <button

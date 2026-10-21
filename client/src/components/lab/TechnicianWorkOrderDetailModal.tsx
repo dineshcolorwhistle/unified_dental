@@ -330,6 +330,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
           display: 'flex',
           flexDirection: 'column',
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div
@@ -341,6 +342,10 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             backgroundColor: 'var(--bg-card)',
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
           }}
         >
           <div className="view-wo-header-info">
@@ -421,6 +426,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
             borderBottom: '1px solid var(--border-color)',
             backgroundColor: 'var(--bg-card)',
             gap: '24px',
+            flexShrink: 0,
           }}
         >
           <button
@@ -477,7 +483,16 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
         </div>
 
         {/* Modal Scrollable Body */}
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1, backgroundColor: 'var(--bg-app)' }}>
+        <div
+          className="modal-body view-wo-body technician-wo-body"
+          style={{
+            padding: '24px',
+            overflowY: 'auto',
+            flex: '1 1 auto',
+            minHeight: 0,
+            backgroundColor: 'var(--bg-app)',
+          }}
+        >
           {activeTab === 'general' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Metadata Grid (Screenshot 3) */}
@@ -698,15 +713,21 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                     </div>
 
                     {/* Add Note Form */}
-                    <form onSubmit={handleAddNote} style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+                    <form
+                      onSubmit={handleAddNote}
+                      className="technician-note-form"
+                      style={{ marginTop: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}
+                    >
                       <input
                         type="text"
+                        className="technician-note-input"
                         value={newNote}
                         onChange={(e) => setNewNote(e.target.value)}
                         placeholder={t('technician.typeNotePlaceholder', { defaultValue: 'Type a note...' })}
                         disabled={submittingNote}
                         style={{
                           flex: 1,
+                          minWidth: 0,
                           padding: '10px 14px',
                           borderRadius: '8px',
                           border: '1px solid var(--border-color)',
@@ -718,6 +739,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                       />
                       <button
                         type="submit"
+                        className="technician-note-submit-btn"
                         disabled={submittingNote || !newNote.trim()}
                         style={{
                           padding: '10px 16px',
@@ -731,11 +753,14 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                           opacity: submittingNote || !newNote.trim() ? 0.6 : 1,
                           display: 'flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '6px',
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        <Send size={13} />
-                        <span>{t('technician.addNoteBtn', { defaultValue: '+ Add Note' })}</span>
+                        <Send size={13} style={{ flexShrink: 0 }} />
+                        <span style={{ whiteSpace: 'nowrap' }}>{t('technician.addNoteBtn', { defaultValue: '+ Add Note' })}</span>
                       </button>
                     </form>
                   </div>
