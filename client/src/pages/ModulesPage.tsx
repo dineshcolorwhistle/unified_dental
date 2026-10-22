@@ -320,7 +320,7 @@ export const ModulesPage: React.FC = () => {
               textTransform: 'uppercase',
             }}
           >
-            8 Menus
+            {t('modules.menusBadge', '{{count}} Menus', { count: 8 })}
           </span>
         </button>
       </div>

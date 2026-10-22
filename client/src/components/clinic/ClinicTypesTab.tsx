@@ -257,7 +257,7 @@ export const ClinicTypesTab: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.warning('Clinic type name is required');
+      toast.warning(t('clinicTypes.nameRequired', 'Clinic type name is required'));
       return;
     }
 
@@ -275,7 +275,7 @@ export const ClinicTypesTab: React.FC = () => {
           isDefault: formData.isDefault,
           isActive: formData.isActive,
         });
-        toast.success(`Clinic type '${formData.name}' updated successfully`);
+        toast.success(t('clinicTypes.savedSuccess', "Clinic type '{{name}}' updated successfully", { name: formData.name }));
       } else {
         await api.post('/clinic-types', {
           name: formData.name.trim(),
@@ -286,7 +286,7 @@ export const ClinicTypesTab: React.FC = () => {
           isDefault: formData.isDefault,
           isActive: formData.isActive,
         });
-        toast.success(`Clinic type '${formData.name}' created successfully`);
+        toast.success(t('clinicTypes.createdSuccess', "Clinic type '{{name}}' created successfully", { name: formData.name }));
       }
 
       setShowModal(false);
@@ -304,18 +304,22 @@ export const ClinicTypesTab: React.FC = () => {
 
     // Safety checks on client
     if (deletingType.isDefault) {
-      toast.error('Cannot delete the default clinic type');
+      toast.error(t('clinicTypes.cannotDeleteDefault', 'Cannot delete the default clinic type'));
       return;
     }
     if (deletingType.tenantCount && deletingType.tenantCount > 0) {
-      toast.error(`Cannot delete clinic type because it is actively assigned to ${deletingType.tenantCount} organization(s).`);
+      toast.error(
+        t('clinicTypes.cannotDeleteAssigned', 'Cannot delete clinic type because it is actively assigned to {{count}} organization(s).', {
+          count: deletingType.tenantCount,
+        })
+      );
       return;
     }
 
     try {
       setDeleting(true);
       await api.delete(`/clinic-types/${deletingType.id}`);
-      toast.success(`Clinic type '${deletingType.name}' deleted successfully`);
+      toast.success(t('clinicTypes.deletedSuccess', "Clinic type '{{name}}' deleted successfully", { name: deletingType.name }));
       setDeletingType(null);
       await fetchClinicTypes();
     } catch (err: any) {
@@ -501,7 +505,7 @@ export const ClinicTypesTab: React.FC = () => {
               fontWeight: 800,
             }}
           >
-            {CONFIGURABLE_CLINIC_MENUS.length} Menus
+            {t('clinicTypes.menusCount', '{{count}} Menus', { count: CONFIGURABLE_CLINIC_MENUS.length })}
           </span>
         </button>
       </div>
@@ -631,10 +635,10 @@ export const ClinicTypesTab: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {t('clinicTypes.configurableMenusTitle', 'Configurable Menus')}
+              {t('clinicTypes.configurableMenusStat', 'Configurable Menus')}
             </div>
             <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-heading)' }}>
-              {CONFIGURABLE_CLINIC_MENUS.length} Menus
+              {t('clinicTypes.menusCount', '{{count}} Menus', { count: CONFIGURABLE_CLINIC_MENUS.length })}
             </div>
           </div>
         </div>
@@ -670,7 +674,7 @@ export const ClinicTypesTab: React.FC = () => {
           {/* Clinic Types Cards Grid */}
           {loading ? (
             <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading clinic specialization types...
+              {t('clinicTypes.loading', 'Loading clinic specialization types...')}
             </div>
           ) : filteredTypes.length === 0 ? (
             <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
@@ -693,7 +697,9 @@ export const ClinicTypesTab: React.FC = () => {
                 {t('clinicTypes.noTypesFound', 'No clinic types found')}
               </h3>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
-                {search ? 'Try clearing your search query' : 'Create your first clinic specialization type to get started.'}
+                {search
+                  ? t('clinicTypes.noTypesSearch', 'Try clearing your search query')
+                  : t('clinicTypes.noTypesEmpty', 'Create your first clinic specialization type to get started.')}
               </p>
               <button onClick={handleOpenCreate} className="btn btn-primary" style={{ borderRadius: '9px' }}>
                 <Plus size={16} /> {t('clinicTypes.createFirst', 'Create Clinic Type')}
@@ -783,10 +789,10 @@ export const ClinicTypesTab: React.FC = () => {
                             alignItems: 'center',
                             gap: '4px',
                           }}
-                          title={`${ct.tenantCount || 0} organization(s) using this clinic type`}
+                          title={t('clinicTypes.cannotDeleteTenantsTooltip', 'Assigned to {{count}} organization(s)', { count: ct.tenantCount || 0 })}
                         >
                           <Building2 size={12} />
-                          {ct.tenantCount || 0} org(s)
+                          {t('clinicTypes.orgCount', '{{count}} org(s)', { count: ct.tenantCount || 0 })}
                         </span>
                       </div>
                     </div>
@@ -820,7 +826,9 @@ export const ClinicTypesTab: React.FC = () => {
                       >
                         <span>{t('clinicTypes.activeFeatures', 'Enabled Menus')}</span>
                         <span style={{ color: 'var(--primary-600)' }}>
-                          {(ct.features || []).filter((f) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === f)).length} enabled
+                          {t('clinicTypes.enabledCount', '{{count}} enabled', {
+                            count: (ct.features || []).filter((f) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === f)).length,
+                          })}
                         </span>
                       </div>
 
@@ -895,10 +903,12 @@ export const ClinicTypesTab: React.FC = () => {
                           }}
                           title={
                             ct.isDefault
-                              ? 'Default clinic type cannot be deleted'
+                              ? t('clinicTypes.cannotDeleteDefaultTooltip', 'Default clinic type cannot be deleted')
                               : hasTenants
-                              ? `Cannot delete: Assigned to ${ct.tenantCount} organization(s)`
-                              : 'Delete clinic type'
+                              ? t('clinicTypes.cannotDeleteTenantsTooltip', 'Cannot delete: Assigned to {{count}} organization(s)', {
+                                  count: ct.tenantCount,
+                                })
+                              : t('clinicTypes.deleteTooltip', 'Delete clinic type')
                           }
                         >
                           <Trash2 size={13} />
@@ -945,10 +955,10 @@ export const ClinicTypesTab: React.FC = () => {
               </div>
               <div>
                 <h4 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-heading)' }}>
-                  Configurable Menus Catalog (8 Standalone Menus)
+                  {t('clinicTypes.quickCatalogBannerTitle', 'Configurable Menus Catalog (8 Standalone Menus)')}
                 </h4>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                  Finance, Reminder, Inventory, Expense, Users, Patient, Appointment, and Income are the default modular menus available for clinic types.
+                  {t('clinicTypes.quickCatalogBannerDesc', 'Finance, Reminder, Inventory, Expense, Users, Patient, Appointment, and Income are the default modular menus available for clinic types.')}
                 </p>
               </div>
             </div>
@@ -959,7 +969,7 @@ export const ClinicTypesTab: React.FC = () => {
               style={{ fontSize: '13px', padding: '9px 18px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}
             >
               <ListChecks size={16} />
-              <span>View Configurable Menus</span>
+              <span>{t('clinicTypes.viewCatalogBtn', 'View Configurable Menus')}</span>
             </button>
           </div>
         </>
@@ -968,45 +978,29 @@ export const ClinicTypesTab: React.FC = () => {
       {/* ───────────────── SUB-TAB 2: DEDICATED CONFIGURABLE MENUS SECTION ───────────────── */}
       {activeSubTab === 'menus' && (
         <div>
-          {/* Section Header */}
+          {/* Section Header (No duplicate Create button - single top button remains) */}
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: '16px',
               marginBottom: '18px',
-              flexWrap: 'wrap',
             }}
           >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
-                  {t('clinicTypes.configurableMenusTitle', 'Default Configurable Menus for Clinic Types')}
-                </h3>
-                <span
-                  className="badge badge-primary"
-                  style={{ fontSize: '11px', padding: '2px 8px', fontWeight: 800 }}
-                >
-                  {CONFIGURABLE_CLINIC_MENUS.length} Menus
-                </span>
-              </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, maxWidth: '820px' }}>
-                {t(
-                  'clinicTypes.configurableMenusDesc',
-                  'These 8 modular menus form the configurable menu catalog for clinic specialization profiles. When creating or editing any clinic type, Platform Admins select which of these menus appear in the sidebar.'
-                )}
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                {t('clinicTypes.configurableMenusTitle', 'Default Configurable Menus for Clinic Types')}
+              </h3>
+              <span
+                className="badge badge-primary"
+                style={{ fontSize: '11px', padding: '2px 8px', fontWeight: 800 }}
+              >
+                {t('clinicTypes.menusCount', '{{count}} Menus', { count: CONFIGURABLE_CLINIC_MENUS.length })}
+              </span>
             </div>
-
-            <button
-              onClick={handleOpenCreate}
-              className="btn btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '10px' }}
-            >
-              <Plus size={16} />
-              <span>{t('clinicTypes.createWithMenusBtn', 'New Clinic Type')}</span>
-            </button>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, maxWidth: '820px' }}>
+              {t(
+                'clinicTypes.configurableMenusDesc',
+                'These 8 modular menus form the configurable menu catalog for clinic specialization profiles. When creating or editing any clinic type, Platform Admins select which of these menus appear in the sidebar.'
+              )}
+            </p>
           </div>
 
           {/* Info Callout: Base Menus vs Configurable Menus */}
@@ -1040,18 +1034,18 @@ export const ClinicTypesTab: React.FC = () => {
             </div>
             <div style={{ flex: 1, minWidth: '240px' }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '2px' }}>
-                Standard Base Menus (Included for every tenant owner)
+                {t('clinicTypes.baseMenusNoticeTitle', 'Standard Base Menus (Included for every tenant owner)')}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                <strong>Dashboard</strong> and <strong>Branch Management</strong> are standard core platform menus automatically enabled for all clinic tenants by default. They do not appear in clinic type menu configuration.
+                {t('clinicTypes.baseMenusNoticeDesc', 'Dashboard and Branch Management are standard core platform menus automatically enabled for all clinic tenants by default. They do not appear in clinic type menu configuration.')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <span className="badge badge-secondary" style={{ fontSize: '11px', padding: '3px 8px' }}>
-                ✓ Dashboard
+                ✓ {t('clinicTypes.baseDashboard', 'Dashboard')}
               </span>
               <span className="badge badge-secondary" style={{ fontSize: '11px', padding: '3px 8px' }}>
-                ✓ Branch Management
+                ✓ {t('clinicTypes.baseBranches', 'Branch Management')}
               </span>
             </div>
           </div>
@@ -1074,7 +1068,7 @@ export const ClinicTypesTab: React.FC = () => {
                 className="input"
                 value={menuSearch}
                 onChange={(e) => setMenuSearch(e.target.value)}
-                placeholder="Filter configurable menus by name or description..."
+                placeholder={t('clinicTypes.menuSearchPlaceholder', 'Filter configurable menus by name or description...')}
                 style={{ paddingLeft: '36px', height: '38px', borderRadius: '10px' }}
               />
             </div>
@@ -1128,7 +1122,7 @@ export const ClinicTypesTab: React.FC = () => {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <h4 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text-heading, #0f172a)' }}>
-                          {feat.name}
+                          {t(feat.i18nKey, feat.name)}
                         </h4>
                         <div style={{ color: '#0d9488', display: 'flex', alignItems: 'center' }}>
                           {renderMenuIcon(feat.iconName, 17)}
@@ -1142,7 +1136,7 @@ export const ClinicTypesTab: React.FC = () => {
                           lineHeight: '1.45',
                         }}
                       >
-                        {feat.description}
+                        {t(`clinicTypes.menuDescriptions.${feat.key}`, feat.description)}
                       </p>
                     </div>
                   </div>
@@ -1162,7 +1156,7 @@ export const ClinicTypesTab: React.FC = () => {
                     }}
                   >
                     <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      key: {feat.key}
+                      {t('clinicTypes.keyLabel', 'key')}: {feat.key}
                     </span>
 
                     <span
@@ -1176,115 +1170,13 @@ export const ClinicTypesTab: React.FC = () => {
                     >
                       <CheckCircle2 size={12} />
                       {enabledInTypes.length > 0
-                        ? `Enabled in: ${enabledInTypes.map((c) => c.name).join(', ')}`
-                        : 'Available to assign'}
+                        ? t('clinicTypes.enabledIn', 'Enabled in: {{types}}', { types: enabledInTypes.map((c) => c.name).join(', ') })
+                        : t('clinicTypes.availableToAssign', 'Available to assign')}
                     </span>
                   </div>
                 </div>
               );
             })}
-          </div>
-
-          {/* Overview Matrix Table */}
-          <div className="card" style={{ padding: '20px', borderRadius: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <h4 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 3px 0' }}>
-                  Clinic Specialization Menu Assignment Matrix
-                </h4>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-                  Overview of which configurable menus are toggled on for each clinic specialization profile.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenCreate}
-                className="btn btn-secondary"
-                style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px' }}
-              >
-                <Plus size={14} /> New Profile
-              </button>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1.5px solid var(--border-color)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                      Clinic Profile
-                    </th>
-                    {CONFIGURABLE_CLINIC_MENUS.map((m) => (
-                      <th
-                        key={m.key}
-                        style={{
-                          padding: '10px 8px',
-                          fontWeight: 700,
-                          color: 'var(--text-heading)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {m.name}
-                      </th>
-                    ))}
-                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-heading)', textAlign: 'center' }}>
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clinicTypes.map((ct) => (
-                    <tr key={ct.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span>{ct.name}</span>
-                          {ct.isDefault && (
-                            <span className="badge badge-primary" style={{ fontSize: '10px', padding: '1px 5px' }}>
-                              Default
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      {CONFIGURABLE_CLINIC_MENUS.map((m) => {
-                        const isEnabled = (ct.features || []).includes(m.key);
-                        return (
-                          <td key={m.key} style={{ padding: '12px 8px', textAlign: 'center' }}>
-                            {isEnabled ? (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '22px',
-                                  height: '22px',
-                                  borderRadius: '50%',
-                                  backgroundColor: 'var(--badge-success-bg)',
-                                  color: 'var(--badge-success-text)',
-                                }}
-                              >
-                                <Check size={13} strokeWidth={3} />
-                              </span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '16px' }}>—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(ct)}
-                          className="btn btn-secondary"
-                          style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
-                        >
-                          <Edit2 size={12} /> Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         </div>
       )}
@@ -1362,7 +1254,7 @@ export const ClinicTypesTab: React.FC = () => {
                       className="input"
                       value={formData.name}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      placeholder="e.g. Dental Clinic"
+                      placeholder={t('clinicTypes.namePlaceholder', 'e.g. Dental Clinic')}
                       required
                     />
                   </div>
@@ -1379,7 +1271,7 @@ export const ClinicTypesTab: React.FC = () => {
                         setCodeManuallyEdited(true);
                         setFormData({ ...formData, code: nameToCode(e.target.value) });
                       }}
-                      placeholder="e.g. DENTAL"
+                      placeholder={t('clinicTypes.codePlaceholder', 'e.g. DENTAL')}
                       disabled={Boolean(editingType)}
                       required
                       style={{ fontFamily: 'monospace', textTransform: 'uppercase' }}
@@ -1395,7 +1287,7 @@ export const ClinicTypesTab: React.FC = () => {
                     rows={2}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Brief description of clinical workflows, scope, and services..."
+                    placeholder={t('clinicTypes.descPlaceholder', 'Brief description of clinical workflows, scope, and services...')}
                     style={{ resize: 'vertical' }}
                   />
                 </div>
@@ -1437,7 +1329,7 @@ export const ClinicTypesTab: React.FC = () => {
                       <span>{t('clinicTypes.isActiveLabel', 'Active Status')}</span>
                     </label>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', marginLeft: '24px' }}>
-                      Available for tenant provisioning
+                      {t('clinicTypes.availableForTenants', 'Available for tenant provisioning')}
                     </span>
                   </div>
 
@@ -1476,7 +1368,10 @@ export const ClinicTypesTab: React.FC = () => {
                           borderRadius: '12px',
                         }}
                       >
-                        {formData.features.length} / {CONFIGURABLE_CLINIC_MENUS.length} selected
+                        {t('clinicTypes.selectedCount', '{{count}} / {{total}} selected', {
+                          count: formData.features.length,
+                          total: CONFIGURABLE_CLINIC_MENUS.length,
+                        })}
                       </span>
                       <button
                         type="button"
@@ -1506,7 +1401,10 @@ export const ClinicTypesTab: React.FC = () => {
                   >
                     <Info size={15} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
                     <span>
-                      <strong>Dashboard</strong> and <strong>Branch Management</strong> are standard base menus available by default to every tenant owner.
+                      {t(
+                        'clinicTypes.baseMenusNoticeDesc',
+                        'Dashboard and Branch Management are standard base menus automatically enabled for all clinic tenants by default. They do not appear in clinic type menu configuration.'
+                      )}
                     </span>
                   </div>
 
@@ -1553,10 +1451,10 @@ export const ClinicTypesTab: React.FC = () => {
 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading, #0f172a)' }}>
-                              {feat.name}
+                              {t(feat.i18nKey, feat.name)}
                             </div>
                             <p style={{ fontSize: '12.5px', color: 'var(--text-muted, #64748b)', margin: '4px 0 0 0', lineHeight: '1.45' }}>
-                              {feat.description}
+                              {t(`clinicTypes.menuDescriptions.${feat.key}`, feat.description)}
                             </p>
                           </div>
                         </div>
@@ -1664,25 +1562,33 @@ export const ClinicTypesTab: React.FC = () => {
               }}
             >
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>Status:</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>
+                  {t('clinicTypes.statusLabel', 'Status:')}
+                </span>
                 <span style={{ fontWeight: 700, color: viewingType.isActive ? 'var(--emerald-500)' : 'var(--rose-500)' }}>
-                  {viewingType.isActive ? 'Active' : 'Inactive'}
+                  {viewingType.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}
                 </span>
               </div>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>Type Mode:</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>
+                  {t('clinicTypes.typeModeLabel', 'Type Mode:')}
+                </span>
                 <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>
-                  {viewingType.isDefault ? 'Default Clinic Type' : 'Custom Specialization'}
+                  {viewingType.isDefault ? t('clinicTypes.defaultMode', 'Default Clinic Type') : t('clinicTypes.customMode', 'Custom Specialization')}
                 </span>
               </div>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>Organizations Using:</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>
+                  {t('clinicTypes.organizationsUsingLabel', 'Organizations Using:')}
+                </span>
                 <span style={{ fontWeight: 700, color: 'var(--primary-600)' }}>
-                  {viewingType.tenantCount || 0} organizations
+                  {t('clinicTypes.organizationsCount', '{{count}} organizations', { count: viewingType.tenantCount || 0 })}
                 </span>
               </div>
               <div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>Created:</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'block' }}>
+                  {t('clinicTypes.createdLabel', 'Created:')}
+                </span>
                 <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
                   {formatDate(viewingType.createdAt)}
                 </span>
@@ -1782,7 +1688,11 @@ export const ClinicTypesTab: React.FC = () => {
                   {t('clinicTypes.deleteBlockedTitle', 'Cannot Delete Default Clinic Type')}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', margin: '0 0 20px 0' }}>
-                  <strong>{deletingType.name}</strong> is currently designated as the default clinic type for newly created organizations. Please designate another clinic type as default before attempting to delete this one.
+                  {t(
+                    'clinicTypes.deleteBlockedDefaultDesc',
+                    '{{name}} is currently designated as the default clinic type for newly created organizations. Please designate another clinic type as default before attempting to delete this one.',
+                    { name: deletingType.name }
+                  )}
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={() => setDeletingType(null)} className="btn btn-secondary">
@@ -1812,8 +1722,11 @@ export const ClinicTypesTab: React.FC = () => {
                   {t('clinicTypes.deleteBlockedTenantTitle', 'Deletion Blocked: Active Organizations')}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', margin: '0 0 16px 0' }}>
-                  Cannot delete clinic type <strong>{deletingType.name}</strong> because it is actively assigned to{' '}
-                  <strong style={{ color: 'var(--rose-600)' }}>{deletingType.tenantCount} organization(s)</strong>.
+                  {t(
+                    'clinicTypes.deleteBlockedTenantDesc',
+                    'Cannot delete clinic type {{name}} because it is actively assigned to {{count}} organization(s).',
+                    { name: deletingType.name, count: deletingType.tenantCount }
+                  )}
                 </p>
                 <div
                   style={{
@@ -1827,7 +1740,10 @@ export const ClinicTypesTab: React.FC = () => {
                   }}
                 >
                   <Info size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
-                  To delete this clinic type, you must first reassign all associated organizations to a different clinic type in the <strong>Tenants</strong> management area.
+                  {t(
+                    'clinicTypes.deleteBlockedTenantHelp',
+                    'To delete this clinic type, you must first reassign all associated organizations to a different clinic type in the Tenants management area.'
+                  )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={() => setDeletingType(null)} className="btn btn-secondary">
@@ -1857,8 +1773,11 @@ export const ClinicTypesTab: React.FC = () => {
                   {t('clinicTypes.deleteConfirmTitle', 'Delete Clinic Type')}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', margin: '0 0 20px 0' }}>
-                  Are you sure you want to permanently delete the clinic specialization profile{' '}
-                  <strong>{deletingType.name}</strong> ({deletingType.code})? This action cannot be undone.
+                  {t(
+                    'clinicTypes.deleteConfirmDesc',
+                    'Are you sure you want to permanently delete the clinic specialization profile {{name}} ({{code}})? This action cannot be undone.',
+                    { name: deletingType.name, code: deletingType.code }
+                  )}
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                   <button
