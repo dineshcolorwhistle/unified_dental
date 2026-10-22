@@ -11,9 +11,8 @@ import { CreateClinicTypeDto } from './dto/create-clinic-type.dto';
 import { UpdateClinicTypeDto } from './dto/update-clinic-type.dto';
 
 import {
-  CONFIGURABLE_CLINIC_MENUS,
-  getDefaultDentalClinicFeatures,
-} from './constants/clinic-menus.constant';
+  DEFAULT_CLINIC_FEATURE_KEYS,
+} from './constants/configurable-menus.constant';
 
 function nameToCode(name: string): string {
   return name
@@ -34,13 +33,9 @@ export class ClinicTypesService implements OnModuleInit {
     await this.ensureDefaultClinicType();
   }
 
-  getAvailableMenus() {
-    return CONFIGURABLE_CLINIC_MENUS;
-  }
-
   async ensureDefaultClinicType() {
     try {
-      const defaultFeatures = getDefaultDentalClinicFeatures();
+      const defaultFeatures = DEFAULT_CLINIC_FEATURE_KEYS;
 
       let dental = await this.prisma.clinicType.findFirst({
         where: {

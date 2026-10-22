@@ -47,7 +47,14 @@ export interface FeatureDefinition {
   description: string;
 }
 
-export const CLINIC_FEATURE_OPTIONS: FeatureDefinition[] = [
+export interface ConfigurableClinicMenu {
+  key: string;
+  name: string;
+  i18nKey?: string;
+  description: string;
+}
+
+export const CONFIGURABLE_CLINIC_MENUS: ConfigurableClinicMenu[] = [
   {
     key: 'finance',
     name: 'Finance',
@@ -98,7 +105,7 @@ export const CLINIC_FEATURE_OPTIONS: FeatureDefinition[] = [
   },
 ];
 
-const DEFAULT_CLINIC_FEATURES = CLINIC_FEATURE_OPTIONS.map((f) => f.key);
+const DEFAULT_CONFIGURABLE_MENU_KEYS = CONFIGURABLE_CLINIC_MENUS.map((f) => f.key);
 
 function nameToCode(name: string): string {
   return name
@@ -122,15 +129,13 @@ export const ClinicTypesTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingType, setEditingType] = useState<ClinicType | null>(null);
 
-  const [featureOptions, setFeatureOptions] = useState<FeatureDefinition[]>(CLINIC_FEATURE_OPTIONS);
-
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
     icon: 'Stethoscope',
-    features: CLINIC_FEATURE_OPTIONS.map((f) => f.key),
+    features: [...DEFAULT_CONFIGURABLE_MENU_KEYS],
     isDefault: false,
     isActive: true,
   });
@@ -146,9 +151,13 @@ export const ClinicTypesTab: React.FC = () => {
       setLoading(true);
       const res = await api.get('/clinic-types?all=true');
       setClinicTypes(res.data || []);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load clinic types:', e);
-      toast.error('Failed to load clinic types from server');
+      if (e?.response?.status === 404) {
+        setClinicTypes([]);
+      } else {
+        toast.error(e?.response?.data?.message || 'Failed to load clinic types from server');
+      }
     } finally {
       setLoading(false);
     }
@@ -156,17 +165,6 @@ export const ClinicTypesTab: React.FC = () => {
 
   useEffect(() => {
     fetchClinicTypes();
-
-    // Dynamically fetch available clinic side menus from server
-    api.get('/clinic-types/menus')
-      .then((res) => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setFeatureOptions(res.data);
-        }
-      })
-      .catch((err) => {
-        console.warn('Could not fetch clinic menu configuration from server, using fallback:', err);
-      });
   }, []);
 
   const handleOpenCreate = () => {
@@ -176,7 +174,7 @@ export const ClinicTypesTab: React.FC = () => {
       code: '',
       description: '',
       icon: 'Stethoscope',
-      features: featureOptions.map((f) => f.key),
+      features: [...DEFAULT_CONFIGURABLE_MENU_KEYS],
       isDefault: false,
       isActive: true,
     });
@@ -187,14 +185,14 @@ export const ClinicTypesTab: React.FC = () => {
   const handleOpenEdit = (ct: ClinicType) => {
     setEditingType(ct);
     const existingFeatures = (ct.features || []).filter((f) =>
-      featureOptions.some((opt) => opt.key === f)
+      CONFIGURABLE_CLINIC_MENUS.some((opt) => opt.key === f)
     );
     setFormData({
       name: ct.name,
       code: ct.code,
       description: ct.description || '',
       icon: ct.icon || 'Stethoscope',
-      features: existingFeatures.length > 0 ? existingFeatures : featureOptions.map((f) => f.key),
+      features: existingFeatures.length > 0 ? existingFeatures : [...DEFAULT_CONFIGURABLE_MENU_KEYS],
       isDefault: ct.isDefault,
       isActive: ct.isActive,
     });
@@ -224,7 +222,7 @@ export const ClinicTypesTab: React.FC = () => {
   const handleSelectAllFeatures = () => {
     setFormData((prev) => ({
       ...prev,
-      features: featureOptions.map((f) => f.key),
+      features: [...DEFAULT_CONFIGURABLE_MENU_KEYS],
     }));
   };
 
@@ -273,7 +271,7 @@ export const ClinicTypesTab: React.FC = () => {
       setShowModal(false);
       await fetchClinicTypes();
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to save clinic type';
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message || 'Failed to save clinic type';
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -632,15 +630,15 @@ export const ClinicTypesTab: React.FC = () => {
                   >
                     <span>{t('clinicTypes.activeFeatures', 'Enabled Menus')}</span>
                     <span style={{ color: 'var(--primary-600)' }}>
-                      {(ct.features || []).filter((f) => featureOptions.some((o) => o.key === f)).length} enabled
+                      {(ct.features || []).filter((f) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === f)).length} enabled
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '72px', overflow: 'hidden' }}>
                     {(ct.features || [])
-                      .filter((fKey) => featureOptions.some((o) => o.key === fKey))
+                      .filter((fKey) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === fKey))
                       .map((fKey) => {
-                        const def = featureOptions.find((opt) => opt.key === fKey);
+                        const def = CONFIGURABLE_CLINIC_MENUS.find((opt) => opt.key === fKey);
                         const label = def ? (def.i18nKey ? t(def.i18nKey, def.name) : def.name) : fKey;
                         return (
                           <span
@@ -910,15 +908,15 @@ export const ClinicTypesTab: React.FC = () => {
                           borderRadius: '12px',
                         }}
                       >
-                        {formData.features.length} / {featureOptions.length} selected
+                        {formData.features.length} / {CONFIGURABLE_CLINIC_MENUS.length} selected
                       </span>
                       <button
                         type="button"
-                        onClick={formData.features.length === featureOptions.length ? handleDeselectAllFeatures : handleSelectAllFeatures}
+                        onClick={formData.features.length === CONFIGURABLE_CLINIC_MENUS.length ? handleDeselectAllFeatures : handleSelectAllFeatures}
                         className="btn btn-secondary"
                         style={{ fontSize: '11px', padding: '4px 10px', height: '28px', borderRadius: '6px' }}
                       >
-                        {formData.features.length === featureOptions.length ? t('common.clearAll', 'Deselect All') : t('common.selectAll', 'Select All')}
+                        {formData.features.length === CONFIGURABLE_CLINIC_MENUS.length ? t('common.clearAll', 'Deselect All') : t('common.selectAll', 'Select All')}
                       </button>
                     </div>
                   </div>
@@ -944,11 +942,10 @@ export const ClinicTypesTab: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Dynamic menu selection grid loaded from server */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-                    {featureOptions.map((feat) => {
+                  {/* Configurable Menus Grid (Matches Screenshot 3) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    {CONFIGURABLE_CLINIC_MENUS.map((feat) => {
                       const isChecked = formData.features.includes(feat.key);
-                      const displayName = feat.i18nKey ? t(feat.i18nKey, feat.name) : feat.name;
 
                       return (
                         <div
@@ -957,29 +954,40 @@ export const ClinicTypesTab: React.FC = () => {
                           style={{
                             display: 'flex',
                             alignItems: 'flex-start',
-                            gap: '12px',
-                            padding: '12px 14px',
-                            borderRadius: '10px',
-                            border: isChecked ? '1.5px solid var(--primary-500, #0d9488)' : '1px solid var(--border-color)',
-                            backgroundColor: isChecked ? 'var(--primary-50, rgba(13, 148, 136, 0.06))' : 'var(--bg-surface, #ffffff)',
-                            boxShadow: isChecked ? '0 1px 3px rgba(13, 148, 136, 0.08)' : 'none',
+                            gap: '14px',
+                            padding: '16px 18px',
+                            borderRadius: '12px',
+                            border: isChecked ? '1.5px solid #0d9488' : '1px solid var(--border-color, #e2e8f0)',
+                            backgroundColor: isChecked ? 'rgba(13, 148, 136, 0.04)' : 'var(--bg-surface, #ffffff)',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease',
+                            boxShadow: isChecked ? '0 1px 3px rgba(13, 148, 136, 0.08)' : 'none',
                           }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleToggleFeature(feat.key)}
-                            style={{ marginTop: '3px', accentColor: 'var(--primary-600, #0d9488)', cursor: 'pointer' }}
-                          />
+                          {/* Styled Checkbox matching Screenshot 3 */}
+                          <div
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '4px',
+                              backgroundColor: isChecked ? '#0d9488' : 'transparent',
+                              border: isChecked ? 'none' : '2px solid #cbd5e1',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginTop: '2px',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {isChecked && <Check size={13} color="#ffffff" strokeWidth={3} />}
+                          </div>
+
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                                {displayName}
-                              </span>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading, #0f172a)' }}>
+                              {feat.name}
                             </div>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '3px 0 0 0', lineHeight: '1.4' }}>
+                            <p style={{ fontSize: '12.5px', color: 'var(--text-muted, #64748b)', margin: '4px 0 0 0', lineHeight: '1.45' }}>
                               {feat.description}
                             </p>
                           </div>
@@ -1114,14 +1122,14 @@ export const ClinicTypesTab: React.FC = () => {
             </div>
 
             <h4 style={{ fontSize: '14px', fontWeight: 800, margin: '0 0 10px 0', color: 'var(--text-heading)' }}>
-              {t('clinicTypes.activeFeatures', 'Enabled Menus')} ({(viewingType.features || []).filter((f) => CLINIC_FEATURE_OPTIONS.some((o) => o.key === f)).length})
+              {t('clinicTypes.activeFeatures', 'Enabled Menus')} ({(viewingType.features || []).filter((f) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === f)).length})
             </h4>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px' }}>
               {(viewingType.features || [])
-                .filter((fKey) => CLINIC_FEATURE_OPTIONS.some((o) => o.key === fKey))
+                .filter((fKey) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === fKey))
                 .map((fKey) => {
-                  const def = CLINIC_FEATURE_OPTIONS.find((opt) => opt.key === fKey);
+                  const def = CONFIGURABLE_CLINIC_MENUS.find((opt) => opt.key === fKey);
                   const label = def ? (def.i18nKey ? t(def.i18nKey, def.name) : def.name) : fKey;
                   return (
                     <span

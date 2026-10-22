@@ -1,6 +1,6 @@
 import { PrismaClient, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { getDefaultDentalClinicFeatures } from '../src/modules/clinic/types/constants/clinic-menus.constant';
+import { DEFAULT_CLINIC_FEATURE_KEYS } from '../src/modules/clinic/types/constants/configurable-menus.constant';
 
 const prisma = new PrismaClient();
 
@@ -59,7 +59,7 @@ async function main() {
         code: 'DENTAL',
         description: 'Default comprehensive dental healthcare clinic type with standard clinic operations.',
         icon: 'Stethoscope',
-        features: getDefaultDentalClinicFeatures(),
+        features: DEFAULT_CLINIC_FEATURE_KEYS,
         isDefault: true,
         isActive: true,
       },
