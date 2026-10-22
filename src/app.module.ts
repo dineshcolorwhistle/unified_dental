@@ -32,7 +32,6 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { ClinicModule } from './modules/clinic/clinic.module';
-import { ClinicTypesModule } from './modules/clinic/types/clinic-types.module';
 import { SupportModule } from './modules/support/support.module';
 
 @Module({
@@ -59,7 +58,7 @@ import { SupportModule } from './modules/support/support.module';
     // Frontend SPA static hosting
     ServeStaticModule.forRoot({
       rootPath: path.join(process.cwd(), 'client', 'dist'),
-      exclude: ['/api/(.*)'],
+      exclude: ['/api/(.*)', '/api'],
       serveStaticOptions: {
         fallthrough: true,
       },
@@ -87,7 +86,6 @@ import { SupportModule } from './modules/support/support.module';
     FinanceModule,
     RemindersModule,
     ClinicModule,
-    ClinicTypesModule,
     SupportModule,
   ],
 })

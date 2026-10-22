@@ -76,11 +76,11 @@ jobs:
             git pull origin main || git pull
 
             echo "📥 Installing Backend Dependencies..."
-            npm install --include=dev
+            npm ci --include=dev
 
             echo "📥 Installing Frontend Dependencies and Building Client..."
             cd client
-            npm install
+            npm ci
             npm run build
             cd ..
 
@@ -97,14 +97,12 @@ jobs:
             npm run build:server
 
             echo "♻️ Restarting Application via PM2..."
-            pm2 restart all --update-env || if pm2 list | grep -q "unified-dental-staging"; then
-              pm2 restart unified-dental-staging --update-env
-            elif pm2 list | grep -q "unified-dental-platform"; then
-              pm2 restart unified-dental-platform --update-env
-            elif [ -f "ecosystem.config.cjs" ]; then
-              pm2 start ecosystem.config.cjs --name unified-dental-staging --env staging
+            pm2 stop unified-dental-staging 2>/dev/null || true
+            pm2 delete unified-dental-staging 2>/dev/null || true
+            if [ -f "ecosystem.config.cjs" ]; then
+              pm2 start ecosystem.config.cjs --env staging
             else
-              pm2 start dist/main.js --name "unified-dental-staging"
+              pm2 start dist/main.js --name "unified-dental-staging" --env NODE_ENV=staging
             fi
 
             pm2 save
@@ -162,11 +160,11 @@ jobs:
             git pull origin main || git pull
 
             echo "📥 Installing Backend Dependencies..."
-            npm install --include=dev
+            npm ci --include=dev
 
             echo "📥 Installing Frontend Dependencies and Building Client..."
             cd client
-            npm install
+            npm ci
             npm run build
             cd ..
 
@@ -183,14 +181,12 @@ jobs:
             npm run build:server
 
             echo "♻️ Restarting Application via PM2..."
-            pm2 restart all --update-env || if pm2 list | grep -q "unified-dental-platform"; then
-              pm2 restart unified-dental-platform --update-env
-            elif pm2 list | grep -q "unified-dental-staging"; then
-              pm2 restart unified-dental-staging --update-env
-            elif [ -f "ecosystem.config.cjs" ]; then
-              pm2 start ecosystem.config.cjs --name unified-dental-platform --env production
+            pm2 stop unified-dental-platform 2>/dev/null || true
+            pm2 delete unified-dental-platform 2>/dev/null || true
+            if [ -f "ecosystem.config.cjs" ]; then
+              pm2 start ecosystem.config.cjs --env production
             else
-              pm2 start dist/main.js --name "unified-dental-platform"
+              pm2 start dist/main.js --name "unified-dental-platform" --env NODE_ENV=production
             fi
 
             pm2 save
