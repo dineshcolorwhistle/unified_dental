@@ -2,7 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { CreateClinicTypeDto } from './dto/create-clinic-type.dto';
@@ -18,8 +20,89 @@ function nameToCode(name: string): string {
 }
 
 @Injectable()
-export class ClinicTypesService {
+export class ClinicTypesService implements OnModuleInit {
+  private readonly logger = new Logger(ClinicTypesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    await this.ensureDefaultClinicType();
+  }
+
+  async ensureDefaultClinicType() {
+    try {
+      const defaultFeatures = [
+        'dashboard',
+        'finance',
+        'reminders',
+        'inventory',
+        'expenses',
+        'clinic_users',
+        'patients',
+        'appointments',
+        'income',
+      ];
+
+      let dental = await this.prisma.clinicType.findFirst({
+        where: {
+          OR: [{ code: 'DENTAL' }, { isDefault: true }],
+        },
+      });
+
+      if (!dental) {
+        this.logger.log('🌱 No default clinic type found. Automatically creating Dental Clinic (code: DENTAL)...');
+        dental = await this.prisma.clinicType.create({
+          data: {
+            name: 'Dental Clinic',
+            code: 'DENTAL',
+            description: 'Default comprehensive dental healthcare clinic type with standard clinic operations.',
+            icon: 'Stethoscope',
+            features: defaultFeatures,
+            isDefault: true,
+            isActive: true,
+          },
+        });
+        this.logger.log(`✅ Default Dental Clinic type created successfully (ID: ${dental.id}).`);
+      } else {
+        if (!dental.isDefault) {
+          dental = await this.prisma.clinicType.update({
+            where: { id: dental.id },
+            data: { isDefault: true },
+          });
+          this.logger.log(`✅ Marked clinic type '${dental.name}' (${dental.code}) as default.`);
+        }
+      }
+
+      // Automatically link any existing clinic tenants that have no clinicTypeId assigned
+      const unassignedTenants = await this.prisma.tenant.findMany({
+        where: {
+          clinicTypeId: null,
+          modules: {
+            some: {
+              moduleKey: 'CLINIC',
+              isEnabled: true,
+            },
+          },
+        },
+        select: { id: true, name: true },
+      });
+
+      if (unassignedTenants.length > 0 && dental) {
+        this.logger.log(`🔗 Assigning ${unassignedTenants.length} existing clinic tenant(s) to Dental Clinic...`);
+        await this.prisma.tenant.updateMany({
+          where: {
+            id: { in: unassignedTenants.map((t) => t.id) },
+          },
+          data: {
+            clinicTypeId: dental.id,
+          },
+        });
+        this.logger.log(`✅ Assigned ${unassignedTenants.length} tenant(s) to Dental Clinic.`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Could not ensure default clinic type on startup: ${err?.message || err}`);
+    }
+  }
 
   async findAll(includeInactive = true) {
     const types = await this.prisma.clinicType.findMany({

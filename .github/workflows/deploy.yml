@@ -90,12 +90,17 @@ jobs:
             echo "🗄️ Applying Database Schema Migrations..."
             npx prisma db push --skip-generate
 
+            echo "🌱 Seeding Essential Data (if first time or missing)..."
+            npm run prisma:seed || echo "Seeding step completed or skipped."
+
             echo "🏗️ Building NestJS Backend..."
             npm run build:server
 
-            echo "♻️ Reloading Application via PM2..."
+            echo "♻️ Restarting Application via PM2..."
             if pm2 list | grep -q "unified-dental-staging"; then
-              pm2 reload unified-dental-staging --update-env
+              pm2 restart unified-dental-staging --update-env
+            elif pm2 list | grep -q "unified-dental-platform"; then
+              pm2 restart unified-dental-platform --update-env
             elif [ -f "ecosystem.config.cjs" ]; then
               pm2 start ecosystem.config.cjs --name unified-dental-staging --env staging
             elif [ -f "ecosystem.config.js" ]; then
@@ -179,9 +184,11 @@ jobs:
             echo "🏗️ Building NestJS Backend..."
             npm run build:server
 
-            echo "♻️ Reloading Application via PM2..."
+            echo "♻️ Restarting Application via PM2..."
             if pm2 list | grep -q "unified-dental-platform"; then
-              pm2 reload unified-dental-platform --update-env
+              pm2 restart unified-dental-platform --update-env
+            elif pm2 list | grep -q "unified-dental-staging"; then
+              pm2 restart unified-dental-staging --update-env
             elif [ -f "ecosystem.config.cjs" ]; then
               pm2 start ecosystem.config.cjs --name unified-dental-platform --env production
             elif [ -f "ecosystem.config.js" ]; then

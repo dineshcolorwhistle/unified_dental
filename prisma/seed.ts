@@ -21,28 +21,70 @@ async function main() {
 
   if (existingSuperAdmin) {
     console.log(`ℹ️ Platform Super Admin already exists in the database (${existingSuperAdmin.email}). Skipping creation.`);
-    return;
+  } else {
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+
+    const platformAdmin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash,
+        name: 'Platform Super Admin',
+        phone: '+1-800-555-0100',
+        isSuperAdmin: true,
+        status: UserStatus.ACTIVE,
+        locale: 'en',
+      },
+    });
+
+    console.log(`✅ Platform Super Admin created: ${platformAdmin.email}`);
+    console.log('');
+    console.log('📋 Platform Super Admin Credentials:');
+    console.log(`   Email: ${adminEmail}`);
+    console.log(`   Password: ${adminPassword}`);
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
-
-  const platformAdmin = await prisma.user.create({
-    data: {
-      email: adminEmail,
-      passwordHash,
-      name: 'Platform Super Admin',
-      phone: '+1-800-555-0100',
-      isSuperAdmin: true,
-      status: UserStatus.ACTIVE,
-      locale: 'en',
+  // Ensure Default Dental Clinic Type exists
+  console.log('🌱 Checking Default Clinic Type...');
+  const existingClinicType = await prisma.clinicType.findFirst({
+    where: {
+      OR: [{ code: 'DENTAL' }, { isDefault: true }],
     },
   });
 
-  console.log(`✅ Platform Super Admin created: ${platformAdmin.email}`);
-  console.log('');
-  console.log('📋 Platform Super Admin Credentials:');
-  console.log(`   Email: ${adminEmail}`);
-  console.log(`   Password: ${adminPassword}`);
+  if (!existingClinicType) {
+    const defaultDental = await prisma.clinicType.create({
+      data: {
+        name: 'Dental Clinic',
+        code: 'DENTAL',
+        description: 'Default comprehensive dental healthcare clinic type with standard clinic operations.',
+        icon: 'Stethoscope',
+        features: [
+          'dashboard',
+          'finance',
+          'reminders',
+          'inventory',
+          'expenses',
+          'clinic_users',
+          'patients',
+          'appointments',
+          'income',
+        ],
+        isDefault: true,
+        isActive: true,
+      },
+    });
+    console.log(`✅ Default Dental Clinic type created: ${defaultDental.name} (${defaultDental.code})`);
+  } else {
+    if (!existingClinicType.isDefault) {
+      await prisma.clinicType.update({
+        where: { id: existingClinicType.id },
+        data: { isDefault: true },
+      });
+      console.log(`✅ Marked ${existingClinicType.name} as default clinic type.`);
+    } else {
+      console.log(`ℹ️ Default clinic type already exists: ${existingClinicType.name} (${existingClinicType.code})`);
+    }
+  }
 }
 
 main()
