@@ -26,6 +26,12 @@ export class ClinicTypesController {
     return this.clinicTypesService.findAll(includeInactive);
   }
 
+  @Get('menus')
+  @ApiOperation({ summary: 'Get available clinic side menu configuration options' })
+  getMenus() {
+    return this.clinicTypesService.getAvailableMenus();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get clinic type by ID' })
   findOne(@Param('id') id: string) {

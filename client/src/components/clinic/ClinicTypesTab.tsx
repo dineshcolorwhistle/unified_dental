@@ -122,13 +122,15 @@ export const ClinicTypesTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingType, setEditingType] = useState<ClinicType | null>(null);
 
+  const [featureOptions, setFeatureOptions] = useState<FeatureDefinition[]>(CLINIC_FEATURE_OPTIONS);
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
     icon: 'Stethoscope',
-    features: [...DEFAULT_CLINIC_FEATURES],
+    features: CLINIC_FEATURE_OPTIONS.map((f) => f.key),
     isDefault: false,
     isActive: true,
   });
@@ -154,6 +156,17 @@ export const ClinicTypesTab: React.FC = () => {
 
   useEffect(() => {
     fetchClinicTypes();
+
+    // Dynamically fetch available clinic side menus from server
+    api.get('/clinic-types/menus')
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setFeatureOptions(res.data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch clinic menu configuration from server, using fallback:', err);
+      });
   }, []);
 
   const handleOpenCreate = () => {
@@ -163,7 +176,7 @@ export const ClinicTypesTab: React.FC = () => {
       code: '',
       description: '',
       icon: 'Stethoscope',
-      features: [...DEFAULT_CLINIC_FEATURES],
+      features: featureOptions.map((f) => f.key),
       isDefault: false,
       isActive: true,
     });
@@ -174,14 +187,14 @@ export const ClinicTypesTab: React.FC = () => {
   const handleOpenEdit = (ct: ClinicType) => {
     setEditingType(ct);
     const existingFeatures = (ct.features || []).filter((f) =>
-      CLINIC_FEATURE_OPTIONS.some((opt) => opt.key === f)
+      featureOptions.some((opt) => opt.key === f)
     );
     setFormData({
       name: ct.name,
       code: ct.code,
       description: ct.description || '',
       icon: ct.icon || 'Stethoscope',
-      features: existingFeatures,
+      features: existingFeatures.length > 0 ? existingFeatures : featureOptions.map((f) => f.key),
       isDefault: ct.isDefault,
       isActive: ct.isActive,
     });
@@ -211,7 +224,7 @@ export const ClinicTypesTab: React.FC = () => {
   const handleSelectAllFeatures = () => {
     setFormData((prev) => ({
       ...prev,
-      features: CLINIC_FEATURE_OPTIONS.map((f) => f.key),
+      features: featureOptions.map((f) => f.key),
     }));
   };
 
@@ -619,15 +632,15 @@ export const ClinicTypesTab: React.FC = () => {
                   >
                     <span>{t('clinicTypes.activeFeatures', 'Enabled Menus')}</span>
                     <span style={{ color: 'var(--primary-600)' }}>
-                      {(ct.features || []).filter((f) => CLINIC_FEATURE_OPTIONS.some((o) => o.key === f)).length} enabled
+                      {(ct.features || []).filter((f) => featureOptions.some((o) => o.key === f)).length} enabled
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '72px', overflow: 'hidden' }}>
                     {(ct.features || [])
-                      .filter((fKey) => CLINIC_FEATURE_OPTIONS.some((o) => o.key === fKey))
+                      .filter((fKey) => featureOptions.some((o) => o.key === fKey))
                       .map((fKey) => {
-                        const def = CLINIC_FEATURE_OPTIONS.find((opt) => opt.key === fKey);
+                        const def = featureOptions.find((opt) => opt.key === fKey);
                         const label = def ? (def.i18nKey ? t(def.i18nKey, def.name) : def.name) : fKey;
                         return (
                           <span
@@ -897,15 +910,15 @@ export const ClinicTypesTab: React.FC = () => {
                           borderRadius: '12px',
                         }}
                       >
-                        {formData.features.length} / {CLINIC_FEATURE_OPTIONS.length} selected
+                        {formData.features.length} / {featureOptions.length} selected
                       </span>
                       <button
                         type="button"
-                        onClick={formData.features.length === CLINIC_FEATURE_OPTIONS.length ? handleDeselectAllFeatures : handleSelectAllFeatures}
+                        onClick={formData.features.length === featureOptions.length ? handleDeselectAllFeatures : handleSelectAllFeatures}
                         className="btn btn-secondary"
                         style={{ fontSize: '11px', padding: '4px 10px', height: '28px', borderRadius: '6px' }}
                       >
-                        {formData.features.length === CLINIC_FEATURE_OPTIONS.length ? t('common.clearAll', 'Deselect All') : t('common.selectAll', 'Select All')}
+                        {formData.features.length === featureOptions.length ? t('common.clearAll', 'Deselect All') : t('common.selectAll', 'Select All')}
                       </button>
                     </div>
                   </div>
@@ -931,9 +944,9 @@ export const ClinicTypesTab: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Clean 8-menu selection grid */}
+                  {/* Dynamic menu selection grid loaded from server */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-                    {CLINIC_FEATURE_OPTIONS.map((feat) => {
+                    {featureOptions.map((feat) => {
                       const isChecked = formData.features.includes(feat.key);
                       const displayName = feat.i18nKey ? t(feat.i18nKey, feat.name) : feat.name;
 
