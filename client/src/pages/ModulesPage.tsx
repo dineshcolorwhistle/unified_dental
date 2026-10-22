@@ -308,7 +308,7 @@ export const ModulesPage: React.FC = () => {
           }}
         >
           <Stethoscope size={17} />
-          <span>{t('modules.clinicTypesTab', 'Clinic Types & Specializations')}</span>
+          <span>{t('modules.clinicTypesTab', 'Clinic Types & Configurable Menus')}</span>
           <span
             style={{
               fontSize: '10px',
@@ -320,7 +320,7 @@ export const ModulesPage: React.FC = () => {
               textTransform: 'uppercase',
             }}
           >
-            Configurable
+            8 Menus
           </span>
         </button>
       </div>

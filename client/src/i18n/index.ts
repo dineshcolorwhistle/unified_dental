@@ -557,7 +557,7 @@ const resources = {
         updated: 'Last Updated',
         tenantProvisioningHelp: 'Active modules can be provisioned and activated by tenants according to their subscription plan.',
         systemModulesTab: 'System Modules',
-        clinicTypesTab: 'Clinic Types & Specializations',
+        clinicTypesTab: 'Clinic Types & Configurable Menus',
         deleteBlockedTitle: 'Deletion Blocked: Dependencies Exist',
       },
       clinicTypes: {
@@ -3634,7 +3634,7 @@ const resources = {
         updated: 'Última Actualización',
         tenantProvisioningHelp: 'Los módulos activos pueden ser aprovisionados y activados por organizaciones según su plan de suscripción.',
         systemModulesTab: 'Módulos del Sistema',
-        clinicTypesTab: 'Tipos de Clínica y Especialidades',
+        clinicTypesTab: 'Tipos de Clínica y Menús Configurables',
         deleteBlockedTitle: 'Eliminación Bloqueada: Existen Dependencias',
       },
       clinicTypes: {

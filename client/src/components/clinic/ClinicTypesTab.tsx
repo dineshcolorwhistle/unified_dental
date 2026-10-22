@@ -24,6 +24,16 @@ import {
   Sliders,
   Layers,
   Info,
+  DollarSign,
+  Bell,
+  Package,
+  Receipt,
+  Users as UsersIcon,
+  User,
+  Calendar,
+  TrendingUp,
+  ListChecks,
+  ExternalLink,
 } from 'lucide-react';
 
 export interface ClinicType {
@@ -52,6 +62,7 @@ export interface ConfigurableClinicMenu {
   name: string;
   i18nKey?: string;
   description: string;
+  iconName: string;
 }
 
 export const CONFIGURABLE_CLINIC_MENUS: ConfigurableClinicMenu[] = [
@@ -60,48 +71,56 @@ export const CONFIGURABLE_CLINIC_MENUS: ConfigurableClinicMenu[] = [
     name: 'Finance',
     i18nKey: 'nav.finance',
     description: 'Financial accounts, payment methods, and cash flow ledger',
+    iconName: 'DollarSign',
   },
   {
     key: 'reminders',
     name: 'Reminder',
     i18nKey: 'nav.reminder',
     description: 'Automated appointment reminders, recalls, and notifications',
+    iconName: 'Bell',
   },
   {
     key: 'inventory',
     name: 'Inventory',
     i18nKey: 'nav.inventory',
     description: 'Supplies, consumables, stock levels, and low-stock alerts',
+    iconName: 'Package',
   },
   {
     key: 'expenses',
     name: 'Expense',
     i18nKey: 'nav.expenses',
     description: 'Operational practice expenses, vendor receipts, and category reports',
+    iconName: 'Receipt',
   },
   {
     key: 'clinic_users',
     name: 'Users',
     i18nKey: 'nav.clinicUsers',
     description: 'Management of Clinic Admins, Staff/Assistants, and Attending Doctors',
+    iconName: 'Users',
   },
   {
     key: 'patients',
     name: 'Patient',
     i18nKey: 'nav.patient',
     description: 'Patient demographics, medical history, clinical files, and emergency contacts',
+    iconName: 'User',
   },
   {
     key: 'appointments',
     name: 'Appointment',
     i18nKey: 'nav.appointment',
     description: 'Doctor chair calendar, slot booking, statuses, and front-desk check-in',
+    iconName: 'Calendar',
   },
   {
     key: 'income',
     name: 'Income',
     i18nKey: 'nav.income',
     description: 'Procedure fees, consultation invoices, and collection receipts',
+    iconName: 'TrendingUp',
   },
 ];
 
@@ -123,6 +142,8 @@ export const ClinicTypesTab: React.FC = () => {
   const [clinicTypes, setClinicTypes] = useState<ClinicType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState<'profiles' | 'menus'>('profiles');
+  const [menuSearch, setMenuSearch] = useState('');
 
   // Modals
   const [viewingType, setViewingType] = useState<ClinicType | null>(null);
@@ -333,6 +354,40 @@ export const ClinicTypesTab: React.FC = () => {
     }
   };
 
+  const filteredConfigurableMenus = useMemo(() => {
+    const q = menuSearch.toLowerCase().trim();
+    if (!q) return CONFIGURABLE_CLINIC_MENUS;
+    return CONFIGURABLE_CLINIC_MENUS.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.key.toLowerCase().includes(q) ||
+        m.description.toLowerCase().includes(q)
+    );
+  }, [menuSearch]);
+
+  const renderMenuIcon = (iconName: string, size = 18) => {
+    switch (iconName) {
+      case 'DollarSign':
+        return <DollarSign size={size} />;
+      case 'Bell':
+        return <Bell size={size} />;
+      case 'Package':
+        return <Package size={size} />;
+      case 'Receipt':
+        return <Receipt size={size} />;
+      case 'Users':
+        return <UsersIcon size={size} />;
+      case 'User':
+        return <User size={size} />;
+      case 'Calendar':
+        return <Calendar size={size} />;
+      case 'TrendingUp':
+        return <TrendingUp size={size} />;
+      default:
+        return <Check size={size} />;
+    }
+  };
+
   return (
     <div>
       {/* Top Action Bar */}
@@ -368,16 +423,111 @@ export const ClinicTypesTab: React.FC = () => {
         </button>
       </div>
 
-      {/* Mini Stats */}
+      {/* Sub-Tab Switcher: Clinic Profiles vs Configurable Menus */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '20px',
+          overflowX: 'auto',
+          paddingBottom: '2px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('profiles')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeSubTab === 'profiles' ? '2px solid var(--primary-600)' : '2px solid transparent',
+            color: activeSubTab === 'profiles' ? 'var(--primary-600)' : 'var(--text-muted)',
+            fontWeight: activeSubTab === 'profiles' ? 800 : 600,
+            fontSize: '13.5px',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Sliders size={16} />
+          <span>{t('clinicTypes.subtabProfiles', 'Clinic Specialization Profiles')}</span>
+          <span
+            style={{
+              fontSize: '11px',
+              padding: '1px 7px',
+              borderRadius: '8px',
+              backgroundColor: activeSubTab === 'profiles' ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
+              color: activeSubTab === 'profiles' ? 'var(--primary-600)' : 'var(--text-muted)',
+              fontWeight: 700,
+            }}
+          >
+            {clinicTypes.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('menus')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeSubTab === 'menus' ? '2px solid var(--primary-600)' : '2px solid transparent',
+            color: activeSubTab === 'menus' ? 'var(--primary-600)' : 'var(--text-muted)',
+            fontWeight: activeSubTab === 'menus' ? 800 : 600,
+            fontSize: '13.5px',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <ListChecks size={16} />
+          <span>{t('clinicTypes.subtabMenus', 'Configurable Menus')}</span>
+          <span
+            style={{
+              fontSize: '11px',
+              padding: '1px 7px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--badge-success-bg)',
+              color: 'var(--badge-success-text)',
+              fontWeight: 800,
+            }}
+          >
+            {CONFIGURABLE_CLINIC_MENUS.length} Menus
+          </span>
+        </button>
+      </div>
+
+      {/* Mini Stats (4 Cards) */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: '14px',
-          marginBottom: '20px',
+          marginBottom: '24px',
         }}
       >
-        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div
+          className="card"
+          onClick={() => setActiveSubTab('profiles')}
+          style={{
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            cursor: 'pointer',
+            border: activeSubTab === 'profiles' ? '1.5px solid var(--primary-500)' : '1px solid var(--border-color)',
+            transition: 'all 0.15s ease',
+          }}
+        >
           <div
             style={{
               width: '40px',
@@ -451,273 +601,691 @@ export const ClinicTypesTab: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Search Input */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ position: 'relative', maxWidth: '380px' }}>
-          <Search
-            size={16}
-            style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-            }}
-          />
-          <input
-            type="text"
-            className="input"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('clinicTypes.searchPlaceholder', 'Search clinic types by name or code...')}
-            style={{ paddingLeft: '36px', height: '40px', borderRadius: '10px' }}
-          />
-        </div>
-      </div>
-
-      {/* Clinic Types Cards Grid */}
-      {loading ? (
-        <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Loading clinic specialization types...
-        </div>
-      ) : filteredTypes.length === 0 ? (
-        <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
+        <div
+          className="card"
+          onClick={() => setActiveSubTab('menus')}
+          style={{
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            cursor: 'pointer',
+            border: activeSubTab === 'menus' ? '1.5px solid var(--primary-500)' : '1px solid var(--border-color)',
+            transition: 'all 0.15s ease',
+          }}
+        >
           <div
             style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '12px',
-              backgroundColor: 'var(--badge-primary-bg)',
-              color: 'var(--primary-600)',
-              display: 'inline-flex',
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(13, 148, 136, 0.12)',
+              color: '#0d9488',
+              display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: '12px',
             }}
           >
-            <Sliders size={24} />
+            <ListChecks size={20} />
           </div>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-heading)' }}>
-            {t('clinicTypes.noTypesFound', 'No clinic types found')}
-          </h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
-            {search ? 'Try clearing your search query' : 'Create your first clinic specialization type to get started.'}
-          </p>
-          <button onClick={handleOpenCreate} className="btn btn-primary" style={{ borderRadius: '9px' }}>
-            <Plus size={16} /> {t('clinicTypes.createFirst', 'Create Clinic Type')}
-          </button>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {t('clinicTypes.configurableMenusTitle', 'Configurable Menus')}
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-heading)' }}>
+              {CONFIGURABLE_CLINIC_MENUS.length} Menus
+            </div>
+          </div>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '18px' }}>
-          {filteredTypes.map((ct) => {
-            const hasTenants = (ct.tenantCount || 0) > 0;
-            const canDelete = !ct.isDefault && !hasTenants;
+      </div>
 
-            return (
-              <div
-                key={ct.id}
-                className="card"
+      {/* ───────────────── SUB-TAB 1: CLINIC PROFILES ───────────────── */}
+      {activeSubTab === 'profiles' && (
+        <>
+          {/* Search Input */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ position: 'relative', maxWidth: '380px' }}>
+              <Search
+                size={16}
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '20px',
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                }}
+              />
+              <input
+                type="text"
+                className="input"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('clinicTypes.searchPlaceholder', 'Search clinic types by name or code...')}
+                style={{ paddingLeft: '36px', height: '40px', borderRadius: '10px' }}
+              />
+            </div>
+          </div>
+
+          {/* Clinic Types Cards Grid */}
+          {loading ? (
+            <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Loading clinic specialization types...
+            </div>
+          ) : filteredTypes.length === 0 ? (
+            <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
                   borderRadius: '12px',
-                  position: 'relative',
-                  border: ct.isDefault ? '2px solid var(--primary-500, #0d9488)' : '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-surface)',
+                  backgroundColor: 'var(--badge-primary-bg)',
+                  color: 'var(--primary-600)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '12px',
                 }}
               >
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Sliders size={24} />
+              </div>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-heading)' }}>
+                {t('clinicTypes.noTypesFound', 'No clinic types found')}
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
+                {search ? 'Try clearing your search query' : 'Create your first clinic specialization type to get started.'}
+              </p>
+              <button onClick={handleOpenCreate} className="btn btn-primary" style={{ borderRadius: '9px' }}>
+                <Plus size={16} /> {t('clinicTypes.createFirst', 'Create Clinic Type')}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '18px' }}>
+              {filteredTypes.map((ct) => {
+                const hasTenants = (ct.tenantCount || 0) > 0;
+                const canDelete = !ct.isDefault && !hasTenants;
+
+                return (
+                  <div
+                    key={ct.id}
+                    className="card"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '20px',
+                      borderRadius: '12px',
+                      position: 'relative',
+                      border: ct.isDefault ? '2px solid var(--primary-500, #0d9488)' : '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-surface)',
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div
+                          style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '11px',
+                            backgroundColor: ct.isDefault ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
+                            color: ct.isDefault ? 'var(--primary-600)' : 'var(--text-heading)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {renderIcon(ct.icon, 22)}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
+                              {ct.name}
+                            </h3>
+                            {ct.isDefault && (
+                              <span
+                                className="badge badge-primary"
+                                style={{ fontSize: '10px', padding: '2px 6px', fontWeight: 700 }}
+                              >
+                                {t('clinicTypes.defaultBadge', 'Default')}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              fontFamily: 'monospace',
+                              fontWeight: 700,
+                              backgroundColor: 'var(--bg-surface-hover)',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              marginTop: '3px',
+                              display: 'inline-block',
+                            }}
+                          >
+                            {ct.code}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Status & Assigned Badge */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <span className={ct.isActive ? 'badge badge-success' : 'badge badge-secondary'} style={{ fontSize: '11px' }}>
+                          {ct.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: hasTenants ? 'var(--primary-600)' : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                          title={`${ct.tenantCount || 0} organization(s) using this clinic type`}
+                        >
+                          <Building2 size={12} />
+                          {ct.tenantCount || 0} org(s)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        color: 'var(--text-muted)',
+                        margin: '0 0 14px 0',
+                        lineHeight: '1.45',
+                        minHeight: '38px',
+                      }}
+                    >
+                      {ct.description || t('clinicTypes.noDescription', 'No description provided.')}
+                    </p>
+
+                    {/* Feature Tags Preview */}
+                    <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          marginBottom: '8px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <span>{t('clinicTypes.activeFeatures', 'Enabled Menus')}</span>
+                        <span style={{ color: 'var(--primary-600)' }}>
+                          {(ct.features || []).filter((f) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === f)).length} enabled
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '72px', overflow: 'hidden' }}>
+                        {(ct.features || [])
+                          .filter((fKey) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === fKey))
+                          .map((fKey) => {
+                            const def = CONFIGURABLE_CLINIC_MENUS.find((opt) => opt.key === fKey);
+                            const label = def ? (def.i18nKey ? t(def.i18nKey, def.name) : def.name) : fKey;
+                            return (
+                              <span
+                                key={fKey}
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: 'var(--bg-surface-hover)',
+                                  color: 'var(--text-heading)',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  border: '1px solid var(--border-color)',
+                                }}
+                              >
+                                {label}
+                              </span>
+                            );
+                          })}
+                      </div>
+                    </div>
+
+                    {/* Actions Footer */}
                     <div
                       style={{
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '11px',
-                        backgroundColor: ct.isDefault ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
-                        color: ct.isDefault ? 'var(--primary-600)' : 'var(--text-heading)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        borderTop: '1px solid var(--border-color)',
+                        paddingTop: '12px',
+                        gap: '8px',
+                      }}
+                    >
+                      <button
+                        onClick={() => setViewingType(ct)}
+                        className="btn btn-secondary"
+                        style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '7px' }}
+                      >
+                        {t('common.viewDetails', 'Details')}
+                      </button>
+
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={() => handleOpenEdit(ct)}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '7px' }}
+                        >
+                          <Edit2 size={13} /> {t('common.edit', 'Edit')}
+                        </button>
+
+                        {/* Safe Delete Button */}
+                        <button
+                          onClick={() => setDeletingType(ct)}
+                          disabled={!canDelete}
+                          className={canDelete ? 'btn btn-danger' : 'btn btn-secondary'}
+                          style={{
+                            fontSize: '12px',
+                            padding: '6px 10px',
+                            borderRadius: '7px',
+                            opacity: canDelete ? 1 : 0.45,
+                            cursor: canDelete ? 'pointer' : 'not-allowed',
+                          }}
+                          title={
+                            ct.isDefault
+                              ? 'Default clinic type cannot be deleted'
+                              : hasTenants
+                              ? `Cannot delete: Assigned to ${ct.tenantCount} organization(s)`
+                              : 'Delete clinic type'
+                          }
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Quick Banner Linking to Configurable Menus Catalog */}
+          <div
+            className="card"
+            style={{
+              marginTop: '24px',
+              padding: '18px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+              backgroundColor: 'var(--bg-surface-hover, #f8fafc)',
+              border: '1.5px dashed var(--border-color)',
+              borderRadius: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--badge-primary-bg)',
+                  color: 'var(--primary-600)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <ListChecks size={22} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-heading)' }}>
+                  Configurable Menus Catalog (8 Standalone Menus)
+                </h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
+                  Finance, Reminder, Inventory, Expense, Users, Patient, Appointment, and Income are the default modular menus available for clinic types.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('menus')}
+              className="btn btn-primary"
+              style={{ fontSize: '13px', padding: '9px 18px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <ListChecks size={16} />
+              <span>View Configurable Menus</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ───────────────── SUB-TAB 2: DEDICATED CONFIGURABLE MENUS SECTION ───────────────── */}
+      {activeSubTab === 'menus' && (
+        <div>
+          {/* Section Header */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: '16px',
+              marginBottom: '18px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                  {t('clinicTypes.configurableMenusTitle', 'Default Configurable Menus for Clinic Types')}
+                </h3>
+                <span
+                  className="badge badge-primary"
+                  style={{ fontSize: '11px', padding: '2px 8px', fontWeight: 800 }}
+                >
+                  {CONFIGURABLE_CLINIC_MENUS.length} Menus
+                </span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, maxWidth: '820px' }}>
+                {t(
+                  'clinicTypes.configurableMenusDesc',
+                  'These 8 modular menus form the configurable menu catalog for clinic specialization profiles. When creating or editing any clinic type, Platform Admins select which of these menus appear in the sidebar.'
+                )}
+              </p>
+            </div>
+
+            <button
+              onClick={handleOpenCreate}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '10px' }}
+            >
+              <Plus size={16} />
+              <span>{t('clinicTypes.createWithMenusBtn', 'New Clinic Type')}</span>
+            </button>
+          </div>
+
+          {/* Info Callout: Base Menus vs Configurable Menus */}
+          <div
+            style={{
+              padding: '14px 18px',
+              borderRadius: '12px',
+              backgroundColor: 'var(--bg-surface-hover, #f8fafc)',
+              border: '1px solid var(--border-color)',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--badge-primary-bg)',
+                color: 'var(--primary-600)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <ShieldCheck size={20} />
+            </div>
+            <div style={{ flex: 1, minWidth: '240px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '2px' }}>
+                Standard Base Menus (Included for every tenant owner)
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                <strong>Dashboard</strong> and <strong>Branch Management</strong> are standard core platform menus automatically enabled for all clinic tenants by default. They do not appear in clinic type menu configuration.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <span className="badge badge-secondary" style={{ fontSize: '11px', padding: '3px 8px' }}>
+                ✓ Dashboard
+              </span>
+              <span className="badge badge-secondary" style={{ fontSize: '11px', padding: '3px 8px' }}>
+                ✓ Branch Management
+              </span>
+            </div>
+          </div>
+
+          {/* Menu Search Filter */}
+          <div style={{ marginBottom: '18px' }}>
+            <div style={{ position: 'relative', maxWidth: '380px' }}>
+              <Search
+                size={16}
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                }}
+              />
+              <input
+                type="text"
+                className="input"
+                value={menuSearch}
+                onChange={(e) => setMenuSearch(e.target.value)}
+                placeholder="Filter configurable menus by name or description..."
+                style={{ paddingLeft: '36px', height: '38px', borderRadius: '10px' }}
+              />
+            </div>
+          </div>
+
+          {/* 8 Configurable Menu Cards Grid (Exact Design Match to Screenshot 3) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '14px',
+              marginBottom: '28px',
+            }}
+          >
+            {filteredConfigurableMenus.map((feat) => {
+              const enabledInTypes = clinicTypes.filter((ct) => (ct.features || []).includes(feat.key));
+
+              return (
+                <div
+                  key={feat.key}
+                  style={{
+                    padding: '18px 20px',
+                    borderRadius: '14px',
+                    border: '1.5px solid #0d9488',
+                    backgroundColor: 'var(--bg-surface, #ffffff)',
+                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
+                  {/* Top row: Styled Checkbox matching Screenshot 3 + Title */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '5px',
+                        backgroundColor: '#0d9488',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
+                        marginTop: '2px',
                       }}
                     >
-                      {renderIcon(ct.icon, 22)}
+                      <Check size={14} color="#ffffff" strokeWidth={3} />
                     </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-heading)' }}>
-                          {ct.name}
-                        </h3>
-                        {ct.isDefault && (
-                          <span
-                            className="badge badge-primary"
-                            style={{ fontSize: '10px', padding: '2px 6px', fontWeight: 700 }}
-                          >
-                            {t('clinicTypes.defaultBadge', 'Default')}
-                          </span>
-                        )}
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <h4 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text-heading, #0f172a)' }}>
+                          {feat.name}
+                        </h4>
+                        <div style={{ color: '#0d9488', display: 'flex', alignItems: 'center' }}>
+                          {renderMenuIcon(feat.iconName, 17)}
+                        </div>
                       </div>
-                      <span
+                      <p
                         style={{
-                          fontSize: '11px',
-                          color: 'var(--text-muted)',
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
-                          backgroundColor: 'var(--bg-surface-hover)',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          marginTop: '3px',
-                          display: 'inline-block',
+                          fontSize: '12.5px',
+                          color: 'var(--text-muted, #64748b)',
+                          margin: '6px 0 0 0',
+                          lineHeight: '1.45',
                         }}
                       >
-                        {ct.code}
-                      </span>
+                        {feat.description}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Status & Assigned Badge */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <span className={ct.isActive ? 'badge badge-success' : 'badge badge-secondary'} style={{ fontSize: '11px' }}>
-                      {ct.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}
+                  {/* Bottom row: System Key + Assigned Profiles info */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderTop: '1px solid var(--border-color)',
+                      paddingTop: '10px',
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      key: {feat.key}
                     </span>
+
                     <span
                       style={{
-                        fontSize: '11px',
+                        color: enabledInTypes.length > 0 ? 'var(--primary-700, #0f766e)' : 'var(--text-muted)',
                         fontWeight: 600,
-                        color: hasTenants ? 'var(--primary-600)' : 'var(--text-muted)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
                       }}
-                      title={`${ct.tenantCount || 0} organization(s) using this clinic type`}
                     >
-                      <Building2 size={12} />
-                      {ct.tenantCount || 0} org(s)
+                      <CheckCircle2 size={12} />
+                      {enabledInTypes.length > 0
+                        ? `Enabled in: ${enabledInTypes.map((c) => c.name).join(', ')}`
+                        : 'Available to assign'}
                     </span>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Description */}
-                <p
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--text-muted)',
-                    margin: '0 0 14px 0',
-                    lineHeight: '1.45',
-                    minHeight: '38px',
-                  }}
-                >
-                  {ct.description || t('clinicTypes.noDescription', 'No description provided.')}
+          {/* Overview Matrix Table */}
+          <div className="card" style={{ padding: '20px', borderRadius: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h4 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 3px 0' }}>
+                  Clinic Specialization Menu Assignment Matrix
+                </h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+                  Overview of which configurable menus are toggled on for each clinic specialization profile.
                 </p>
+              </div>
 
-                {/* Feature Tags Preview */}
-                <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: 'var(--text-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                      marginBottom: '8px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <span>{t('clinicTypes.activeFeatures', 'Enabled Menus')}</span>
-                    <span style={{ color: 'var(--primary-600)' }}>
-                      {(ct.features || []).filter((f) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === f)).length} enabled
-                    </span>
-                  </div>
+              <button
+                type="button"
+                onClick={handleOpenCreate}
+                className="btn btn-secondary"
+                style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px' }}
+              >
+                <Plus size={14} /> New Profile
+              </button>
+            </div>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '72px', overflow: 'hidden' }}>
-                    {(ct.features || [])
-                      .filter((fKey) => CONFIGURABLE_CLINIC_MENUS.some((o) => o.key === fKey))
-                      .map((fKey) => {
-                        const def = CONFIGURABLE_CLINIC_MENUS.find((opt) => opt.key === fKey);
-                        const label = def ? (def.i18nKey ? t(def.i18nKey, def.name) : def.name) : fKey;
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1.5px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      Clinic Profile
+                    </th>
+                    {CONFIGURABLE_CLINIC_MENUS.map((m) => (
+                      <th
+                        key={m.key}
+                        style={{
+                          padding: '10px 8px',
+                          fontWeight: 700,
+                          color: 'var(--text-heading)',
+                          textAlign: 'center',
+                        }}
+                      >
+                        {m.name}
+                      </th>
+                    ))}
+                    <th style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-heading)', textAlign: 'center' }}>
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clinicTypes.map((ct) => (
+                    <tr key={ct.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{ct.name}</span>
+                          {ct.isDefault && (
+                            <span className="badge badge-primary" style={{ fontSize: '10px', padding: '1px 5px' }}>
+                              Default
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {CONFIGURABLE_CLINIC_MENUS.map((m) => {
+                        const isEnabled = (ct.features || []).includes(m.key);
                         return (
-                          <span
-                            key={fKey}
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--bg-surface-hover)',
-                              color: 'var(--text-heading)',
-                              fontWeight: 600,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              border: '1px solid var(--border-color)',
-                            }}
-                          >
-                            {label}
-                          </span>
+                          <td key={m.key} style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            {isEnabled ? (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '22px',
+                                  height: '22px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'var(--badge-success-bg)',
+                                  color: 'var(--badge-success-text)',
+                                }}
+                              >
+                                <Check size={13} strokeWidth={3} />
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '16px' }}>—</span>
+                            )}
+                          </td>
                         );
                       })}
-                  </div>
-                </div>
-
-                {/* Actions Footer */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderTop: '1px solid var(--border-color)',
-                    paddingTop: '12px',
-                    gap: '8px',
-                  }}
-                >
-                  <button
-                    onClick={() => setViewingType(ct)}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '7px' }}
-                  >
-                    {t('common.viewDetails', 'Details')}
-                  </button>
-
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={() => handleOpenEdit(ct)}
-                      className="btn btn-secondary"
-                      style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '7px' }}
-                    >
-                      <Edit2 size={13} /> {t('common.edit', 'Edit')}
-                    </button>
-
-                    {/* Safe Delete Button */}
-                    <button
-                      onClick={() => setDeletingType(ct)}
-                      disabled={!canDelete}
-                      className={canDelete ? 'btn btn-danger' : 'btn btn-secondary'}
-                      style={{
-                        fontSize: '12px',
-                        padding: '6px 10px',
-                        borderRadius: '7px',
-                        opacity: canDelete ? 1 : 0.45,
-                        cursor: canDelete ? 'pointer' : 'not-allowed',
-                      }}
-                      title={
-                        ct.isDefault
-                          ? 'Default clinic type cannot be deleted'
-                          : hasTenants
-                          ? `Cannot delete: Assigned to ${ct.tenantCount} organization(s)`
-                          : 'Delete clinic type'
-                      }
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(ct)}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
+                        >
+                          <Edit2 size={12} /> Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
