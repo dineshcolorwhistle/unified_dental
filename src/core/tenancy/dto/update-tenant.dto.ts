@@ -15,6 +15,10 @@ export class UpdateTenantDto {
   planId?: string;
 
   @IsOptional()
+  @IsString()
+  clinicTypeId?: string | null;
+
+  @IsOptional()
   price?: number | null;
 
   @IsOptional()

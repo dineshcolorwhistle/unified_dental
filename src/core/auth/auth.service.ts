@@ -229,6 +229,7 @@ export class AuthService {
               include: {
                 modules: { where: { isEnabled: true } },
                 branches: { where: { status: 'ACTIVE' } },
+                clinicType: true,
               },
             },
           },
@@ -267,6 +268,7 @@ export class AuthService {
         include: {
           modules: { where: { isEnabled: true } },
           branches: { where: { status: 'ACTIVE' } },
+          clinicType: true,
         },
       });
     }
@@ -388,6 +390,14 @@ export class AuthService {
             ...((effectiveTenant.settings as Record<string, any>) || {}),
           },
           enabledModules: tenantEnabledModules,
+          clinicType: (effectiveTenant as any).clinicType
+            ? {
+              id: (effectiveTenant as any).clinicType.id,
+              code: (effectiveTenant as any).clinicType.code,
+              name: (effectiveTenant as any).clinicType.name,
+              features: (effectiveTenant as any).clinicType.features,
+            }
+            : null,
         }
         : null,
       activeBranchId: effectiveBranchId,

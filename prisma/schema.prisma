@@ -63,6 +63,7 @@ model Tenant {
   status              TenantStatus   @default(ACTIVE)
   settings            Json?          @default("{}")
   planId              String?        @map("plan_id")
+  clinicTypeId        String?        @map("clinic_type_id")
   price               Decimal?       @db.Decimal(10, 2)
   startDate           DateTime?      @map("start_date")
   endDate             DateTime?      @map("end_date")
@@ -75,6 +76,7 @@ model Tenant {
 
   // Relations
   plan         SubscriptionPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
+  clinicType   ClinicType?        @relation(fields: [clinicTypeId], references: [id], onDelete: Restrict)
   modules      TenantModule[]
   branches     Branch[]
   memberships  TenantMembership[]
@@ -114,6 +116,23 @@ model SystemModule {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("system_modules")
+}
+
+model ClinicType {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  icon        String?  @default("Stethoscope")
+  features    String[] @default(["dashboard"])
+  isDefault   Boolean  @default(false) @map("is_default")
+  isActive    Boolean  @default(true)  @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenants     Tenant[]
+
+  @@map("clinic_types")
 }
 
 model SubscriptionPlan {

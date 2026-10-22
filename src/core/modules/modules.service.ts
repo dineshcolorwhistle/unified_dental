@@ -14,10 +14,25 @@ export class ModulesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(includeDisabled = true) {
-    return this.prisma.systemModule.findMany({
+    const modules = await this.prisma.systemModule.findMany({
       where: includeDisabled ? undefined : { isEnabled: true },
       orderBy: { createdAt: 'asc' },
     });
+
+    const clinicTypesCount = await this.prisma.clinicType.count();
+
+    return Promise.all(
+      modules.map(async (m) => {
+        const tenantCount = await this.prisma.tenantModule.count({
+          where: { moduleKey: m.code },
+        });
+        return {
+          ...m,
+          tenantCount,
+          clinicTypesCount: m.code === 'CLINIC' ? clinicTypesCount : 0,
+        };
+      }),
+    );
   }
 
   async findById(id: string) {
@@ -29,7 +44,16 @@ export class ModulesService {
       throw new NotFoundException(`Module with ID '${id}' not found`);
     }
 
-    return module;
+    const tenantCount = await this.prisma.tenantModule.count({
+      where: { moduleKey: module.code },
+    });
+    const clinicTypesCount = module.code === 'CLINIC' ? await this.prisma.clinicType.count() : 0;
+
+    return {
+      ...module,
+      tenantCount,
+      clinicTypesCount,
+    };
   }
 
   async findByCode(code: string) {
@@ -130,15 +154,25 @@ export class ModulesService {
   async delete(id: string, userId?: string) {
     const existing = await this.findById(id);
 
-    // Check if any tenants currently have this module active
-    const activeTenantsCount = await this.prisma.tenantModule.count({
-      where: { moduleKey: existing.code, isEnabled: true },
+    // 1. Check if ANY tenants have this module associated
+    const associatedTenantsCount = await this.prisma.tenantModule.count({
+      where: { moduleKey: existing.code },
     });
 
-    if (activeTenantsCount > 0) {
+    if (associatedTenantsCount > 0) {
       throw new BadRequestException(
-        `Cannot delete module '${existing.name}' because it is actively enabled in ${activeTenantsCount} tenant(s). Disable it first or remove it from tenants.`,
+        `Cannot delete system module '${existing.name}' because it is associated with ${associatedTenantsCount} organization(s). Remove it from all organizations first.`,
       );
+    }
+
+    // 2. Specific safeguard for CLINIC: Cannot delete if any Clinic Types exist
+    if (existing.code === 'CLINIC') {
+      const associatedClinicTypesCount = await this.prisma.clinicType.count();
+      if (associatedClinicTypesCount > 0) {
+        throw new BadRequestException(
+          `Cannot delete system module 'CLINIC' because ${associatedClinicTypesCount} clinic type(s) are defined under it (e.g. Dental Clinic). Please delete all clinic types first.`,
+        );
+      }
     }
 
     const deleted = await this.prisma.systemModule.delete({

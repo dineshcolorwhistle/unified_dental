@@ -22,6 +22,10 @@ export class CreateTenantDto {
   planId?: string;
 
   @IsOptional()
+  @IsString()
+  clinicTypeId?: string;
+
+  @IsOptional()
   price?: number | null;
 
   @IsNotEmpty({ message: 'Start date is required' })

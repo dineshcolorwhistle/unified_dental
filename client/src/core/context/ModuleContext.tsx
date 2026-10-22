@@ -3,6 +3,13 @@ import { useAuth } from './AuthContext';
 
 export type ModuleMode = 'PLATFORM' | 'CLINIC' | 'LAB';
 
+export interface ClinicTypeInfo {
+  id: string;
+  code: string;
+  name: string;
+  features: string[];
+}
+
 interface ModuleContextType {
   activeModuleMode: ModuleMode;
   setActiveModuleMode: (mode: ModuleMode) => void;
@@ -12,6 +19,9 @@ interface ModuleContextType {
   isLabEnabled: boolean;
   isSingleModule: boolean;
   canSwitchModules: boolean;
+  clinicType: ClinicTypeInfo | null;
+  clinicFeatures: string[];
+  hasClinicFeature: (featureKey: string) => boolean;
 }
 
 const ModuleContext = createContext<ModuleContextType | undefined>(undefined);
@@ -23,6 +33,28 @@ export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isClinicEnabled = enabledModules.includes('CLINIC');
   const isLabEnabled = enabledModules.includes('LAB');
   const isSingleModule = enabledModules.length === 1;
+
+  // Clinic type and features
+  const clinicType = (tenant?.clinicType as ClinicTypeInfo | undefined) || null;
+  const clinicFeatures = clinicType?.features || [
+    'finance',
+    'reminders',
+    'inventory',
+    'expenses',
+    'clinic_users',
+    'patients',
+    'appointments',
+    'income',
+  ];
+
+  const hasClinicFeature = (featureKey: string): boolean => {
+    // If not in CLINIC mode, do not restrict other modules (e.g. LAB has its own independent rules)
+    if (activeModuleMode !== 'CLINIC') return true;
+    // Dashboard and Branch Management are always enabled by default for every tenant owner
+    if (featureKey === 'dashboard' || featureKey === 'branches') return true;
+    if (!clinicType) return true; // Safe fallback if clinic type is not yet loaded
+    return clinicFeatures.includes(featureKey);
+  };
 
   // Allowed modules for this specific user (from backend)
   const allowedModules = user?.allowedModules || enabledModules;
@@ -111,6 +143,9 @@ export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isLabEnabled,
         isSingleModule,
         canSwitchModules,
+        clinicType,
+        clinicFeatures,
+        hasClinicFeature,
       }}
     >
       {children}

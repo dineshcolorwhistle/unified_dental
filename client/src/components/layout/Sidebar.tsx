@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { t } = useTranslation();
   const location = useLocation();
   const { user, isTenantAdmin, isLabAdmin, logout } = useAuth();
-  const { isClinicEnabled, isLabEnabled } = useModule();
+  const { isClinicEnabled, isLabEnabled, clinicType, hasClinicFeature } = useModule();
 
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('ud_sidebar_collapsed') === 'true';
@@ -740,154 +740,173 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 )}
 
-                <SidebarNavItem
-                  to="/finance"
-                  icon={<CreditCard size={17} />}
-                  label={t('nav.finance')}
-                  isCollapsed={isCollapsed}
-                />
-
-                <SidebarNavItem
-                  to="/reminders"
-                  icon={<Bell size={17} />}
-                  label={t('nav.reminder')}
-                  isCollapsed={isCollapsed}
-                />
-
-                <SidebarNavItem
-                  to="/inventory"
-                  icon={<Package size={17} />}
-                  label={t('nav.inventory')}
-                  isCollapsed={isCollapsed}
-                />
-
-                <SidebarNavItem
-                  to="/expenses"
-                  icon={<Receipt size={17} />}
-                  label={t('nav.expenses')}
-                  isCollapsed={isCollapsed}
-                />
-              </div>
-            </div>
-
-            <div className="nav-accordion-group">
-              {!isCollapsed ? (
-                <button
-                  type="button"
-                  className={`nav-accordion-header ${expandedGroup === 'clinic' ? 'is-open' : ''} ${
-                    isClinicActive ? 'has-active-child' : ''
-                  }`}
-                  onClick={() => handleGroupToggle('clinic')}
-                  aria-expanded={expandedGroup === 'clinic'}
-                >
-                  <div className="nav-accordion-header-left">
-                    <Stethoscope size={14} style={{ opacity: 0.85, color: '#38bdf8' }} />
-                    <span>{t('nav.dentalClinic')}</span>
-                  </div>
-                  <div className="nav-accordion-header-right">
-                    <span className={`accordion-chevron ${expandedGroup === 'clinic' ? 'is-open' : ''}`}>
-                      <ChevronDown size={14} />
-                    </span>
-                  </div>
-                </button>
-              ) : (
-                <div className="nav-section-divider" />
-              )}
-
-              <div
-                className={`nav-accordion-content has-tree-line ${
-                  isCollapsed || expandedGroup === 'clinic' ? 'is-expanded' : 'is-collapsed'
-                }`}
-              >
-                {!isCollapsed ? (
-                  <div className="nav-sub-group">
-                    <button
-                      type="button"
-                      className={`nav-sub-header ${isClinicUsersActive ? 'has-active' : ''}`}
-                      onClick={() => setIsClinicUsersOpen((prev) => !prev)}
-                      aria-expanded={isClinicUsersOpen}
-                    >
-                      <div className="nav-sub-header-title">
-                        <span className="nav-link-icon">
-                          <Users size={17} />
-                        </span>
-                        <span className="nav-link-text">{t('nav.clinicUsers')}</span>
-                      </div>
-                      <span className={`accordion-chevron ${isClinicUsersOpen ? 'is-open' : ''}`}>
-                        <ChevronDown size={13} />
-                      </span>
-                    </button>
-
-                    <div className={`nav-sub-list ${isClinicUsersOpen ? 'is-expanded' : 'is-collapsed'}`}>
-                      {isTenantAdmin && (
-                        <NavLink
-                          to="/clinic/users/admin"
-                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
-                        >
-                          <span>{t('nav.clinicAdmin')}</span>
-                        </NavLink>
-                      )}
-                      <NavLink
-                        to="/clinic/users/staff"
-                        className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
-                      >
-                        <span>{t('nav.clinicStaff')}</span>
-                      </NavLink>
-                      <NavLink
-                        to="/clinic/users/doctors"
-                        className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
-                      >
-                        <span>{t('nav.clinicDoctors')}</span>
-                      </NavLink>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {isTenantAdmin && (
-                      <SidebarNavItem
-                        to="/clinic/users/admin"
-                        icon={<Users size={17} />}
-                        label={t('nav.clinicAdmin')}
-                        isCollapsed={isCollapsed}
-                      />
-                    )}
-                    <SidebarNavItem
-                      to="/clinic/users/staff"
-                      icon={<Users size={17} />}
-                      label={t('nav.clinicStaff')}
-                      isCollapsed={isCollapsed}
-                    />
-                    <SidebarNavItem
-                      to="/clinic/users/doctors"
-                      icon={<Users size={17} />}
-                      label={t('nav.clinicDoctors')}
-                      isCollapsed={isCollapsed}
-                    />
-                  </>
+                {hasClinicFeature('finance') && (
+                  <SidebarNavItem
+                    to="/finance"
+                    icon={<CreditCard size={17} />}
+                    label={t('nav.finance')}
+                    isCollapsed={isCollapsed}
+                  />
                 )}
 
-                <SidebarNavItem
-                  to="/clinic/patients"
-                  icon={<UserRound size={17} />}
-                  label={t('nav.patient')}
-                  isCollapsed={isCollapsed}
-                />
+                {hasClinicFeature('reminders') && (
+                  <SidebarNavItem
+                    to="/reminders"
+                    icon={<Bell size={17} />}
+                    label={t('nav.reminder')}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
 
-                <SidebarNavItem
-                  to="/clinic/appointments"
-                  icon={<CalendarCheck size={17} />}
-                  label={t('nav.appointment')}
-                  isCollapsed={isCollapsed}
-                />
+                {hasClinicFeature('inventory') && (
+                  <SidebarNavItem
+                    to="/inventory"
+                    icon={<Package size={17} />}
+                    label={t('nav.inventory')}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
 
-                <SidebarNavItem
-                  to="/clinic/income"
-                  icon={<DollarSign size={17} />}
-                  label={t('nav.income')}
-                  isCollapsed={isCollapsed}
-                />
+                {hasClinicFeature('expenses') && (
+                  <SidebarNavItem
+                    to="/expenses"
+                    icon={<Receipt size={17} />}
+                    label={t('nav.expenses')}
+                    isCollapsed={isCollapsed}
+                  />
+                )}
               </div>
             </div>
+
+            {(hasClinicFeature('clinic_users') ||
+              hasClinicFeature('patients') ||
+              hasClinicFeature('appointments') ||
+              hasClinicFeature('income')) && (
+              <div className="nav-accordion-group">
+                {!isCollapsed ? (
+                  <button
+                    type="button"
+                    className={`nav-accordion-header ${expandedGroup === 'clinic' ? 'is-open' : ''} ${
+                      isClinicActive ? 'has-active-child' : ''
+                    }`}
+                    onClick={() => handleGroupToggle('clinic')}
+                    aria-expanded={expandedGroup === 'clinic'}
+                  >
+                    <div className="nav-accordion-header-left">
+                      <Stethoscope size={14} style={{ opacity: 0.85, color: '#38bdf8' }} />
+                      <span>{clinicType?.name || t('nav.dentalClinic')}</span>
+                    </div>
+                    <div className="nav-accordion-header-right">
+                      <span className={`accordion-chevron ${expandedGroup === 'clinic' ? 'is-open' : ''}`}>
+                        <ChevronDown size={14} />
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="nav-section-divider" />
+                )}
+
+                <div
+                  className={`nav-accordion-content has-tree-line ${
+                    isCollapsed || expandedGroup === 'clinic' ? 'is-expanded' : 'is-collapsed'
+                  }`}
+                >
+                  {hasClinicFeature('clinic_users') && (!isCollapsed ? (
+                    <div className="nav-sub-group">
+                      <button
+                        type="button"
+                        className={`nav-sub-header ${isClinicUsersActive ? 'has-active' : ''}`}
+                        onClick={() => setIsClinicUsersOpen((prev) => !prev)}
+                        aria-expanded={isClinicUsersOpen}
+                      >
+                        <div className="nav-sub-header-title">
+                          <span className="nav-link-icon">
+                            <Users size={17} />
+                          </span>
+                          <span className="nav-link-text">{t('nav.clinicUsers')}</span>
+                        </div>
+                        <span className={`accordion-chevron ${isClinicUsersOpen ? 'is-open' : ''}`}>
+                          <ChevronDown size={13} />
+                        </span>
+                      </button>
+
+                      <div className={`nav-sub-list ${isClinicUsersOpen ? 'is-expanded' : 'is-collapsed'}`}>
+                        {isTenantAdmin && (
+                          <NavLink
+                            to="/clinic/users/admin"
+                            className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                          >
+                            <span>{t('nav.clinicAdmin')}</span>
+                          </NavLink>
+                        )}
+                        <NavLink
+                          to="/clinic/users/staff"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.clinicStaff')}</span>
+                        </NavLink>
+                        <NavLink
+                          to="/clinic/users/doctors"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.clinicDoctors')}</span>
+                        </NavLink>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {isTenantAdmin && (
+                        <SidebarNavItem
+                          to="/clinic/users/admin"
+                          icon={<Users size={17} />}
+                          label={t('nav.clinicAdmin')}
+                          isCollapsed={isCollapsed}
+                        />
+                      )}
+                      <SidebarNavItem
+                        to="/clinic/users/staff"
+                        icon={<Users size={17} />}
+                        label={t('nav.clinicStaff')}
+                        isCollapsed={isCollapsed}
+                      />
+                      <SidebarNavItem
+                        to="/clinic/users/doctors"
+                        icon={<Users size={17} />}
+                        label={t('nav.clinicDoctors')}
+                        isCollapsed={isCollapsed}
+                      />
+                    </>
+                  ))}
+
+                  {hasClinicFeature('patients') && (
+                    <SidebarNavItem
+                      to="/clinic/patients"
+                      icon={<UserRound size={17} />}
+                      label={t('nav.patient')}
+                      isCollapsed={isCollapsed}
+                    />
+                  )}
+
+                  {hasClinicFeature('appointments') && (
+                    <SidebarNavItem
+                      to="/clinic/appointments"
+                      icon={<CalendarCheck size={17} />}
+                      label={t('nav.appointment')}
+                      isCollapsed={isCollapsed}
+                    />
+                  )}
+
+                  {hasClinicFeature('income') && (
+                    <SidebarNavItem
+                      to="/clinic/income"
+                      icon={<DollarSign size={17} />}
+                      label={t('nav.income')}
+                      isCollapsed={isCollapsed}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           /* ───── 5. Fallback Standard Menus for other authenticated users ───── */

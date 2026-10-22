@@ -86,10 +86,13 @@ export const TenantsPage: React.FC = () => {
   // Create Tenant Modal State
   const [creatingTenant, setCreatingTenant] = useState(false);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [clinicTypes, setClinicTypes] = useState<any[]>([]);
+  const [editClinicTypeId, setEditClinicTypeId] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
     planId: '',
+    clinicTypeId: '',
     price: '' as number | string,
     startDate: getTodayDateString(),
     endDate: '',
@@ -106,10 +109,11 @@ export const TenantsPage: React.FC = () => {
   const fetchTenantsAndPlans = async () => {
     try {
       setLoading(true);
-      const [tenantsRes, plansRes, modulesRes] = await Promise.allSettled([
+      const [tenantsRes, plansRes, modulesRes, clinicTypesRes] = await Promise.allSettled([
         api.get('/tenants'),
         api.get('/plans'),
         api.get('/modules?all=true'),
+        api.get('/clinic-types?all=true'),
       ]);
 
       if (tenantsRes.status === 'fulfilled') {
@@ -120,6 +124,9 @@ export const TenantsPage: React.FC = () => {
       }
       if (modulesRes.status === 'fulfilled') {
         setSystemModules(modulesRes.value.data || []);
+      }
+      if (clinicTypesRes.status === 'fulfilled') {
+        setClinicTypes(clinicTypesRes.value.data || []);
       }
     } catch (e) {
       console.error('Failed to load tenants data:', e);
@@ -247,10 +254,14 @@ export const TenantsPage: React.FC = () => {
 
     try {
       setCreatingTenant(true);
+      const defaultClinicType = clinicTypes.find((c) => c.isDefault) || clinicTypes[0];
       await api.post('/tenants', {
         name: formData.name,
         slug: formData.slug,
         planId: formData.planId || undefined,
+        clinicTypeId: formData.modules.includes('CLINIC')
+          ? (formData.clinicTypeId || defaultClinicType?.id || undefined)
+          : undefined,
         price: formData.price !== '' ? Number(formData.price) : null,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -269,6 +280,7 @@ export const TenantsPage: React.FC = () => {
         name: '',
         slug: '',
         planId: '',
+        clinicTypeId: '',
         price: '',
         startDate: getTodayDateString(),
         endDate: '',
@@ -311,6 +323,7 @@ export const TenantsPage: React.FC = () => {
     setEditName(tenant.name || '');
     setEditStatus(tenant.status || 'ACTIVE');
     setEditPlanId(tenant.planId || '');
+    setEditClinicTypeId(tenant.clinicTypeId || tenant.clinicType?.id || '');
     setEditPrice(tenant.price !== null && tenant.price !== undefined ? tenant.price : (tenant.plan?.price !== undefined ? tenant.plan.price : ''));
     setEditStartDate(toInputDateString(tenant.startDate));
     setEditEndDate(toInputDateString(tenant.endDate));
@@ -348,10 +361,14 @@ export const TenantsPage: React.FC = () => {
 
     try {
       setSavingEdit(true);
+      const defaultClinicType = clinicTypes.find((c) => c.isDefault) || clinicTypes[0];
       await api.patch(`/tenants/${editingTenant.id}`, {
         name: editName,
         status: editStatus,
         planId: editPlanId || null,
+        clinicTypeId: editSelectedModules.includes('CLINIC')
+          ? (editClinicTypeId || defaultClinicType?.id || null)
+          : null,
         price: editPrice !== '' ? Number(editPrice) : null,
         startDate: editStartDate || undefined,
         endDate: editEndDate || undefined,
@@ -496,10 +513,12 @@ export const TenantsPage: React.FC = () => {
         <button
           onClick={() => {
             const initialPlan = plans.find((p) => p.isActive) || plans[0];
+            const defaultClinic = clinicTypes.find((ct) => ct.isDefault) || clinicTypes[0];
             setFormData({
               name: '',
               slug: '',
               planId: initialPlan ? initialPlan.id : '',
+              clinicTypeId: defaultClinic ? defaultClinic.id : '',
               price: initialPlan?.price !== undefined && initialPlan?.price !== null ? initialPlan.price : '',
               startDate: getTodayDateString(),
               endDate: '',
@@ -682,17 +701,25 @@ export const TenantsPage: React.FC = () => {
                     <td>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {tItem.modules && tItem.modules.length > 0 ? (
-                          tItem.modules.map((tm: any) => (
-                            <button
-                              key={tm.id || tm.moduleKey}
-                              onClick={() => handleToggleModule(tItem.id, tm.moduleKey, tm.isEnabled)}
-                              className={`badge ${tm.isEnabled ? 'badge-success' : 'badge-danger'}`}
-                              style={{ cursor: 'pointer', border: 'none' }}
-                              title={`Click to toggle ${getModuleName(tm.moduleKey)}`}
-                            >
-                              {getModuleName(tm.moduleKey)}: {tm.isEnabled ? 'ON' : 'OFF'}
-                            </button>
-                          ))
+                          tItem.modules.map((tm: any) => {
+                            const isClinic = tm.moduleKey === 'CLINIC';
+                            const clinicName = tItem.clinicType?.name;
+                            const label = isClinic && clinicName && tm.isEnabled
+                              ? `${getModuleName(tm.moduleKey)} (${clinicName}): ON`
+                              : `${getModuleName(tm.moduleKey)}: ${tm.isEnabled ? 'ON' : 'OFF'}`;
+
+                            return (
+                              <button
+                                key={tm.id || tm.moduleKey}
+                                onClick={() => handleToggleModule(tItem.id, tm.moduleKey, tm.isEnabled)}
+                                className={`badge ${tm.isEnabled ? 'badge-success' : 'badge-danger'}`}
+                                style={{ cursor: 'pointer', border: 'none' }}
+                                title={`Click to toggle ${getModuleName(tm.moduleKey)}`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })
                         ) : (
                           <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                             {t('tenants.noActiveModules')}
@@ -1238,6 +1265,57 @@ export const TenantsPage: React.FC = () => {
                                   {mod.description}
                                 </div>
                               )}
+
+                              {/* Contextual Clinic Specialization Selector */}
+                              {mod.code === 'CLINIC' && isChecked && clinicTypes.length > 0 && (
+                                <div
+                                  style={{
+                                    marginTop: '10px',
+                                    padding: '12px 14px',
+                                    backgroundColor: 'var(--bg-surface)',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-color)',
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                    <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                                      {t('clinicTypes.specializationLabel', 'Clinic Specialization Type')}
+                                    </label>
+                                    {(() => {
+                                      const selectedCT = clinicTypes.find((c) => c.id === (formData.clinicTypeId || clinicTypes.find((x) => x.isDefault)?.id));
+                                      return selectedCT ? (
+                                        <span style={{ fontSize: '11px', color: 'var(--primary-600)', fontWeight: 600 }}>
+                                          {selectedCT.features?.length || 0} menus active
+                                        </span>
+                                      ) : null;
+                                    })()}
+                                  </div>
+                                  <select
+                                    className="input"
+                                    value={formData.clinicTypeId || clinicTypes.find((c) => c.isDefault)?.id || ''}
+                                    onChange={(e) => setFormData({ ...formData, clinicTypeId: e.target.value })}
+                                    style={{ height: '38px', fontSize: '13px', borderRadius: '8px', marginBottom: '6px' }}
+                                  >
+                                    {clinicTypes.map((ct) => (
+                                      <option key={ct.id} value={ct.id}>
+                                        {ct.icon === 'Eye' ? '👁️' : '🩺'} {ct.name} {ct.isDefault ? '(Default)' : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {(() => {
+                                    const selectedCT = clinicTypes.find((c) => c.id === (formData.clinicTypeId || clinicTypes.find((x) => x.isDefault)?.id));
+                                    if (!selectedCT) return null;
+                                    return (
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>Included: </span>
+                                        {(selectedCT.features || []).slice(0, 6).join(', ')}
+                                        {(selectedCT.features || []).length > 6 ? ` +${selectedCT.features.length - 6} more` : ''}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -1698,6 +1776,57 @@ export const TenantsPage: React.FC = () => {
                             {mod.description && (
                               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                                 {mod.description}
+                              </div>
+                            )}
+
+                            {/* Contextual Clinic Specialization Selector for Edit */}
+                            {mod.code === 'CLINIC' && isChecked && clinicTypes.length > 0 && (
+                              <div
+                                style={{
+                                  marginTop: '10px',
+                                  padding: '12px 14px',
+                                  backgroundColor: 'var(--bg-surface)',
+                                  borderRadius: '8px',
+                                  border: '1px solid var(--border-color)',
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                                    {t('clinicTypes.specializationLabel', 'Clinic Specialization Type')}
+                                  </label>
+                                  {(() => {
+                                    const selectedCT = clinicTypes.find((c) => c.id === (editClinicTypeId || clinicTypes.find((x) => x.isDefault)?.id));
+                                    return selectedCT ? (
+                                      <span style={{ fontSize: '11px', color: 'var(--primary-600)', fontWeight: 600 }}>
+                                        {selectedCT.features?.length || 0} menus active
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                </div>
+                                <select
+                                  className="input"
+                                  value={editClinicTypeId || clinicTypes.find((c) => c.isDefault)?.id || ''}
+                                  onChange={(e) => setEditClinicTypeId(e.target.value)}
+                                  style={{ height: '38px', fontSize: '13px', borderRadius: '8px', marginBottom: '6px' }}
+                                >
+                                  {clinicTypes.map((ct) => (
+                                    <option key={ct.id} value={ct.id}>
+                                      {ct.icon === 'Eye' ? '👁️' : '🩺'} {ct.name} {ct.isDefault ? '(Default)' : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                                {(() => {
+                                  const selectedCT = clinicTypes.find((c) => c.id === (editClinicTypeId || clinicTypes.find((x) => x.isDefault)?.id));
+                                  if (!selectedCT) return null;
+                                  return (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                                      <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>Included: </span>
+                                      {(selectedCT.features || []).slice(0, 6).join(', ')}
+                                      {(selectedCT.features || []).length > 6 ? ` +${selectedCT.features.length - 6} more` : ''}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>

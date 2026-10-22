@@ -21,7 +21,11 @@ import {
   PackageCheck,
   Zap,
   Eye,
+  Building2,
+  Stethoscope,
+  Sliders,
 } from 'lucide-react';
+import { ClinicTypesTab } from '../components/clinic/ClinicTypesTab';
 
 export interface SystemModule {
   id: string;
@@ -29,6 +33,8 @@ export interface SystemModule {
   code: string;
   description: string | null;
   isEnabled: boolean;
+  tenantCount?: number;
+  clinicTypesCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +51,7 @@ function nameToCode(name: string): string {
 export const ModulesPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'system' | 'clinicTypes'>('system');
   const [modules, setModules] = useState<SystemModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -227,17 +234,102 @@ export const ModulesPage: React.FC = () => {
           </p>
         </div>
 
+        {activeTab === 'system' && (
+          <button
+            onClick={handleOpenCreateModal}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
+          >
+            <Plus size={18} />
+            <span>{t('modules.createBtn')}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Option A: Top Tabs (System Modules vs Clinic Specializations) */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '8px',
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '24px',
+        }}
+      >
         <button
-          onClick={handleOpenCreateModal}
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
+          type="button"
+          onClick={() => setActiveTab('system')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'system' ? '2px solid var(--primary-600)' : '2px solid transparent',
+            color: activeTab === 'system' ? 'var(--primary-600)' : 'var(--text-muted)',
+            fontWeight: activeTab === 'system' ? 800 : 500,
+            fontSize: '14px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
         >
-          <Plus size={18} />
-          <span>{t('modules.createBtn')}</span>
+          <Layers size={17} />
+          <span>{t('modules.systemModulesTab', 'System Modules')}</span>
+          <span
+            style={{
+              fontSize: '11px',
+              padding: '1px 7px',
+              borderRadius: '10px',
+              backgroundColor: activeTab === 'system' ? 'var(--badge-primary-bg)' : 'var(--bg-surface-hover)',
+              color: activeTab === 'system' ? 'var(--primary-600)' : 'var(--text-muted)',
+              fontWeight: 700,
+            }}
+          >
+            {modules.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('clinicTypes')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'clinicTypes' ? '2px solid var(--primary-600)' : '2px solid transparent',
+            color: activeTab === 'clinicTypes' ? 'var(--primary-600)' : 'var(--text-muted)',
+            fontWeight: activeTab === 'clinicTypes' ? 800 : 500,
+            fontSize: '14px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Stethoscope size={17} />
+          <span>{t('modules.clinicTypesTab', 'Clinic Types & Specializations')}</span>
+          <span
+            style={{
+              fontSize: '10px',
+              padding: '1px 7px',
+              borderRadius: '6px',
+              backgroundColor: 'var(--badge-success-bg)',
+              color: 'var(--badge-success-text)',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+            }}
+          >
+            Configurable
+          </span>
         </button>
       </div>
 
-      {/* Stats Cards */}
+      {activeTab === 'clinicTypes' ? (
+        <ClinicTypesTab />
+      ) : (
+        <>
+          {/* Stats Cards */}
       <div
         style={{
           display: 'grid',
@@ -514,8 +606,40 @@ export const ModulesPage: React.FC = () => {
                   borderTop: '1px solid var(--border-subtle)',
                 }}
               >
-                <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                  {formatDate(mod.createdAt, { locale: i18n.language })}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                    {formatDate(mod.createdAt, { locale: i18n.language })}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {mod.tenantCount !== undefined && mod.tenantCount > 0 && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: 'var(--primary-600)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}
+                      >
+                        <Building2 size={11} /> {mod.tenantCount} org(s)
+                      </span>
+                    )}
+                    {mod.code === 'CLINIC' && mod.clinicTypesCount !== undefined && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: '#0d9488',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}
+                      >
+                        <Stethoscope size={11} /> {mod.clinicTypesCount} clinic types
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -529,7 +653,19 @@ export const ModulesPage: React.FC = () => {
                   <button
                     onClick={() => setDeletingModule(mod)}
                     className="btn btn-secondary btn-sm"
-                    style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--rose-500)' }}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      color: ((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0)) ? 'var(--text-muted)' : 'var(--rose-500)',
+                      cursor: ((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0)) ? 'not-allowed' : 'pointer',
+                    }}
+                    title={
+                      (mod.tenantCount || 0) > 0
+                        ? `Cannot delete: Used by ${mod.tenantCount} organization(s)`
+                        : mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0
+                        ? `Cannot delete: ${mod.clinicTypesCount} clinic type(s) defined`
+                        : t('modules.deleteBtn')
+                    }
                   >
                     <Trash2 size={13} /> {t('modules.deleteBtn')}
                   </button>
@@ -904,69 +1040,117 @@ export const ModulesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deletingModule && (
-        <div className="modal-backdrop">
-          <div className="modal-dialog" style={{ maxWidth: '440px' }}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rose-500)' }}>
-                <AlertCircle size={20} />
-                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--rose-500)' }}>{t('modules.deleteModalTitle')}</h3>
+      {/* Delete Confirmation Modal with Strict Cascade Safeguards */}
+      {deletingModule && (() => {
+        const hasTenants = (deletingModule.tenantCount || 0) > 0;
+        const hasClinicTypes = deletingModule.code === 'CLINIC' && (deletingModule.clinicTypesCount || 0) > 0;
+        const isBlocked = hasTenants || hasClinicTypes;
+
+        return (
+          <div className="modal-backdrop">
+            <div className="modal-dialog" style={{ maxWidth: '480px' }}>
+              <div className="modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isBlocked ? 'var(--amber-500)' : 'var(--rose-500)' }}>
+                  {isBlocked ? <ShieldCheck size={22} /> : <AlertCircle size={20} />}
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: isBlocked ? 'var(--text-heading)' : 'var(--rose-500)' }}>
+                    {isBlocked ? t('modules.deleteBlockedTitle', 'Deletion Blocked: Dependencies Exist') : t('modules.deleteModalTitle')}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setDeletingModule(null)}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <button
-                onClick={() => setDeletingModule(null)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: '1.5' }}>
-                {t('modules.deleteModalConfirm', { name: deletingModule.name, code: deletingModule.code })}
-              </p>
-              <div
-                style={{
-                  marginTop: '12px',
-                  padding: '10px 14px',
-                  backgroundColor: 'var(--badge-danger-bg)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  color: 'var(--badge-danger-text)',
-                }}
-              >
-                {t('modules.deleteModalWarning')}
+              <div className="modal-body">
+                {hasTenants ? (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      backgroundColor: 'var(--badge-danger-bg, #fee2e2)',
+                      borderRadius: '8px',
+                      color: 'var(--badge-danger-text, #991b1b)',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+                    Cannot delete system module <strong>{deletingModule.name}</strong> because it is actively associated with{' '}
+                    <strong>{deletingModule.tenantCount} organization(s)</strong>. You must remove this module from all organizations before deleting.
+                  </div>
+                ) : hasClinicTypes ? (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      backgroundColor: 'var(--badge-danger-bg, #fee2e2)',
+                      borderRadius: '8px',
+                      color: 'var(--badge-danger-text, #991b1b)',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+                    Cannot delete system module <strong>{deletingModule.name}</strong> because{' '}
+                    <strong>{deletingModule.clinicTypesCount} clinic specialization type(s)</strong> (e.g. Dental Clinic) are defined under it. Please delete all clinic types first in the Clinic Types tab.
+                  </div>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                      {t('modules.deleteModalConfirm', { name: deletingModule.name, code: deletingModule.code })}
+                    </p>
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        padding: '10px 14px',
+                        backgroundColor: 'var(--badge-danger-bg)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--badge-danger-text)',
+                      }}
+                    >
+                      {t('modules.deleteModalWarning')}
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                onClick={() => setDeletingModule(null)}
-                className="btn btn-secondary"
-                disabled={deleting}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteModule}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-                disabled={deleting}
-              >
-                {deleting ? t('modules.deleting') : t('modules.confirmDelete')}
-              </button>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setDeletingModule(null)}
+                  className="btn btn-secondary"
+                  disabled={deleting}
+                >
+                  {isBlocked ? t('common.close', 'Close') : t('common.cancel')}
+                </button>
+                {!isBlocked && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteModule}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                    disabled={deleting}
+                  >
+                    {deleting ? t('modules.deleting') : t('modules.confirmDelete')}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+    </>
+  )}
     </div>
   );
 };

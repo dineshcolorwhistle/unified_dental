@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './core/context/AuthContext';
-import { ModuleProvider } from './core/context/ModuleContext';
+import { ModuleProvider, useModule } from './core/context/ModuleContext';
 import { NotificationProvider } from './core/context/NotificationContext';
 import { ThemeProvider } from './core/context/ThemeContext';
 import { ToastProvider } from './core/context/ToastContext';
@@ -90,6 +90,20 @@ const ProtectedRoute: React.FC<{
   return <>{children}</>;
 };
 
+const FeatureProtectedRoute: React.FC<{
+  feature: string;
+  children: React.ReactNode;
+}> = ({ feature, children }) => {
+  const { activeModuleMode, hasClinicFeature } = useModule();
+
+  // If in Clinic mode and feature is not permitted by clinic type, redirect to dashboard
+  if (activeModuleMode === 'CLINIC' && !hasClinicFeature(feature)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
@@ -134,7 +148,9 @@ export const App: React.FC = () => {
                       path="finance"
                       element={
                         <ProtectedRoute>
-                          <FinancePage />
+                          <FeatureProtectedRoute feature="finance">
+                            <FinancePage />
+                          </FeatureProtectedRoute>
                         </ProtectedRoute>
                       }
                     />
@@ -142,7 +158,9 @@ export const App: React.FC = () => {
                       path="reminders"
                       element={
                         <ProtectedRoute>
-                          <RemindersPage />
+                          <FeatureProtectedRoute feature="reminders">
+                            <RemindersPage />
+                          </FeatureProtectedRoute>
                         </ProtectedRoute>
                       }
                     />
@@ -150,7 +168,9 @@ export const App: React.FC = () => {
                       path="inventory"
                       element={
                         <ProtectedRoute>
-                          <InventoryPage />
+                          <FeatureProtectedRoute feature="inventory">
+                            <InventoryPage />
+                          </FeatureProtectedRoute>
                         </ProtectedRoute>
                       }
                     />
@@ -158,7 +178,9 @@ export const App: React.FC = () => {
                       path="expenses"
                       element={
                         <ProtectedRoute>
-                          <ExpensesPage />
+                          <FeatureProtectedRoute feature="expenses">
+                            <ExpensesPage />
+                          </FeatureProtectedRoute>
                         </ProtectedRoute>
                       }
                     />
@@ -191,17 +213,17 @@ export const App: React.FC = () => {
                     <Route path="lab/support" element={<ProtectedRoute><LabSupportPortalPage /></ProtectedRoute>} />
 
                     {/* Clinic Module Routes */}
-                    <Route path="clinic/staff" element={<ProtectedRoute><ClinicStaffPage /></ProtectedRoute>} />
-                    <Route path="clinic/users/admin" element={<ProtectedRoute><ClinicUsersAdminPage /></ProtectedRoute>} />
-                    <Route path="clinic/users/staff" element={<ProtectedRoute><ClinicUsersStaffPage /></ProtectedRoute>} />
-                    <Route path="clinic/users/doctors" element={<ProtectedRoute><ClinicUsersDoctorsPage /></ProtectedRoute>} />
-                    <Route path="clinic/patients" element={<ProtectedRoute><ClinicPatientsPage /></ProtectedRoute>} />
-                    <Route path="clinic/appointments" element={<ProtectedRoute><ClinicAppointmentsPage /></ProtectedRoute>} />
-                    <Route path="clinic/income" element={<ProtectedRoute><ClinicIncomePage /></ProtectedRoute>} />
-                    <Route path="clinic/treatments" element={<ProtectedRoute><ClinicTreatmentsPage /></ProtectedRoute>} />
-                    <Route path="clinic/prescriptions" element={<ProtectedRoute><ClinicPrescriptionsPage /></ProtectedRoute>} />
-                    <Route path="clinic/billing" element={<ProtectedRoute><ClinicBillingPage /></ProtectedRoute>} />
-                    <Route path="clinic/doctors" element={<ProtectedRoute><ClinicDoctorsPage /></ProtectedRoute>} />
+                    <Route path="clinic/staff" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicStaffPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/users/admin" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersAdminPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/users/staff" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersStaffPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/users/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/patients" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><ClinicPatientsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/appointments" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicAppointmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/income" element={<ProtectedRoute><FeatureProtectedRoute feature="income"><ClinicIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/treatments" element={<ProtectedRoute><FeatureProtectedRoute feature="treatments"><ClinicTreatmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/prescriptions" element={<ProtectedRoute><FeatureProtectedRoute feature="prescriptions"><ClinicPrescriptionsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/billing" element={<ProtectedRoute><FeatureProtectedRoute feature="billing"><ClinicBillingPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
 
                     {/* Platform Super Admin Routes */}
                     <Route

@@ -8,6 +8,7 @@ import { ClinicUsersService } from './users/clinic-users.service';
 import { ClinicAdminController } from './users/clinic-admin.controller';
 import { ClinicStaffController } from './users/clinic-staff.controller';
 import { ClinicDoctorsController } from './users/clinic-doctors.controller';
+import { ClinicTypesModule } from './types/clinic-types.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ClinicDoctorsController } from './users/clinic-doctors.controller';
     MailModule,
     BranchesModule,
     ModulesModule,
+    ClinicTypesModule,
   ],
   controllers: [
     ClinicAdminController,
@@ -27,6 +29,7 @@ import { ClinicDoctorsController } from './users/clinic-doctors.controller';
   ],
   exports: [
     ClinicUsersService,
+    ClinicTypesModule,
   ],
 })
 export class ClinicModule {}

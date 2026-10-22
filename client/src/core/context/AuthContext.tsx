@@ -17,6 +17,12 @@ export interface UserProfile {
     slug: string;
     settings?: Record<string, any>;
     enabledModules: string[];
+    clinicType?: {
+      id: string;
+      code: string;
+      name: string;
+      features: string[];
+    } | null;
   } | null;
   activeBranchId?: string;
   allowedModules?: string[];

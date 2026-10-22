@@ -44,6 +44,7 @@ export class TenancyService {
         : undefined,
       include: {
         plan: true,
+        clinicType: true,
         modules: true,
         branches: {
           select: {
@@ -69,6 +70,7 @@ export class TenancyService {
       where: { slug: slug.toLowerCase() },
       include: {
         plan: true,
+        clinicType: true,
         modules: true,
         branches: true,
       },
@@ -86,6 +88,7 @@ export class TenancyService {
       where: { id },
       include: {
         plan: true,
+        clinicType: true,
         modules: true,
         branches: true,
         _count: {
@@ -174,6 +177,24 @@ export class TenancyService {
           ? Number(plan.price)
           : null;
 
+      let clinicTypeId: string | null = null;
+      if (modulesToEnable.includes('CLINIC')) {
+        if (dto.clinicTypeId) {
+          const typeExists = await tx.clinicType.findUnique({
+            where: { id: dto.clinicTypeId },
+          });
+          if (!typeExists) {
+            throw new BadRequestException('Selected clinic type does not exist');
+          }
+          clinicTypeId = dto.clinicTypeId;
+        } else {
+          const defaultClinicType = await tx.clinicType.findFirst({
+            where: { isDefault: true, isActive: true },
+          });
+          clinicTypeId = defaultClinicType?.id || null;
+        }
+      }
+
       // 1. Create tenant with planId and overrides
       const tenant = await tx.tenant.create({
         data: {
@@ -188,6 +209,7 @@ export class TenancyService {
             ...(dto.settings || {}),
           },
           planId: dto.planId || undefined,
+          clinicTypeId: clinicTypeId || undefined,
           price: effectivePrice !== null ? effectivePrice : undefined,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
@@ -374,12 +396,30 @@ export class TenancyService {
       throw new BadRequestException('Subscription end date cannot be earlier than start date');
     }
 
+    let clinicTypeIdToSave: string | null | undefined = undefined;
+    if (dto.clinicTypeId !== undefined) {
+      if (dto.clinicTypeId) {
+        const typeExists = await this.prisma.clinicType.findUnique({
+          where: { id: dto.clinicTypeId },
+        });
+        if (!typeExists) {
+          throw new BadRequestException('Selected clinic type does not exist');
+        }
+        clinicTypeIdToSave = dto.clinicTypeId;
+      } else {
+        clinicTypeIdToSave = null;
+      }
+    } else if (dto.modules !== undefined && !dto.modules.includes('CLINIC')) {
+      clinicTypeIdToSave = null;
+    }
+
     const updated = await this.prisma.tenant.update({
       where: { id },
       data: {
         name: dto.name,
         status: dto.status,
         planId: dto.planId !== undefined ? dto.planId : undefined,
+        clinicTypeId: clinicTypeIdToSave,
         price: dto.price !== undefined ? (dto.price === null ? null : Number(dto.price)) : undefined,
         startDate: startDateToSave,
         endDate: endDateToSave,
@@ -391,6 +431,7 @@ export class TenancyService {
       },
       include: {
         plan: true,
+        clinicType: true,
         modules: true,
         branches: true,
       },
