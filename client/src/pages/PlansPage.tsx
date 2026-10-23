@@ -22,6 +22,7 @@ import {
   HardDrive,
   Eye,
 } from 'lucide-react';
+import { Tooltip } from '../components/common/Tooltip';
 
 interface SystemModule {
   id: string;
@@ -356,7 +357,7 @@ export const PlansPage: React.FC = () => {
           {filteredPlans.map((plan) => (
             <div
               key={plan.id}
-              className="card card-interactive"
+              className="card"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -369,19 +370,6 @@ export const PlansPage: React.FC = () => {
                 transition: 'all 0.2s ease',
               }}
             >
-              {/* Card Hover Overlay */}
-              <div className="card-hover-overlay">
-                <button
-                  type="button"
-                  onClick={() => setViewingPlan(plan)}
-                  className="btn btn-primary card-hover-overlay-btn"
-                  style={{ gap: '8px', padding: '10px 20px', borderRadius: '10px' }}
-                >
-                  <Eye size={16} />
-                  <span>{t('plans.viewBtn', 'View Details')}</span>
-                </button>
-              </div>
-
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -400,7 +388,20 @@ export const PlansPage: React.FC = () => {
                       <CreditCard size={20} />
                     </div>
                     <div>
-                      <h4 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      <h4
+                        onClick={() => setViewingPlan(plan)}
+                        style={{
+                          fontSize: '18px',
+                          fontWeight: 800,
+                          margin: 0,
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          transition: 'color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary-600)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-main)')}
+                        title={t('plans.viewModalTitle', 'View Subscription Plan Details')}
+                      >
                         {plan.name}
                       </h4>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
@@ -519,21 +520,37 @@ export const PlansPage: React.FC = () => {
                 <span style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
                   {formatDate(plan.createdAt, { locale: i18n.language })}
                 </span>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleOpenEditModal(plan)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '4px 10px', fontSize: '12px' }}
-                  >
-                    <Edit2 size={13} /> {t('plans.editBtn')}
-                  </button>
-                  <button
-                    onClick={() => setDeletingPlan(plan)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--rose-500)' }}
-                  >
-                    <Trash2 size={13} /> {t('plans.deleteBtn')}
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Tooltip content={t('common.view', 'View')}>
+                    <button
+                      type="button"
+                      onClick={() => setViewingPlan(plan)}
+                      className="btn-icon btn-icon-primary"
+                      aria-label={t('common.view', 'View')}
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t('plans.editBtn', 'Edit')}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(plan)}
+                      className="btn-icon"
+                      aria-label={t('plans.editBtn', 'Edit')}
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t('plans.deleteBtn', 'Delete')}>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingPlan(plan)}
+                      className="btn-icon btn-icon-danger"
+                      aria-label={t('plans.deleteBtn', 'Delete')}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
             </div>

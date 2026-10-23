@@ -34,7 +34,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleMobileSidebar,
   isSidebarCollapsed = false,
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isTenantAdmin } = useAuth();
   const { canSwitchModules, isClinicEnabled, isLabEnabled } = useModule();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -249,8 +249,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         ) : null}
 
-        {/* Branch Switcher */}
-        {tenant && <BranchSwitcher />}
+        {/* Branch Switcher (Tenant Admin only) */}
+        {tenant && isTenantAdmin && <BranchSwitcher />}
 
         {/* Language Switcher */}
         <LanguageSwitcher />

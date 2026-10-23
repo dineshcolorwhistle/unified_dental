@@ -26,6 +26,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { ClinicTypesTab } from '../components/clinic/ClinicTypesTab';
+import { Tooltip } from '../components/common/Tooltip';
 
 export interface SystemModule {
   id: string;
@@ -491,7 +492,7 @@ export const ModulesPage: React.FC = () => {
           {filteredModules.map((mod) => (
             <div
               key={mod.id}
-              className="card card-interactive"
+              className="card"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -503,19 +504,6 @@ export const ModulesPage: React.FC = () => {
                 transition: 'all 0.2s ease',
               }}
             >
-              {/* Card Hover Overlay */}
-              <div className="card-hover-overlay">
-                <button
-                  type="button"
-                  onClick={() => setViewingModule(mod)}
-                  className="btn btn-primary card-hover-overlay-btn"
-                  style={{ gap: '8px', padding: '10px 20px', borderRadius: '10px' }}
-                >
-                  <Eye size={16} />
-                  <span>{t('modules.viewBtn', 'View Details')}</span>
-                </button>
-              </div>
-
               <div>
                 {/* Card Top: Code badge & Status toggle */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -575,12 +563,18 @@ export const ModulesPage: React.FC = () => {
 
                 {/* Module Name & Description */}
                 <h3
+                  onClick={() => setViewingModule(mod)}
                   style={{
                     fontSize: '18px',
                     fontWeight: 800,
                     color: 'var(--text-main)',
                     margin: '0 0 8px 0',
+                    cursor: 'pointer',
+                    transition: 'color 0.15s ease',
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--primary-600)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-main)')}
+                  title={t('modules.viewModalTitle', 'View Module Details')}
                 >
                   {mod.name}
                 </h3>
@@ -642,33 +636,50 @@ export const ModulesPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleOpenEditModal(mod)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '4px 10px', fontSize: '12px' }}
-                  >
-                    <Edit2 size={13} /> {t('modules.editBtn')}
-                  </button>
-                  <button
-                    onClick={() => setDeletingModule(mod)}
-                    className="btn btn-secondary btn-sm"
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '12px',
-                      color: ((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0)) ? 'var(--text-muted)' : 'var(--rose-500)',
-                      cursor: ((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0)) ? 'not-allowed' : 'pointer',
-                    }}
-                    title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Tooltip content={t('common.view', 'View')}>
+                    <button
+                      type="button"
+                      onClick={() => setViewingModule(mod)}
+                      className="btn-icon btn-icon-primary"
+                      aria-label={t('common.view', 'View')}
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t('modules.editBtn', 'Edit')}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(mod)}
+                      className="btn-icon"
+                      aria-label={t('modules.editBtn', 'Edit')}
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip
+                    content={
                       (mod.tenantCount || 0) > 0
                         ? `Cannot delete: Used by ${mod.tenantCount} organization(s)`
                         : mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0
                         ? `Cannot delete: ${mod.clinicTypesCount} clinic type(s) defined`
-                        : t('modules.deleteBtn')
+                        : t('modules.deleteBtn', 'Delete')
                     }
                   >
-                    <Trash2 size={13} /> {t('modules.deleteBtn')}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingModule(mod)}
+                      disabled={((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0))}
+                      className="btn-icon btn-icon-danger"
+                      style={{
+                        cursor: ((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0)) ? 'not-allowed' : 'pointer',
+                        opacity: ((mod.tenantCount || 0) > 0 || (mod.code === 'CLINIC' && (mod.clinicTypesCount || 0) > 0)) ? 0.4 : 1,
+                      }}
+                      aria-label={t('modules.deleteBtn', 'Delete')}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
             </div>

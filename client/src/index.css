@@ -1062,6 +1062,26 @@ button {
   border-color: var(--border-hover);
 }
 
+.btn-icon-primary {
+  color: var(--primary-600);
+}
+
+.btn-icon-primary:hover {
+  background-color: var(--badge-primary-bg, rgba(13, 148, 136, 0.12)) !important;
+  border-color: var(--primary-600) !important;
+  color: var(--primary-700) !important;
+}
+
+.btn-icon-danger {
+  color: var(--rose-500);
+}
+
+.btn-icon-danger:hover:not(:disabled) {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+  border-color: var(--rose-500) !important;
+  color: var(--rose-600) !important;
+}
+
 /* Form Controls */
 .form-group {
   margin-bottom: 18px;

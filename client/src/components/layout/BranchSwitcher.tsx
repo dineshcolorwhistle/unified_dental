@@ -5,33 +5,11 @@ import { Building2, ChevronDown, Check, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const BranchSwitcher: React.FC = () => {
-  const { user, switchBranch, isTenantAdmin, isLabAdmin, isLabTechnician } = useAuth();
+  const { user, switchBranch, isTenantAdmin } = useAuth();
   const { activeModuleMode } = useModule();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Selected branch section not required to display for Lab admin & technician role.
-  // It only displays for Lab owner role (tenant admin / superadmin in LAB mode).
-  const isLabOwner = Boolean(isTenantAdmin || user?.isSuperAdmin);
-  if (isLabAdmin || isLabTechnician) {
-    return null;
-  }
-  if (activeModuleMode === 'LAB' && !isLabOwner) {
-    return null;
-  }
-
-  const allBranches = user?.availableBranches || [];
-  const branches = allBranches.filter((b) => {
-    if (activeModuleMode === 'PLATFORM') return true;
-    return (b.moduleKey || 'CLINIC').toUpperCase() === activeModuleMode;
-  });
-
-  const isAllSelected = !user?.activeBranchId || user?.activeBranchId === 'all';
-  const activeBranch = isAllSelected ? null : branches.find((b) => b.id === user?.activeBranchId);
-
-  // Non-tenant admin with single branch: show static indicator only
-  const isSingleBranchUser = !isTenantAdmin && branches.length <= 1;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -43,40 +21,19 @@ export const BranchSwitcher: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (!user || !user.activeTenant) return null;
-
-  // For non-tenant admin with a single branch: render static indicator
-  if (isSingleBranchUser) {
-    const branchName = activeBranch?.name || branches[0]?.name || t('header.selectBranch');
-    const branchCode = activeBranch?.code || branches[0]?.code || 'BR';
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 14px',
-          borderRadius: '8px',
-          fontWeight: 600,
-          border: '1px solid var(--border-color)',
-          backgroundColor: 'var(--bg-surface)',
-          color: 'var(--text-main)',
-        }}
-        aria-label={t('header.activeBranch')}
-      >
-        <Building2 size={16} style={{ color: 'var(--primary-600)' }} />
-        <span className="branch-switcher-name" style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
-          {branchName}
-        </span>
-        <span
-          className="badge badge-primary"
-          style={{ fontSize: '10px', padding: '1px 6px', letterSpacing: '0.04em' }}
-        >
-          {branchCode}
-        </span>
-      </div>
-    );
+  // Top bar branch selection only shows for Tenant Admin user role, not other roles
+  if (!isTenantAdmin || !user || !user.activeTenant) {
+    return null;
   }
+
+  const allBranches = user.availableBranches || [];
+  const branches = allBranches.filter((b) => {
+    if (activeModuleMode === 'PLATFORM') return true;
+    return (b.moduleKey || 'CLINIC').toUpperCase() === activeModuleMode;
+  });
+
+  const isAllSelected = !user.activeBranchId || user.activeBranchId === 'all';
+  const activeBranch = isAllSelected ? null : branches.find((b) => b.id === user.activeBranchId);
 
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
