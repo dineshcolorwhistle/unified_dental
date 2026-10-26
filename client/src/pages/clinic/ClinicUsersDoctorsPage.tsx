@@ -535,26 +535,26 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
           backgroundColor: 'var(--bg-card)',
         }}
       >
-        <div className="table-responsive" style={{ minHeight: '260px' }}>
+        <div className="table-responsive">
           <table className="table" style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '28%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicDoctors.table.doctor', 'Doctor / Practitioner')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '18%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicDoctors.table.specialization', 'Specialization')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '22%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicDoctors.table.contact', 'Contact')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '14%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicDoctors.table.branch', 'Branch')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'center', width: '10%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicDoctors.table.status', 'Status')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'right', width: '8%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicDoctors.table.actions', 'Actions')}
                 </th>
               </tr>
@@ -625,29 +625,28 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                           <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)' }}>
                             {doc.name.startsWith('Dr.') ? doc.name : `Dr. ${doc.name}`}
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {doc.email}
-                          </div>
+                          {doc.licenseNumber ? (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              Lic: {doc.licenseNumber}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              {t('clinicDoctors.badgePractitioner', 'Practitioner')}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
 
                     <td style={{ padding: '14px 18px' }}>
-                      <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '3px' }}>
-                        {doc.specialization ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                            <Award size={13} style={{ color: 'var(--primary-600)' }} />
-                            {doc.specialization}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '12.5px' }}>—</span>
-                        )}
-                        {doc.licenseNumber && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Lic: {doc.licenseNumber}
-                          </span>
-                        )}
-                      </div>
+                      {doc.specialization ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                          <Award size={13} style={{ color: 'var(--primary-600)' }} />
+                          {doc.specialization}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12.5px' }}>—</span>
+                      )}
                     </td>
 
                     <td style={{ padding: '14px 18px', fontSize: '13px' }}>
@@ -684,7 +683,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                       )}
                     </td>
 
-                    <td style={{ padding: '14px 18px' }}>
+                    <td style={{ padding: '14px 18px', textAlign: 'center' }}>
                       <span
                         className={`badge ${
                           doc.status === 'ACTIVE'

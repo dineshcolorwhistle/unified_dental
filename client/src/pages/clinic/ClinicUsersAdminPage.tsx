@@ -524,29 +524,29 @@ export const ClinicUsersAdminPage: React.FC = () => {
           backgroundColor: 'var(--bg-card)',
         }}
       >
-        <div className="table-responsive" style={{ minHeight: '260px' }}>
+        <div className="table-responsive">
           <table className="table" style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '24%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.administrator', 'Administrator')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '20%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.contact', 'Contact')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '16%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.branch', 'Assigned Branch')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '14%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.roleType', 'Role / Level')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'center', width: '10%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.status', 'Status')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '10%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.created', 'Joined')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'right', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicAdmin.table.actions', 'Actions')}
                 </th>
               </tr>
@@ -619,7 +619,7 @@ export const ClinicUsersAdminPage: React.FC = () => {
                             {admin.name}
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {admin.email}
+                            {admin.isDefaultAdmin ? t('clinicAdmin.rolePrimary', 'Primary Administrator') : t('clinicAdmin.roleBranch', 'Branch Administrator')}
                           </div>
                         </div>
                       </div>
@@ -698,7 +698,7 @@ export const ClinicUsersAdminPage: React.FC = () => {
                     </td>
 
                     {/* Status */}
-                    <td style={{ padding: '14px 18px' }}>
+                    <td style={{ padding: '14px 18px', textAlign: 'center' }}>
                       <span
                         className={`badge ${
                           admin.status === 'ACTIVE'

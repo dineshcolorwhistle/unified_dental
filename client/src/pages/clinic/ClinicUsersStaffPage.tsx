@@ -510,26 +510,26 @@ export const ClinicUsersStaffPage: React.FC = () => {
           backgroundColor: 'var(--bg-card)',
         }}
       >
-        <div className="table-responsive" style={{ minHeight: '260px' }}>
+        <div className="table-responsive">
           <table className="table" style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '28%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicStaff.table.staffMember', 'Staff Member')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '22%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicStaff.table.contact', 'Contact')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '16%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicStaff.table.branch', 'Branch')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'center', width: '12%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicStaff.table.status', 'Status')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'left', width: '12%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicStaff.table.joined', 'Joined')}
                 </th>
-                <th style={{ padding: '12px 18px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 18px', textAlign: 'right', width: '10%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {t('clinicStaff.table.actions', 'Actions')}
                 </th>
               </tr>
@@ -601,7 +601,7 @@ export const ClinicUsersStaffPage: React.FC = () => {
                             {staff.name}
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {staff.email}
+                            {staff.roles?.[0] || t('clinicStaff.roleStaff', 'Staff Member')}
                           </div>
                         </div>
                       </div>
@@ -633,7 +633,7 @@ export const ClinicUsersStaffPage: React.FC = () => {
                       )}
                     </td>
 
-                    <td style={{ padding: '14px 18px' }}>
+                    <td style={{ padding: '14px 18px', textAlign: 'center' }}>
                       <span
                         className={`badge ${
                           staff.status === 'ACTIVE'

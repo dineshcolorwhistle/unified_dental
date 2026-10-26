@@ -24,6 +24,11 @@ enum BranchStatus {
   INACTIVE
 }
 
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum ProcessType {
   PRODUCTION
   INTERNAL_VERIFICATION
@@ -102,6 +107,7 @@ model Tenant {
   paymentMethods       PaymentMethod[]
   whatsappTemplates    WhatsappTemplate[]
   supportTickets       SupportTicket[]
+  patients             Patient[]
 
   @@map("tenants")
 }
@@ -203,6 +209,7 @@ model Branch {
   paymentMethods      PaymentMethod[]
   whatsappTemplates   WhatsappTemplate[]
   supportTickets      SupportTicket[]
+  patients            Patient[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -247,6 +254,7 @@ model User {
   createdWhatsappTemplates   WhatsappTemplate[] @relation("WhatsappTemplateCreatedBy")
   createdSupportTickets      SupportTicket[] @relation("SupportTicketCreatedBy")
   supportTicketMessages      SupportTicketMessage[]
+  createdPatients            Patient[] @relation("PatientCreatedBy")
 
   @@map("users")
 }
@@ -1115,5 +1123,45 @@ model SupportTicketMessage {
   @@index([ticketId, createdAt])
   @@index([senderId])
   @@map("support_ticket_messages")
+}
+
+model Patient {
+  id                          String         @id @default(uuid())
+  tenantId                    String         @map("tenant_id")
+  branchId                    String?        @map("branch_id")
+  recordNumber                String         @map("record_number")
+  firstName                   String         @map("first_name")
+  fatherLastName              String?        @map("father_last_name")
+  motherLastName              String?        @map("mother_last_name")
+  gender                      String?
+  dateOfBirth                 DateTime?      @map("date_of_birth")
+  height                      Float?
+  weight                      Float?
+  email                       String?
+  phoneCountryCode            String?        @default("+52") @map("phone_country_code")
+  phoneNumber                 String?        @map("phone_number")
+  address                     String?        @db.Text
+  emergencyContactName        String?        @map("emergency_contact_name")
+  emergencyContactRelation    String?        @map("emergency_contact_relation")
+  emergencyContactCountryCode String?        @default("+52") @map("emergency_contact_country_code")
+  emergencyContactPhone       String?        @map("emergency_contact_phone")
+  medications                 String?        @db.Text
+  allergies                   String?        @db.Text
+  referralSource              String?        @map("referral_source")
+  status                      PatientStatus  @default(ACTIVE)
+  notes                       String?        @db.Text
+  createdById                 String?        @map("created_by_id")
+  createdAt                   DateTime       @default(now()) @map("created_at")
+  updatedAt                   DateTime       @updatedAt @map("updated_at")
+
+  tenant                      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                      Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy                   User?          @relation("PatientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, branchId])
+  @@index([tenantId, recordNumber])
+  @@map("patients")
 }
 
