@@ -906,6 +906,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       isCollapsed={isCollapsed}
                     />
                   )}
+
+                  {!isClinicDoctor && (
+                    <SidebarNavItem
+                      to="/clinic/payment-methods"
+                      icon={<CreditCard size={17} />}
+                      label={t('nav.paymentMethods', 'Payment Methods')}
+                      isCollapsed={isCollapsed}
+                    />
+                  )}
                 </div>
               </div>
             )}

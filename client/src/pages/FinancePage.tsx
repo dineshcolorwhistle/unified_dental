@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   CreditCard,
   TrendingUp,
@@ -14,6 +15,10 @@ import {
   List,
   BarChart3,
   RotateCcw,
+  Receipt,
+  Sparkles,
+  ArrowRight,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../core/context/AuthContext';
 import { useModule } from '../core/context/ModuleContext';
@@ -185,12 +190,13 @@ export const FinancePage: React.FC = () => {
     }
   }, [selectedBranchId, moduleKey, startDate, endDate, listsSearch, listsPage]);
 
-  // Load data when tab changes or when common filters change
+  // Load data when tab changes or when common filters change (Lab only)
   useEffect(() => {
+    if (moduleKey !== 'LAB') return;
     if (activeTab === 'overview') fetchOverview();
     else if (activeTab === 'doctorBalances') fetchDoctorBalances();
     else if (activeTab === 'doctorLists') fetchDoctorLists();
-  }, [activeTab, fetchOverview, fetchDoctorBalances, fetchDoctorLists]);
+  }, [moduleKey, activeTab, fetchOverview, fetchDoctorBalances, fetchDoctorLists]);
 
   // Branch options for selector
   const branchOptions = useMemo(() => {
@@ -431,6 +437,175 @@ export const FinancePage: React.FC = () => {
   // ──────── Tab Badge Count ────────
   const doctorBadgeCount = doctorData?.kpis?.doctorsWithPending || 0;
   const listsBadgeCount = listsData?.pagination?.totalItems ?? listsData?.items?.length ?? 0;
+
+  if (moduleKey === 'CLINIC') {
+    return (
+      <div style={{ paddingBottom: '60px' }}>
+        {/* Page Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '24px',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#0284c7',
+              }}
+            >
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-heading)', margin: 0, letterSpacing: '-0.02em' }}>
+                {t('finance.clinicTitle', 'Clinic Finance & Accounts')}
+              </h1>
+              <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                {t('finance.clinicSubtitle', 'Monitor procedure revenue, clinical collections, billing records, and practice accounting.')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Informative Banner */}
+        <div
+          className="card"
+          style={{
+            padding: '36px 28px',
+            borderRadius: '14px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            marginBottom: '24px',
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '16px',
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#0284c7',
+              marginBottom: '16px',
+            }}
+          >
+            <Clock size={28} />
+          </div>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)', margin: '0 0 8px 0' }}>
+            {t('finance.clinicComingSoonTitle', 'Clinic Finance Module In Development')}
+          </h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '640px', lineHeight: 1.6, margin: '0 0 24px 0' }}>
+            {t(
+              'finance.clinicComingSoonDesc',
+              'The dedicated Dental Clinic Finance & Accounts module is currently under active development. Upcoming capabilities will include patient procedure billing, chair revenue summaries, doctor commissions, and real-time ledger reporting. In the meantime, you can manage operating costs in Expenses and configure payment types in Payment Methods.',
+            )}
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Link
+              to="/expenses"
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
+            >
+              <Receipt size={16} />
+              <span>{t('nav.expenses', 'Expenses')}</span>
+              <ArrowRight size={14} />
+            </Link>
+            <Link
+              to="/clinic/payment-methods"
+              className="btn btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
+            >
+              <CreditCard size={16} />
+              <span>{t('nav.paymentMethods', 'Payment Methods')}</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        {/* Quick Reference Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          <div className="card" style={{ padding: '20px', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--badge-primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-600)' }}>
+                <Receipt size={18} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                  {t('finance.cards.expensesTitle', 'Operating Expenses')}
+                </h3>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('finance.cards.expensesTag', 'Active Module')}</span>
+              </div>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+              {t('finance.cards.expensesDesc', 'Log and categorize daily clinical expenditures, dental supply purchases, vendor invoices, and maintenance costs.')}
+            </p>
+            <Link to="/expenses" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary-600)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              {t('finance.cards.openExpenses', 'View Expenses')} <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="card" style={{ padding: '20px', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(56, 189, 248, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
+                <CreditCard size={18} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                  {t('finance.cards.paymentMethodsTitle', 'Payment Methods')}
+                </h3>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('finance.cards.paymentMethodsTag', 'Clinic Configuration')}</span>
+              </div>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+              {t('finance.cards.paymentMethodsDesc', 'Define and manage accepted payment options (Cash, Credit Card, Debit Card, Bank Transfer) across clinic branches.')}
+            </p>
+            <Link to="/clinic/payment-methods" style={{ fontSize: '13px', fontWeight: 600, color: '#0284c7', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              {t('finance.cards.openPaymentMethods', 'Configure Payment Methods')} <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="card" style={{ padding: '20px', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
+                <Building2 size={18} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                  {t('finance.cards.branchesTitle', 'Clinic Branches')}
+                </h3>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('finance.cards.branchesTag', 'Practice Locations')}</span>
+              </div>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+              {t('finance.cards.branchesDesc', 'Manage branch physical facilities, operating hours, contact telephone numbers, and localized personnel assignments.')}
+            </p>
+            <Link to="/branches" style={{ fontSize: '13px', fontWeight: 600, color: '#059669', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              {t('finance.cards.openBranches', 'Manage Branches')} <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

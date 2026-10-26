@@ -235,13 +235,14 @@ export const ExpensesPage: React.FC = () => {
     try {
       const list = await paymentMethodService.getAll({
         branchId: branchId && branchId !== 'all' ? branchId : undefined,
+        moduleKey: currentModuleKey,
         activeOnly: true,
       });
       setConfiguredPaymentMethods(list);
     } catch (err) {
       console.error('Failed to load payment methods for expenses:', err);
     }
-  }, []);
+  }, [currentModuleKey]);
 
   useEffect(() => {
     const branchForPm = selectedBranch !== 'all' ? selectedBranch : (user?.activeBranchId || availableBranches[0]?.id);
@@ -434,10 +435,19 @@ export const ExpensesPage: React.FC = () => {
   const categoryFormOptions = categories.map((c) => ({ value: c.id, label: c.name }));
 
   const paymentMethodOptions = useMemo(() => {
-    return configuredPaymentMethods.map((pm) => ({
-      value: pm.name,
-      label: pm.name,
-    }));
+    const seen = new Set<string>();
+    const options: Array<{ value: string; label: string }> = [];
+    for (const pm of configuredPaymentMethods) {
+      const cleanName = pm.name?.trim();
+      if (cleanName && !seen.has(cleanName.toLowerCase())) {
+        seen.add(cleanName.toLowerCase());
+        options.push({
+          value: cleanName,
+          label: cleanName,
+        });
+      }
+    }
+    return options;
   }, [configuredPaymentMethods]);
 
   const branchFormOptions = availableBranches.map((b) => ({

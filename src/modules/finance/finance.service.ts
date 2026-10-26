@@ -74,6 +74,28 @@ export class FinanceService {
     return Boolean(userRole);
   }
 
+  async isClinicAdmin(actor: AuthenticatedUser, tenantId: string): Promise<boolean> {
+    const hasClinicAdminRole = actor.roles?.some((r: string) => {
+      const lower = r.toLowerCase();
+      return (
+        lower === 'clinic-admin' ||
+        lower.includes('clinic administrator') ||
+        lower.includes('clinic admin')
+      );
+    });
+    if (hasClinicAdminRole) return true;
+
+    const userRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: { slug: { in: ['clinic-admin'] } },
+      },
+    });
+
+    return Boolean(userRole);
+  }
+
   /**
    * Resolve branch for the actor. Lab Admins get their assigned branch.
    */
@@ -147,12 +169,36 @@ export class FinanceService {
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isLabAdminUser = await this.isLabAdmin(actor, tenantId);
+    const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isLabAdminUser) {
+    if (!isTenantAdminUser && !isLabAdminUser && !isClinicAdminUser) {
       throw new ForbiddenException('You do not have permission to access finance reports.');
     }
 
     const moduleKey = query.moduleKey || 'LAB';
+
+    if (moduleKey === 'CLINIC') {
+      return {
+        kpis: {
+          totalRevenue: 0,
+          totalCollected: 0,
+          outstanding: 0,
+          collectionPercentage: 0,
+          pendingPayments: 0,
+        },
+        monthlyTrend: [],
+        paymentDistribution: {
+          totalOrders: 0,
+          paidCount: 0,
+          pendingCount: 0,
+          paidPercentage: 0,
+          pendingPercentage: 0,
+        },
+        branchPerformance: [],
+        branchCharts: null,
+        isAllBranches: true,
+      };
+    }
 
     // Resolve branch scoping
     let branchFilter: any = {};
@@ -373,12 +419,37 @@ export class FinanceService {
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isLabAdminUser = await this.isLabAdmin(actor, tenantId);
+    const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isLabAdminUser) {
+    if (!isTenantAdminUser && !isLabAdminUser && !isClinicAdminUser) {
       throw new ForbiddenException('You do not have permission to access finance reports.');
     }
 
     const moduleKey = query.moduleKey || 'LAB';
+
+    if (moduleKey === 'CLINIC') {
+      return {
+        kpis: {
+          totalOutstandingBalance: 0,
+          doctorsWithPending: 0,
+          totalDoctors: 0,
+          quotedRevenue: 0,
+          totalCollected: 0,
+        },
+        items: [],
+        subtotal: {
+          quoted: 0,
+          collected: 0,
+          outstanding: 0,
+        },
+        pagination: {
+          page: Number(query.page || 1),
+          pageSize: Number(query.pageSize || 20),
+          totalItems: 0,
+          totalPages: 0,
+        },
+      };
+    }
 
     // Branch scoping
     let branchFilter: any = {};
@@ -735,12 +806,25 @@ export class FinanceService {
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isLabAdminUser = await this.isLabAdmin(actor, tenantId);
+    const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isLabAdminUser) {
+    if (!isTenantAdminUser && !isLabAdminUser && !isClinicAdminUser) {
       throw new ForbiddenException('You do not have permission to access finance reports.');
     }
 
     const moduleKey = query.moduleKey || 'LAB';
+
+    if (moduleKey === 'CLINIC') {
+      return {
+        items: [],
+        pagination: {
+          page: Number(query.page || 1),
+          pageSize: Number(query.pageSize || 20),
+          totalItems: 0,
+          totalPages: 0,
+        },
+      };
+    }
 
     // Branch scoping
     let branchFilter: any = {};

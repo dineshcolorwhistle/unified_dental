@@ -54,6 +54,7 @@ import { ClinicTreatmentsPage } from './pages/clinic/ClinicTreatmentsPage';
 import { ClinicPrescriptionsPage } from './pages/clinic/ClinicPrescriptionsPage';
 import { ClinicBillingPage } from './pages/clinic/ClinicBillingPage';
 import { ClinicDoctorsPage } from './pages/clinic/ClinicDoctorsPage';
+import { ClinicPaymentMethodsPage } from './pages/clinic/ClinicPaymentMethodsPage';
 import './i18n';
 
 const ProtectedRoute: React.FC<{
@@ -236,6 +237,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/prescriptions" element={<ProtectedRoute><FeatureProtectedRoute feature="prescriptions"><ClinicPrescriptionsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/billing" element={<ProtectedRoute><FeatureProtectedRoute feature="billing"><ClinicBillingPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/payment-methods" element={<ProtectedRoute blockClinicDoctor><ClinicPaymentMethodsPage /></ProtectedRoute>} />
 
                     {/* Platform Super Admin Routes */}
                     <Route

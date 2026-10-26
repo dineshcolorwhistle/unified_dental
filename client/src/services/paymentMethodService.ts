@@ -40,27 +40,32 @@ export interface QueryPaymentMethodsParams {
 
 export const paymentMethodService = {
   getAll: async (params?: QueryPaymentMethodsParams): Promise<PaymentMethodItem[]> => {
-    const res = await api.get('/lab/payment-methods', { params });
+    const endpoint = params?.moduleKey === 'CLINIC' ? '/clinic/payment-methods' : '/lab/payment-methods';
+    const res = await api.get(endpoint, { params });
     return Array.isArray(res.data) ? res.data : res.data?.data || [];
   },
 
-  getById: async (id: string): Promise<PaymentMethodItem> => {
-    const res = await api.get(`/lab/payment-methods/${id}`);
+  getById: async (id: string, moduleKey?: string): Promise<PaymentMethodItem> => {
+    const endpoint = moduleKey === 'CLINIC' ? `/clinic/payment-methods/${id}` : `/lab/payment-methods/${id}`;
+    const res = await api.get(endpoint);
     return res.data;
   },
 
-  create: async (payload: CreatePaymentMethodPayload): Promise<PaymentMethodItem> => {
-    const res = await api.post('/lab/payment-methods', payload);
+  create: async (payload: CreatePaymentMethodPayload, moduleKey?: string): Promise<PaymentMethodItem> => {
+    const endpoint = moduleKey === 'CLINIC' ? '/clinic/payment-methods' : '/lab/payment-methods';
+    const res = await api.post(endpoint, payload);
     return res.data;
   },
 
-  update: async (id: string, payload: UpdatePaymentMethodPayload): Promise<PaymentMethodItem> => {
-    const res = await api.patch(`/lab/payment-methods/${id}`, payload);
+  update: async (id: string, payload: UpdatePaymentMethodPayload, moduleKey?: string): Promise<PaymentMethodItem> => {
+    const endpoint = moduleKey === 'CLINIC' ? `/clinic/payment-methods/${id}` : `/lab/payment-methods/${id}`;
+    const res = await api.patch(endpoint, payload);
     return res.data;
   },
 
-  delete: async (id: string): Promise<{ success: boolean; deactivated?: boolean; message: string }> => {
-    const res = await api.delete(`/lab/payment-methods/${id}`);
+  delete: async (id: string, moduleKey?: string): Promise<{ success: boolean; deactivated?: boolean; message: string }> => {
+    const endpoint = moduleKey === 'CLINIC' ? `/clinic/payment-methods/${id}` : `/lab/payment-methods/${id}`;
+    const res = await api.delete(endpoint);
     return res.data;
   },
 };

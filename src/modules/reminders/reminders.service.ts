@@ -149,7 +149,7 @@ export class RemindersService {
       seenIds.add(`u:${u.id}`);
 
       // Determine profession
-      let profession = 'Technician';
+      let profession = 'Staff';
       const roleSlugs = u.userRoles.map((ur) => ur.role.slug.toLowerCase());
 
       if (mem.isOwner || roleSlugs.includes('tenant-admin') || roleSlugs.includes('admin')) {
@@ -160,6 +160,8 @@ export class RemindersService {
         profession = 'Clinic Admin';
       } else if (roleSlugs.includes('clinic-staff') || roleSlugs.includes('staff')) {
         profession = 'Clinic Staff';
+      } else if (roleSlugs.includes('clinic-doctor') || roleSlugs.includes('doctor')) {
+        profession = 'Doctor';
       } else if (roleSlugs.includes('technician') || roleSlugs.includes('tech')) {
         profession = 'Technician';
       } else if (u.isSuperAdmin) {
@@ -191,26 +193,30 @@ export class RemindersService {
       });
     }
 
-    // 2. Fetch all active Doctors in the tenant
-    const doctors = await this.prisma.doctor.findMany({
-      where: { tenantId, isActive: true },
-      orderBy: { name: 'asc' },
-    });
-
-    for (const doc of doctors) {
-      if (seenIds.has(`d:${doc.id}`)) continue;
-      seenIds.add(`d:${doc.id}`);
-
-      const profession = 'Doctor';
-      candidates.push({
-        id: `d:${doc.id}`,
-        type: 'DOCTOR',
-        rawId: doc.id,
-        name: doc.name,
-        email: doc.email || null,
-        profession,
-        label: `${doc.name} (${profession})`,
+    // 2. Fetch external Doctors in the tenant (applicable to LAB module only)
+    // For CLINIC module, doctors are internal Clinic Doctors from the User table with role 'clinic-doctor'
+    const isClinic = moduleKey && moduleKey.toUpperCase() === 'CLINIC';
+    if (!isClinic) {
+      const doctors = await this.prisma.doctor.findMany({
+        where: { tenantId, isActive: true },
+        orderBy: { name: 'asc' },
       });
+
+      for (const doc of doctors) {
+        if (seenIds.has(`d:${doc.id}`)) continue;
+        seenIds.add(`d:${doc.id}`);
+
+        const profession = 'Doctor';
+        candidates.push({
+          id: `d:${doc.id}`,
+          type: 'DOCTOR',
+          rawId: doc.id,
+          name: doc.name,
+          email: doc.email || null,
+          profession,
+          label: `${doc.name} (${profession})`,
+        });
+      }
     }
 
     // Sort alphabetically by name
@@ -375,8 +381,12 @@ export class RemindersService {
         profession = 'Clinic Admin';
       } else if (roleSlugs.includes('clinic-staff') || roleSlugs.includes('staff')) {
         profession = 'Clinic Staff';
-      } else {
+      } else if (roleSlugs.includes('clinic-doctor') || roleSlugs.includes('doctor')) {
+        profession = 'Doctor';
+      } else if (roleSlugs.includes('technician') || roleSlugs.includes('tech')) {
         profession = 'Technician';
+      } else {
+        profession = 'Staff';
       }
 
       assigneesData.push({
