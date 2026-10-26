@@ -60,12 +60,14 @@ const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   superAdminOnly?: boolean;
   tenantAdminOnly?: boolean;
+  blockClinicDoctor?: boolean;
 }> = ({
   children,
   superAdminOnly = false,
   tenantAdminOnly = false,
+  blockClinicDoctor = false,
 }) => {
-  const { user, isTenantAdmin, loading } = useAuth();
+  const { user, isTenantAdmin, isClinicDoctor, loading } = useAuth();
 
   if (loading) {
     return (
@@ -87,6 +89,10 @@ const ProtectedRoute: React.FC<{
     return <Navigate to="/" replace />;
   }
 
+  if (blockClinicDoctor && isClinicDoctor) {
+    return <Navigate to="/clinic/appointments" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -94,7 +100,13 @@ const FeatureProtectedRoute: React.FC<{
   feature: string;
   children: React.ReactNode;
 }> = ({ feature, children }) => {
+  const { isClinicDoctor } = useAuth();
   const { activeModuleMode, hasClinicFeature } = useModule();
+
+  // Once logged in, the doctor should have access only to Dashboard (core) and Appointments (clinic)
+  if (isClinicDoctor && feature !== 'appointments') {
+    return <Navigate to="/clinic/appointments" replace />;
+  }
 
   // If in Clinic mode and feature is not permitted by clinic type, redirect to dashboard
   if (activeModuleMode === 'CLINIC' && !hasClinicFeature(feature)) {
@@ -187,30 +199,30 @@ export const App: React.FC = () => {
                     <Route
                       path="onboarding"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute blockClinicDoctor>
                           <OnboardingInstructionsPage />
                         </ProtectedRoute>
                       }
                     />
 
                     {/* Lab Module Routes */}
-                    <Route path="lab/onboarding" element={<ProtectedRoute><OnboardingInstructionsPage /></ProtectedRoute>} />
-                    <Route path="lab/staff" element={<ProtectedRoute><LabStaffPage /></ProtectedRoute>} />
-                    <Route path="lab/users/admin" element={<ProtectedRoute><LabUsersAdminPage /></ProtectedRoute>} />
-                    <Route path="lab/users/technicians" element={<ProtectedRoute><LabUsersTechniciansPage /></ProtectedRoute>} />
-                    <Route path="lab/users/doctors" element={<ProtectedRoute><LabUsersDoctorsPage /></ProtectedRoute>} />
-                    <Route path="lab/work-orders" element={<ProtectedRoute><LabWorkOrdersPage /></ProtectedRoute>} />
-                    <Route path="lab/work-orders/my" element={<ProtectedRoute><TechnicianWorkOrdersPage /></ProtectedRoute>} />
-                    <Route path="lab/work-orders/requested" element={<ProtectedRoute><TechnicianRequestedOrdersPage /></ProtectedRoute>} />
-                    <Route path="lab/processes" element={<ProtectedRoute><LabProcessesPage /></ProtectedRoute>} />
-                    <Route path="lab/process-areas" element={<ProtectedRoute><LabProcessAreasPage /></ProtectedRoute>} />
-                    <Route path="lab/prosthesis-types" element={<ProtectedRoute><LabProsthesisPage /></ProtectedRoute>} />
-                    <Route path="lab/payment-methods" element={<ProtectedRoute><LabPaymentMethodsPage /></ProtectedRoute>} />
-                    <Route path="lab/whatsapp-templates" element={<ProtectedRoute><LabWhatsappTemplatesPage /></ProtectedRoute>} />
-                    <Route path="lab/deliveries" element={<ProtectedRoute><LabDeliveriesPage /></ProtectedRoute>} />
-                    <Route path="lab/doctors" element={<ProtectedRoute><LabDoctorsPage /></ProtectedRoute>} />
-                    <Route path="lab/bulk-upload" element={<ProtectedRoute><LabBulkUploadPage /></ProtectedRoute>} />
-                    <Route path="lab/support" element={<ProtectedRoute><LabSupportPortalPage /></ProtectedRoute>} />
+                    <Route path="lab/onboarding" element={<ProtectedRoute blockClinicDoctor><OnboardingInstructionsPage /></ProtectedRoute>} />
+                    <Route path="lab/staff" element={<ProtectedRoute blockClinicDoctor><LabStaffPage /></ProtectedRoute>} />
+                    <Route path="lab/users/admin" element={<ProtectedRoute blockClinicDoctor><LabUsersAdminPage /></ProtectedRoute>} />
+                    <Route path="lab/users/technicians" element={<ProtectedRoute blockClinicDoctor><LabUsersTechniciansPage /></ProtectedRoute>} />
+                    <Route path="lab/users/doctors" element={<ProtectedRoute blockClinicDoctor><LabUsersDoctorsPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders" element={<ProtectedRoute blockClinicDoctor><LabWorkOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders/my" element={<ProtectedRoute blockClinicDoctor><TechnicianWorkOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/work-orders/requested" element={<ProtectedRoute blockClinicDoctor><TechnicianRequestedOrdersPage /></ProtectedRoute>} />
+                    <Route path="lab/processes" element={<ProtectedRoute blockClinicDoctor><LabProcessesPage /></ProtectedRoute>} />
+                    <Route path="lab/process-areas" element={<ProtectedRoute blockClinicDoctor><LabProcessAreasPage /></ProtectedRoute>} />
+                    <Route path="lab/prosthesis-types" element={<ProtectedRoute blockClinicDoctor><LabProsthesisPage /></ProtectedRoute>} />
+                    <Route path="lab/payment-methods" element={<ProtectedRoute blockClinicDoctor><LabPaymentMethodsPage /></ProtectedRoute>} />
+                    <Route path="lab/whatsapp-templates" element={<ProtectedRoute blockClinicDoctor><LabWhatsappTemplatesPage /></ProtectedRoute>} />
+                    <Route path="lab/deliveries" element={<ProtectedRoute blockClinicDoctor><LabDeliveriesPage /></ProtectedRoute>} />
+                    <Route path="lab/doctors" element={<ProtectedRoute blockClinicDoctor><LabDoctorsPage /></ProtectedRoute>} />
+                    <Route path="lab/bulk-upload" element={<ProtectedRoute blockClinicDoctor><LabBulkUploadPage /></ProtectedRoute>} />
+                    <Route path="lab/support" element={<ProtectedRoute blockClinicDoctor><LabSupportPortalPage /></ProtectedRoute>} />
 
                     {/* Clinic Module Routes */}
                     <Route path="clinic/staff" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicStaffPage /></FeatureProtectedRoute></ProtectedRoute>} />
@@ -223,7 +235,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/treatments" element={<ProtectedRoute><FeatureProtectedRoute feature="treatments"><ClinicTreatmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/prescriptions" element={<ProtectedRoute><FeatureProtectedRoute feature="prescriptions"><ClinicPrescriptionsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/billing" element={<ProtectedRoute><FeatureProtectedRoute feature="billing"><ClinicBillingPage /></FeatureProtectedRoute></ProtectedRoute>} />
-                    <Route path="clinic/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
 
                     {/* Platform Super Admin Routes */}
                     <Route

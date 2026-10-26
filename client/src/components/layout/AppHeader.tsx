@@ -34,7 +34,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleMobileSidebar,
   isSidebarCollapsed = false,
 }) => {
-  const { user, logout, isTenantAdmin } = useAuth();
+  const { user, logout, isTenantAdmin, isClinicDoctor } = useAuth();
   const { canSwitchModules, isClinicEnabled, isLabEnabled } = useModule();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -148,7 +148,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           >
             <Shield size={14} /> <span className="header-role-badge-text">{t('header.platformAdmin')}</span>
           </div>
-        ) : canSwitchModules ? (
+        ) : canSwitchModules && !isClinicDoctor ? (
           /* Tenant Admin with Multiple Modules: Render Interactive Switcher Tabs */
           <div
             className="header-module-tabs"

@@ -8,6 +8,10 @@ import { UserStatus } from '@prisma/client';
 export class UpdateClinicDoctorDto {
   @IsOptional()
   @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
   firstName?: string;
 
   @IsOptional()
@@ -24,6 +28,14 @@ export class UpdateClinicDoctorDto {
 
   @IsOptional()
   @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
   specialization?: string;
 
   @IsOptional()
@@ -34,3 +46,4 @@ export class UpdateClinicDoctorDto {
   @IsEnum(UserStatus)
   status?: UserStatus;
 }
+

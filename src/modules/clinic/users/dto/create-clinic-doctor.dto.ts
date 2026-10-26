@@ -6,13 +6,17 @@ import {
 } from 'class-validator';
 
 export class CreateClinicDoctorDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  firstName: string;
+  name?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  lastName: string;
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 
   @IsNotEmpty()
   @IsEmail()
@@ -28,9 +32,18 @@ export class CreateClinicDoctorDto {
 
   @IsOptional()
   @IsString()
-  specialization?: string; // e.g. 'General Dentistry', 'Orthodontics', 'Endodontics', 'Periodontics', 'Oral Surgery'
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  specialization?: string; // e.g. 'General Practice', 'Cardiology', 'Pediatrics', 'Dentistry'
 
   @IsOptional()
   @IsString()
   licenseNumber?: string;
 }
+

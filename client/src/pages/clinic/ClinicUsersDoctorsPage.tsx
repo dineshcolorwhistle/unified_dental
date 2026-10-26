@@ -24,6 +24,7 @@ import {
   Users,
   ShieldAlert,
   Award,
+  MapPin,
 } from 'lucide-react';
 
 interface ClinicDoctorRecord {
@@ -31,6 +32,7 @@ interface ClinicDoctorRecord {
   email: string;
   name: string;
   phone?: string;
+  address?: string | null;
   status: 'ACTIVE' | 'INVITED' | 'INACTIVE';
   avatarUrl?: string;
   specialization: string;
@@ -53,17 +55,6 @@ const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
   { value: '+54', label: '+54' },
   { value: '+56', label: '+56' },
   { value: '+44', label: '+44' },
-];
-
-const SPECIALIZATIONS: SearchableSelectOption[] = [
-  { value: 'General Dentistry', label: 'General Dentistry' },
-  { value: 'Orthodontics', label: 'Orthodontics' },
-  { value: 'Endodontics', label: 'Endodontics' },
-  { value: 'Periodontics', label: 'Periodontics' },
-  { value: 'Oral and Maxillofacial Surgery', label: 'Oral & Maxillofacial Surgery' },
-  { value: 'Pediatric Dentistry', label: 'Pediatric Dentistry' },
-  { value: 'Prosthodontics', label: 'Prosthodontics' },
-  { value: 'Implantology', label: 'Implantology' },
 ];
 
 export const ClinicUsersDoctorsPage: React.FC = () => {
@@ -98,22 +89,22 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
   // Create Form State
   const [createFormData, setCreateFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
     phoneCountryCode: '+52',
     phoneNumber: '',
-    specialization: 'General Dentistry',
+    address: '',
+    specialization: '',
     licenseNumber: '',
   });
 
   // Edit Form State
   const [editFormData, setEditFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     phoneCountryCode: '+52',
     phoneNumber: '',
-    specialization: 'General Dentistry',
+    address: '',
+    specialization: '',
     licenseNumber: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
   });
@@ -218,12 +209,12 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
   const handleOpenCreateModal = () => {
     setCreateFormData({
-      firstName: '',
-      lastName: '',
+      name: '',
       email: '',
       phoneCountryCode: '+52',
       phoneNumber: '',
-      specialization: 'General Dentistry',
+      address: '',
+      specialization: '',
       licenseNumber: '',
     });
     setShowCreateModal(true);
@@ -232,12 +223,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
   const handleCreateDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!createFormData.firstName.trim()) {
-      toast.error(t('clinicDoctors.modal.firstNameRequired', 'First name is required'));
-      return;
-    }
-    if (!createFormData.lastName.trim()) {
-      toast.error(t('clinicDoctors.modal.lastNameRequired', 'Last name is required'));
+    if (!createFormData.name.trim()) {
+      toast.error(t('clinicDoctors.modal.nameRequired', 'Doctor name is required'));
       return;
     }
     if (!createFormData.email.trim()) {
@@ -247,10 +234,18 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
     try {
       setSubmitting(true);
-      await api.post('/clinic/users/doctors', createFormData);
+      await api.post('/clinic/users/doctors', {
+        name: createFormData.name.trim(),
+        email: createFormData.email.trim(),
+        phoneCountryCode: createFormData.phoneCountryCode,
+        phoneNumber: createFormData.phoneNumber?.trim() || undefined,
+        address: createFormData.address?.trim() || undefined,
+        specialization: createFormData.specialization?.trim() || undefined,
+        licenseNumber: createFormData.licenseNumber?.trim() || undefined,
+      });
       toast.success(
         t('clinicDoctors.alerts.createSuccess', {
-          name: `Dr. ${createFormData.firstName} ${createFormData.lastName}`.trim(),
+          name: createFormData.name.startsWith('Dr.') ? createFormData.name : `Dr. ${createFormData.name}`.trim(),
           defaultValue: 'Clinic Doctor invited successfully. Welcome email dispatched.',
         }),
         t('clinicDoctors.modal.createTitle', 'Doctor Added'),
@@ -269,18 +264,15 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
   };
 
   const handleOpenEdit = (doc: ClinicDoctorRecord) => {
-    const parts = doc.name.split(' ');
-    const firstName = parts[0] || '';
-    const lastName = parts.slice(1).join(' ') || '';
     const { code, number } = parsePhone(doc.phone);
 
     setEditingDoctor(doc);
     setEditFormData({
-      firstName,
-      lastName,
+      name: doc.name || '',
       phoneCountryCode: code,
       phoneNumber: number,
-      specialization: doc.specialization || 'General Dentistry',
+      address: doc.address || '',
+      specialization: doc.specialization || '',
       licenseNumber: doc.licenseNumber || '',
       status: doc.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
     });
@@ -290,9 +282,22 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
     e.preventDefault();
     if (!editingDoctor) return;
 
+    if (!editFormData.name.trim()) {
+      toast.error(t('clinicDoctors.modal.nameRequired', 'Doctor name is required'));
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await api.patch(`/clinic/users/doctors/${editingDoctor.id}`, editFormData);
+      await api.patch(`/clinic/users/doctors/${editingDoctor.id}`, {
+        name: editFormData.name.trim(),
+        phoneCountryCode: editFormData.phoneCountryCode,
+        phoneNumber: editFormData.phoneNumber?.trim() || undefined,
+        address: editFormData.address?.trim() || undefined,
+        specialization: editFormData.specialization?.trim() || undefined,
+        licenseNumber: editFormData.licenseNumber?.trim() || undefined,
+        status: editFormData.status,
+      });
       toast.success(
         t('clinicDoctors.alerts.updateSuccess', 'Doctor profile updated successfully'),
       );
@@ -629,10 +634,14 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
                     <td style={{ padding: '14px 18px' }}>
                       <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '3px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                          <Award size={13} style={{ color: 'var(--primary-600)' }} />
-                          {doc.specialization}
-                        </span>
+                        {doc.specialization ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                            <Award size={13} style={{ color: 'var(--primary-600)' }} />
+                            {doc.specialization}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12.5px' }}>—</span>
+                        )}
                         {doc.licenseNumber && (
                           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             Lic: {doc.licenseNumber}
@@ -651,6 +660,14 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
                             <Phone size={13} />
                             {doc.phone}
+                          </span>
+                        )}
+                        {doc.address && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '12px' }} title={doc.address}>
+                            <MapPin size={13} style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                              {doc.address}
+                            </span>
                           </span>
                         )}
                       </div>
@@ -709,7 +726,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                           </Tooltip>
                         )}
 
-                        {(isClinicAdmin || isTenantAdmin) && (
+                        {isTenantAdmin && (
                           <Tooltip content={t('clinicDoctors.actions.delete', 'Remove Doctor')}>
                             <button
                               type="button"
@@ -801,35 +818,19 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
             <form onSubmit={handleCreateDoctor}>
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                      {t('clinicDoctors.modal.firstName', 'First Name')} <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="e.g. Alejandro"
-                      value={createFormData.firstName}
-                      onChange={(e) => setCreateFormData({ ...createFormData, firstName: e.target.value })}
-                      required
-                      style={{ width: '100%', height: '40px' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                      {t('clinicDoctors.modal.lastName', 'Last Name')} <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="e.g. Morales"
-                      value={createFormData.lastName}
-                      onChange={(e) => setCreateFormData({ ...createFormData, lastName: e.target.value })}
-                      required
-                      style={{ width: '100%', height: '40px' }}
-                    />
-                  </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                    {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. Dr. Alejandro Morales"
+                    value={createFormData.name}
+                    onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
+                    required
+                    style={{ width: '100%', height: '40px' }}
+                  />
                 </div>
 
                 <div>
@@ -872,12 +873,29 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
                 <div>
                   <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.specialization', 'Dental Specialization')}
+                    {t('clinicDoctors.modal.address', 'Address')}
                   </label>
-                  <SearchableSelect
-                    options={SPECIALIZATIONS}
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. Av. Insurgentes Sur 123, Col. Roma, CDMX"
+                    value={createFormData.address}
+                    onChange={(e) => setCreateFormData({ ...createFormData, address: e.target.value })}
+                    style={{ width: '100%', height: '40px' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                    {t('clinicDoctors.modal.specialization', 'Specialization')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder={t('clinicDoctors.modal.specializationPlaceholder', 'e.g. General Practice, Cardiology, Pediatrics, Dentistry...')}
                     value={createFormData.specialization}
-                    onChange={(val) => setCreateFormData({ ...createFormData, specialization: val })}
+                    onChange={(e) => setCreateFormData({ ...createFormData, specialization: e.target.value })}
+                    style={{ width: '100%', height: '40px' }}
                   />
                 </div>
 
@@ -987,33 +1005,18 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
             <form onSubmit={handleUpdateDoctor}>
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                      {t('clinicDoctors.modal.firstName', 'First Name')}
-                    </label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={editFormData.firstName}
-                      onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
-                      required
-                      style={{ width: '100%', height: '40px' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                      {t('clinicDoctors.modal.lastName', 'Last Name')}
-                    </label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={editFormData.lastName}
-                      onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
-                      required
-                      style={{ width: '100%', height: '40px' }}
-                    />
-                  </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                    {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    required
+                    style={{ width: '100%', height: '40px' }}
+                  />
                 </div>
 
                 <div>
@@ -1040,12 +1043,28 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
                 <div>
                   <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.specialization', 'Dental Specialization')}
+                    {t('clinicDoctors.modal.address', 'Address')}
                   </label>
-                  <SearchableSelect
-                    options={SPECIALIZATIONS}
+                  <input
+                    type="text"
+                    className="input"
+                    value={editFormData.address}
+                    onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                    style={{ width: '100%', height: '40px' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                    {t('clinicDoctors.modal.specialization', 'Specialization')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder={t('clinicDoctors.modal.specializationPlaceholder', 'e.g. General Practice, Cardiology, Pediatrics, Dentistry...')}
                     value={editFormData.specialization}
-                    onChange={(val) => setEditFormData({ ...editFormData, specialization: val })}
+                    onChange={(e) => setEditFormData({ ...editFormData, specialization: e.target.value })}
+                    style={{ width: '100%', height: '40px' }}
                   />
                 </div>
 

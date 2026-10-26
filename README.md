@@ -288,3 +288,4 @@ npm run start:prod
 - [docs/lab-module/payment-methods.md](file:///d:/Projects/unified_dental/docs/lab-module/payment-methods.md) — Branch payment methods management, work order payments integration, and responsive data table.
 - [docs/lab-module/whatsapp-templates.md](file:///d:/Projects/unified_dental/docs/lab-module/whatsapp-templates.md) — WhatsApp notification templates, localized dynamic placeholders, and interactive preview.
 - [docs/platform-admin/qr-inquiries.md](file:///d:/Projects/unified_dental/docs/platform-admin/qr-inquiries.md) — Platform Super Admin QR leads and inquiries management.
+- [docs/clinic-module/user-management.md](file:///d:/Projects/unified_dental/docs/clinic-module/user-management.md) — Clinic User & Doctor Management: creation fields (name, email, phone, address, specialization), welcome email password setup flow, branch scoping, and doctor-scoped access (Dashboard & Appointments).

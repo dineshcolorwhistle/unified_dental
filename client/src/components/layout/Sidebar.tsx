@@ -111,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation();
   const location = useLocation();
-  const { user, isTenantAdmin, isLabAdmin, logout } = useAuth();
+  const { user, isTenantAdmin, isLabAdmin, isClinicDoctor, logout } = useAuth();
   const { isClinicEnabled, isLabEnabled, clinicType, hasClinicFeature } = useModule();
 
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
@@ -740,7 +740,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 )}
 
-                {hasClinicFeature('finance') && (
+                {!isClinicDoctor && hasClinicFeature('finance') && (
                   <SidebarNavItem
                     to="/finance"
                     icon={<CreditCard size={17} />}
@@ -749,7 +749,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 )}
 
-                {hasClinicFeature('reminders') && (
+                {!isClinicDoctor && hasClinicFeature('reminders') && (
                   <SidebarNavItem
                     to="/reminders"
                     icon={<Bell size={17} />}
@@ -758,7 +758,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 )}
 
-                {hasClinicFeature('inventory') && (
+                {!isClinicDoctor && hasClinicFeature('inventory') && (
                   <SidebarNavItem
                     to="/inventory"
                     icon={<Package size={17} />}
@@ -767,7 +767,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 )}
 
-                {hasClinicFeature('expenses') && (
+                {!isClinicDoctor && hasClinicFeature('expenses') && (
                   <SidebarNavItem
                     to="/expenses"
                     icon={<Receipt size={17} />}
@@ -778,10 +778,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            {(hasClinicFeature('clinic_users') ||
-              hasClinicFeature('patients') ||
-              hasClinicFeature('appointments') ||
-              hasClinicFeature('income')) && (
+            {(isClinicDoctor
+              ? hasClinicFeature('appointments')
+              : (hasClinicFeature('clinic_users') ||
+                hasClinicFeature('patients') ||
+                hasClinicFeature('appointments') ||
+                hasClinicFeature('income'))) && (
               <div className="nav-accordion-group">
                 {!isCollapsed ? (
                   <button
@@ -811,7 +813,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isCollapsed || expandedGroup === 'clinic' ? 'is-expanded' : 'is-collapsed'
                   }`}
                 >
-                  {hasClinicFeature('clinic_users') && (!isCollapsed ? (
+                  {!isClinicDoctor && hasClinicFeature('clinic_users') && (!isCollapsed ? (
                     <div className="nav-sub-group">
                       <button
                         type="button"
@@ -878,7 +880,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </>
                   ))}
 
-                  {hasClinicFeature('patients') && (
+                  {!isClinicDoctor && hasClinicFeature('patients') && (
                     <SidebarNavItem
                       to="/clinic/patients"
                       icon={<UserRound size={17} />}
@@ -896,7 +898,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                   )}
 
-                  {hasClinicFeature('income') && (
+                  {!isClinicDoctor && hasClinicFeature('income') && (
                     <SidebarNavItem
                       to="/clinic/income"
                       icon={<DollarSign size={17} />}

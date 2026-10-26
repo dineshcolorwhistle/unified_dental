@@ -1393,7 +1393,8 @@ export class ClinicUsersService {
         phone: u.phone,
         status: u.status,
         avatarUrl: u.avatarUrl,
-        specialization: docRecord?.specialization || 'General Dentistry',
+        specialization: docRecord?.specialization || null,
+        address: docRecord?.address || null,
         licenseNumber: docRecord?.externalId || null,
         createdAt: u.createdAt,
         branch: primaryUserBranch?.branch
@@ -1458,12 +1459,21 @@ export class ClinicUsersService {
     }
 
     const email = dto.email.toLowerCase().trim();
-    const fullName = `${dto.firstName.trim()} ${dto.lastName.trim()}`.trim();
+    const fullName = (
+      dto.name?.trim() ||
+      `${dto.firstName?.trim() || ''} ${dto.lastName?.trim() || ''}`
+    ).trim();
+
+    if (!fullName) {
+      throw new BadRequestException('Doctor name is required');
+    }
 
     let formattedPhone: string | null = null;
     if (dto.phoneNumber?.trim()) {
       const code = dto.phoneCountryCode?.trim() || '+52';
       formattedPhone = `${code} ${dto.phoneNumber.trim()}`;
+    } else if (dto.phone?.trim()) {
+      formattedPhone = dto.phone.trim();
     }
 
     const existingUser = await this.prisma.user.findUnique({
@@ -1564,7 +1574,8 @@ export class ClinicUsersService {
           clinicName: branch.name,
           email,
           phone: formattedPhone,
-          specialization: dto.specialization || 'General Dentistry',
+          address: dto.address?.trim() || null,
+          specialization: dto.specialization?.trim() || null,
           externalId: dto.licenseNumber || null,
           type: 'LOCAL',
           isActive: true,
@@ -1584,6 +1595,7 @@ export class ClinicUsersService {
             email,
             name: fullName,
             phone: formattedPhone,
+            address: dto.address?.trim() || null,
             branchId,
             branchName: branch.name,
             specialization: dto.specialization,
@@ -1627,8 +1639,9 @@ export class ClinicUsersService {
       email: createdUser.email,
       name: createdUser.name,
       phone: createdUser.phone,
+      address: dto.address?.trim() || null,
       status: createdUser.status,
-      specialization: dto.specialization || 'General Dentistry',
+      specialization: dto.specialization?.trim() || null,
       branch: {
         id: branch.id,
         name: branch.name,
@@ -1666,7 +1679,9 @@ export class ClinicUsersService {
     }
 
     let fullName = user.name;
-    if (dto.firstName) {
+    if (dto.name?.trim()) {
+      fullName = dto.name.trim();
+    } else if (dto.firstName) {
       fullName = `${dto.firstName.trim()} ${dto.lastName?.trim() || ''}`.trim();
     }
 
@@ -1678,6 +1693,8 @@ export class ClinicUsersService {
       } else {
         formattedPhone = null;
       }
+    } else if (dto.phone !== undefined) {
+      formattedPhone = dto.phone.trim() ? dto.phone.trim() : null;
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -1700,8 +1717,9 @@ export class ClinicUsersService {
         data: {
           name: fullName,
           phone: formattedPhone,
-          ...(dto.specialization ? { specialization: dto.specialization } : {}),
-          ...(dto.licenseNumber ? { externalId: dto.licenseNumber } : {}),
+          ...(dto.address !== undefined ? { address: dto.address?.trim() || null } : {}),
+          ...(dto.specialization !== undefined ? { specialization: dto.specialization?.trim() || null } : {}),
+          ...(dto.licenseNumber !== undefined ? { externalId: dto.licenseNumber?.trim() || null } : {}),
         },
       });
 
@@ -1725,9 +1743,8 @@ export class ClinicUsersService {
 
   async deleteClinicDoctor(id: string, tenantId: string, actor: AuthenticatedUser) {
     const isTenantAdmin = await this.checkIsTenantAdmin(actor, tenantId);
-    let clinicBranchId: string | undefined;
     if (!isTenantAdmin && !actor.isSuperAdmin) {
-      clinicBranchId = await this.assertClinicAdmin(actor, tenantId);
+      throw new ForbiddenException('Only Tenant Administrators can delete Clinic Doctors.');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -1739,10 +1756,6 @@ export class ClinicUsersService {
 
     if (!user) {
       throw new NotFoundException(`Doctor user '${id}' not found`);
-    }
-
-    if (clinicBranchId && !user.userBranches.some((ub) => ub.branchId === clinicBranchId)) {
-      throw new ForbiddenException('You can only delete doctors within your assigned branch.');
     }
 
     await this.prisma.$transaction(async (tx) => {
