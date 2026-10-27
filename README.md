@@ -77,7 +77,7 @@ The platform is designed to operate as a single unified SaaS application where e
 │   │ • Menus & Pipelines:               │     │     │ • Menus & Pipelines:               │   │
 │   │   - Users (Admin, Tech, Doctors)   │     │     │   - Users (Admin, Staff, Doctors)  │   │
 │   │   - Work Orders (`/lab/work-orders`)│    │     │   - Patient (`/clinic/patients`)   │   │
-│   │   - Prosthesis (`/lab/prosthesis`) │     │     │   - Appointment (`/clinic/appts`)  │   │
+│   │   - Prosthesis (`/lab/prosthesis`) │     │     │   - Appointment (`/clinic/appointments`) │
 │   │   - Process (`/lab/processes`)     │     │     │   - Income (`/clinic/income`)      │   │
 │   │   - Process Areas (`/lab/areas`)   │     │     └────────────────────────────────────┘   │
 │   │   - Whatsapp Template (`/lab/wa`)  │                                                    │

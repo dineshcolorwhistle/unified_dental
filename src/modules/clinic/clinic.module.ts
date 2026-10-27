@@ -10,6 +10,7 @@ import { ClinicStaffController } from './users/clinic-staff.controller';
 import { ClinicDoctorsController } from './users/clinic-doctors.controller';
 import { ClinicTypesModule } from './types/clinic-types.module';
 import { PatientsModule } from './patients/patients.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 import { ClinicPaymentMethodsController } from './payment-methods/clinic-payment-methods.controller';
 import { ClinicPaymentMethodsService } from './payment-methods/clinic-payment-methods.service';
 
@@ -22,6 +23,7 @@ import { ClinicPaymentMethodsService } from './payment-methods/clinic-payment-me
     ModulesModule,
     ClinicTypesModule,
     PatientsModule,
+    AppointmentsModule,
   ],
   controllers: [
     ClinicAdminController,
@@ -38,6 +40,7 @@ import { ClinicPaymentMethodsService } from './payment-methods/clinic-payment-me
     ClinicPaymentMethodsService,
     ClinicTypesModule,
     PatientsModule,
+    AppointmentsModule,
   ],
 })
 export class ClinicModule {}

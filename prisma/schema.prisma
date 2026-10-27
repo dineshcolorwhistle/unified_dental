@@ -108,6 +108,9 @@ model Tenant {
   whatsappTemplates    WhatsappTemplate[]
   supportTickets       SupportTicket[]
   patients             Patient[]
+  clinicWorkingHours   ClinicWorkingHour[]
+  doctorWorkingHours   DoctorWorkingHour[]
+  appointments         Appointment[]
 
   @@map("tenants")
 }
@@ -210,6 +213,9 @@ model Branch {
   whatsappTemplates   WhatsappTemplate[]
   supportTickets      SupportTicket[]
   patients            Patient[]
+  clinicWorkingHours  ClinicWorkingHour[]
+  doctorWorkingHours  DoctorWorkingHour[]
+  appointments        Appointment[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -255,6 +261,9 @@ model User {
   createdSupportTickets      SupportTicket[] @relation("SupportTicketCreatedBy")
   supportTicketMessages      SupportTicketMessage[]
   createdPatients            Patient[] @relation("PatientCreatedBy")
+  doctorWorkingHours         DoctorWorkingHour[]
+  doctorAppointments         Appointment[] @relation("AppointmentDoctor")
+  createdAppointments        Appointment[] @relation("AppointmentCreatedBy")
 
   @@map("users")
 }
@@ -1157,6 +1166,7 @@ model Patient {
   tenant                      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch                      Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   createdBy                   User?          @relation("PatientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  appointments                Appointment[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1165,3 +1175,85 @@ model Patient {
   @@map("patients")
 }
 
+model ClinicWorkingHour {
+  id                  String   @id @default(uuid())
+  tenantId            String   @map("tenant_id")
+  branchId            String?  @map("branch_id")
+  dayOfWeek           Int      @map("day_of_week") // 1=Monday ... 7=Sunday
+  isOpen              Boolean  @default(true) @map("is_open")
+  startTime           String   @default("09:00") @map("start_time")
+  endTime             String   @default("18:00") @map("end_time")
+  hasLunchBreak       Boolean  @default(true) @map("has_lunch_break")
+  lunchStartTime      String?  @default("13:00") @map("lunch_start_time")
+  lunchEndTime        String?  @default("14:00") @map("lunch_end_time")
+  slotDurationMinutes Int      @default(30) @map("slot_duration_minutes")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, branchId, dayOfWeek])
+  @@index([tenantId, branchId])
+  @@map("clinic_working_hours")
+}
+
+model DoctorWorkingHour {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  branchId       String?  @map("branch_id")
+  doctorId       String   @map("doctor_id")
+  dayOfWeek      Int      @map("day_of_week") // 1=Monday ... 7=Sunday
+  isWorking      Boolean  @default(true) @map("is_working")
+  startTime      String   @default("09:00") @map("start_time")
+  endTime        String   @default("17:00") @map("end_time")
+  hasLunchBreak  Boolean  @default(true) @map("has_lunch_break")
+  lunchStartTime String?  @default("13:00") @map("lunch_start_time")
+  lunchEndTime   String?  @default("14:00") @map("lunch_end_time")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  doctor User    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, doctorId, dayOfWeek, branchId])
+  @@index([tenantId, doctorId])
+  @@index([tenantId, branchId])
+  @@map("doctor_working_hours")
+}
+
+model Appointment {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  branchId           String?  @map("branch_id")
+  appointmentNumber  String   @map("appointment_number")
+  patientId          String   @map("patient_id")
+  doctorId           String   @map("doctor_id")
+  date               DateTime
+  startTime          String   @map("start_time")
+  endTime            String   @map("end_time")
+  durationMinutes    Int      @default(30) @map("duration_minutes")
+  type               String   @default("CONSULTATION")
+  status             String   @default("SCHEDULED")
+  reason             String?
+  notes              String?  @db.Text
+  cancellationReason String?  @map("cancellation_reason")
+  createdById        String?  @map("created_by_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor    User     @relation("AppointmentDoctor", fields: [doctorId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, doctorId])
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+  @@index([tenantId, appointmentNumber])
+  @@map("appointments")
+}

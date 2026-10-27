@@ -49,6 +49,7 @@ import { ClinicUsersStaffPage } from './pages/clinic/ClinicUsersStaffPage';
 import { ClinicUsersDoctorsPage } from './pages/clinic/ClinicUsersDoctorsPage';
 import { ClinicPatientsPage } from './pages/clinic/ClinicPatientsPage';
 import { ClinicAppointmentsPage } from './pages/clinic/ClinicAppointmentsPage';
+import { ClinicWorkingHoursPage } from './pages/clinic/ClinicWorkingHoursPage';
 import { ClinicIncomePage } from './pages/clinic/ClinicIncomePage';
 import { ClinicTreatmentsPage } from './pages/clinic/ClinicTreatmentsPage';
 import { ClinicPrescriptionsPage } from './pages/clinic/ClinicPrescriptionsPage';
@@ -232,6 +233,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/users/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/patients" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><ClinicPatientsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicAppointmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/appointments/working-hours" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicWorkingHoursPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/income" element={<ProtectedRoute><FeatureProtectedRoute feature="income"><ClinicIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/treatments" element={<ProtectedRoute><FeatureProtectedRoute feature="treatments"><ClinicTreatmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/prescriptions" element={<ProtectedRoute><FeatureProtectedRoute feature="prescriptions"><ClinicPrescriptionsPage /></FeatureProtectedRoute></ProtectedRoute>} />

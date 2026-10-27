@@ -1200,17 +1200,18 @@ export const ClinicPatientsPage: React.FC = () => {
                         <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                           {t('clinicPatients.modal.gender', 'Gender')}
                         </label>
-                        <select
-                          className="input"
-                          value={formData.gender}
-                          onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                          style={{ height: '38px', fontSize: '13px', width: '100%' }}
-                        >
-                          <option value="MALE">{t('clinicPatients.modal.genderMale', 'Male')}</option>
-                          <option value="FEMALE">{t('clinicPatients.modal.genderFemale', 'Female')}</option>
-                          <option value="OTHER">{t('clinicPatients.modal.genderOther', 'Other')}</option>
-                          <option value="PREFER_NOT_TO_SAY">{t('clinicPatients.modal.genderPreferNotToSay', 'Prefer not to say')}</option>
-                        </select>
+                        <SearchableSelect
+                          options={[
+                            { value: 'MALE', label: t('clinicPatients.modal.genderMale', 'Male') },
+                            { value: 'FEMALE', label: t('clinicPatients.modal.genderFemale', 'Female') },
+                            { value: 'OTHER', label: t('clinicPatients.modal.genderOther', 'Other') },
+                            { value: 'PREFER_NOT_TO_SAY', label: t('clinicPatients.modal.genderPreferNotToSay', 'Prefer not to say') },
+                          ]}
+                          value={formData.gender || ''}
+                          onChange={(val) => setFormData({ ...formData, gender: val })}
+                          placeholder={t('clinicPatients.modal.genderSelect', 'Select Gender')}
+                          searchPlaceholder={t('common.search', 'Search...')}
+                        />
                       </div>
 
                       <div>

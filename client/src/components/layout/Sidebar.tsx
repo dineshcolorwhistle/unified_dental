@@ -168,6 +168,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
   });
 
+  const [isClinicAppointmentsOpen, setIsClinicAppointmentsOpen] = useState<boolean>(() => {
+    return location.pathname.startsWith('/clinic/appointments');
+  });
+
   const onCloseMobileRef = React.useRef(onCloseMobile);
   useEffect(() => {
     onCloseMobileRef.current = onCloseMobile;
@@ -186,6 +190,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setExpandedGroup('clinic');
       if (p.startsWith('/clinic/users') || p.startsWith('/clinic/staff')) {
         setIsClinicUsersOpen(true);
+      }
+      if (p.startsWith('/clinic/appointments')) {
+        setIsClinicAppointmentsOpen(true);
       }
     } else {
       // Core Operations: '/', '/branches', '/finance', '/reminders', '/inventory', '/expenses'
@@ -229,6 +236,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     location.pathname.startsWith('/lab/users') || location.pathname.startsWith('/lab/staff');
   const isClinicUsersActive =
     location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
+  const isClinicAppointmentsActive = location.pathname.startsWith('/clinic/appointments');
 
   return (
     <>
@@ -889,14 +897,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                   )}
 
-                  {hasClinicFeature('appointments') && (
-                    <SidebarNavItem
-                      to="/clinic/appointments"
-                      icon={<CalendarCheck size={17} />}
-                      label={t('nav.appointment')}
-                      isCollapsed={isCollapsed}
-                    />
-                  )}
+                  {hasClinicFeature('appointments') && (!isCollapsed ? (
+                    <div className="nav-sub-group">
+                      <button
+                        type="button"
+                        className={`nav-sub-header ${isClinicAppointmentsActive ? 'has-active' : ''}`}
+                        onClick={() => setIsClinicAppointmentsOpen((prev) => !prev)}
+                        aria-expanded={isClinicAppointmentsOpen}
+                      >
+                        <div className="nav-sub-header-title">
+                          <span className="nav-link-icon">
+                            <CalendarCheck size={17} />
+                          </span>
+                          <span className="nav-link-text">{t('nav.appointment', 'Appointments')}</span>
+                        </div>
+                        <span className={`accordion-chevron ${isClinicAppointmentsOpen ? 'is-open' : ''}`}>
+                          <ChevronDown size={13} />
+                        </span>
+                      </button>
+
+                      <div className={`nav-sub-list ${isClinicAppointmentsOpen ? 'is-expanded' : 'is-collapsed'}`}>
+                        <NavLink
+                          to="/clinic/appointments"
+                          end
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.appointmentList', 'List')}</span>
+                        </NavLink>
+                        <NavLink
+                          to="/clinic/appointments/working-hours"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.workingHours', 'Working Hours')}</span>
+                        </NavLink>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <SidebarNavItem
+                        to="/clinic/appointments"
+                        end
+                        icon={<CalendarCheck size={17} />}
+                        label={t('nav.appointmentList', 'Appointments List')}
+                        isCollapsed={isCollapsed}
+                      />
+                      <SidebarNavItem
+                        to="/clinic/appointments/working-hours"
+                        icon={<Clock size={17} />}
+                        label={t('nav.workingHours', 'Working Hours')}
+                        isCollapsed={isCollapsed}
+                      />
+                    </>
+                  ))}
 
                   {!isClinicDoctor && hasClinicFeature('income') && (
                     <SidebarNavItem
