@@ -530,7 +530,7 @@ export const FinancePage: React.FC = () => {
               <ArrowRight size={14} />
             </Link>
             <Link
-              to="/clinic/payment-methods"
+              to="/clinic/configurations/payment-methods"
               className="btn btn-secondary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
             >
@@ -578,7 +578,7 @@ export const FinancePage: React.FC = () => {
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 14px 0' }}>
               {t('finance.cards.paymentMethodsDesc', 'Define and manage accepted payment options (Cash, Credit Card, Debit Card, Bank Transfer) across clinic branches.')}
             </p>
-            <Link to="/clinic/payment-methods" style={{ fontSize: '13px', fontWeight: 600, color: '#0284c7', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Link to="/clinic/configurations/payment-methods" style={{ fontSize: '13px', fontWeight: 600, color: '#0284c7', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               {t('finance.cards.openPaymentMethods', 'Configure Payment Methods')} <ArrowRight size={14} />
             </Link>
           </div>

@@ -110,7 +110,7 @@ Modules are independent siblings sharing a common core:
 ### 4. Single-Expand Accordion & Tree-Line Navigation Standard
 - **Core Operations**: `Dashboard`, `Branch`, `Settings`, `Finance`, `Reminder`, `Inventory`, `Expense`.
 - **Dental Lab**: `Users` (`Lab Admin`, `Technician`, `Doctors`), `Work Orders`, `Prosthesis type`, `Process`, `Process Areas`, `Whatsapp Template`.
-- **Dental Clinic**: `Users` (`Admin`, `Staff`, `Doctors`), `Patient`, `Appointment`, `Income`, `Payment Methods`, `Dental Configuration` (`Specialization`, `Services`, `WhatsApp Template`).
+- **Dental Clinic**: `Users` (`Admin`, `Staff`, `Doctors`), `Patient`, `Appointment`, `Income`, `Dental Configuration` (`Specialization`, `Services`, `Payment Methods`, `WhatsApp Template`).
 - Strict route-based active group expansion, single-group expansion enforcement, and visual tree-line indentation hierarchy.
 
 ---

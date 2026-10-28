@@ -176,7 +176,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const [isDentalConfigOpen, setIsDentalConfigOpen] = useState<boolean>(() => {
-    return location.pathname.startsWith('/clinic/configurations');
+    return (
+      location.pathname.startsWith('/clinic/configurations') ||
+      location.pathname.startsWith('/clinic/payment-methods')
+    );
   });
 
   const onCloseMobileRef = React.useRef(onCloseMobile);
@@ -201,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (p.startsWith('/clinic/appointments')) {
         setIsClinicAppointmentsOpen(true);
       }
-      if (p.startsWith('/clinic/configurations')) {
+      if (p.startsWith('/clinic/configurations') || p.startsWith('/clinic/payment-methods')) {
         setIsDentalConfigOpen(true);
       }
     } else {
@@ -247,7 +250,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isClinicUsersActive =
     location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
   const isClinicAppointmentsActive = location.pathname.startsWith('/clinic/appointments');
-  const isDentalConfigActive = location.pathname.startsWith('/clinic/configurations');
+  const isDentalConfigActive =
+    location.pathname.startsWith('/clinic/configurations') ||
+    location.pathname.startsWith('/clinic/payment-methods');
 
   return (
     <>
@@ -970,15 +975,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                   )}
 
-                  {!isClinicDoctor && (
-                    <SidebarNavItem
-                      to="/clinic/payment-methods"
-                      icon={<CreditCard size={17} />}
-                      label={t('nav.paymentMethods', 'Payment Methods')}
-                      isCollapsed={isCollapsed}
-                    />
-                  )}
-
                   {/* Dental Configuration Submenu */}
                   {!isClinicDoctor && (!isCollapsed ? (
                     <div className="nav-sub-group">
@@ -1013,6 +1009,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <span>{t('nav.services', 'Services')}</span>
                         </NavLink>
                         <NavLink
+                          to="/clinic/configurations/payment-methods"
+                          className={({ isActive }) =>
+                            `nav-sub-link ${isActive || location.pathname === '/clinic/payment-methods' ? 'active' : ''}`
+                          }
+                        >
+                          <span>{t('nav.paymentMethods', 'Payment Methods')}</span>
+                        </NavLink>
+                        <NavLink
                           to="/clinic/configurations/whatsapp-templates"
                           className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
                         >
@@ -1032,6 +1036,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         to="/clinic/configurations/services"
                         icon={<Wrench size={17} />}
                         label={t('nav.services', 'Services')}
+                        isCollapsed={isCollapsed}
+                      />
+                      <SidebarNavItem
+                        to="/clinic/configurations/payment-methods"
+                        icon={<CreditCard size={17} />}
+                        label={t('nav.paymentMethods', 'Payment Methods')}
                         isCollapsed={isCollapsed}
                       />
                       <SidebarNavItem

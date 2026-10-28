@@ -245,6 +245,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/payment-methods" element={<ProtectedRoute blockClinicDoctor><ClinicPaymentMethodsPage /></ProtectedRoute>} />
                     <Route path="clinic/configurations/specializations" element={<ProtectedRoute blockClinicDoctor><ClinicSpecializationsPage /></ProtectedRoute>} />
                     <Route path="clinic/configurations/services" element={<ProtectedRoute blockClinicDoctor><ClinicServicesPage /></ProtectedRoute>} />
+                    <Route path="clinic/configurations/payment-methods" element={<ProtectedRoute blockClinicDoctor><ClinicPaymentMethodsPage /></ProtectedRoute>} />
                     <Route path="clinic/configurations/whatsapp-templates" element={<ProtectedRoute blockClinicDoctor><ClinicWhatsappTemplatesPage /></ProtectedRoute>} />
 
                     {/* Platform Super Admin Routes */}
