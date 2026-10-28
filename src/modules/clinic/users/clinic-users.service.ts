@@ -1394,8 +1394,10 @@ export class ClinicUsersService {
         status: u.status,
         avatarUrl: u.avatarUrl,
         specialization: docRecord?.specialization || null,
+        qualification: docRecord?.qualification || null,
         address: docRecord?.address || null,
         licenseNumber: docRecord?.externalId || null,
+        colorCode: u.colorCode || docRecord?.colorCode || null,
         createdAt: u.createdAt,
         branch: primaryUserBranch?.branch
           ? {
@@ -1489,6 +1491,23 @@ export class ClinicUsersService {
       throw new ConflictException(`User ${email} is already a member of this organization.`);
     }
 
+    let normalizedColor: string | null = null;
+    if (dto.colorCode?.trim()) {
+      normalizedColor = dto.colorCode.trim().toUpperCase();
+      const existingColorUser = await this.prisma.user.findFirst({
+        where: {
+          colorCode: { equals: normalizedColor, mode: 'insensitive' },
+          userBranches: { some: { branch: { tenantId, moduleKey: 'CLINIC' } } },
+        },
+        select: { name: true },
+      });
+      if (existingColorUser) {
+        throw new BadRequestException(
+          `Color '${dto.colorCode}' is already assigned to Dr. ${existingColorUser.name}. Each doctor must have a unique color.`,
+        );
+      }
+    }
+
     const clinicDoctorRole = await this.ensureClinicDoctorRole();
 
     const temporaryPassword = `Temp@${uuidv4().substring(0, 8)}!2026`;
@@ -1504,6 +1523,7 @@ export class ClinicUsersService {
             passwordHash,
             name: fullName,
             phone: formattedPhone,
+            colorCode: normalizedColor,
             status: UserStatus.ACTIVE,
             locale: actor.locale || 'en',
           },
@@ -1515,6 +1535,7 @@ export class ClinicUsersService {
           data: {
             name: fullName,
             phone: formattedPhone || user.phone,
+            ...(normalizedColor ? { colorCode: normalizedColor } : {}),
           },
           include: { memberships: true },
         });
@@ -1576,7 +1597,9 @@ export class ClinicUsersService {
           phone: formattedPhone,
           address: dto.address?.trim() || null,
           specialization: dto.specialization?.trim() || null,
-          externalId: dto.licenseNumber || null,
+          qualification: dto.qualification?.trim() || null,
+          colorCode: normalizedColor,
+          externalId: dto.qualification?.trim() || dto.licenseNumber?.trim() || null,
           type: 'LOCAL',
           isActive: true,
         },
@@ -1599,6 +1622,8 @@ export class ClinicUsersService {
             branchId,
             branchName: branch.name,
             specialization: dto.specialization,
+            qualification: dto.qualification,
+            colorCode: normalizedColor,
             licenseNumber: dto.licenseNumber,
             role: 'Clinic Doctor',
           },
@@ -1697,6 +1722,28 @@ export class ClinicUsersService {
       formattedPhone = dto.phone.trim() ? dto.phone.trim() : null;
     }
 
+    let normalizedColor: string | null | undefined = undefined;
+    if (dto.colorCode !== undefined) {
+      if (dto.colorCode?.trim()) {
+        normalizedColor = dto.colorCode.trim().toUpperCase();
+        const existingColorUser = await this.prisma.user.findFirst({
+          where: {
+            id: { not: id },
+            colorCode: { equals: normalizedColor, mode: 'insensitive' },
+            userBranches: { some: { branch: { tenantId, moduleKey: 'CLINIC' } } },
+          },
+          select: { name: true },
+        });
+        if (existingColorUser) {
+          throw new BadRequestException(
+            `Color '${dto.colorCode}' is already assigned to Dr. ${existingColorUser.name}. Each doctor must have a unique color.`,
+          );
+        }
+      } else {
+        normalizedColor = null;
+      }
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.user.update({
         where: { id },
@@ -1704,6 +1751,7 @@ export class ClinicUsersService {
           name: fullName,
           phone: formattedPhone,
           ...(dto.status ? { status: dto.status } : {}),
+          ...(normalizedColor !== undefined ? { colorCode: normalizedColor } : {}),
         },
       });
 
@@ -1719,7 +1767,9 @@ export class ClinicUsersService {
           phone: formattedPhone,
           ...(dto.address !== undefined ? { address: dto.address?.trim() || null } : {}),
           ...(dto.specialization !== undefined ? { specialization: dto.specialization?.trim() || null } : {}),
-          ...(dto.licenseNumber !== undefined ? { externalId: dto.licenseNumber?.trim() || null } : {}),
+          ...(dto.qualification !== undefined ? { qualification: dto.qualification?.trim() || null, externalId: dto.qualification?.trim() || null } : {}),
+          ...(dto.licenseNumber !== undefined && dto.qualification === undefined ? { externalId: dto.licenseNumber?.trim() || null } : {}),
+          ...(normalizedColor !== undefined ? { colorCode: normalizedColor } : {}),
         },
       });
 

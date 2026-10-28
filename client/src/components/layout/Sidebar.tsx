@@ -35,6 +35,9 @@ import {
   Stethoscope,
   CalendarCheck,
   UserRound,
+  Sliders,
+  Award,
+  Wrench,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -172,6 +175,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return location.pathname.startsWith('/clinic/appointments');
   });
 
+  const [isDentalConfigOpen, setIsDentalConfigOpen] = useState<boolean>(() => {
+    return location.pathname.startsWith('/clinic/configurations');
+  });
+
   const onCloseMobileRef = React.useRef(onCloseMobile);
   useEffect(() => {
     onCloseMobileRef.current = onCloseMobile;
@@ -193,6 +200,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
       if (p.startsWith('/clinic/appointments')) {
         setIsClinicAppointmentsOpen(true);
+      }
+      if (p.startsWith('/clinic/configurations')) {
+        setIsDentalConfigOpen(true);
       }
     } else {
       // Core Operations: '/', '/branches', '/finance', '/reminders', '/inventory', '/expenses'
@@ -237,6 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isClinicUsersActive =
     location.pathname.startsWith('/clinic/users') || location.pathname.startsWith('/clinic/staff');
   const isClinicAppointmentsActive = location.pathname.startsWith('/clinic/appointments');
+  const isDentalConfigActive = location.pathname.startsWith('/clinic/configurations');
 
   return (
     <>
@@ -967,6 +978,70 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       isCollapsed={isCollapsed}
                     />
                   )}
+
+                  {/* Dental Configuration Submenu */}
+                  {!isClinicDoctor && (!isCollapsed ? (
+                    <div className="nav-sub-group">
+                      <button
+                        type="button"
+                        className={`nav-sub-header ${isDentalConfigActive ? 'has-active' : ''}`}
+                        onClick={() => setIsDentalConfigOpen((prev) => !prev)}
+                        aria-expanded={isDentalConfigOpen}
+                      >
+                        <div className="nav-sub-header-title">
+                          <span className="nav-link-icon">
+                            <Sliders size={17} />
+                          </span>
+                          <span className="nav-link-text">{t('nav.dentalConfiguration', 'Dental Configuration')}</span>
+                        </div>
+                        <span className={`accordion-chevron ${isDentalConfigOpen ? 'is-open' : ''}`}>
+                          <ChevronDown size={13} />
+                        </span>
+                      </button>
+
+                      <div className={`nav-sub-list ${isDentalConfigOpen ? 'is-expanded' : 'is-collapsed'}`}>
+                        <NavLink
+                          to="/clinic/configurations/specializations"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.specialization', 'Specialization')}</span>
+                        </NavLink>
+                        <NavLink
+                          to="/clinic/configurations/services"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.services', 'Services')}</span>
+                        </NavLink>
+                        <NavLink
+                          to="/clinic/configurations/whatsapp-templates"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.whatsappTemplate', 'WhatsApp Template')}</span>
+                        </NavLink>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <SidebarNavItem
+                        to="/clinic/configurations/specializations"
+                        icon={<Award size={17} />}
+                        label={t('nav.specialization', 'Specialization')}
+                        isCollapsed={isCollapsed}
+                      />
+                      <SidebarNavItem
+                        to="/clinic/configurations/services"
+                        icon={<Wrench size={17} />}
+                        label={t('nav.services', 'Services')}
+                        isCollapsed={isCollapsed}
+                      />
+                      <SidebarNavItem
+                        to="/clinic/configurations/whatsapp-templates"
+                        icon={<MessageSquare size={17} />}
+                        label={t('nav.whatsappTemplate', 'WhatsApp Template')}
+                        isCollapsed={isCollapsed}
+                      />
+                    </>
+                  ))}
                 </div>
               </div>
             )}

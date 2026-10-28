@@ -44,6 +44,14 @@ export class CreateClinicDoctorDto {
 
   @IsOptional()
   @IsString()
+  qualification?: string;
+
+  @IsOptional()
+  @IsString()
+  colorCode?: string;
+
+  @IsOptional()
+  @IsString()
   licenseNumber?: string;
 }
 

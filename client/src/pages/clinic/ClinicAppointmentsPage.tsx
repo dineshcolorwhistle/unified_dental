@@ -51,6 +51,7 @@ interface DoctorOption {
   email: string;
   avatarUrl?: string | null;
   roleName?: string;
+  colorCode?: string | null;
 }
 
 interface AppointmentItem {
@@ -82,6 +83,7 @@ interface AppointmentItem {
     id: string;
     name: string;
     email: string;
+    colorCode?: string | null;
   } | null;
   branch?: {
     id: string;
@@ -358,6 +360,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
       ...doctors.map((d) => ({
         value: d.id,
         label: `Dr. ${d.name}`,
+        badge: d.colorCode || undefined,
       })),
     ];
   }, [doctors, isSpanish]);
@@ -1804,6 +1807,55 @@ export const ClinicAppointmentsPage: React.FC = () => {
       {/* VIEW MODE 2: INTERACTIVE CALENDAR */}
       {viewMode === 'calendar' && (
         <div className="card" style={{ padding: '18px', overflowX: 'auto' }}>
+          {/* Doctor Color Legend in Calendar View */}
+          {doctors.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+                padding: '10px 14px',
+                backgroundColor: 'var(--bg-secondary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                marginBottom: '16px',
+              }}
+            >
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                {isSpanish ? 'Doctores de Clínica:' : 'Attending Doctors:'}
+              </span>
+              {doctors.map((d) => (
+                <div
+                  key={d.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: 'var(--text-heading)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      backgroundColor: d.colorCode || '#0EA5E9',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>Dr. {d.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Week View */}
           {calendarSubMode === 'week' && (
             <div style={{ minWidth: '760px' }}>
@@ -1910,6 +1962,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
 
                           {matchingApts.map((apt) => {
                             const st = STATUS_CONFIG[apt.status] || STATUS_CONFIG.SCHEDULED;
+                            const docColor = apt.doctor?.colorCode || st.color;
                             return (
                               <div
                                 key={apt.id}
@@ -1921,7 +1974,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                   padding: '4px 6px',
                                   borderRadius: '5px',
                                   backgroundColor: st.bg,
-                                  borderLeft: `3px solid ${st.color}`,
+                                  borderLeft: `4px solid ${docColor}`,
                                   borderTop: `1px solid ${st.border}`,
                                   borderRight: `1px solid ${st.border}`,
                                   borderBottom: `1px solid ${st.border}`,
@@ -1934,8 +1987,9 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                 <div style={{ fontWeight: 600, color: st.color, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                                   {apt.startTime} {apt.patient?.firstName}
                                 </div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                  Dr. {apt.doctor?.name?.split(' ')[0]}
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: docColor, display: 'inline-block', flexShrink: 0 }} />
+                                  <span>Dr. {apt.doctor?.name?.split(' ')[0]}</span>
                                 </div>
                               </div>
                             );
@@ -2004,6 +2058,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {matchingApts.map((apt) => {
                               const st = STATUS_CONFIG[apt.status] || STATUS_CONFIG.SCHEDULED;
+                              const docColor = apt.doctor?.colorCode || st.color;
                               return (
                                 <div
                                   key={apt.id}
@@ -2018,16 +2073,29 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                     padding: '8px 12px',
                                     borderRadius: '6px',
                                     backgroundColor: st.bg,
-                                    borderLeft: `4px solid ${st.color}`,
+                                    borderLeft: `4px solid ${docColor}`,
                                     cursor: 'pointer',
                                   }}
                                 >
-                                  <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-heading)' }}>
                                       {apt.patient?.firstName} {apt.patient?.fatherLastName || ''}
                                     </span>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px' }}>
-                                      (Dr. {apt.doctor?.name})
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        fontSize: '12px',
+                                        color: 'var(--text-heading)',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        backgroundColor: `${docColor}18`,
+                                        border: `1px solid ${docColor}35`,
+                                      }}
+                                    >
+                                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: docColor }} />
+                                      <span>Dr. {apt.doctor?.name}</span>
                                     </span>
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2145,6 +2213,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
 
                       {dayApts.slice(0, 3).map((apt) => {
                         const st = STATUS_CONFIG[apt.status] || STATUS_CONFIG.SCHEDULED;
+                        const docColor = apt.doctor?.colorCode || st.color;
                         return (
                           <div
                             key={apt.id}
@@ -2157,15 +2226,20 @@ export const ClinicAppointmentsPage: React.FC = () => {
                               padding: '2px 4px',
                               borderRadius: '3px',
                               backgroundColor: st.bg,
+                              borderLeft: `2px solid ${docColor}`,
                               color: st.color,
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
                             }}
                           >
-                            {apt.startTime} {apt.patient?.firstName}
+                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: docColor, flexShrink: 0 }} />
+                            <span>{apt.startTime} {apt.patient?.firstName}</span>
                           </div>
                         );
                       })}

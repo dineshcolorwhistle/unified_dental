@@ -308,6 +308,7 @@ export class AppointmentsService {
               name: true,
               email: true,
               avatarUrl: true,
+              colorCode: true,
             },
           },
           branch: {
@@ -365,6 +366,7 @@ export class AppointmentsService {
             name: true,
             email: true,
             avatarUrl: true,
+            colorCode: true,
           },
         },
         branch: {
@@ -815,6 +817,7 @@ export class AppointmentsService {
         name: true,
         email: true,
         avatarUrl: true,
+        colorCode: true,
         userRoles: {
           where: { tenantId },
           include: { role: true },
@@ -832,6 +835,7 @@ export class AppointmentsService {
       name: doc.name,
       email: doc.email,
       avatarUrl: doc.avatarUrl,
+      colorCode: doc.colorCode,
       roleName: doc.userRoles?.[0]?.role?.name || 'Clinic Doctor',
       daysConfigured: doc.doctorWorkingHours?.filter((h) => h.isWorking).length || 0,
       doctorWorkingHours: doc.doctorWorkingHours,

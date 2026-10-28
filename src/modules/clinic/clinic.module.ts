@@ -13,6 +13,12 @@ import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { ClinicPaymentMethodsController } from './payment-methods/clinic-payment-methods.controller';
 import { ClinicPaymentMethodsService } from './payment-methods/clinic-payment-methods.service';
+import { SpecializationsController } from './specializations/specializations.controller';
+import { SpecializationsService } from './specializations/specializations.service';
+import { ClinicServicesController } from './services/clinic-services.controller';
+import { ClinicServicesService } from './services/clinic-services.service';
+import { ClinicWhatsappTemplatesController } from './whatsapp-templates/clinic-whatsapp-templates.controller';
+import { ClinicWhatsappTemplatesService } from './whatsapp-templates/clinic-whatsapp-templates.service';
 
 @Module({
   imports: [
@@ -30,14 +36,23 @@ import { ClinicPaymentMethodsService } from './payment-methods/clinic-payment-me
     ClinicStaffController,
     ClinicDoctorsController,
     ClinicPaymentMethodsController,
+    SpecializationsController,
+    ClinicServicesController,
+    ClinicWhatsappTemplatesController,
   ],
   providers: [
     ClinicUsersService,
     ClinicPaymentMethodsService,
+    SpecializationsService,
+    ClinicServicesService,
+    ClinicWhatsappTemplatesService,
   ],
   exports: [
     ClinicUsersService,
     ClinicPaymentMethodsService,
+    SpecializationsService,
+    ClinicServicesService,
+    ClinicWhatsappTemplatesService,
     ClinicTypesModule,
     PatientsModule,
     AppointmentsModule,

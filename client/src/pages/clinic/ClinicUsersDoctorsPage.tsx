@@ -25,7 +25,13 @@ import {
   ShieldAlert,
   Award,
   MapPin,
+  Palette,
+  Check,
 } from 'lucide-react';
+import {
+  specializationService,
+  SpecializationItem,
+} from '../../services/specializationService';
 
 interface ClinicDoctorRecord {
   id: string;
@@ -36,7 +42,9 @@ interface ClinicDoctorRecord {
   status: 'ACTIVE' | 'INVITED' | 'INACTIVE';
   avatarUrl?: string;
   specialization: string;
+  qualification?: string | null;
   licenseNumber?: string | null;
+  colorCode?: string | null;
   createdAt: string;
   branch: {
     id: string;
@@ -45,6 +53,228 @@ interface ClinicDoctorRecord {
   } | null;
   roles: string[];
 }
+
+export const PRESET_DOCTOR_COLORS = [
+  { hex: '#0EA5E9', name: 'Sky Blue' },
+  { hex: '#10B981', name: 'Emerald' },
+  { hex: '#6366F1', name: 'Indigo' },
+  { hex: '#8B5CF6', name: 'Purple' },
+  { hex: '#EC4899', name: 'Pink' },
+  { hex: '#F59E0B', name: 'Amber' },
+  { hex: '#14B8A6', name: 'Teal' },
+  { hex: '#F97316', name: 'Orange' },
+  { hex: '#06B6D4', name: 'Cyan' },
+  { hex: '#84CC16', name: 'Lime' },
+  { hex: '#3B82F6', name: 'Blue' },
+  { hex: '#D946EF', name: 'Fuchsia' },
+  { hex: '#E11D48', name: 'Rose' },
+  { hex: '#059669', name: 'Sea Green' },
+  { hex: '#7C3AED', name: 'Violet' },
+  { hex: '#D97706', name: 'Ochre' },
+];
+
+export const getDuplicateColorDoctor = (
+  hex?: string,
+  doctors: ClinicDoctorRecord[] = [],
+  excludeId?: string,
+): ClinicDoctorRecord | undefined => {
+  if (!hex) return undefined;
+  const normalized = hex.trim().toUpperCase();
+  return doctors.find(
+    (d) =>
+      d.id !== excludeId &&
+      d.colorCode &&
+      d.colorCode.trim().toUpperCase() === normalized,
+  );
+};
+
+export const findNextAvailableColor = (
+  doctors: ClinicDoctorRecord[] = [],
+  excludeId?: string,
+): string => {
+  for (const preset of PRESET_DOCTOR_COLORS) {
+    if (!getDuplicateColorDoctor(preset.hex, doctors, excludeId)) {
+      return preset.hex;
+    }
+  }
+  return PRESET_DOCTOR_COLORS[0].hex;
+};
+
+const DoctorColorPicker: React.FC<{
+  value: string;
+  onChange: (color: string) => void;
+  existingDoctors: ClinicDoctorRecord[];
+  currentDoctorId?: string;
+}> = ({ value, onChange, existingDoctors, currentDoctorId }) => {
+  const { t } = useTranslation();
+  const duplicateDoc = useMemo(() => {
+    return getDuplicateColorDoctor(value, existingDoctors, currentDoctorId);
+  }, [value, existingDoctors, currentDoctorId]);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Palette size={13} style={{ color: 'var(--primary-600)' }} />
+          <span>{t('clinicDoctors.modal.colorCode', 'Doctor Calendar Color')}</span>
+        </label>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            fontWeight: 700,
+            padding: '1px 6px',
+            borderRadius: '6px',
+            backgroundColor: `${value || '#0EA5E9'}15`,
+            color: value || '#0EA5E9',
+            border: `1px solid ${value || '#0EA5E9'}35`,
+          }}
+        >
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: value || '#0EA5E9' }} />
+          {value ? value.toUpperCase() : '#0EA5E9'}
+        </span>
+      </div>
+
+      {/* Compact Swatches & Custom Picker Toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '6px',
+          padding: '6px 10px',
+          borderRadius: '8px',
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+        }}
+      >
+        {PRESET_DOCTOR_COLORS.map((c) => {
+          const isSelected = value?.toUpperCase() === c.hex.toUpperCase();
+          const takenBy = getDuplicateColorDoctor(c.hex, existingDoctors, currentDoctorId);
+          return (
+            <Tooltip
+              key={c.hex}
+              content={takenBy ? `Assigned to Dr. ${takenBy.name}` : c.name}
+            >
+              <button
+                type="button"
+                onClick={() => onChange(c.hex)}
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '50%',
+                  backgroundColor: c.hex,
+                  border: isSelected
+                    ? '2px solid #fff'
+                    : takenBy
+                    ? '1.5px dashed rgba(239, 68, 68, 0.65)'
+                    : '1px solid rgba(0,0,0,0.12)',
+                  outline: isSelected ? `2px solid ${c.hex}` : 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                  transition: 'transform 0.12s ease',
+                  transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                  boxShadow: isSelected ? '0 1px 4px rgba(0,0,0,0.25)' : 'none',
+                }}
+              >
+                {isSelected && (
+                  <Check size={12} color="#fff" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.7))' }} />
+                )}
+                {!isSelected && takenBy && (
+                  <span
+                    style={{
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      backgroundColor: '#ef4444',
+                    }}
+                  />
+                )}
+              </button>
+            </Tooltip>
+          );
+        })}
+
+        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-color)', margin: '0 2px' }} />
+
+        {/* Custom Color trigger & mini hex input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <input
+            type="color"
+            value={value || '#0EA5E9'}
+            onChange={(e) => onChange(e.target.value.toUpperCase())}
+            style={{
+              width: '22px',
+              height: '22px',
+              padding: 0,
+              borderRadius: '50%',
+              border: '1px solid var(--border-color)',
+              cursor: 'pointer',
+              backgroundColor: 'transparent',
+            }}
+            title={t('clinicDoctors.modal.customColor', 'Custom Hex')}
+          />
+          <input
+            type="text"
+            placeholder="#HEX"
+            value={value}
+            maxLength={7}
+            onChange={(e) => {
+              let val = e.target.value.trim().toUpperCase();
+              if (!val.startsWith('#') && val.length > 0) val = '#' + val;
+              onChange(val);
+            }}
+            style={{
+              width: '74px',
+              height: '24px',
+              padding: '2px 6px',
+              fontFamily: 'monospace',
+              fontSize: '11px',
+              fontWeight: 600,
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-heading)',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Duplicate Alert */}
+      {duplicateDoc && (
+        <div
+          style={{
+            marginTop: '6px',
+            padding: '5px 10px',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '11.5px',
+            color: '#ef4444',
+          }}
+        >
+          <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+          <span>
+            {t('clinicDoctors.modal.colorDuplicate', {
+              name: duplicateDoc.name,
+              defaultValue: `Color already assigned to Dr. ${duplicateDoc.name}. Please select a unique color.`,
+            })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
   { value: '+52', label: '+52' },
@@ -72,6 +302,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
 
   const [doctorsList, setDoctorsList] = useState<ClinicDoctorRecord[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
+  const [availableSpecializations, setAvailableSpecializations] = useState<SpecializationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
@@ -95,7 +326,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
     phoneNumber: '',
     address: '',
     specialization: '',
-    licenseNumber: '',
+    qualification: '',
+    colorCode: PRESET_DOCTOR_COLORS[0].hex,
   });
 
   // Edit Form State
@@ -105,7 +337,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
     phoneNumber: '',
     address: '',
     specialization: '',
-    licenseNumber: '',
+    qualification: '',
+    colorCode: PRESET_DOCTOR_COLORS[0].hex,
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
   });
 
@@ -132,7 +365,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
       if (!isBackground) {
         setLoading(true);
       }
-      const [docRes, branchesRes] = await Promise.allSettled([
+      const [docRes, branchesRes, specsRes] = await Promise.allSettled([
         api.get('/clinic/users/doctors', {
           params: {
             branchId: isTenantAdmin && selectedBranchFilter !== 'all' ? selectedBranchFilter : undefined,
@@ -142,6 +375,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
         api.get('/branches', {
           params: { moduleKey: 'CLINIC' },
         }),
+        specializationService.getAll({ status: 'ACTIVE' }),
       ]);
 
       if (docRes.status === 'fulfilled') {
@@ -150,8 +384,11 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
       if (branchesRes.status === 'fulfilled') {
         setBranches(branchesRes.value.data || []);
       }
+      if (specsRes.status === 'fulfilled') {
+        setAvailableSpecializations(specsRes.value || []);
+      }
     } catch (e) {
-      console.error('Failed to load clinic doctors:', e);
+      console.error('Failed to load clinic doctors data:', e);
     } finally {
       setLoading(false);
     }
@@ -177,6 +414,56 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
     ];
   }, [branches, t]);
 
+  // Specialization SearchableSelect options
+  const baseSpecializationOptions: SearchableSelectOption[] = useMemo(() => {
+    return availableSpecializations.map((s) => ({
+      value: s.name,
+      label: s.name,
+      sublabel: s.description || undefined,
+    }));
+  }, [availableSpecializations]);
+
+  const createSpecializationOptions: SearchableSelectOption[] = useMemo(() => {
+    const opts = [...baseSpecializationOptions];
+    if (
+      createFormData.specialization &&
+      !opts.some((o) => o.value === createFormData.specialization)
+    ) {
+      opts.unshift({
+        value: createFormData.specialization,
+        label: createFormData.specialization,
+        sublabel: t('common.custom', 'Custom'),
+      });
+    }
+    return opts;
+  }, [baseSpecializationOptions, createFormData.specialization, t]);
+
+  const editSpecializationOptions: SearchableSelectOption[] = useMemo(() => {
+    const opts = [...baseSpecializationOptions];
+    if (
+      editFormData.specialization &&
+      !opts.some((o) => o.value === editFormData.specialization)
+    ) {
+      opts.unshift({
+        value: editFormData.specialization,
+        label: editFormData.specialization,
+        sublabel: t('common.current', 'Current'),
+      });
+    }
+    return opts;
+  }, [baseSpecializationOptions, editFormData.specialization, t]);
+
+  // Duplicate color check memo
+  const createDuplicateDoctor = useMemo(() => {
+    return getDuplicateColorDoctor(createFormData.colorCode, doctorsList);
+  }, [createFormData.colorCode, doctorsList]);
+
+  const editDuplicateDoctor = useMemo(() => {
+    return editingDoctor
+      ? getDuplicateColorDoctor(editFormData.colorCode, doctorsList, editingDoctor.id)
+      : undefined;
+  }, [editFormData.colorCode, doctorsList, editingDoctor]);
+
   // Filtered & Paginated Doctors (Instant client-side filter)
   const filteredDoctors = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -188,8 +475,10 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
         doc.name?.toLowerCase().includes(q) ||
         doc.email?.toLowerCase().includes(q) ||
         doc.specialization?.toLowerCase().includes(q) ||
+        (doc.qualification && doc.qualification.toLowerCase().includes(q)) ||
         (doc.licenseNumber && doc.licenseNumber.toLowerCase().includes(q)) ||
         (doc.phone && doc.phone.toLowerCase().includes(q)) ||
+        (doc.colorCode && doc.colorCode.toLowerCase().includes(q)) ||
         (doc.branch?.name && doc.branch.name.toLowerCase().includes(q)) ||
         (doc.branch?.code && doc.branch.code.toLowerCase().includes(q));
 
@@ -208,14 +497,16 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
   }, [search, selectedBranchFilter]);
 
   const handleOpenCreateModal = () => {
+    const nextColor = findNextAvailableColor(doctorsList);
     setCreateFormData({
       name: '',
       email: '',
       phoneCountryCode: '+52',
       phoneNumber: '',
       address: '',
-      specialization: '',
-      licenseNumber: '',
+      specialization: availableSpecializations[0]?.name || '',
+      qualification: '',
+      colorCode: nextColor,
     });
     setShowCreateModal(true);
   };
@@ -232,6 +523,16 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
       return;
     }
 
+    if (createDuplicateDoctor) {
+      toast.error(
+        t('clinicDoctors.modal.colorDuplicate', {
+          name: createDuplicateDoctor.name,
+          defaultValue: `This color code is already assigned to Dr. ${createDuplicateDoctor.name}. Please select a unique color.`,
+        }),
+      );
+      return;
+    }
+
     try {
       setSubmitting(true);
       await api.post('/clinic/users/doctors', {
@@ -241,7 +542,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
         phoneNumber: createFormData.phoneNumber?.trim() || undefined,
         address: createFormData.address?.trim() || undefined,
         specialization: createFormData.specialization?.trim() || undefined,
-        licenseNumber: createFormData.licenseNumber?.trim() || undefined,
+        qualification: createFormData.qualification?.trim() || undefined,
+        colorCode: createFormData.colorCode?.trim() || undefined,
       });
       toast.success(
         t('clinicDoctors.alerts.createSuccess', {
@@ -273,7 +575,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
       phoneNumber: number,
       address: doc.address || '',
       specialization: doc.specialization || '',
-      licenseNumber: doc.licenseNumber || '',
+      qualification: doc.qualification || doc.licenseNumber || '',
+      colorCode: doc.colorCode || findNextAvailableColor(doctorsList, doc.id),
       status: doc.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
     });
   };
@@ -287,6 +590,16 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
       return;
     }
 
+    if (editDuplicateDoctor) {
+      toast.error(
+        t('clinicDoctors.modal.colorDuplicate', {
+          name: editDuplicateDoctor.name,
+          defaultValue: `This color code is already assigned to Dr. ${editDuplicateDoctor.name}. Please select a unique color.`,
+        }),
+      );
+      return;
+    }
+
     try {
       setSubmitting(true);
       await api.patch(`/clinic/users/doctors/${editingDoctor.id}`, {
@@ -295,7 +608,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
         phoneNumber: editFormData.phoneNumber?.trim() || undefined,
         address: editFormData.address?.trim() || undefined,
         specialization: editFormData.specialization?.trim() || undefined,
-        licenseNumber: editFormData.licenseNumber?.trim() || undefined,
+        qualification: editFormData.qualification?.trim() || undefined,
+        colorCode: editFormData.colorCode?.trim() || undefined,
         status: editFormData.status,
       });
       toast.success(
@@ -598,17 +912,19 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div
                           style={{
-                            width: '38px',
-                            height: '38px',
+                            width: '40px',
+                            height: '40px',
                             borderRadius: '50%',
-                            backgroundColor: 'var(--badge-primary-bg)',
-                            color: 'var(--primary-600)',
+                            backgroundColor: doc.colorCode ? `${doc.colorCode}22` : 'var(--badge-primary-bg)',
+                            color: doc.colorCode || 'var(--primary-600)',
+                            border: `2px solid ${doc.colorCode || 'var(--primary-600)'}`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 700,
                             fontSize: '14px',
                             flexShrink: 0,
+                            position: 'relative',
                           }}
                         >
                           {doc.avatarUrl ? (
@@ -620,14 +936,48 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                           ) : (
                             doc.name.charAt(0).toUpperCase()
                           )}
+                          <span
+                            style={{
+                              position: 'absolute',
+                              bottom: '-1px',
+                              right: '-1px',
+                              width: '11px',
+                              height: '11px',
+                              borderRadius: '50%',
+                              backgroundColor: doc.colorCode || '#0EA5E9',
+                              border: '2px solid var(--bg-card)',
+                            }}
+                            title={`Calendar Color: ${doc.colorCode || '#0EA5E9'}`}
+                          />
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)' }}>
-                            {doc.name.startsWith('Dr.') ? doc.name : `Dr. ${doc.name}`}
+                          <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                            <span>{doc.name.startsWith('Dr.') ? doc.name : `Dr. ${doc.name}`}</span>
+                            {doc.colorCode && (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontFamily: 'monospace',
+                                  fontWeight: 600,
+                                  color: doc.colorCode,
+                                  backgroundColor: `${doc.colorCode}18`,
+                                  padding: '1px 6px',
+                                  borderRadius: '10px',
+                                  border: `1px solid ${doc.colorCode}35`,
+                                }}
+                                title={`Calendar Color: ${doc.colorCode}`}
+                              >
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: doc.colorCode }} />
+                                {doc.colorCode}
+                              </span>
+                            )}
                           </div>
-                          {doc.licenseNumber ? (
+                          {doc.qualification ? (
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                              Lic: {doc.licenseNumber}
+                              {doc.qualification}
                             </div>
                           ) : (
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -771,6 +1121,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             position: 'fixed',
             inset: 0,
             background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(3px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -782,43 +1133,94 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             className="modal-content"
             style={{
               width: '100%',
-              maxWidth: '520px',
+              maxWidth: '640px',
+              maxHeight: 'min(90vh, 600px)',
+              display: 'flex',
+              flexDirection: 'column',
               backgroundColor: 'var(--bg-card)',
-              borderRadius: '12px',
+              borderRadius: '14px',
               border: '1px solid var(--border-color)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
               overflow: 'hidden',
             }}
           >
+            {/* Modal Header */}
             <div
               style={{
-                padding: '18px 24px',
+                padding: '13px 20px',
                 borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexShrink: 0,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--badge-primary-bg)', color: 'var(--primary-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Stethoscope size={18} />
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'var(--badge-primary-bg)',
+                    color: 'var(--primary-600)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Stethoscope size={16} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                  {t('clinicDoctors.createModal.title', 'Invite Clinic Doctor')}
-                </h3>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                    {t('clinicDoctors.createModal.title', 'Invite Clinic Doctor')}
+                  </h3>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                    {t('clinicDoctors.createModal.subtitle', 'Add a dental practitioner and send an invite link')}
+                  </div>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: '4px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <X size={18} />
+                <X size={17} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateDoctor}>
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form
+              onSubmit={handleCreateDoctor}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '14px 20px',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '10px 14px',
+                }}
+              >
+                {/* 1. Doctor Name */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -828,12 +1230,13 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     value={createFormData.name}
                     onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
                     required
-                    style={{ width: '100%', height: '40px' }}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
                   />
                 </div>
 
+                {/* 2. Email Address */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.email', 'Email Address')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -843,12 +1246,13 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     value={createFormData.email}
                     onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
                     required
-                    style={{ width: '100%', height: '40px' }}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
                   />
                 </div>
 
+                {/* 3. Phone Number */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.phone', 'Phone Number')}
                   </label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -865,13 +1269,48 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                       placeholder="55 1234 5678"
                       value={createFormData.phoneNumber}
                       onChange={(e) => setCreateFormData({ ...createFormData, phoneNumber: e.target.value })}
-                      style={{ flex: 1, width: '100%', height: '40px' }}
+                      style={{ flex: 1, width: '100%', height: '36px', fontSize: '13px' }}
                     />
                   </div>
                 </div>
 
+                {/* 4. Specialization */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                    {t('clinicDoctors.modal.specialization', 'Specialization')}
+                  </label>
+                  <SearchableSelect
+                    options={createSpecializationOptions}
+                    value={createFormData.specialization}
+                    onChange={(val) => setCreateFormData({ ...createFormData, specialization: val })}
+                    placeholder={t('clinicDoctors.modal.selectSpecialization', 'Select specialization...')}
+                    searchPlaceholder={t('common.search', 'Search...')}
+                  />
+                  {availableSpecializations.length === 0 && (
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {t('clinicDoctors.modal.noSpecializationsConfigured', 'No active specializations configured in Clinic settings.')}
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. Qualification */}
+                <div>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                    {t('clinicDoctors.modal.qualification', 'Qualification')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder={t('clinicDoctors.modal.qualificationPlaceholder', 'e.g. DDS, DMD, Master in Orthodontics...')}
+                    value={createFormData.qualification}
+                    onChange={(e) => setCreateFormData({ ...createFormData, qualification: e.target.value })}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                  />
+                </div>
+
+                {/* 6. Address */}
+                <div>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.address', 'Address')}
                   </label>
                   <input
@@ -880,71 +1319,64 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     placeholder="e.g. Av. Insurgentes Sur 123, Col. Roma, CDMX"
                     value={createFormData.address}
                     onChange={(e) => setCreateFormData({ ...createFormData, address: e.target.value })}
-                    style={{ width: '100%', height: '40px' }}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
                   />
                 </div>
 
-                <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.specialization', 'Specialization')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder={t('clinicDoctors.modal.specializationPlaceholder', 'e.g. General Practice, Cardiology, Pediatrics, Dentistry...')}
-                    value={createFormData.specialization}
-                    onChange={(e) => setCreateFormData({ ...createFormData, specialization: e.target.value })}
-                    style={{ width: '100%', height: '40px' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.licenseNumber', 'Professional License Number')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. CED-PROF-89214"
-                    value={createFormData.licenseNumber}
-                    onChange={(e) => setCreateFormData({ ...createFormData, licenseNumber: e.target.value })}
-                    style={{ width: '100%', height: '40px' }}
+                {/* 7. Doctor Calendar Color (Full Width across 2 columns) */}
+                <div style={{ gridColumn: '1 / -1', paddingTop: '2px' }}>
+                  <DoctorColorPicker
+                    value={createFormData.colorCode}
+                    onChange={(hex) => setCreateFormData({ ...createFormData, colorCode: hex })}
+                    existingDoctors={doctorsList}
                   />
                 </div>
               </div>
 
+              {/* Modal Footer */}
               <div
                 style={{
-                  padding: '14px 24px',
+                  padding: '10px 20px',
                   borderTop: '1px solid var(--border-color)',
                   display: 'flex',
                   justifyContent: 'flex-end',
-                  gap: '10px',
+                  alignItems: 'center',
+                  gap: '8px',
                   backgroundColor: 'var(--bg-secondary)',
+                  flexShrink: 0,
                 }}
               >
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => setShowCreateModal(false)}
                   disabled={submitting}
+                  style={{ height: '34px', padding: '0 14px', fontSize: '13px', borderRadius: '7px' }}
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  className="btn btn-primary btn-sm"
+                  disabled={submitting || Boolean(createDuplicateDoctor)}
+                  style={{
+                    height: '34px',
+                    padding: '0 16px',
+                    fontSize: '13px',
+                    borderRadius: '7px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                  }}
                 >
                   {submitting ? (
                     <>
-                      <Clock className="animate-spin" size={16} />
+                      <Clock className="animate-spin" size={14} />
                       <span>{t('common.saving', 'Adding Doctor...')}</span>
                     </>
                   ) : (
                     <>
-                      <Send size={16} />
+                      <Send size={14} />
                       <span>{t('clinicDoctors.modal.sendInviteBtn', 'Add & Send Invite')}</span>
                     </>
                   )}
@@ -963,6 +1395,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             position: 'fixed',
             inset: 0,
             background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(3px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -974,38 +1407,94 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             className="modal-content"
             style={{
               width: '100%',
-              maxWidth: '520px',
+              maxWidth: '640px',
+              maxHeight: 'min(90vh, 600px)',
+              display: 'flex',
+              flexDirection: 'column',
               backgroundColor: 'var(--bg-card)',
-              borderRadius: '12px',
+              borderRadius: '14px',
               border: '1px solid var(--border-color)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
               overflow: 'hidden',
             }}
           >
+            {/* Modal Header */}
             <div
               style={{
-                padding: '18px 24px',
+                padding: '13px 20px',
                 borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexShrink: 0,
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                {t('clinicDoctors.editModal.title', 'Edit Doctor Profile')}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'var(--badge-primary-bg)',
+                    color: 'var(--primary-600)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Edit2 size={16} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                    {t('clinicDoctors.editModal.title', 'Edit Doctor Profile')}
+                  </h3>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                    {t('clinicDoctors.editModal.subtitle', 'Update practitioner information and appointment calendar color')}
+                  </div>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingDoctor(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: '4px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <X size={18} />
+                <X size={17} />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateDoctor}>
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form
+              onSubmit={handleUpdateDoctor}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '14px 20px',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '10px 14px',
+                }}
+              >
+                {/* 1. Doctor Name */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -1014,12 +1503,29 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     value={editFormData.name}
                     onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                     required
-                    style={{ width: '100%', height: '40px' }}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
                   />
                 </div>
 
+                {/* 2. Status */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                    {t('clinicDoctors.modal.status', 'Status')}
+                  </label>
+                  <select
+                    className="input"
+                    value={editFormData.status}
+                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                  >
+                    <option value="ACTIVE">{t('common.active', 'Active')}</option>
+                    <option value="INACTIVE">{t('common.inactive', 'Inactive')}</option>
+                  </select>
+                </div>
+
+                {/* 3. Phone Number */}
+                <div>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.phone', 'Phone Number')}
                   </label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1035,13 +1541,43 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                       className="input"
                       value={editFormData.phoneNumber}
                       onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
-                      style={{ flex: 1, width: '100%', height: '40px' }}
+                      style={{ flex: 1, width: '100%', height: '36px', fontSize: '13px' }}
                     />
                   </div>
                 </div>
 
+                {/* 4. Specialization */}
                 <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                    {t('clinicDoctors.modal.specialization', 'Specialization')}
+                  </label>
+                  <SearchableSelect
+                    options={editSpecializationOptions}
+                    value={editFormData.specialization}
+                    onChange={(val) => setEditFormData({ ...editFormData, specialization: val })}
+                    placeholder={t('clinicDoctors.modal.selectSpecialization', 'Select specialization...')}
+                    searchPlaceholder={t('common.search', 'Search...')}
+                  />
+                </div>
+
+                {/* 5. Qualification */}
+                <div>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                    {t('clinicDoctors.modal.qualification', 'Qualification')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder={t('clinicDoctors.modal.qualificationPlaceholder', 'e.g. DDS, DMD, Master in Orthodontics...')}
+                    value={editFormData.qualification}
+                    onChange={(e) => setEditFormData({ ...editFormData, qualification: e.target.value })}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                  />
+                </div>
+
+                {/* 6. Address */}
+                <div>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                     {t('clinicDoctors.modal.address', 'Address')}
                   </label>
                   <input
@@ -1049,72 +1585,49 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     className="input"
                     value={editFormData.address}
                     onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
-                    style={{ width: '100%', height: '40px' }}
+                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
                   />
                 </div>
 
-                <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.specialization', 'Specialization')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder={t('clinicDoctors.modal.specializationPlaceholder', 'e.g. General Practice, Cardiology, Pediatrics, Dentistry...')}
-                    value={editFormData.specialization}
-                    onChange={(e) => setEditFormData({ ...editFormData, specialization: e.target.value })}
-                    style={{ width: '100%', height: '40px' }}
+                {/* 7. Doctor Calendar Color (Full Width across 2 columns) */}
+                <div style={{ gridColumn: '1 / -1', paddingTop: '2px' }}>
+                  <DoctorColorPicker
+                    value={editFormData.colorCode}
+                    onChange={(hex) => setEditFormData({ ...editFormData, colorCode: hex })}
+                    existingDoctors={doctorsList}
+                    currentDoctorId={editingDoctor.id}
                   />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.licenseNumber', 'Professional License Number')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={editFormData.licenseNumber}
-                    onChange={(e) => setEditFormData({ ...editFormData, licenseNumber: e.target.value })}
-                    style={{ width: '100%', height: '40px' }}
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', display: 'block' }}>
-                    {t('clinicDoctors.modal.status', 'Status')}
-                  </label>
-                  <select
-                    className="input"
-                    value={editFormData.status}
-                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
-                    style={{ width: '100%', height: '40px' }}
-                  >
-                    <option value="ACTIVE">{t('common.active', 'Active')}</option>
-                    <option value="INACTIVE">{t('common.inactive', 'Inactive')}</option>
-                  </select>
                 </div>
               </div>
 
+              {/* Modal Footer */}
               <div
                 style={{
-                  padding: '14px 24px',
+                  padding: '10px 20px',
                   borderTop: '1px solid var(--border-color)',
                   display: 'flex',
                   justifyContent: 'flex-end',
-                  gap: '10px',
+                  alignItems: 'center',
+                  gap: '8px',
                   backgroundColor: 'var(--bg-secondary)',
+                  flexShrink: 0,
                 }}
               >
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => setEditingDoctor(null)}
                   disabled={submitting}
+                  style={{ height: '34px', padding: '0 14px', fontSize: '13px', borderRadius: '7px' }}
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={submitting || Boolean(editDuplicateDoctor)}
+                  style={{ height: '34px', padding: '0 16px', fontSize: '13px', borderRadius: '7px' }}
+                >
                   {submitting ? t('common.saving', 'Saving...') : t('common.saveChanges', 'Save Changes')}
                 </button>
               </div>

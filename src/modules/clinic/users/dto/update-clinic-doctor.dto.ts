@@ -40,6 +40,14 @@ export class UpdateClinicDoctorDto {
 
   @IsOptional()
   @IsString()
+  qualification?: string;
+
+  @IsOptional()
+  @IsString()
+  colorCode?: string;
+
+  @IsOptional()
+  @IsString()
   licenseNumber?: string;
 
   @IsOptional()

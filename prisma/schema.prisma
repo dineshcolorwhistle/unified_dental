@@ -60,6 +60,16 @@ enum ProcessStatus {
   CANCELLED
 }
 
+enum SpecializationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+}
+
 
 model Tenant {
   id                  String         @id @default(uuid())
@@ -111,6 +121,8 @@ model Tenant {
   clinicWorkingHours   ClinicWorkingHour[]
   doctorWorkingHours   DoctorWorkingHour[]
   appointments         Appointment[]
+  specializations      Specialization[]
+  services             Service[]
 
   @@map("tenants")
 }
@@ -216,6 +228,7 @@ model Branch {
   clinicWorkingHours  ClinicWorkingHour[]
   doctorWorkingHours  DoctorWorkingHour[]
   appointments        Appointment[]
+  services            Service[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -229,6 +242,7 @@ model User {
   name         String
   phone        String?
   avatarUrl    String?            @map("avatar_url")
+  colorCode    String?            @map("color_code")
   status       UserStatus         @default(ACTIVE)
   isSuperAdmin Boolean            @default(false) @map("is_super_admin")
   locale       String             @default("en")
@@ -582,6 +596,8 @@ model Doctor {
   phone          String?
   address        String?
   specialization String?
+  qualification  String?
+  colorCode      String?     @map("color_code")
   type           DoctorType  @default(LOCAL)
   clinicId       String?     @map("clinic_id")
   externalId     String?     @map("external_id")
@@ -1256,4 +1272,46 @@ model Appointment {
   @@index([tenantId, status])
   @@index([tenantId, appointmentNumber])
   @@map("appointments")
+}
+
+// ─── Dental Clinic Configuration: Specializations ───────────
+
+model Specialization {
+  id          String               @id @default(uuid())
+  tenantId    String               @map("tenant_id")
+  name        String
+  description String?              @db.Text
+  status      SpecializationStatus @default(ACTIVE)
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("specializations")
+}
+
+// ─── Dental Clinic Configuration: Services ──────────────────
+
+model Service {
+  id          String        @id @default(uuid())
+  tenantId    String        @map("tenant_id")
+  branchId    String?       @map("branch_id")
+  name        String
+  description String?       @db.Text
+  price       Decimal       @db.Decimal(10, 2)
+  status      ServiceStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, status])
+  @@map("services")
 }
