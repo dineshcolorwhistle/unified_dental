@@ -807,7 +807,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               : (hasClinicFeature('clinic_users') ||
                 hasClinicFeature('patients') ||
                 hasClinicFeature('appointments') ||
-                hasClinicFeature('income'))) && (
+                hasClinicFeature('income') ||
+                hasClinicFeature('dental_configuration'))) && (
               <div className="nav-accordion-group">
                 {!isCollapsed ? (
                   <button
@@ -976,7 +977,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   )}
 
                   {/* Dental Configuration Submenu */}
-                  {!isClinicDoctor && (!isCollapsed ? (
+                  {!isClinicDoctor && hasClinicFeature('dental_configuration') && (!isCollapsed ? (
                     <div className="nav-sub-group">
                       <button
                         type="button"

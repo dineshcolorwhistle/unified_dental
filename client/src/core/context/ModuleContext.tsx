@@ -45,6 +45,7 @@ export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     'patients',
     'appointments',
     'income',
+    'dental_configuration',
   ];
 
   const hasClinicFeature = (featureKey: string): boolean => {

@@ -65,6 +65,17 @@ export class ClinicTypesService implements OnModuleInit {
           });
           this.logger.log(`✅ Marked clinic type '${dental.name}' (${dental.code}) as default.`);
         }
+
+        const missingFeatures = defaultFeatures.filter((f) => !dental.features.includes(f));
+        if (missingFeatures.length > 0) {
+          dental = await this.prisma.clinicType.update({
+            where: { id: dental.id },
+            data: {
+              features: Array.from(new Set([...dental.features, ...defaultFeatures])),
+            },
+          });
+          this.logger.log(`✅ Updated default Dental clinic type with new default features: ${missingFeatures.join(', ')}`);
+        }
       }
 
       // Automatically link any existing clinic tenants that have no clinicTypeId assigned

@@ -122,6 +122,13 @@ export const CONFIGURABLE_CLINIC_MENUS: ConfigurableClinicMenu[] = [
     description: 'Procedure fees, consultation invoices, and collection receipts',
     iconName: 'TrendingUp',
   },
+  {
+    key: 'dental_configuration',
+    name: 'Dental Configuration',
+    i18nKey: 'nav.dentalConfiguration',
+    description: 'Specializations master, services procedure catalog, payment methods, and WhatsApp templates',
+    iconName: 'Sliders',
+  },
 ];
 
 const DEFAULT_CONFIGURABLE_MENU_KEYS = CONFIGURABLE_CLINIC_MENUS.map((f) => f.key);
@@ -387,6 +394,8 @@ export const ClinicTypesTab: React.FC = () => {
         return <Calendar size={size} />;
       case 'TrendingUp':
         return <TrendingUp size={size} />;
+      case 'Sliders':
+        return <Sliders size={size} />;
       default:
         return <Check size={size} />;
     }
@@ -955,10 +964,10 @@ export const ClinicTypesTab: React.FC = () => {
               </div>
               <div>
                 <h4 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-heading)' }}>
-                  {t('clinicTypes.quickCatalogBannerTitle', 'Configurable Menus Catalog (8 Standalone Menus)')}
+                  {t('clinicTypes.quickCatalogBannerTitle', 'Configurable Menus Catalog')}
                 </h4>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                  {t('clinicTypes.quickCatalogBannerDesc', 'Finance, Reminder, Inventory, Expense, Users, Patient, Appointment, and Income are the default modular menus available for clinic types.')}
+                  {t('clinicTypes.quickCatalogBannerDesc', 'Modular functional menus available for clinic specialization profiles.')}
                 </p>
               </div>
             </div>
@@ -1074,12 +1083,12 @@ export const ClinicTypesTab: React.FC = () => {
             </div>
           </div>
 
-          {/* 8 Configurable Menu Cards Grid (Exact Design Match to Screenshot 3) */}
+          {/* Configurable Menu Cards Grid (Clean, Simple, Compact UI Without Descriptions) */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '14px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+              gap: '12px',
               marginBottom: '28px',
             }}
           >
@@ -1090,88 +1099,106 @@ export const ClinicTypesTab: React.FC = () => {
                 <div
                   key={feat.key}
                   style={{
-                    padding: '18px 20px',
-                    borderRadius: '14px',
-                    border: '1.5px solid #0d9488',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color, #e2e8f0)',
                     backgroundColor: 'var(--bg-surface, #ffffff)',
-                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.06)',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
                     display: 'flex',
                     flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '12px',
+                    gap: '10px',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  {/* Top row: Styled Checkbox matching Screenshot 3 + Title */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  {/* Top row: Icon + Menu Name + System Key */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div
                       style={{
-                        width: '20px',
-                        height: '20px',
-                        borderRadius: '5px',
-                        backgroundColor: '#0d9488',
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--badge-primary-bg, rgba(13, 148, 136, 0.1))',
+                        color: 'var(--primary-600, #0d9488)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        marginTop: '2px',
                       }}
                     >
-                      <Check size={14} color="#ffffff" strokeWidth={3} />
+                      {renderMenuIcon(feat.iconName, 17)}
                     </div>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                        <h4 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text-heading, #0f172a)' }}>
-                          {t(feat.i18nKey, feat.name)}
-                        </h4>
-                        <div style={{ color: '#0d9488', display: 'flex', alignItems: 'center' }}>
-                          {renderMenuIcon(feat.iconName, 17)}
-                        </div>
-                      </div>
-                      <p
+                      <h4
                         style={{
-                          fontSize: '12.5px',
-                          color: 'var(--text-muted, #64748b)',
-                          margin: '6px 0 0 0',
-                          lineHeight: '1.45',
+                          fontSize: '13.5px',
+                          fontWeight: 700,
+                          margin: 0,
+                          color: 'var(--text-heading, #0f172a)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
                         }}
                       >
-                        {t(`clinicTypes.menuDescriptions.${feat.key}`, feat.description)}
-                      </p>
+                        {t(feat.i18nKey, feat.name)}
+                      </h4>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontFamily: 'monospace',
+                          color: 'var(--text-muted, #64748b)',
+                          display: 'block',
+                        }}
+                      >
+                        {feat.key}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Bottom row: System Key + Assigned Profiles info */}
+                  {/* Compact Bottom row: Assignment Info */}
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      borderTop: '1px solid var(--border-color)',
-                      paddingTop: '10px',
+                      borderTop: '1px solid var(--border-color, #f1f5f9)',
+                      paddingTop: '8px',
                       fontSize: '11px',
-                      color: 'var(--text-muted)',
-                      gap: '8px',
-                      flexWrap: 'wrap',
                     }}
                   >
-                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      {t('clinicTypes.keyLabel', 'key')}: {feat.key}
-                    </span>
-
                     <span
                       style={{
-                        color: enabledInTypes.length > 0 ? 'var(--primary-700, #0f766e)' : 'var(--text-muted)',
+                        color: enabledInTypes.length > 0 ? 'var(--primary-700, #0f766e)' : 'var(--text-muted, #94a3b8)',
                         fontWeight: 600,
-                        display: 'flex',
+                        display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px',
+                        fontSize: '11px',
                       }}
+                      title={enabledInTypes.map((c) => c.name).join(', ')}
                     >
                       <CheckCircle2 size={12} />
                       {enabledInTypes.length > 0
-                        ? t('clinicTypes.enabledIn', 'Enabled in: {{types}}', { types: enabledInTypes.map((c) => c.name).join(', ') })
+                        ? t('clinicTypes.enabledIn', 'Enabled in: {{types}}', {
+                            types:
+                              enabledInTypes.length <= 2
+                                ? enabledInTypes.map((c) => c.name).join(', ')
+                                : `${enabledInTypes.length} profiles`,
+                          })
                         : t('clinicTypes.availableToAssign', 'Available to assign')}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: 'var(--bg-surface-hover, #f8fafc)',
+                        color: 'var(--text-muted)',
+                        border: '1px solid var(--border-color)',
+                      }}
+                    >
+                      {t('clinicTypes.keyLabel', 'Menu')}
                     </span>
                   </div>
                 </div>
@@ -1408,8 +1435,8 @@ export const ClinicTypesTab: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Configurable Menus Grid (Matches Screenshot 3) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {/* Configurable Menus Selection Grid (Simple, Clean, Compact Without Descriptions) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
                     {CONFIGURABLE_CLINIC_MENUS.map((feat) => {
                       const isChecked = formData.features.includes(feat.key);
 
@@ -1419,18 +1446,17 @@ export const ClinicTypesTab: React.FC = () => {
                           onClick={() => handleToggleFeature(feat.key)}
                           style={{
                             display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '14px',
-                            padding: '16px 18px',
-                            borderRadius: '12px',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '9px 12px',
+                            borderRadius: '9px',
                             border: isChecked ? '1.5px solid #0d9488' : '1px solid var(--border-color, #e2e8f0)',
-                            backgroundColor: isChecked ? 'rgba(13, 148, 136, 0.04)' : 'var(--bg-surface, #ffffff)',
+                            backgroundColor: isChecked ? 'rgba(13, 148, 136, 0.05)' : 'var(--bg-surface, #ffffff)',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease',
-                            boxShadow: isChecked ? '0 1px 3px rgba(13, 148, 136, 0.08)' : 'none',
                           }}
                         >
-                          {/* Styled Checkbox matching Screenshot 3 */}
+                          {/* Styled Checkbox */}
                           <div
                             style={{
                               width: '18px',
@@ -1441,7 +1467,6 @@ export const ClinicTypesTab: React.FC = () => {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              marginTop: '2px',
                               flexShrink: 0,
                               transition: 'all 0.15s ease',
                             }}
@@ -1449,13 +1474,35 @@ export const ClinicTypesTab: React.FC = () => {
                             {isChecked && <Check size={13} color="#ffffff" strokeWidth={3} />}
                           </div>
 
+                          <div
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '6px',
+                              backgroundColor: isChecked ? 'rgba(13, 148, 136, 0.12)' : 'var(--bg-surface-hover, #f1f5f9)',
+                              color: isChecked ? '#0d9488' : 'var(--text-muted)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {renderMenuIcon(feat.iconName, 14)}
+                          </div>
+
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading, #0f172a)' }}>
+                            <div
+                              style={{
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                color: isChecked ? 'var(--text-heading, #0f172a)' : 'var(--text-main, #334155)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
                               {t(feat.i18nKey, feat.name)}
                             </div>
-                            <p style={{ fontSize: '12.5px', color: 'var(--text-muted, #64748b)', margin: '4px 0 0 0', lineHeight: '1.45' }}>
-                              {t(`clinicTypes.menuDescriptions.${feat.key}`, feat.description)}
-                            </p>
                           </div>
                         </div>
                       );

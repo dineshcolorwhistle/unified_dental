@@ -242,11 +242,11 @@ export const App: React.FC = () => {
                     <Route path="clinic/prescriptions" element={<ProtectedRoute><FeatureProtectedRoute feature="prescriptions"><ClinicPrescriptionsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/billing" element={<ProtectedRoute><FeatureProtectedRoute feature="billing"><ClinicBillingPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
-                    <Route path="clinic/payment-methods" element={<ProtectedRoute blockClinicDoctor><ClinicPaymentMethodsPage /></ProtectedRoute>} />
-                    <Route path="clinic/configurations/specializations" element={<ProtectedRoute blockClinicDoctor><ClinicSpecializationsPage /></ProtectedRoute>} />
-                    <Route path="clinic/configurations/services" element={<ProtectedRoute blockClinicDoctor><ClinicServicesPage /></ProtectedRoute>} />
-                    <Route path="clinic/configurations/payment-methods" element={<ProtectedRoute blockClinicDoctor><ClinicPaymentMethodsPage /></ProtectedRoute>} />
-                    <Route path="clinic/configurations/whatsapp-templates" element={<ProtectedRoute blockClinicDoctor><ClinicWhatsappTemplatesPage /></ProtectedRoute>} />
+                     <Route path="clinic/payment-methods" element={<ProtectedRoute blockClinicDoctor><FeatureProtectedRoute feature="dental_configuration"><ClinicPaymentMethodsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/configurations/specializations" element={<ProtectedRoute blockClinicDoctor><FeatureProtectedRoute feature="dental_configuration"><ClinicSpecializationsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/configurations/services" element={<ProtectedRoute blockClinicDoctor><FeatureProtectedRoute feature="dental_configuration"><ClinicServicesPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/configurations/payment-methods" element={<ProtectedRoute blockClinicDoctor><FeatureProtectedRoute feature="dental_configuration"><ClinicPaymentMethodsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/configurations/whatsapp-templates" element={<ProtectedRoute blockClinicDoctor><FeatureProtectedRoute feature="dental_configuration"><ClinicWhatsappTemplatesPage /></FeatureProtectedRoute></ProtectedRoute>} />
 
                     {/* Platform Super Admin Routes */}
                     <Route
