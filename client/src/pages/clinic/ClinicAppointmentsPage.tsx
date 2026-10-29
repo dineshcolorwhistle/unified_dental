@@ -102,13 +102,20 @@ interface AppointmentStats {
 
 const APPOINTMENT_TYPES = [
   { value: 'CONSULTATION', labelEn: 'Consultation', labelEs: 'Consulta' },
-  { value: 'CHECKUP', labelEn: 'Checkup / Evaluation', labelEs: 'Evaluación' },
-  { value: 'CLEANING', labelEn: 'Cleaning / Prophylaxis', labelEs: 'Limpieza' },
-  { value: 'PROCEDURE', labelEn: 'Procedure / Surgery', labelEs: 'Procedimiento' },
-  { value: 'EMERGENCY', labelEn: 'Emergency', labelEs: 'Urgencia' },
   { value: 'FOLLOW_UP', labelEn: 'Follow-up', labelEs: 'Seguimiento' },
+  { value: 'EMERGENCY', labelEn: 'Emergency', labelEs: 'Urgencia' },
+  { value: 'CHECKUP', labelEn: 'Checkup / Evaluation', labelEs: 'Evaluación' },
+  { value: 'PROCEDURE', labelEn: 'Procedure / Surgery', labelEs: 'Procedimiento' },
   { value: 'OTHER', labelEn: 'Other', labelEs: 'Otro' },
 ];
+
+const getAppointmentTypeLabel = (type: string | null | undefined, isSpanish: boolean): string => {
+  if (!type) return isSpanish ? 'Consulta' : 'Consultation';
+  const found = APPOINTMENT_TYPES.find((t) => t.value === type);
+  if (found) return isSpanish ? found.labelEs : found.labelEn;
+  if (type === 'CLEANING') return isSpanish ? 'Limpieza' : 'Cleaning';
+  return type.replace(/_/g, ' ');
+};
 
 const STATUS_CONFIG: Record<
   string,
@@ -1601,7 +1608,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                               fontWeight: 500,
                             }}
                           >
-                            {apt.type}
+                            {getAppointmentTypeLabel(apt.type, isSpanish)}
                           </span>
                         </td>
 
@@ -2648,7 +2655,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 {/* Appointment Type (SearchableSelect) */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
-                    {isSpanish ? 'Tipo de Procedimiento / Consulta' : 'Procedure / Appointment Type'}
+                    {isSpanish ? 'Tipo de Cita' : 'Appointment Type'}
                   </label>
                   <SearchableSelect
                     options={typeOptions}
@@ -2669,7 +2676,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                     className="input"
                     value={formData.reason}
                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    placeholder={isSpanish ? 'Ej. Dolor molar, limpieza anual, etc.' : 'e.g. Molar ache, yearly cleaning'}
+                    placeholder={isSpanish ? 'Ej. Consulta general, revisión de rutina, etc.' : 'e.g. General consultation, routine checkup, etc.'}
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -2853,8 +2860,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Doctor & Schedule Info */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {/* Doctor, Schedule & Type Info */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
                 <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {isSpanish ? 'DOCTOR' : 'DOCTOR'}
@@ -2870,6 +2877,15 @@ export const ClinicAppointmentsPage: React.FC = () => {
                   </div>
                   <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', marginTop: '2px' }}>
                     {viewingAppointment.date?.substring(0, 10)} {viewingAppointment.startTime} - {viewingAppointment.endTime}
+                  </div>
+                </div>
+
+                <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isSpanish ? 'TIPO DE CITA' : 'APPOINTMENT TYPE'}
+                  </div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', marginTop: '2px' }}>
+                    {getAppointmentTypeLabel(viewingAppointment.type, isSpanish)}
                   </div>
                 </div>
               </div>
