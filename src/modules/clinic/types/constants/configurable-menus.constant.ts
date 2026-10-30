@@ -52,7 +52,7 @@ export const DEFAULT_CONFIGURABLE_CLINIC_MENUS: ConfigurableClinicMenu[] = [
   {
     key: 'dental_configuration',
     name: 'Dental Configuration',
-    description: 'Specializations master, services procedure catalog, payment methods, and WhatsApp templates',
+    description: 'Specializations master, services procedure catalog, payment methods, WhatsApp templates, and Odontogram settings',
   },
 ];
 

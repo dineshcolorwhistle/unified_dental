@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ToothIcon } from '../common/ToothIcon';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../core/context/AuthContext';
@@ -1023,6 +1024,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         >
                           <span>{t('nav.whatsappTemplate', 'WhatsApp Template')}</span>
                         </NavLink>
+                        <NavLink
+                          to="/clinic/configurations/odontogram-settings"
+                          className={({ isActive }) => `nav-sub-link ${isActive ? 'active' : ''}`}
+                        >
+                          <span>{t('nav.odontogramSettings', 'Odontogram Settings')}</span>
+                        </NavLink>
                       </div>
                     </div>
                   ) : (
@@ -1049,6 +1056,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         to="/clinic/configurations/whatsapp-templates"
                         icon={<MessageSquare size={17} />}
                         label={t('nav.whatsappTemplate', 'WhatsApp Template')}
+                        isCollapsed={isCollapsed}
+                      />
+                      <SidebarNavItem
+                        to="/clinic/configurations/odontogram-settings"
+                        icon={<ToothIcon size={17} />}
+                        label={t('nav.odontogramSettings', 'Odontogram Settings')}
                         isCollapsed={isCollapsed}
                       />
                     </>

@@ -123,6 +123,9 @@ model Tenant {
   appointments         Appointment[]
   specializations      Specialization[]
   services             Service[]
+  clinicOdontogramConfigs     ClinicOdontogramConfig[]
+  clinicOdontogramTreatments  ClinicOdontogramTreatment[]
+  clinicOdontogramDiagnostics ClinicOdontogramDiagnostic[]
 
   @@map("tenants")
 }
@@ -229,6 +232,9 @@ model Branch {
   doctorWorkingHours  DoctorWorkingHour[]
   appointments        Appointment[]
   services            Service[]
+  clinicOdontogramConfigs     ClinicOdontogramConfig[]
+  clinicOdontogramTreatments  ClinicOdontogramTreatment[]
+  clinicOdontogramDiagnostics ClinicOdontogramDiagnostic[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -1314,4 +1320,68 @@ model Service {
   @@index([tenantId, branchId])
   @@index([tenantId, status])
   @@map("services")
+}
+
+// ─── Dental Clinic Configuration: Odontogram ────────────────
+
+enum TeethModel {
+  ADULT
+  CHILD
+}
+
+model ClinicOdontogramConfig {
+  id                String     @id @default(uuid())
+  tenantId          String     @map("tenant_id")
+  branchId          String?    @map("branch_id")
+  defaultTeethModel TeethModel @default(ADULT) @map("default_teeth_model")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, branchId])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@map("clinic_odontogram_configs")
+}
+
+model ClinicOdontogramTreatment {
+  id                  String   @id @default(uuid())
+  tenantId            String   @map("tenant_id")
+  branchId            String?  @map("branch_id")
+  name                String
+  description         String?  @db.Text
+  color               String
+  appliesToWholeTooth Boolean  @default(false) @map("applies_to_whole_tooth")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@map("clinic_odontogram_treatments")
+}
+
+model ClinicOdontogramDiagnostic {
+  id                  String   @id @default(uuid())
+  tenantId            String   @map("tenant_id")
+  branchId            String?  @map("branch_id")
+  name                String
+  description         String?  @db.Text
+  color               String
+  appliesToWholeTooth Boolean  @default(false) @map("applies_to_whole_tooth")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, branchId, name])
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@map("clinic_odontogram_diagnostics")
 }

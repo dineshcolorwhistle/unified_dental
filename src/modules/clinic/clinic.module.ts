@@ -19,6 +19,8 @@ import { ClinicServicesController } from './services/clinic-services.controller'
 import { ClinicServicesService } from './services/clinic-services.service';
 import { ClinicWhatsappTemplatesController } from './whatsapp-templates/clinic-whatsapp-templates.controller';
 import { ClinicWhatsappTemplatesService } from './whatsapp-templates/clinic-whatsapp-templates.service';
+import { ClinicOdontogramController } from './odontogram/clinic-odontogram.controller';
+import { ClinicOdontogramService } from './odontogram/clinic-odontogram.service';
 
 @Module({
   imports: [
@@ -39,6 +41,7 @@ import { ClinicWhatsappTemplatesService } from './whatsapp-templates/clinic-what
     SpecializationsController,
     ClinicServicesController,
     ClinicWhatsappTemplatesController,
+    ClinicOdontogramController,
   ],
   providers: [
     ClinicUsersService,
@@ -46,6 +49,7 @@ import { ClinicWhatsappTemplatesService } from './whatsapp-templates/clinic-what
     SpecializationsService,
     ClinicServicesService,
     ClinicWhatsappTemplatesService,
+    ClinicOdontogramService,
   ],
   exports: [
     ClinicUsersService,
@@ -53,6 +57,7 @@ import { ClinicWhatsappTemplatesService } from './whatsapp-templates/clinic-what
     SpecializationsService,
     ClinicServicesService,
     ClinicWhatsappTemplatesService,
+    ClinicOdontogramService,
     ClinicTypesModule,
     PatientsModule,
     AppointmentsModule,
