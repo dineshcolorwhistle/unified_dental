@@ -8,13 +8,19 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
-import { TeethModel } from '@prisma/client';
+import { TeethModel, OdontogramTreatmentStatus } from '@prisma/client';
 import {
   UpdateOdontogramConfigDto,
   CreateOdontogramTreatmentDto,
   UpdateOdontogramTreatmentDto,
   CreateOdontogramDiagnosticDto,
   UpdateOdontogramDiagnosticDto,
+  UpdatePatientOdontogramDto,
+  AddPatientDiagnosticDto,
+  UpdatePatientDiagnosticDto,
+  AddPatientTreatmentDto,
+  UpdatePatientTreatmentDto,
+  SavePatientOdontogramDto,
 } from './dto';
 
 @Injectable()
@@ -586,6 +592,513 @@ export class ClinicOdontogramService {
     });
 
     return { success: true, message: 'Diagnostic deleted successfully' };
+  }
+
+  // ─── Patient Odontogram Operations ──────────────────────
+
+  /**
+   * Helper to verify patient access and fetch patient record
+   */
+  async getVerifiedPatient(tenantId: string, patientId: string, actor: AuthenticatedUser) {
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, tenantId },
+      include: {
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
+      },
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID "${patientId}" was not found.`);
+    }
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (!isTenantAdminUser) {
+      const userBranchId = await this.resolveClinicBranch(actor, tenantId);
+      if (userBranchId && patient.branchId && patient.branchId !== userBranchId) {
+        throw new ForbiddenException('You do not have permission to view or manage patients outside your assigned branch.');
+      }
+    }
+
+    return patient;
+  }
+
+  /**
+   * Get or initialize a patient's odontogram with all active diagnostics and treatments
+   */
+  async getPatientOdontogram(
+    tenantId: string,
+    patientId: string,
+    actor: AuthenticatedUser,
+  ) {
+    const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    // Get active config to know default model
+    const config = await this.getConfig(tenantId, actor, patient.branchId || undefined);
+
+    let odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { patientId },
+      include: {
+        diagnostics: {
+          include: {
+            diagnostic: true,
+            diagnosedBy: {
+              select: { id: true, name: true, email: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        treatments: {
+          include: {
+            treatment: true,
+            createdBy: {
+              select: { id: true, name: true, email: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!odontogram) {
+      odontogram = await this.prisma.patientOdontogram.create({
+        data: {
+          tenantId,
+          patientId,
+          branchId: patient.branchId,
+          teethModel: config.defaultTeethModel || TeethModel.ADULT,
+        },
+        include: {
+          diagnostics: {
+            include: {
+              diagnostic: true,
+              diagnosedBy: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+          treatments: {
+            include: {
+              treatment: true,
+              createdBy: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    return {
+      patient,
+      odontogram,
+      diagnostics: odontogram.diagnostics || [],
+      treatments: odontogram.treatments || [],
+      config,
+    };
+  }
+
+  /**
+   * Update patient odontogram header (teethModel, general notes)
+   */
+  async updatePatientOdontogram(
+    tenantId: string,
+    patientId: string,
+    actor: AuthenticatedUser,
+    dto: UpdatePatientOdontogramDto,
+  ) {
+    await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    let odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { patientId },
+    });
+
+    if (!odontogram) {
+      odontogram = await this.prisma.patientOdontogram.create({
+        data: {
+          tenantId,
+          patientId,
+          teethModel: dto.teethModel || TeethModel.ADULT,
+          notes: dto.notes,
+        },
+      });
+      return odontogram;
+    }
+
+    return this.prisma.patientOdontogram.update({
+      where: { id: odontogram.id },
+      data: {
+        ...(dto.teethModel && { teethModel: dto.teethModel }),
+        ...(dto.notes !== undefined && { notes: dto.notes }),
+      },
+    });
+  }
+
+  /**
+   * Add a diagnostic finding to patient's tooth / surface
+   */
+  async addPatientDiagnostic(
+    tenantId: string,
+    patientId: string,
+    actor: AuthenticatedUser,
+    dto: AddPatientDiagnosticDto,
+  ) {
+    const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    let odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { patientId },
+    });
+
+    if (!odontogram) {
+      const config = await this.getConfig(tenantId, actor, patient.branchId || undefined);
+      odontogram = await this.prisma.patientOdontogram.create({
+        data: {
+          tenantId,
+          patientId,
+          branchId: patient.branchId,
+          teethModel: config.defaultTeethModel || TeethModel.ADULT,
+        },
+      });
+    }
+
+    let diagColor = dto.color || '#EF4444';
+    let diagName = dto.diagnosticName.trim();
+
+    if (dto.diagnosticId) {
+      const catalogDiag = await this.prisma.clinicOdontogramDiagnostic.findFirst({
+        where: { id: dto.diagnosticId, tenantId },
+      });
+      if (catalogDiag) {
+        if (!dto.color) diagColor = catalogDiag.color;
+        if (!dto.diagnosticName) diagName = catalogDiag.name;
+      }
+    }
+
+    return this.prisma.patientOdontogramDiagnostic.create({
+      data: {
+        tenantId,
+        odontogramId: odontogram.id,
+        patientId,
+        branchId: patient.branchId,
+        toothNumber: dto.toothNumber,
+        surface: dto.surface || 'WHOLE',
+        diagnosticId: dto.diagnosticId || null,
+        diagnosticName: diagName,
+        color: diagColor,
+        notes: dto.notes?.trim() || null,
+        diagnosedById: actor.id,
+      },
+      include: {
+        diagnostic: true,
+        diagnosedBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Update a patient diagnostic finding
+   */
+  async updatePatientDiagnostic(
+    tenantId: string,
+    patientId: string,
+    diagnosticId: string,
+    actor: AuthenticatedUser,
+    dto: UpdatePatientDiagnosticDto,
+  ) {
+    await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    const existing = await this.prisma.patientOdontogramDiagnostic.findFirst({
+      where: { id: diagnosticId, tenantId, patientId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Diagnostic record with ID "${diagnosticId}" was not found.`);
+    }
+
+    return this.prisma.patientOdontogramDiagnostic.update({
+      where: { id: diagnosticId },
+      data: {
+        ...(dto.surface !== undefined && { surface: dto.surface }),
+        ...(dto.diagnosticName !== undefined && { diagnosticName: dto.diagnosticName.trim() }),
+        ...(dto.color !== undefined && { color: dto.color }),
+        ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
+      },
+      include: {
+        diagnostic: true,
+        diagnosedBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Delete a patient diagnostic finding
+   */
+  async removePatientDiagnostic(
+    tenantId: string,
+    patientId: string,
+    diagnosticId: string,
+    actor: AuthenticatedUser,
+  ) {
+    await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    const existing = await this.prisma.patientOdontogramDiagnostic.findFirst({
+      where: { id: diagnosticId, tenantId, patientId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Diagnostic record with ID "${diagnosticId}" was not found.`);
+    }
+
+    await this.prisma.patientOdontogramDiagnostic.delete({
+      where: { id: diagnosticId },
+    });
+
+    return { success: true, message: 'Patient diagnostic finding deleted successfully' };
+  }
+
+  /**
+   * Add a treatment plan item to patient's tooth / surface
+   */
+  async addPatientTreatment(
+    tenantId: string,
+    patientId: string,
+    actor: AuthenticatedUser,
+    dto: AddPatientTreatmentDto,
+  ) {
+    const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    let odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { patientId },
+    });
+
+    if (!odontogram) {
+      const config = await this.getConfig(tenantId, actor, patient.branchId || undefined);
+      odontogram = await this.prisma.patientOdontogram.create({
+        data: {
+          tenantId,
+          patientId,
+          branchId: patient.branchId,
+          teethModel: config.defaultTeethModel || TeethModel.ADULT,
+        },
+      });
+    }
+
+    let treatColor = dto.color || '#3B82F6';
+    let treatName = dto.treatmentName.trim();
+
+    if (dto.treatmentId) {
+      const catalogTreatment = await this.prisma.clinicOdontogramTreatment.findFirst({
+        where: { id: dto.treatmentId, tenantId },
+      });
+      if (catalogTreatment) {
+        if (!dto.color) treatColor = catalogTreatment.color;
+        if (!dto.treatmentName) treatName = catalogTreatment.name;
+      }
+    }
+
+    return this.prisma.patientOdontogramTreatment.create({
+      data: {
+        tenantId,
+        odontogramId: odontogram.id,
+        patientId,
+        branchId: patient.branchId,
+        toothNumber: dto.toothNumber,
+        surface: dto.surface || 'WHOLE',
+        treatmentId: dto.treatmentId || null,
+        treatmentName: treatName,
+        color: treatColor,
+        status: dto.status || OdontogramTreatmentStatus.PLANNED,
+        cost: dto.cost !== undefined ? dto.cost : null,
+        notes: dto.notes?.trim() || null,
+        plannedDate: dto.plannedDate ? new Date(dto.plannedDate) : null,
+        completedDate: dto.status === OdontogramTreatmentStatus.COMPLETED ? new Date() : null,
+        createdById: actor.id,
+      },
+      include: {
+        treatment: true,
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Update a patient treatment plan item
+   */
+  async updatePatientTreatment(
+    tenantId: string,
+    patientId: string,
+    treatmentId: string,
+    actor: AuthenticatedUser,
+    dto: UpdatePatientTreatmentDto,
+  ) {
+    await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    const existing = await this.prisma.patientOdontogramTreatment.findFirst({
+      where: { id: treatmentId, tenantId, patientId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Treatment plan record with ID "${treatmentId}" was not found.`);
+    }
+
+    let completedDate = existing.completedDate;
+    if (dto.completedDate) {
+      completedDate = new Date(dto.completedDate);
+    } else if (
+      dto.status === OdontogramTreatmentStatus.COMPLETED &&
+      existing.status !== OdontogramTreatmentStatus.COMPLETED
+    ) {
+      completedDate = new Date();
+    } else if (dto.status && dto.status !== OdontogramTreatmentStatus.COMPLETED) {
+      completedDate = null;
+    }
+
+    return this.prisma.patientOdontogramTreatment.update({
+      where: { id: treatmentId },
+      data: {
+        ...(dto.surface !== undefined && { surface: dto.surface }),
+        ...(dto.treatmentName !== undefined && { treatmentName: dto.treatmentName.trim() }),
+        ...(dto.color !== undefined && { color: dto.color }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.cost !== undefined && { cost: dto.cost }),
+        ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
+        ...(dto.plannedDate !== undefined && {
+          plannedDate: dto.plannedDate ? new Date(dto.plannedDate) : null,
+        }),
+        completedDate,
+      },
+      include: {
+        treatment: true,
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Delete a patient treatment plan item
+   */
+  async removePatientTreatment(
+    tenantId: string,
+    patientId: string,
+    treatmentId: string,
+    actor: AuthenticatedUser,
+  ) {
+    await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    const existing = await this.prisma.patientOdontogramTreatment.findFirst({
+      where: { id: treatmentId, tenantId, patientId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Treatment plan record with ID "${treatmentId}" was not found.`);
+    }
+
+    await this.prisma.patientOdontogramTreatment.delete({
+      where: { id: treatmentId },
+    });
+
+    return { success: true, message: 'Treatment plan item deleted successfully' };
+  }
+
+  /**
+   * Save complete patient odontogram state (teethModel, notes, diagnostics, treatments)
+   */
+  async savePatientOdontogram(
+    tenantId: string,
+    patientId: string,
+    actor: AuthenticatedUser,
+    dto: SavePatientOdontogramDto,
+  ) {
+    const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
+
+    let odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { patientId },
+    });
+
+    if (!odontogram) {
+      const config = await this.getConfig(tenantId, actor, patient.branchId || undefined);
+      odontogram = await this.prisma.patientOdontogram.create({
+        data: {
+          tenantId,
+          patientId,
+          branchId: patient.branchId,
+          teethModel: dto.teethModel || config.defaultTeethModel || TeethModel.ADULT,
+          notes: dto.notes || null,
+        },
+      });
+    } else {
+      odontogram = await this.prisma.patientOdontogram.update({
+        where: { id: odontogram.id },
+        data: {
+          ...(dto.teethModel && { teethModel: dto.teethModel }),
+          ...(dto.notes !== undefined && { notes: dto.notes }),
+        },
+      });
+    }
+
+    // Atomic update of diagnostics if provided
+    if (dto.diagnostics !== undefined) {
+      await this.prisma.patientOdontogramDiagnostic.deleteMany({
+        where: { odontogramId: odontogram.id, tenantId },
+      });
+
+      if (dto.diagnostics.length > 0) {
+        await this.prisma.patientOdontogramDiagnostic.createMany({
+          data: dto.diagnostics.map((d) => ({
+            tenantId,
+            odontogramId: odontogram.id,
+            patientId,
+            branchId: patient.branchId,
+            toothNumber: d.toothNumber,
+            surface: d.surface || 'WHOLE',
+            diagnosticId: d.diagnosticId || null,
+            diagnosticName: d.diagnosticName,
+            color: d.color || '#EF4444',
+            notes: d.notes || null,
+            diagnosedById: actor.id,
+          })),
+        });
+      }
+    }
+
+    // Atomic update of treatments if provided
+    if (dto.treatments !== undefined) {
+      await this.prisma.patientOdontogramTreatment.deleteMany({
+        where: { odontogramId: odontogram.id, tenantId },
+      });
+
+      if (dto.treatments.length > 0) {
+        await this.prisma.patientOdontogramTreatment.createMany({
+          data: dto.treatments.map((tr) => ({
+            tenantId,
+            odontogramId: odontogram.id,
+            patientId,
+            branchId: patient.branchId,
+            toothNumber: tr.toothNumber,
+            surface: tr.surface || 'WHOLE',
+            treatmentId: tr.treatmentId || null,
+            treatmentName: tr.treatmentName,
+            color: tr.color || '#3B82F6',
+            status: tr.status || OdontogramTreatmentStatus.PLANNED,
+            cost: tr.cost !== undefined ? tr.cost : null,
+            notes: tr.notes || null,
+            completedDate: tr.status === OdontogramTreatmentStatus.COMPLETED ? new Date() : null,
+            createdById: actor.id,
+          })),
+        });
+      }
+    }
+
+    return this.getPatientOdontogram(tenantId, patientId, actor);
   }
 }
 

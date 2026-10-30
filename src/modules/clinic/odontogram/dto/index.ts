@@ -3,4 +3,9 @@ export * from './create-odontogram-treatment.dto';
 export * from './update-odontogram-treatment.dto';
 export * from './create-odontogram-diagnostic.dto';
 export * from './update-odontogram-diagnostic.dto';
-
+export * from './update-patient-odontogram.dto';
+export * from './add-patient-diagnostic.dto';
+export * from './update-patient-diagnostic.dto';
+export * from './add-patient-treatment.dto';
+export * from './update-patient-treatment.dto';
+export * from './save-patient-odontogram.dto';

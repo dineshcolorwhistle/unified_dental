@@ -17,6 +17,12 @@ import {
   UpdateOdontogramTreatmentDto,
   CreateOdontogramDiagnosticDto,
   UpdateOdontogramDiagnosticDto,
+  UpdatePatientOdontogramDto,
+  AddPatientDiagnosticDto,
+  UpdatePatientDiagnosticDto,
+  AddPatientTreatmentDto,
+  UpdatePatientTreatmentDto,
+  SavePatientOdontogramDto,
 } from './dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 
@@ -122,6 +128,126 @@ export class ClinicOdontogramController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.odontogramService.removeDiagnostic(id, user.activeTenantId, user);
+  }
+
+  // ─── Patient Odontogram Endpoints ────────────────────────
+
+  @Get('patient/:patientId')
+  @ApiOperation({ summary: 'Get patient odontogram, teeth diagnostics, and treatment plan' })
+  getPatientOdontogram(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.odontogramService.getPatientOdontogram(user.activeTenantId, patientId, user);
+  }
+
+  @Patch('patient/:patientId')
+  @ApiOperation({ summary: 'Update patient odontogram model and notes' })
+  updatePatientOdontogram(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdatePatientOdontogramDto,
+  ) {
+    return this.odontogramService.updatePatientOdontogram(user.activeTenantId, patientId, user, dto);
+  }
+
+  @Post('patient/:patientId/diagnostics')
+  @ApiOperation({ summary: 'Add a diagnostic finding to patient tooth or surface' })
+  addPatientDiagnostic(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AddPatientDiagnosticDto,
+  ) {
+    return this.odontogramService.addPatientDiagnostic(user.activeTenantId, patientId, user, dto);
+  }
+
+  @Patch('patient/:patientId/diagnostics/:diagnosticId')
+  @ApiOperation({ summary: 'Update a patient diagnostic finding' })
+  updatePatientDiagnostic(
+    @Param('patientId') patientId: string,
+    @Param('diagnosticId') diagnosticId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdatePatientDiagnosticDto,
+  ) {
+    return this.odontogramService.updatePatientDiagnostic(
+      user.activeTenantId,
+      patientId,
+      diagnosticId,
+      user,
+      dto,
+    );
+  }
+
+  @Delete('patient/:patientId/diagnostics/:diagnosticId')
+  @ApiOperation({ summary: 'Delete a patient diagnostic finding' })
+  removePatientDiagnostic(
+    @Param('patientId') patientId: string,
+    @Param('diagnosticId') diagnosticId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.odontogramService.removePatientDiagnostic(
+      user.activeTenantId,
+      patientId,
+      diagnosticId,
+      user,
+    );
+  }
+
+  @Post('patient/:patientId/treatments')
+  @ApiOperation({ summary: 'Add a treatment plan procedure to patient tooth or surface' })
+  addPatientTreatment(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AddPatientTreatmentDto,
+  ) {
+    return this.odontogramService.addPatientTreatment(user.activeTenantId, patientId, user, dto);
+  }
+
+  @Patch('patient/:patientId/treatments/:treatmentId')
+  @ApiOperation({ summary: 'Update a patient treatment plan procedure' })
+  updatePatientTreatment(
+    @Param('patientId') patientId: string,
+    @Param('treatmentId') treatmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdatePatientTreatmentDto,
+  ) {
+    return this.odontogramService.updatePatientTreatment(
+      user.activeTenantId,
+      patientId,
+      treatmentId,
+      user,
+      dto,
+    );
+  }
+
+  @Delete('patient/:patientId/treatments/:treatmentId')
+  @ApiOperation({ summary: 'Delete a patient treatment plan procedure' })
+  removePatientTreatment(
+    @Param('patientId') patientId: string,
+    @Param('treatmentId') treatmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.odontogramService.removePatientTreatment(
+      user.activeTenantId,
+      patientId,
+      treatmentId,
+      user,
+    );
+  }
+
+  @Post('patient/:patientId/save')
+  @ApiOperation({ summary: 'Save full patient odontogram state atomically' })
+  savePatientOdontogram(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SavePatientOdontogramDto,
+  ) {
+    return this.odontogramService.savePatientOdontogram(
+      user.activeTenantId,
+      patientId,
+      user,
+      dto,
+    );
   }
 }
 

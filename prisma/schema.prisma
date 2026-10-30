@@ -126,6 +126,9 @@ model Tenant {
   clinicOdontogramConfigs     ClinicOdontogramConfig[]
   clinicOdontogramTreatments  ClinicOdontogramTreatment[]
   clinicOdontogramDiagnostics ClinicOdontogramDiagnostic[]
+  patientOdontograms          PatientOdontogram[]
+  patientOdontogramDiagnostics PatientOdontogramDiagnostic[]
+  patientOdontogramTreatments PatientOdontogramTreatment[]
 
   @@map("tenants")
 }
@@ -235,6 +238,9 @@ model Branch {
   clinicOdontogramConfigs     ClinicOdontogramConfig[]
   clinicOdontogramTreatments  ClinicOdontogramTreatment[]
   clinicOdontogramDiagnostics ClinicOdontogramDiagnostic[]
+  patientOdontograms          PatientOdontogram[]
+  patientOdontogramDiagnostics PatientOdontogramDiagnostic[]
+  patientOdontogramTreatments PatientOdontogramTreatment[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -284,6 +290,8 @@ model User {
   doctorWorkingHours         DoctorWorkingHour[]
   doctorAppointments         Appointment[] @relation("AppointmentDoctor")
   createdAppointments        Appointment[] @relation("AppointmentCreatedBy")
+  diagnosedOdontograms       PatientOdontogramDiagnostic[]
+  createdOdontogramTreatments PatientOdontogramTreatment[]
 
   @@map("users")
 }
@@ -1189,6 +1197,9 @@ model Patient {
   branch                      Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   createdBy                   User?          @relation("PatientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   appointments                Appointment[]
+  odontogram                  PatientOdontogram?
+  odontogramDiagnostics       PatientOdontogramDiagnostic[]
+  odontogramTreatments        PatientOdontogramTreatment[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1327,6 +1338,7 @@ model Service {
 enum TeethModel {
   ADULT
   CHILD
+  COMPLETE
 }
 
 model ClinicOdontogramConfig {
@@ -1347,6 +1359,7 @@ model ClinicOdontogramConfig {
 }
 
 model ClinicOdontogramTreatment {
+  patientTreatments   PatientOdontogramTreatment[]
   id                  String   @id @default(uuid())
   tenantId            String   @map("tenant_id")
   branchId            String?  @map("branch_id")
@@ -1367,6 +1380,7 @@ model ClinicOdontogramTreatment {
 }
 
 model ClinicOdontogramDiagnostic {
+  patientDiagnostics  PatientOdontogramDiagnostic[]
   id                  String   @id @default(uuid())
   tenantId            String   @map("tenant_id")
   branchId            String?  @map("branch_id")
@@ -1384,4 +1398,102 @@ model ClinicOdontogramDiagnostic {
   @@index([tenantId])
   @@index([tenantId, branchId])
   @@map("clinic_odontogram_diagnostics")
+}
+
+
+// ─── Dental Clinic: Patient Odontogram Records ────────────────
+
+enum OdontogramTreatmentStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model PatientOdontogram {
+  id                String       @id @default(uuid())
+  tenantId          String       @map("tenant_id")
+  patientId         String       @unique @map("patient_id")
+  branchId          String?      @map("branch_id")
+  teethModel        TeethModel   @default(ADULT) @map("teeth_model")
+  notes             String?      @db.Text
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  branch      Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  diagnostics PatientOdontogramDiagnostic[]
+  treatments  PatientOdontogramTreatment[]
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([patientId])
+  @@map("patient_odontograms")
+}
+
+model PatientOdontogramDiagnostic {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  odontogramId    String   @map("odontogram_id")
+  patientId       String   @map("patient_id")
+  branchId        String?  @map("branch_id")
+  toothNumber     Int      @map("tooth_number")
+  surface         String   @default("WHOLE")
+  diagnosticId    String?  @map("diagnostic_id")
+  diagnosticName  String   @map("diagnostic_name")
+  color           String   @default("#EF4444")
+  notes           String?  @db.Text
+  diagnosedAt     DateTime @default(now()) @map("diagnosed_at")
+  diagnosedById   String?  @map("diagnosed_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  odontogram  PatientOdontogram           @relation(fields: [odontogramId], references: [id], onDelete: Cascade)
+  patient     Patient                     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  branch      Branch?                     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  diagnostic  ClinicOdontogramDiagnostic? @relation(fields: [diagnosticId], references: [id], onDelete: SetNull)
+  diagnosedBy User?                       @relation(fields: [diagnosedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@index([odontogramId])
+  @@index([toothNumber])
+  @@map("patient_odontogram_diagnostics")
+}
+
+model PatientOdontogramTreatment {
+  id             String                    @id @default(uuid())
+  tenantId       String                    @map("tenant_id")
+  odontogramId   String                    @map("odontogram_id")
+  patientId      String                    @map("patient_id")
+  branchId       String?                   @map("branch_id")
+  toothNumber    Int                       @map("tooth_number")
+  surface        String                    @default("WHOLE")
+  treatmentId    String?                   @map("treatment_id")
+  treatmentName  String                    @map("treatment_name")
+  color          String                    @default("#3B82F6")
+  status         OdontogramTreatmentStatus @default(PLANNED)
+  cost           Decimal?                  @db.Decimal(10, 2)
+  notes          String?                   @db.Text
+  plannedDate    DateTime?                 @map("planned_date")
+  completedDate  DateTime?                 @map("completed_date")
+  createdById    String?                   @map("created_by_id")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+
+  tenant      Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  odontogram  PatientOdontogram          @relation(fields: [odontogramId], references: [id], onDelete: Cascade)
+  patient     Patient                    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  branch      Branch?                    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  treatment   ClinicOdontogramTreatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  createdBy   User?                      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@index([odontogramId])
+  @@index([toothNumber])
+  @@index([status])
+  @@map("patient_odontogram_treatments")
 }

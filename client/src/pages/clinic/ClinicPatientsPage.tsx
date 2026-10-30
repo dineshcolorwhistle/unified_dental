@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
+import { ToothIcon } from '../../components/common/ToothIcon';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { Pagination } from '../../components/common/Pagination';
 import { formatDate } from '../../core/utils/dateUtils';
@@ -86,6 +88,7 @@ export const ClinicPatientsPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { success, error } = useToast();
+  const navigate = useNavigate();
 
   // Patients Data & Pagination
   const [patients, setPatients] = useState<PatientRecord[]>([]);
@@ -725,13 +728,13 @@ export const ClinicPatientsPage: React.FC = () => {
               <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', margin: 0 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '26%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '24%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.patient', 'Patient Name & Record')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '12%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '10%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.ageGender', 'Age / Gender')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '20%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '18%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.contact', 'Contact Info')}
                     </th>
                     <th style={{ padding: '12px 18px', textAlign: 'left', width: '16%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
@@ -742,6 +745,9 @@ export const ClinicPatientsPage: React.FC = () => {
                     </th>
                     <th style={{ padding: '12px 18px', textAlign: 'center', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.status', 'Status')}
+                    </th>
+                    <th style={{ padding: '12px 18px', textAlign: 'center', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      {t('clinicPatients.table.clinicalAction', 'Clinical Action')}
                     </th>
                     <th style={{ padding: '12px 18px', textAlign: 'right', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.actions', 'Actions')}
@@ -917,6 +923,40 @@ export const ClinicPatientsPage: React.FC = () => {
                             />
                             {p.status === 'ACTIVE' ? t('clinicPatients.modal.statusActive') : t('clinicPatients.modal.statusInactive')}
                           </span>
+                        </td>
+
+                        {/* Clinical Action: Odontogram */}
+                        <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => navigate(`/clinic/patients/${p.id}/odontogram`)}
+                            title={t('clinicPatients.table.odontogram', 'Odontogram')}
+                            style={{
+                              padding: '6px',
+                              borderRadius: '8px',
+                              color: 'var(--primary-600, #0d9488)',
+                              backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                              border: '1px solid rgba(20, 184, 166, 0.25)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: '34px',
+                              minHeight: '34px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.18)';
+                              e.currentTarget.style.borderColor = 'var(--primary-500, #14b8a6)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.08)';
+                              e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+                            }}
+                          >
+                            <ToothIcon size={18} />
+                          </button>
                         </td>
 
                         {/* Actions (Delete only visible for Tenant Admin) */}
@@ -1968,6 +2008,26 @@ export const ClinicPatientsPage: React.FC = () => {
                 style={{ fontSize: '13px' }}
               >
                 Close
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const id = viewingPatient.id;
+                  setViewingPatient(null);
+                  navigate(`/clinic/patients/${id}/odontogram`);
+                }}
+                style={{
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--primary-600, #0d9488)',
+                  borderColor: 'rgba(20, 184, 166, 0.3)',
+                }}
+              >
+                <ToothIcon size={14} />
+                {t('clinicPatients.table.odontogram', 'Odontogram')}
               </button>
               <button
                 type="button"
