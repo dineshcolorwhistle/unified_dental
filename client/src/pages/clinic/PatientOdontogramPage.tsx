@@ -51,25 +51,6 @@ export interface AppliedTreatmentItem {
   notes?: string | null;
 }
 
-// Fallback diagnostics ONLY if clinic settings are completely empty
-const DEFAULT_DIAGNOSTICS: BrushCondition[] = [
-  { name: 'Damaged', color: '#f87171', appliesToWholeTooth: false },
-  { name: 'Filling', color: '#38bdf8', appliesToWholeTooth: true },
-  { name: 'Healthy', color: '#10b981', appliesToWholeTooth: false },
-  { name: 'Missing', color: '#94a3b8', appliesToWholeTooth: true },
-  { name: 'Crown', color: '#a855f7', appliesToWholeTooth: true },
-  { name: 'Implant', color: '#f59e0b', appliesToWholeTooth: true },
-];
-
-// Fallback treatments ONLY if clinic settings are completely empty
-const DEFAULT_TREATMENTS: BrushCondition[] = [
-  { name: 'Restoration', color: '#38bdf8', appliesToWholeTooth: false },
-  { name: 'Crown', color: '#a855f7', appliesToWholeTooth: true },
-  { name: 'Implant', color: '#f59e0b', appliesToWholeTooth: true },
-  { name: 'Root Canal', color: '#ef4444', appliesToWholeTooth: true },
-  { name: 'Extraction', color: '#64748b', appliesToWholeTooth: true },
-  { name: 'Prophylaxis', color: '#10b981', appliesToWholeTooth: true },
-];
 
 export const PatientOdontogramPage: React.FC = () => {
   const { patientId } = useParams<{ patientId: string }>();
@@ -99,29 +80,22 @@ export const PatientOdontogramPage: React.FC = () => {
 
   // Diagnostics Tab State
   const [findings, setFindings] = useState<FindingItem[]>([]);
-  const [activeDiagBrush, setActiveDiagBrush] = useState<BrushCondition | 'CLEAR'>(
-    DEFAULT_DIAGNOSTICS[0],
-  );
+  const [activeDiagBrush, setActiveDiagBrush] = useState<BrushCondition | 'CLEAR'>('CLEAR');
 
   // Treatment Tab State
   const [appliedTreatments, setAppliedTreatments] = useState<AppliedTreatmentItem[]>([]);
-  const [activeTreatBrush, setActiveTreatBrush] = useState<BrushCondition | 'CLEAR'>(
-    DEFAULT_TREATMENTS[0],
-  );
+  const [activeTreatBrush, setActiveTreatBrush] = useState<BrushCondition | 'CLEAR'>('CLEAR');
 
   // Selected tooth & surface in chart
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
   const [selectedSurface, setSelectedSurface] = useState<string | null>(null);
 
-  // General Clinical Notes
-  const [generalNotes, setGeneralNotes] = useState<string>('');
-
   // Format date helper
   const formatLastSaved = (dateStr?: string | null): string => {
-    if (!dateStr) return 'Not saved yet';
+    if (!dateStr) return t('patientOdontogram.notSavedYet', 'Not saved yet');
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'Not saved yet';
-    return d.toLocaleString('en-US', {
+    if (isNaN(d.getTime())) return t('patientOdontogram.notSavedYet', 'Not saved yet');
+    return d.toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -142,9 +116,6 @@ export const PatientOdontogramPage: React.FC = () => {
       // Restore saved model (defaults to ADULT)
       const savedModel = res.odontogram?.teethModel || 'ADULT';
       setLocalTeethModel(savedModel);
-
-      // Restore clinical notes
-      setGeneralNotes(res.odontogram?.notes || '');
 
       // Restore last saved time
       setLastSavedTime(res.odontogram?.updatedAt || res.odontogram?.createdAt || null);
@@ -217,28 +188,22 @@ export const PatientOdontogramPage: React.FC = () => {
 
   // Dynamic Diagnostics Brush List (from Odontogram Settings)
   const dynamicDiagnostics: BrushCondition[] = useMemo(() => {
-    if (catalogDiagnostics.length > 0) {
-      return catalogDiagnostics.map((cd) => ({
-        id: cd.id,
-        name: cd.name,
-        color: cd.color || '#f87171',
-        appliesToWholeTooth: !!cd.appliesToWholeTooth,
-      }));
-    }
-    return DEFAULT_DIAGNOSTICS;
+    return catalogDiagnostics.map((cd) => ({
+      id: cd.id,
+      name: cd.name,
+      color: cd.color || '#f87171',
+      appliesToWholeTooth: !!cd.appliesToWholeTooth,
+    }));
   }, [catalogDiagnostics]);
 
   // Dynamic Treatments Brush List (from Odontogram Settings)
   const dynamicTreatments: BrushCondition[] = useMemo(() => {
-    if (catalogTreatments.length > 0) {
-      return catalogTreatments.map((ct) => ({
-        id: ct.id,
-        name: ct.name,
-        color: ct.color || '#3b82f6',
-        appliesToWholeTooth: !!ct.appliesToWholeTooth,
-      }));
-    }
-    return DEFAULT_TREATMENTS;
+    return catalogTreatments.map((ct) => ({
+      id: ct.id,
+      name: ct.name,
+      color: ct.color || '#3b82f6',
+      appliesToWholeTooth: !!ct.appliesToWholeTooth,
+    }));
   }, [catalogTreatments]);
 
   // Teeth Chart Items for Diagnostics Tab
@@ -308,13 +273,19 @@ export const PatientOdontogramPage: React.FC = () => {
     setSelectedSurface(surface);
 
     if (activeDiagBrush === 'CLEAR') {
+      if (surface.toUpperCase() === 'WHOLE') {
+        setFindings((prev) => prev.filter((f) => f.toothNumber !== toothNumber));
+        return;
+      }
       setFindings((prev) =>
         prev.filter((f) => !(f.toothNumber === toothNumber && f.surface.toUpperCase() === surface.toUpperCase()))
       );
       return;
     }
 
-    if (activeDiagBrush.appliesToWholeTooth) {
+    if (!activeDiagBrush) return;
+
+    if (surface.toUpperCase() === 'WHOLE' || activeDiagBrush.appliesToWholeTooth) {
       setFindings((prev) => {
         const filtered = prev.filter(
           (f) => !(f.toothNumber === toothNumber && f.surface.toUpperCase() === 'WHOLE')
@@ -372,13 +343,19 @@ export const PatientOdontogramPage: React.FC = () => {
     setSelectedSurface(surface);
 
     if (activeTreatBrush === 'CLEAR') {
+      if (surface.toUpperCase() === 'WHOLE') {
+        setAppliedTreatments((prev) => prev.filter((tr) => tr.toothNumber !== toothNumber));
+        return;
+      }
       setAppliedTreatments((prev) =>
         prev.filter((tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === surface.toUpperCase()))
       );
       return;
     }
 
-    if (activeTreatBrush.appliesToWholeTooth) {
+    if (!activeTreatBrush) return;
+
+    if (surface.toUpperCase() === 'WHOLE' || activeTreatBrush.appliesToWholeTooth) {
       setAppliedTreatments((prev) => {
         const filtered = prev.filter(
           (tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === 'WHOLE')
@@ -460,7 +437,6 @@ export const PatientOdontogramPage: React.FC = () => {
       setSavingAll(true);
       await clinicOdontogramService.savePatientOdontogram(patientId, {
         teethModel: localTeethModel,
-        notes: generalNotes,
         diagnostics: findings.map((f) => ({
           toothNumber: f.toothNumber,
           surface: f.surface,
@@ -598,7 +574,7 @@ export const PatientOdontogramPage: React.FC = () => {
                     letterSpacing: '-0.02em',
                   }}
                 >
-                  Patient Odontogram
+                  {t('patientOdontogram.pageTitle', 'Patient Odontogram')}
                 </h1>
                 <span
                   style={{
@@ -627,10 +603,10 @@ export const PatientOdontogramPage: React.FC = () => {
                 }}
               >
                 <span>
-                  Patient: <strong style={{ color: '#1e293b' }}>{patientFullName}</strong>
+                  {t('patientOdontogram.patient', 'Patient:')} <strong style={{ color: '#1e293b' }}>{patientFullName}</strong>
                 </span>
                 <span>
-                  Doctor: <strong style={{ color: '#1e293b' }}>Dr. Robert Smith</strong>
+                  {t('patientOdontogram.doctor', 'Doctor:')} <strong style={{ color: '#1e293b' }}>Dr. Robert Smith</strong>
                 </span>
                 {data.patient.branch && (
                   <span style={{ color: '#0284c7', fontWeight: 600 }}>
@@ -638,7 +614,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   </span>
                 )}
                 <span style={{ color: '#94a3b8' }}>
-                  Last saved: {formatLastSaved(lastSavedTime)}
+                  {t('patientOdontogram.lastSaved', 'Last saved:')} {formatLastSaved(lastSavedTime)}
                 </span>
               </div>
             </div>
@@ -671,7 +647,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   transition: 'all 0.15s ease',
                 }}
               >
-                Adult (32)
+                {t('patientOdontogram.models.adult', 'Adult (32)')}
               </button>
               <button
                 type="button"
@@ -688,7 +664,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   transition: 'all 0.15s ease',
                 }}
               >
-                Child (20)
+                {t('patientOdontogram.models.child', 'Child (20)')}
               </button>
               <button
                 type="button"
@@ -705,7 +681,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   transition: 'all 0.15s ease',
                 }}
               >
-                Complete (52)
+                {t('patientOdontogram.models.complete', 'Complete (52)')}
               </button>
             </div>
 
@@ -731,7 +707,7 @@ export const PatientOdontogramPage: React.FC = () => {
                 }}
               >
                 {savingAll ? <Loader2 size={16} className="spinner" /> : <Save size={16} />}
-                <span>Save Odontogram</span>
+                <span>{t('patientOdontogram.saveOdontogram', 'Save Odontogram')}</span>
               </button>
             )}
           </div>
@@ -769,7 +745,7 @@ export const PatientOdontogramPage: React.FC = () => {
           }}
         >
           <Activity size={17} style={{ color: activeTab === 'DIAGNOSTICS' ? '#0284c7' : '#94a3b8' }} />
-          <span>Diagnostics</span>
+          <span>{t('patientOdontogram.tabs.diagnostics', 'Diagnostics')}</span>
           <span
             style={{
               display: 'inline-flex',
@@ -808,7 +784,7 @@ export const PatientOdontogramPage: React.FC = () => {
           }}
         >
           <Layers size={17} style={{ color: activeTab === 'TREATMENT' ? '#0284c7' : '#94a3b8' }} />
-          <span>Treatment</span>
+          <span>{t('patientOdontogram.tabs.treatment', 'Treatment Plan')}</span>
           <span
             style={{
               display: 'inline-flex',
@@ -849,7 +825,7 @@ export const PatientOdontogramPage: React.FC = () => {
                 marginBottom: '16px',
               }}
             >
-              Click a tooth block to mark its diagnostic condition. Conditions with "Whole" badge apply to the entire tooth.
+              {t('patientOdontogram.diagnosticsHint', 'Click a tooth block to mark its diagnostic condition. Conditions with "Whole" badge apply to the entire tooth.')}
             </div>
 
             {/* Dynamic Diagnostics Toolbar */}
@@ -882,66 +858,100 @@ export const PatientOdontogramPage: React.FC = () => {
                 }}
               >
                 <Eraser size={15} />
-                <span>Clear</span>
+                <span>{t('patientOdontogram.clear', 'Clear')}</span>
               </button>
 
               {/* Dynamic Diagnostic Pills */}
-              {dynamicDiagnostics.map((condition) => {
-                const isSelected =
-                  activeDiagBrush !== 'CLEAR' && activeDiagBrush.name === condition.name;
-
-                return (
-                  <button
-                    key={condition.name}
-                    type="button"
-                    onClick={() => setActiveDiagBrush(condition)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      border: isSelected
-                        ? `2px solid ${condition.color}`
-                        : '1px solid #cbd5e1',
-                      backgroundColor: isSelected
-                        ? `${condition.color}15`
-                        : '#ffffff',
-                      color: isSelected ? condition.color : '#334155',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span
+              {dynamicDiagnostics.length === 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#64748b',
+                    fontSize: '13px',
+                    padding: '4px 8px',
+                  }}
+                >
+                  <AlertCircle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                  <span>{t('patientOdontogram.noDiagnostics', 'No diagnostics configured in Odontogram Settings.')}</span>
+                  {canModify && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/clinic/configurations/odontogram-settings')}
                       style={{
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '2px',
-                        backgroundColor: condition.color,
+                        background: 'none',
+                        border: 'none',
+                        color: '#0284c7',
+                        textDecoration: 'underline',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: 0,
                       }}
-                    />
-                    <span>{condition.name}</span>
-                    {isSelected && <Check size={14} style={{ color: condition.color }} />}
-                    {condition.appliesToWholeTooth && (
+                    >
+                      {t('patientOdontogram.configureSettings', 'Configure Settings')}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                dynamicDiagnostics.map((condition) => {
+                  const isSelected =
+                    activeDiagBrush !== 'CLEAR' && activeDiagBrush.name === condition.name;
+
+                  return (
+                    <button
+                      key={condition.id || condition.name}
+                      type="button"
+                      onClick={() => setActiveDiagBrush(condition)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: isSelected
+                          ? `2px solid ${condition.color}`
+                          : '1px solid #cbd5e1',
+                        backgroundColor: isSelected
+                          ? `${condition.color}15`
+                          : '#ffffff',
+                        color: isSelected ? condition.color : '#334155',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
                       <span
                         style={{
-                          backgroundColor: '#f1f5f9',
-                          color: '#64748b',
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          border: '1px solid #e2e8f0',
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '2px',
+                          backgroundColor: condition.color,
                         }}
-                      >
-                        Whole
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                      />
+                      <span>{condition.name}</span>
+                      {isSelected && <Check size={14} style={{ color: condition.color }} />}
+                      {condition.appliesToWholeTooth && (
+                        <span
+                          style={{
+                            backgroundColor: '#f1f5f9',
+                            color: '#64748b',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                          }}
+                        >
+                          {t('patientOdontogram.whole', 'Whole')}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {/* Interactive Teeth Chart */}
@@ -955,193 +965,135 @@ export const PatientOdontogramPage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Split Section: Applied Findings & Clinical Notes */}
+          {/* Applied Findings & Markings (Full Width) */}
           <div
+            className="card"
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '20px',
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              border: '1px solid #e2e8f0',
+              padding: '20px 24px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            {/* Left Card: Applied Findings & Markings (N) */}
             <div
-              className="card"
               style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
               }}
             >
-              <div
+              <h3
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '16px',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  color: '#1e293b',
+                  margin: 0,
                 }}
               >
-                <h3
+                {t('patientOdontogram.appliedFindings', 'Applied Findings & Markings')} ({findings.length})
+              </h3>
+
+              {findings.length > 0 && canModify && (
+                <button
+                  type="button"
+                  onClick={() => setFindings([])}
                   style={{
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    color: '#1e293b',
-                    margin: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
                   }}
                 >
-                  Applied Findings & Markings ({findings.length})
-                </h3>
+                  <Trash2 size={14} />
+                  <span>{t('patientOdontogram.clearAll', 'Clear All')}</span>
+                </button>
+              )}
+            </div>
 
-                {findings.length > 0 && canModify && (
-                  <button
-                    type="button"
-                    onClick={() => setFindings([])}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                alignContent: 'flex-start',
+                minHeight: '120px',
+              }}
+            >
+              {findings.length === 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    padding: '30px 10px',
+                    color: '#94a3b8',
+                    fontSize: '13px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {t('patientOdontogram.noFindingsYet', 'No findings or markings applied yet. Click any tooth block above to mark diagnostic conditions.')}
+                </div>
+              ) : (
+                findings.map((f, idx) => (
+                  <div
+                    key={`${f.toothNumber}-${f.surface}-${idx}`}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '5px',
-                      background: 'none',
-                      border: 'none',
-                      color: '#ef4444',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      padding: '4px 8px',
+                      gap: '6px',
+                      backgroundColor: '#fff1f2',
+                      border: '1px solid #fecdd3',
                       borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      color: '#9f1239',
                     }}
                   >
-                    <Trash2 size={14} />
-                    <span>Clear All</span>
-                  </button>
-                )}
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                  alignContent: 'flex-start',
-                  minHeight: '120px',
-                }}
-              >
-                {findings.length === 0 ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '100%',
-                      padding: '30px 10px',
-                      color: '#94a3b8',
-                      fontSize: '13px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    No findings or markings applied yet. Click any tooth block above to mark diagnostic conditions.
-                  </div>
-                ) : (
-                  findings.map((f, idx) => (
-                    <div
-                      key={`${f.toothNumber}-${f.surface}-${idx}`}
+                    <span
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        backgroundColor: '#fff1f2',
-                        border: '1px solid #fecdd3',
-                        borderRadius: '6px',
-                        padding: '4px 10px',
-                        fontSize: '12px',
-                        color: '#9f1239',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '2px',
+                        backgroundColor: f.color,
                       }}
-                    >
-                      <span
+                    />
+                    <span>
+                      <strong>T{f.toothNumber}</strong> ({getSurfaceDisplayName(f.surface, f.toothNumber)}): <strong>{f.diagnosticName || f.name}</strong>
+                    </span>
+                    {canModify && (
+                      <button
+                        type="button"
+                        onClick={() => setFindings((prev) => prev.filter((_, i) => i !== idx))}
                         style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '2px',
-                          backgroundColor: f.color,
+                          background: 'none',
+                          border: 'none',
+                          color: '#9f1239',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '1px',
+                          marginLeft: '2px',
                         }}
-                      />
-                      <span>
-                        <strong>T{f.toothNumber}</strong> ({getSurfaceDisplayName(f.surface, f.toothNumber)}): <strong>{f.diagnosticName || f.name}</strong>
-                      </span>
-                      {canModify && (
-                        <button
-                          type="button"
-                          onClick={() => setFindings((prev) => prev.filter((_, i) => i !== idx))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#9f1239',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '1px',
-                            marginLeft: '2px',
-                          }}
-                        >
-                          <X size={13} />
-                        </button>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Right Card: Odontogram / Clinical Notes */}
-            <div
-              className="card"
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                padding: '20px 24px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <div style={{ marginBottom: '12px' }}>
-                <h3
-                  style={{
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    color: '#1e293b',
-                    margin: 0,
-                  }}
-                >
-                  Odontogram / Clinical Notes
-                </h3>
-              </div>
-
-              <textarea
-                value={generalNotes}
-                onChange={(e) => setGeneralNotes(e.target.value)}
-                placeholder="Optional notes regarding teeth condition, prosthetic specifications, or clinical findings..."
-                disabled={!canModify}
-                rows={5}
-                style={{
-                  width: '100%',
-                  flex: 1,
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  color: '#1e293b',
-                  backgroundColor: canModify ? '#ffffff' : '#f8fafc',
-                  outline: 'none',
-                  resize: 'vertical',
-                  minHeight: '120px',
-                  fontFamily: 'inherit',
-                }}
-              />
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -1168,7 +1120,7 @@ export const PatientOdontogramPage: React.FC = () => {
                 marginBottom: '16px',
               }}
             >
-              Click a tooth block or surface to assign treatment procedures. The applied treatments will populate the corresponding quadrant below.
+              {t('patientOdontogram.treatmentHint', 'Click a tooth block or surface to assign treatment procedures. The applied treatments will populate the corresponding quadrant below.')}
             </div>
 
             {/* Dynamic Treatment Brush Selector Toolbar */}
@@ -1201,66 +1153,100 @@ export const PatientOdontogramPage: React.FC = () => {
                 }}
               >
                 <Eraser size={15} />
-                <span>Clear</span>
+                <span>{t('patientOdontogram.clear', 'Clear')}</span>
               </button>
 
               {/* Dynamic Treatment Pills from Odontogram Settings */}
-              {dynamicTreatments.map((treatment) => {
-                const isSelected =
-                  activeTreatBrush !== 'CLEAR' && activeTreatBrush.name === treatment.name;
-
-                return (
-                  <button
-                    key={treatment.name}
-                    type="button"
-                    onClick={() => setActiveTreatBrush(treatment)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      border: isSelected
-                        ? `2px solid ${treatment.color}`
-                        : '1px solid #cbd5e1',
-                      backgroundColor: isSelected
-                        ? `${treatment.color}15`
-                        : '#ffffff',
-                      color: isSelected ? treatment.color : '#334155',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span
+              {dynamicTreatments.length === 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#64748b',
+                    fontSize: '13px',
+                    padding: '4px 8px',
+                  }}
+                >
+                  <AlertCircle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                  <span>{t('patientOdontogram.noTreatments', 'No treatments configured in Odontogram Settings.')}</span>
+                  {canModify && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/clinic/configurations/odontogram-settings')}
                       style={{
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '2px',
-                        backgroundColor: treatment.color,
+                        background: 'none',
+                        border: 'none',
+                        color: '#0284c7',
+                        textDecoration: 'underline',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: 0,
                       }}
-                    />
-                    <span>{treatment.name}</span>
-                    {isSelected && <Check size={14} style={{ color: treatment.color }} />}
-                    {treatment.appliesToWholeTooth && (
+                    >
+                      {t('patientOdontogram.configureSettings', 'Configure Settings')}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                dynamicTreatments.map((treatment) => {
+                  const isSelected =
+                    activeTreatBrush !== 'CLEAR' && activeTreatBrush.name === treatment.name;
+
+                  return (
+                    <button
+                      key={treatment.id || treatment.name}
+                      type="button"
+                      onClick={() => setActiveTreatBrush(treatment)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: isSelected
+                          ? `2px solid ${treatment.color}`
+                          : '1px solid #cbd5e1',
+                        backgroundColor: isSelected
+                          ? `${treatment.color}15`
+                          : '#ffffff',
+                        color: isSelected ? treatment.color : '#334155',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
                       <span
                         style={{
-                          backgroundColor: '#f1f5f9',
-                          color: '#64748b',
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          border: '1px solid #e2e8f0',
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '2px',
+                          backgroundColor: treatment.color,
                         }}
-                      >
-                        Whole
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                      />
+                      <span>{treatment.name}</span>
+                      {isSelected && <Check size={14} style={{ color: treatment.color }} />}
+                      {treatment.appliesToWholeTooth && (
+                        <span
+                          style={{
+                            backgroundColor: '#f1f5f9',
+                            color: '#64748b',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                          }}
+                        >
+                          {t('patientOdontogram.whole', 'Whole')}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {/* Separate Teeth Chart for Treatment */}
@@ -1304,7 +1290,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   textTransform: 'uppercase',
                 }}
               >
-                ZONA POSTERIOR
+                {t('patientOdontogram.zonaPosterior', 'ZONA POSTERIOR')}
               </div>
 
               {/* 2x2 Quadrant Grid */}
@@ -1367,7 +1353,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -1475,7 +1461,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -1582,7 +1568,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -1690,7 +1676,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -1769,7 +1755,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   textTransform: 'uppercase',
                 }}
               >
-                ZONA ANTERIOR
+                {t('patientOdontogram.zonaAnterior', 'ZONA ANTERIOR')}
               </div>
 
               {/* 2x2 Quadrant Grid */}
@@ -1832,7 +1818,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -1940,7 +1926,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -2047,7 +2033,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -2155,7 +2141,7 @@ export const PatientOdontogramPage: React.FC = () => {
                               padding: '2px 4px',
                             }}
                           >
-                            Clear
+                            {t('patientOdontogram.clear', 'Clear')}
                           </button>
                         )}
                       </div>
@@ -2235,8 +2221,8 @@ export const PatientOdontogramPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '13px', color: '#64748b' }}>
             {savingAll
-              ? 'Saving changes...'
-              : `Last saved: ${formatLastSaved(lastSavedTime)}`}
+              ? t('patientOdontogram.savingChanges', 'Saving changes...')
+              : `${t('patientOdontogram.lastSaved', 'Last saved:')} ${formatLastSaved(lastSavedTime)}`}
           </span>
         </div>
 
@@ -2273,7 +2259,7 @@ export const PatientOdontogramPage: React.FC = () => {
               }}
             >
               {savingAll ? <Loader2 size={16} className="spinner" /> : <Save size={16} />}
-              <span>Save</span>
+              <span>{t('common.save', 'Save')}</span>
             </button>
           )}
         </div>

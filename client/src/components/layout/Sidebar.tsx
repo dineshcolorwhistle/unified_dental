@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ToothIcon } from '../common/ToothIcon';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -49,11 +50,80 @@ interface SidebarProps {
   onToggleCollapseProp?: () => void;
 }
 
+interface SidebarPortalTooltipProps {
+  visible: boolean;
+  targetRect: DOMRect | null;
+  title: string;
+  subtitle?: string;
+  badge?: React.ReactNode;
+}
+
+export const SidebarPortalTooltip: React.FC<SidebarPortalTooltipProps> = ({
+  visible,
+  targetRect,
+  title,
+  subtitle,
+  badge,
+}) => {
+  if (!visible || !targetRect || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top: `${targetRect.top + targetRect.height / 2}px`,
+        left: `${targetRect.right + 12}px`,
+        transform: 'translateY(-50%)',
+        backgroundColor: '#0f172a',
+        color: '#f8fafc',
+        padding: '8px 14px',
+        borderRadius: '8px',
+        fontSize: '12px',
+        fontWeight: 600,
+        letterSpacing: '0.01em',
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3)',
+        border: '1px solid rgba(255, 255, 255, 0.16)',
+        zIndex: 9999999,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
+        animation: 'fadeIn 0.12s ease-out',
+      }}
+    >
+      {/* Left arrow pointer */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '-5px',
+          top: '50%',
+          transform: 'translateY(-50%) rotate(45deg)',
+          width: '8px',
+          height: '8px',
+          backgroundColor: '#0f172a',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.16)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.16)',
+        }}
+      />
+      <div style={{ fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap' }}>{title}</div>
+      {subtitle && (
+        <div style={{ fontSize: '11px', color: '#06b6d4', marginTop: '1px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {subtitle}
+        </div>
+      )}
+      {badge}
+    </div>,
+    document.body,
+  );
+};
+
 interface SidebarNavItemProps {
   to: string;
   end?: boolean;
   icon: React.ReactNode;
   label: string;
+  category?: string;
   isCollapsed: boolean;
 }
 
@@ -62,10 +132,30 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
   end = false,
   icon,
   label,
+  category,
   isCollapsed,
 }) => {
+  const { t } = useTranslation();
+  const subtitle = category || t('nav.clinicModule', 'Clinic Module');
+  const [isHovered, setIsHovered] = useState(false);
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isCollapsed) return;
+    setTargetRect(e.currentTarget.getBoundingClientRect());
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
   return (
-    <div className="nav-item-wrapper">
+    <div
+      className="nav-item-wrapper"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <NavLink
         to={to}
         end={end}
@@ -75,10 +165,15 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
         <span className="nav-link-icon">{icon}</span>
         {!isCollapsed && <span className="nav-link-text">{label}</span>}
       </NavLink>
+
+      {/* Render Portal Tooltip when collapsed & hovered */}
       {isCollapsed && (
-        <div className="sidebar-tooltip" role="tooltip">
-          <span>{label}</span>
-        </div>
+        <SidebarPortalTooltip
+          visible={isHovered}
+          targetRect={targetRect}
+          title={label}
+          subtitle={subtitle}
+        />
       )}
     </div>
   );
@@ -139,6 +234,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // When on mobile screen or mobile drawer is open, sidebar should NEVER be rendered in collapsed state
   const isCollapsed = isMobileScreen || isMobileOpen ? false : isUserCollapsed;
+
+  // Floating portal tooltip state for collapsed buttons
+  const [brandHover, setBrandHover] = useState<{ isHovered: boolean; rect: DOMRect | null }>({
+    isHovered: false,
+    rect: null,
+  });
+  const [userHover, setUserHover] = useState<{ isHovered: boolean; rect: DOMRect | null }>({
+    isHovered: false,
+    rect: null,
+  });
+  const [logoutHover, setLogoutHover] = useState<{ isHovered: boolean; rect: DOMRect | null }>({
+    isHovered: false,
+    rect: null,
+  });
 
   const isTenantContext = Boolean(user?.activeTenant);
   const isPlatformAdmin = Boolean(user?.isSuperAdmin && !isTenantContext);
@@ -353,11 +462,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </>
         ) : (
-          <div className="sidebar-collapsed-brand">
+          <div
+            className="sidebar-collapsed-brand"
+            onMouseEnter={(e) => {
+              setBrandHover({ isHovered: true, rect: e.currentTarget.getBoundingClientRect() });
+            }}
+            onMouseLeave={() => {
+              setBrandHover({ isHovered: false, rect: null });
+            }}
+          >
             <button
               onClick={toggleCollapse}
               className="sidebar-expand-btn-top"
-              title={t('nav.expandSidebar')}
               aria-label={t('nav.expandSidebar')}
             >
               {tenantLogoUrl ? (
@@ -373,12 +489,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <PanelLeftOpen size={16} />
               </span>
             </button>
-            <div className="sidebar-tooltip brand-tooltip" role="tooltip">
-              <div style={{ fontWeight: 700, color: '#ffffff' }}>{brandName}</div>
-              <div style={{ fontSize: '11px', color: '#06b6d4', marginTop: '1px' }}>
-                {t('nav.expandSidebar')}
-              </div>
-            </div>
+            {isCollapsed && (
+              <SidebarPortalTooltip
+                visible={brandHover.isHovered}
+                targetRect={brandHover.rect}
+                title={brandName}
+                subtitle={t('nav.expandSidebar')}
+              />
+            )}
           </div>
         )}
       </div>
@@ -400,42 +518,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
               end
               icon={<LayoutDashboard size={17} />}
               label={t('nav.dashboard')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
             <SidebarNavItem
               to="/tenants"
               icon={<Building2 size={17} />}
               label={t('nav.tenants')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
             <SidebarNavItem
               to="/modules"
               icon={<Layers size={17} />}
               label={t('nav.modules')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
             <SidebarNavItem
               to="/plans"
               icon={<CreditCard size={17} />}
               label={t('nav.subscriptionPlans')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
             <SidebarNavItem
               to="/qr-inquiries"
               icon={<QrCode size={17} />}
               label={t('nav.qrInquiries', 'QR Inquiries')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
             <SidebarNavItem
               to="/support-portal"
               icon={<LifeBuoy size={17} />}
               label={t('nav.supportPortal', 'Support Portal')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
             <SidebarNavItem
               to="/onboarding"
               icon={<Compass size={17} />}
               label={t('nav.onboardingGuide', 'Onboarding Instructions')}
+              category={t('nav.platformAdmin', 'Platform Admin')}
               isCollapsed={isCollapsed}
             />
           </div>
@@ -1120,44 +1245,65 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           <div className="sidebar-collapsed-footer-container">
-            <div className="sidebar-collapsed-user-wrapper">
+            <div
+              className="sidebar-collapsed-user-wrapper"
+              onMouseEnter={(e) => {
+                setUserHover({ isHovered: true, rect: e.currentTarget.getBoundingClientRect() });
+              }}
+              onMouseLeave={() => {
+                setUserHover({ isHovered: false, rect: null });
+              }}
+            >
               <div className="sidebar-user-avatar-collapsed" onClick={toggleCollapse}>
                 {userInitial}
               </div>
-              <div className="sidebar-tooltip user-tooltip" role="tooltip">
-                <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '13px' }}>
-                  {user?.name || 'Administrator'}
-                </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                  {user?.email}
-                </div>
-                <div
-                  style={{
-                    fontSize: '10px',
-                    color: '#2dd4bf',
-                    fontWeight: 600,
-                    marginTop: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  <Shield size={10} /> {roleName}
-                </div>
-              </div>
+              {isCollapsed && (
+                <SidebarPortalTooltip
+                  visible={userHover.isHovered}
+                  targetRect={userHover.rect}
+                  title={user?.name || 'Administrator'}
+                  subtitle={user?.email}
+                  badge={
+                    <div
+                      style={{
+                        fontSize: '10px',
+                        color: '#2dd4bf',
+                        fontWeight: 600,
+                        marginTop: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        textTransform: 'uppercase',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <Shield size={10} /> {roleName}
+                    </div>
+                  }
+                />
+              )}
             </div>
 
             <button
               onClick={logout}
               className="sidebar-collapsed-logout-btn"
-              title={t('nav.logout')}
               aria-label={t('nav.logout')}
+              onMouseEnter={(e) => {
+                setLogoutHover({ isHovered: true, rect: e.currentTarget.getBoundingClientRect() });
+              }}
+              onMouseLeave={() => {
+                setLogoutHover({ isHovered: false, rect: null });
+              }}
             >
               <LogOut size={16} />
-              <div className="sidebar-tooltip" role="tooltip">
-                {t('nav.logout')}
-              </div>
+              {isCollapsed && (
+                <SidebarPortalTooltip
+                  visible={logoutHover.isHovered}
+                  targetRect={logoutHover.rect}
+                  title={t('nav.logout')}
+                  subtitle={t('nav.exitApp', 'Sign Out')}
+                />
+              )}
             </button>
           </div>
         )}

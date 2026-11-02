@@ -1,10 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { TeethModel } from '../../services/clinicOdontogramService';
 
 export interface FindingItem {
   id?: string;
   toothNumber: number;
-  surface: string; // WHOLE, OCCLUSAL, VESTIBULAR, LINGUAL, PALATAL, MESIAL, DISTAL, CERVICAL
+  surface: string; // WHOLE, OCCLUSAL, VESTIBULAR, LINGUAL, PALATAL, MESIAL, DISTAL, UPPER_CERVICAL, LOWER_CERVICAL
   name?: string;
   diagnosticName?: string;
   treatmentName?: string;
@@ -39,13 +42,27 @@ export const getSurfaceDisplayName = (surface: string, toothNumber: number): str
   const s = surface.toUpperCase();
   const isUpper = (toothNumber >= 11 && toothNumber <= 28) || (toothNumber >= 51 && toothNumber <= 65);
 
-  if (s === 'WHOLE') return 'Whole Tooth';
-  if (s === 'OCCLUSAL') return 'Occlusal / Incisal';
-  if (s === 'CERVICAL') return isUpper ? 'Upper Cervical / Apical' : 'Lower Cervical / Apical';
-  if (s === 'VESTIBULAR') return isUpper ? 'Vestibular (Upper)' : 'Vestibular (Lower)';
-  if (s === 'LINGUAL' || s === 'PALATAL') return isUpper ? 'Palatal (Lower)' : 'Lingual (Lower)';
-  if (s === 'MESIAL') return 'Mesial';
-  if (s === 'DISTAL') return 'Distal';
+  if (s === 'WHOLE') return i18n.t('patientOdontogram.surfaces.wholeTooth', 'Whole Tooth');
+  if (s === 'OCCLUSAL') return i18n.t('patientOdontogram.surfaces.occlusal', 'Occlusal / Incisal');
+  if (s === 'UPPER_CERVICAL') return i18n.t('patientOdontogram.surfaces.upperCervical', 'Upper Cervical / Apical');
+  if (s === 'LOWER_CERVICAL') return i18n.t('patientOdontogram.surfaces.lowerCervical', 'Lower Cervical / Apical');
+  if (s === 'CERVICAL') {
+    return isUpper
+      ? i18n.t('patientOdontogram.surfaces.upperCervical', 'Upper Cervical / Apical')
+      : i18n.t('patientOdontogram.surfaces.lowerCervical', 'Lower Cervical / Apical');
+  }
+  if (s === 'VESTIBULAR') {
+    return isUpper
+      ? i18n.t('patientOdontogram.surfaces.vestibularUpper', 'Vestibular (Upper)')
+      : i18n.t('patientOdontogram.surfaces.vestibularLower', 'Vestibular (Lower)');
+  }
+  if (s === 'LINGUAL' || s === 'PALATAL') {
+    return isUpper
+      ? i18n.t('patientOdontogram.surfaces.palatalLower', 'Palatal (Upper)')
+      : i18n.t('patientOdontogram.surfaces.lingualLower', 'Lingual (Lower)');
+  }
+  if (s === 'MESIAL') return i18n.t('patientOdontogram.surfaces.mesial', 'Mesial');
+  if (s === 'DISTAL') return i18n.t('patientOdontogram.surfaces.distal', 'Distal');
   return surface;
 };
 
@@ -84,6 +101,37 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
   onToothClick,
   onSurfaceClick,
 }) => {
+  const { t } = useTranslation();
+
+  // Floating tooltip state matching sidebar style
+  const [hoverInfo, setHoverInfo] = useState<{
+    toothNum: number;
+    surface: string;
+    x: number;
+    y: number;
+    finding?: FindingItem;
+  } | null>(null);
+
+  const handleMouseEnter = (
+    e: React.MouseEvent<SVGElement>,
+    toothNum: number,
+    surface: string,
+    finding?: FindingItem,
+  ) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoverInfo({
+      toothNum,
+      surface,
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8,
+      finding,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setHoverInfo(null);
+  };
+
   // Map of toothNumber -> { surface -> FindingItem }
   const findingsMap = useMemo(() => {
     const map = new Map<number, {
@@ -93,6 +141,8 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
       lingual?: FindingItem;
       mesial?: FindingItem;
       distal?: FindingItem;
+      upperCervical?: FindingItem;
+      lowerCervical?: FindingItem;
       cervical?: FindingItem;
     }>();
 
@@ -109,7 +159,11 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
       else if (s === 'LINGUAL' || s === 'PALATAL') entry.lingual = f;
       else if (s === 'MESIAL') entry.mesial = f;
       else if (s === 'DISTAL') entry.distal = f;
-      else if (s === 'CERVICAL') entry.cervical = f;
+      else if (s === 'UPPER_CERVICAL') entry.upperCervical = f;
+      else if (s === 'LOWER_CERVICAL') entry.lowerCervical = f;
+      else if (s === 'CERVICAL') {
+        entry.upperCervical = f;
+      }
     });
 
     return map;
@@ -139,12 +193,20 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
       return '#ffffff';
     };
 
-    const topFill = getFill(topSurfaceKey, isUpper ? entry.vestibular : entry.lingual);
-    const bottomFill = getFill(bottomSurfaceKey, isUpper ? entry.lingual : entry.vestibular);
-    const leftFill = getFill(leftSurfaceKey, isRightQuadrant ? entry.distal : entry.mesial);
-    const rightFill = getFill(rightSurfaceKey, isRightQuadrant ? entry.mesial : entry.distal);
+    const topSpecificFinding = isUpper ? entry.vestibular : entry.lingual;
+    const bottomSpecificFinding = isUpper ? entry.lingual : entry.vestibular;
+    const leftSpecificFinding = isRightQuadrant ? entry.distal : entry.mesial;
+    const rightSpecificFinding = isRightQuadrant ? entry.mesial : entry.distal;
+    const upperCervicalFinding = entry.upperCervical || (entry.cervical && isUpper ? entry.cervical : undefined);
+    const lowerCervicalFinding = entry.lowerCervical || (entry.cervical && !isUpper ? entry.cervical : undefined);
+
+    const topFill = getFill(topSurfaceKey, topSpecificFinding);
+    const bottomFill = getFill(bottomSurfaceKey, bottomSpecificFinding);
+    const leftFill = getFill(leftSurfaceKey, leftSpecificFinding);
+    const rightFill = getFill(rightSurfaceKey, rightSpecificFinding);
     const centerFill = getFill('OCCLUSAL', entry.occlusal);
-    const cervicalFill = getFill('CERVICAL', entry.cervical);
+    const upperCervicalFill = getFill('UPPER_CERVICAL', upperCervicalFinding);
+    const lowerCervicalFill = getFill('LOWER_CERVICAL', lowerCervicalFinding);
 
     const isToothSelected = selectedTooth === toothNum;
 
@@ -179,17 +241,36 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
 
         {/* Concentric Circular Tooth SVG */}
         <svg
-          viewBox="0 0 44 52"
-          width="42"
-          height="50"
+          viewBox="0 0 44 60"
+          width="44"
+          height="60"
           style={{
             overflow: 'visible',
             filter: hasWhole ? `drop-shadow(0 0 3px ${wholeColor})` : 'none',
           }}
         >
+          {/* Top Outer Curved Arc (Upper Cervical / Apical) */}
+          <path
+            d="M 5.91 13.50 A 21 21 0 0 1 38.09 13.50 L 34.64 16.39 A 16.5 16.5 0 0 0 9.36 16.39 Z"
+            fill={upperCervicalFill}
+            stroke="#94a3b8"
+            strokeWidth="1.1"
+            className="tooth-surface-path"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSurfaceClick && onSurfaceClick(toothNum, 'UPPER_CERVICAL');
+            }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, 'UPPER_CERVICAL', upperCervicalFinding || entry.whole)}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              transition: 'fill 0.15s ease, stroke 0.15s ease',
+              cursor: 'pointer',
+            }}
+          />
+
           {/* Top Arc Sector */}
           <path
-            d="M 9.98 9.98 A 17 17 0 0 1 34.02 9.98 L 27.3 16.7 A 7.5 7.5 0 0 0 16.7 16.7 Z"
+            d="M 11.39 16.39 A 15 15 0 0 1 32.61 16.39 L 26.60 22.40 A 6.5 6.5 0 0 0 17.40 22.40 Z"
             fill={topFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
@@ -198,17 +279,17 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
               e.stopPropagation();
               onSurfaceClick && onSurfaceClick(toothNum, topSurfaceKey);
             }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, topSurfaceKey, topSpecificFinding || entry.whole)}
+            onMouseLeave={handleMouseLeave}
             style={{
               transition: 'fill 0.15s ease, stroke 0.15s ease',
               cursor: 'pointer',
             }}
-          >
-            <title>{`Tooth ${toothNum} (${getSurfaceDisplayName(topSurfaceKey, toothNum)})`}</title>
-          </path>
+          />
 
           {/* Bottom Arc Sector */}
           <path
-            d="M 34.02 34.02 A 17 17 0 0 1 9.98 34.02 L 16.7 27.3 A 7.5 7.5 0 0 0 27.3 27.3 Z"
+            d="M 32.61 37.61 A 15 15 0 0 1 11.39 37.61 L 17.40 31.60 A 6.5 6.5 0 0 0 26.60 31.60 Z"
             fill={bottomFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
@@ -217,17 +298,17 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
               e.stopPropagation();
               onSurfaceClick && onSurfaceClick(toothNum, bottomSurfaceKey);
             }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, bottomSurfaceKey, bottomSpecificFinding || entry.whole)}
+            onMouseLeave={handleMouseLeave}
             style={{
               transition: 'fill 0.15s ease, stroke 0.15s ease',
               cursor: 'pointer',
             }}
-          >
-            <title>{`Tooth ${toothNum} (${getSurfaceDisplayName(bottomSurfaceKey, toothNum)})`}</title>
-          </path>
+          />
 
           {/* Left Arc Sector */}
           <path
-            d="M 9.98 34.02 A 17 17 0 0 1 9.98 9.98 L 16.7 16.7 A 7.5 7.5 0 0 0 16.7 27.3 Z"
+            d="M 11.39 37.61 A 15 15 0 0 1 11.39 16.39 L 17.40 22.40 A 6.5 6.5 0 0 0 17.40 31.60 Z"
             fill={leftFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
@@ -236,17 +317,17 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
               e.stopPropagation();
               onSurfaceClick && onSurfaceClick(toothNum, leftSurfaceKey);
             }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, leftSurfaceKey, leftSpecificFinding || entry.whole)}
+            onMouseLeave={handleMouseLeave}
             style={{
               transition: 'fill 0.15s ease, stroke 0.15s ease',
               cursor: 'pointer',
             }}
-          >
-            <title>{`Tooth ${toothNum} (${getSurfaceDisplayName(leftSurfaceKey, toothNum)})`}</title>
-          </path>
+          />
 
           {/* Right Arc Sector */}
           <path
-            d="M 34.02 9.98 A 17 17 0 0 1 34.02 34.02 L 27.3 27.3 A 7.5 7.5 0 0 0 27.3 16.7 Z"
+            d="M 32.61 16.39 A 15 15 0 0 1 32.61 37.61 L 26.60 31.60 A 6.5 6.5 0 0 0 26.60 22.40 Z"
             fill={rightFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
@@ -255,19 +336,19 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
               e.stopPropagation();
               onSurfaceClick && onSurfaceClick(toothNum, rightSurfaceKey);
             }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, rightSurfaceKey, rightSpecificFinding || entry.whole)}
+            onMouseLeave={handleMouseLeave}
             style={{
               transition: 'fill 0.15s ease, stroke 0.15s ease',
               cursor: 'pointer',
             }}
-          >
-            <title>{`Tooth ${toothNum} (${getSurfaceDisplayName(rightSurfaceKey, toothNum)})`}</title>
-          </path>
+          />
 
           {/* Center Circle (Occlusal / Incisal) */}
           <circle
             cx="22"
-            cy="22"
-            r="7.2"
+            cy="27"
+            r="6.5"
             fill={centerFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
@@ -276,36 +357,55 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
               e.stopPropagation();
               onSurfaceClick && onSurfaceClick(toothNum, 'OCCLUSAL');
             }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, 'OCCLUSAL', entry.occlusal || entry.whole)}
+            onMouseLeave={handleMouseLeave}
             style={{
               transition: 'fill 0.15s ease, stroke 0.15s ease',
               cursor: 'pointer',
             }}
-          >
-            <title>{`Tooth ${toothNum} (Occlusal / Incisal)`}</title>
-          </circle>
+          />
 
-          {/* Bottom Capsule Pill Bar (Cervical / Apical) */}
+          {/* Bottom Outer Curved Arc (Lower Cervical / Apical) */}
+          <path
+            d="M 38.09 40.50 A 21 21 0 0 1 5.91 40.50 L 9.36 37.61 A 16.5 16.5 0 0 0 34.64 37.61 Z"
+            fill={lowerCervicalFill}
+            stroke="#94a3b8"
+            strokeWidth="1.1"
+            className="tooth-surface-path"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSurfaceClick && onSurfaceClick(toothNum, 'LOWER_CERVICAL');
+            }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, 'LOWER_CERVICAL', lowerCervicalFinding || entry.whole)}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              transition: 'fill 0.15s ease, stroke 0.15s ease',
+              cursor: 'pointer',
+            }}
+          />
+
+          {/* Bottom Capsule Pill Bar (Whole Tooth) */}
           <rect
             x="11"
-            y="43"
+            y="52"
             width="22"
-            height="5.5"
-            rx="2.75"
-            fill={cervicalFill}
+            height="5"
+            rx="2.5"
+            fill={hasWhole && wholeColor ? wholeColor : '#ffffff'}
             stroke="#94a3b8"
             strokeWidth="1"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
-              onSurfaceClick && onSurfaceClick(toothNum, 'CERVICAL');
+              onSurfaceClick && onSurfaceClick(toothNum, 'WHOLE');
             }}
+            onMouseEnter={(e) => handleMouseEnter(e, toothNum, 'WHOLE', entry.whole)}
+            onMouseLeave={handleMouseLeave}
             style={{
               transition: 'fill 0.15s ease, stroke 0.15s ease',
               cursor: 'pointer',
             }}
-          >
-            <title>{`Tooth ${toothNum} (${getSurfaceDisplayName('CERVICAL', toothNum)})`}</title>
-          </rect>
+          />
         </svg>
       </div>
     );
@@ -343,7 +443,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
         <div
           style={{
             width: '1px',
-            height: '74px',
+            height: '90px',
             backgroundColor: '#cbd5e1',
             margin: '0 4px',
           }}
@@ -369,8 +469,9 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
       style={{
         width: '100%',
         overflowX: 'auto',
+        overflowY: 'visible',
         WebkitOverflowScrolling: 'touch',
-        padding: '16px 8px',
+        padding: '24px 12px 32px',
       }}
     >
       <div
@@ -379,8 +480,9 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '12px',
+          gap: '16px',
           margin: '0 auto',
+          padding: '8px 0',
         }}
       >
         {/* Adult Model (32 Teeth) */}
@@ -443,7 +545,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
                   letterSpacing: '0.05em',
                 }}
               >
-                Maxillary (Adult Permanent)
+                {t('patientOdontogram.arches.maxillaryAdult', 'Maxillary (Adult Permanent)')}
               </div>
               {renderArchRow(ADULT_UPPER_RIGHT, ADULT_UPPER_LEFT, true)}
             </div>
@@ -461,7 +563,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
                   letterSpacing: '0.05em',
                 }}
               >
-                Maxillary Deciduous (Child)
+                {t('patientOdontogram.arches.maxillaryChild', 'Maxillary Deciduous (Child)')}
               </div>
               {renderArchRow(CHILD_UPPER_RIGHT, CHILD_UPPER_LEFT, true)}
             </div>
@@ -490,7 +592,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
                   letterSpacing: '0.05em',
                 }}
               >
-                Mandibular Deciduous (Child)
+                {t('patientOdontogram.arches.mandibularChild', 'Mandibular Deciduous (Child)')}
               </div>
               {renderArchRow(CHILD_LOWER_RIGHT, CHILD_LOWER_LEFT, false)}
             </div>
@@ -508,13 +610,89 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
                   letterSpacing: '0.05em',
                 }}
               >
-                Mandibular (Adult Permanent)
+                {t('patientOdontogram.arches.mandibularAdult', 'Mandibular (Adult Permanent)')}
               </div>
               {renderArchRow(ADULT_LOWER_RIGHT, ADULT_LOWER_LEFT, false)}
             </div>
           </div>
         )}
       </div>
+
+      {/* Floating Tooltip Portal matching attached image design */}
+      {hoverInfo &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              left: `${hoverInfo.x}px`,
+              top: `${hoverInfo.y}px`,
+              transform: 'translate(-50%, -100%)',
+              backgroundColor: '#0f172a',
+              color: '#f8fafc',
+              padding: '7px 12px',
+              borderRadius: '8px',
+              boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.16)',
+              zIndex: 999999,
+              pointerEvents: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              whiteSpace: 'nowrap',
+              fontFamily: 'inherit',
+            }}
+          >
+            {/* Top row: Tooth {N} */}
+            <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '12px', letterSpacing: '-0.01em' }}>
+              {t('patientOdontogram.toothLabel', 'Tooth')} {hoverInfo.toothNum}
+            </div>
+
+            {/* Subtitle: Surface Name in Cyan */}
+            <div style={{ fontSize: '11px', color: '#06b6d4', fontWeight: 600 }}>
+              {getSurfaceDisplayName(hoverInfo.surface, hoverInfo.toothNum)}
+            </div>
+
+            {/* Condition / Treatment applied badge if any */}
+            {hoverInfo.finding && (
+              <div
+                style={{
+                  marginTop: '3px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backgroundColor: hoverInfo.finding.color,
+                  color: '#ffffff',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                {hoverInfo.finding.diagnosticName ||
+                  hoverInfo.finding.treatmentName ||
+                  hoverInfo.finding.name}
+              </div>
+            )}
+
+            {/* Downward pointing triangle arrow */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '-4px',
+                left: '50%',
+                transform: 'translateX(-50%) rotate(45deg)',
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#0f172a',
+                borderRight: '1px solid rgba(255, 255, 255, 0.16)',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.16)',
+              }}
+            />
+          </div>,
+          document.body,
+        )}
 
       <style>{`
         .tooth-surface-path:hover {

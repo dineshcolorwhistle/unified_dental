@@ -556,6 +556,12 @@ button {
   border-left: none;
 }
 
+.app-sidebar.collapsed .nav-accordion-group,
+.app-sidebar.collapsed .nav-accordion-content,
+.app-sidebar.collapsed .nav-sub-list {
+  overflow: visible !important;
+}
+
 /* Nested Submenu (Level 1 Parent -> Level 2 items) */
 .nav-sub-group {
   position: relative;
