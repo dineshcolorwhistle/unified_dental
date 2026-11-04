@@ -22,6 +22,7 @@ import {
 import {
   paymentMethodService,
   PaymentMethodItem,
+  PaymentMethodType,
 } from '../../services/paymentMethodService';
 
 export const ClinicPaymentMethodsPage: React.FC = () => {
@@ -34,6 +35,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState(user?.activeBranchId || '');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<'ALL' | PaymentMethodType>('ALL');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,9 +48,16 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
   const [deletingMethod, setDeletingMethod] = useState<PaymentMethodItem | null>(null);
 
   // Form States
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    type: PaymentMethodType;
+    branchId: string;
+    isActive: boolean;
+  }>({
     name: '',
     description: '',
+    type: 'BOTH',
     branchId: '',
     isActive: true,
   });
@@ -122,6 +131,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
     setFormData({
       name: '',
       description: '',
+      type: 'BOTH',
       branchId: selectedBranchFilter || user?.activeBranchId || branches[0]?.id || '',
       isActive: true,
     });
@@ -135,6 +145,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
     setFormData({
       name: item.name,
       description: item.description || '',
+      type: item.type || 'BOTH',
       branchId: item.branchId || '',
       isActive: item.isActive,
     });
@@ -164,6 +175,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
+        type: formData.type || 'BOTH',
         isActive: formData.isActive,
       };
 
@@ -197,6 +209,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
+        type: formData.type || 'BOTH',
         isActive: formData.isActive,
       };
 
@@ -250,9 +263,11 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
         search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         (m.description && m.description.toLowerCase().includes(search.toLowerCase()));
-      return matchSearch;
+      const matchType =
+        selectedTypeFilter === 'ALL' || (m.type || 'BOTH') === selectedTypeFilter;
+      return matchSearch && matchType;
     });
-  }, [methods, search]);
+  }, [methods, search, selectedTypeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMethods.length / pageSize));
   const paginatedMethods = useMemo(() => {
@@ -395,6 +410,24 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
               )}
             </div>
           </form>
+
+          {/* Type Filter */}
+          <div style={{ width: '190px', minWidth: '150px' }}>
+            <SearchableSelect
+              options={[
+                { value: 'ALL', label: t('clinicPaymentMethods.filters.allTypes', 'All Types') },
+                { value: 'BOTH', label: t('clinicPaymentMethods.types.both', 'Both (Income & Expense)') },
+                { value: 'INCOME', label: t('clinicPaymentMethods.types.income', 'Income') },
+                { value: 'EXPENSE', label: t('clinicPaymentMethods.types.expense', 'Expense') },
+              ]}
+              value={selectedTypeFilter}
+              onChange={(val) => {
+                setSelectedTypeFilter(val as any);
+                setCurrentPage(1);
+              }}
+              placeholder={t('clinicPaymentMethods.filters.filterByType', 'Filter by type')}
+            />
+          </div>
         </div>
 
         <button
@@ -432,6 +465,9 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                   {t('clinicPaymentMethods.table.methodName', 'Method Name')}
                 </th>
                 <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '12px' }}>
+                  {t('clinicPaymentMethods.table.type', 'Type')}
+                </th>
+                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '12px' }}>
                   {t('clinicPaymentMethods.table.description', 'Description')}
                 </th>
                 <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '12px' }}>
@@ -448,13 +484,13 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     {t('common.loading', 'Loading payment methods...')}
                   </td>
                 </tr>
               ) : paginatedMethods.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
                     <div
                       style={{
                         width: '48px',
@@ -510,6 +546,43 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                           {pm.name}
                         </span>
                       </div>
+                    </td>
+                    <td style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          backgroundColor:
+                            pm.type === 'INCOME'
+                              ? 'rgba(16, 185, 129, 0.12)'
+                              : pm.type === 'EXPENSE'
+                              ? 'rgba(245, 158, 11, 0.12)'
+                              : 'rgba(56, 189, 248, 0.12)',
+                          color:
+                            pm.type === 'INCOME'
+                              ? '#10b981'
+                              : pm.type === 'EXPENSE'
+                              ? '#d97706'
+                              : '#0284c7',
+                          border:
+                            pm.type === 'INCOME'
+                              ? '1px solid rgba(16, 185, 129, 0.25)'
+                              : pm.type === 'EXPENSE'
+                              ? '1px solid rgba(245, 158, 11, 0.25)'
+                              : '1px solid rgba(56, 189, 248, 0.25)',
+                        }}
+                      >
+                        {pm.type === 'INCOME'
+                          ? t('clinicPaymentMethods.types.income', 'Income')
+                          : pm.type === 'EXPENSE'
+                          ? t('clinicPaymentMethods.types.expense', 'Expense')
+                          : t('clinicPaymentMethods.types.both', 'Both')}
+                      </span>
                     </td>
                     <td style={{ padding: '14px 18px', color: 'var(--text-muted)', maxWidth: '320px' }}>
                       {pm.description || '—'}
@@ -700,6 +773,43 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Type Selection */}
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block' }}>
+                  {t('clinicPaymentMethods.form.typeLabel', 'Type')} *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {[
+                    { value: 'BOTH' as const, label: t('clinicPaymentMethods.types.both', 'Both (Income & Expense)'), color: '#0284c7', bg: 'rgba(56, 189, 248, 0.12)' },
+                    { value: 'INCOME' as const, label: t('clinicPaymentMethods.types.income', 'Income'), color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
+                    { value: 'EXPENSE' as const, label: t('clinicPaymentMethods.types.expense', 'Expense'), color: '#d97706', bg: 'rgba(245, 158, 11, 0.12)' },
+                  ].map((opt) => {
+                    const isSelected = formData.type === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFormData((p) => ({ ...p, type: opt.value }))}
+                        style={{
+                          padding: '10px 6px',
+                          borderRadius: '8px',
+                          border: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border-color)',
+                          backgroundColor: isSelected ? opt.bg : 'var(--bg-surface)',
+                          color: isSelected ? opt.color : 'var(--text-main)',
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Description */}
               <div>
                 <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block' }}>
@@ -822,6 +932,43 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                   />
                 </div>
               )}
+
+              {/* Type Selection */}
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block' }}>
+                  {t('clinicPaymentMethods.form.typeLabel', 'Type')} *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {[
+                    { value: 'BOTH' as const, label: t('clinicPaymentMethods.types.both', 'Both (Income & Expense)'), color: '#0284c7', bg: 'rgba(56, 189, 248, 0.12)' },
+                    { value: 'INCOME' as const, label: t('clinicPaymentMethods.types.income', 'Income'), color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
+                    { value: 'EXPENSE' as const, label: t('clinicPaymentMethods.types.expense', 'Expense'), color: '#d97706', bg: 'rgba(245, 158, 11, 0.12)' },
+                  ].map((opt) => {
+                    const isSelected = formData.type === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFormData((p) => ({ ...p, type: opt.value }))}
+                        style={{
+                          padding: '10px 6px',
+                          borderRadius: '8px',
+                          border: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border-color)',
+                          backgroundColor: isSelected ? opt.bg : 'var(--bg-surface)',
+                          color: isSelected ? opt.color : 'var(--text-main)',
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Description */}
               <div>

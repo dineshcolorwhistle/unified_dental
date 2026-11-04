@@ -237,6 +237,7 @@ export const ExpensesPage: React.FC = () => {
         branchId: branchId && branchId !== 'all' ? branchId : undefined,
         moduleKey: currentModuleKey,
         activeOnly: true,
+        type: 'EXPENSE',
       });
       setConfiguredPaymentMethods(list);
     } catch (err) {
@@ -273,7 +274,7 @@ export const ExpensesPage: React.FC = () => {
       categoryId: categories.length > 0 ? categories[0].id : '',
       description: '',
       amount: '',
-      paymentMethod: configuredPaymentMethods.length > 0 ? configuredPaymentMethods[0].name : '',
+      paymentMethod: paymentMethodOptions.length > 0 ? paymentMethodOptions[0].value : (configuredPaymentMethods.find((pm) => !pm.type || pm.type === 'EXPENSE' || pm.type === 'BOTH')?.name || ''),
       branchId: user?.activeBranchId || availableBranches[0]?.id || '',
     });
     setIsExpenseModalOpen(true);
@@ -438,6 +439,9 @@ export const ExpensesPage: React.FC = () => {
     const seen = new Set<string>();
     const options: Array<{ value: string; label: string }> = [];
     for (const pm of configuredPaymentMethods) {
+      if (pm.type && pm.type !== 'EXPENSE' && pm.type !== 'BOTH') {
+        continue;
+      }
       const cleanName = pm.name?.trim();
       if (cleanName && !seen.has(cleanName.toLowerCase())) {
         seen.add(cleanName.toLowerCase());

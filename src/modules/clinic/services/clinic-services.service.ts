@@ -180,13 +180,21 @@ export class ClinicServicesService {
         where,
         include: {
           branch: { select: { id: true, name: true, code: true } },
+          _count: {
+            select: { doctorServices: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.service.count({ where }),
     ]);
 
-    return { data, total };
+    const formattedData = data.map((item: any) => ({
+      ...item,
+      doctorCount: item._count?.doctorServices ?? 0,
+    }));
+
+    return { data: formattedData, total };
   }
 
   /**
@@ -197,6 +205,9 @@ export class ClinicServicesService {
       where: { id, tenantId },
       include: {
         branch: { select: { id: true, name: true, code: true } },
+        _count: {
+          select: { doctorServices: true },
+        },
       },
     });
 
@@ -204,7 +215,10 @@ export class ClinicServicesService {
       throw new NotFoundException('Service not found.');
     }
 
-    return record;
+    return {
+      ...record,
+      doctorCount: (record as any)._count?.doctorServices ?? 0,
+    };
   }
 
   /**

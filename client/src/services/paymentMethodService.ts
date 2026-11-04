@@ -1,5 +1,7 @@
 import api from './api';
 
+export type PaymentMethodType = 'INCOME' | 'EXPENSE' | 'BOTH';
+
 export interface PaymentMethodItem {
   id: string;
   tenantId: string;
@@ -7,6 +9,7 @@ export interface PaymentMethodItem {
   moduleKey: string;
   name: string;
   description?: string | null;
+  type: PaymentMethodType;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -21,6 +24,7 @@ export interface CreatePaymentMethodPayload {
   name: string;
   description?: string;
   branchId?: string;
+  type?: PaymentMethodType;
   isActive?: boolean;
 }
 
@@ -28,6 +32,7 @@ export interface UpdatePaymentMethodPayload {
   name?: string;
   description?: string;
   branchId?: string;
+  type?: PaymentMethodType;
   isActive?: boolean;
 }
 
@@ -36,6 +41,7 @@ export interface QueryPaymentMethodsParams {
   moduleKey?: string;
   search?: string;
   activeOnly?: boolean;
+  type?: PaymentMethodType;
 }
 
 export const paymentMethodService = {

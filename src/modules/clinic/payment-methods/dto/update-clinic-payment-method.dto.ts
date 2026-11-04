@@ -1,5 +1,6 @@
-import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { PaymentMethodType } from '@prisma/client';
 
 export class UpdateClinicPaymentMethodDto {
   @ApiProperty({ example: 'Cash (Updated)', required: false })
@@ -11,6 +12,16 @@ export class UpdateClinicPaymentMethodDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiProperty({
+    enum: PaymentMethodType,
+    example: PaymentMethodType.BOTH,
+    required: false,
+    description: 'Payment method type: INCOME, EXPENSE, or BOTH',
+  })
+  @IsEnum(PaymentMethodType)
+  @IsOptional()
+  type?: PaymentMethodType;
 
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000', required: false })
   @IsUUID()

@@ -673,16 +673,23 @@ model DoctorListMember {
 
 // ─── Dental Lab & Operational Payment Methods (Phase 2) ─────
 
+enum PaymentMethodType {
+  INCOME
+  EXPENSE
+  BOTH
+}
+
 model PaymentMethod {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  branchId    String?  @map("branch_id")
-  moduleKey   String   @default("LAB") @map("module_key")
+  id          String            @id @default(uuid())
+  tenantId    String            @map("tenant_id")
+  branchId    String?           @map("branch_id")
+  moduleKey   String            @default("LAB") @map("module_key")
   name        String
   description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  type        PaymentMethodType @default(BOTH) @map("type")
+  isActive    Boolean           @default(true) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
 
   tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
@@ -691,6 +698,7 @@ model PaymentMethod {
   @@index([tenantId])
   @@index([tenantId, moduleKey])
   @@index([tenantId, branchId])
+  @@index([tenantId, type])
   @@map("payment_methods")
 }
 

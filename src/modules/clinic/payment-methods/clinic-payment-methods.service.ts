@@ -175,11 +175,11 @@ export class ClinicPaymentMethodsService {
       });
       if (branchCount === 0) {
         const defaultMethods = [
-          { name: 'Cash', description: 'Cash payment / Efectivo en clínica' },
-          { name: 'Credit Card', description: 'Credit card terminal / Terminal punto de venta' },
-          { name: 'Debit Card', description: 'Debit card terminal / Tarjeta de Débito' },
-          { name: 'Bank Transfer', description: 'SPEI / Electronic bank transfer' },
-          { name: 'Insurance Co-pay', description: 'Dental Insurance / Seguro dental' },
+          { name: 'Cash', description: 'Cash payment / Efectivo en clínica', type: 'BOTH' as const },
+          { name: 'Credit Card', description: 'Credit card terminal / Terminal punto de venta', type: 'BOTH' as const },
+          { name: 'Debit Card', description: 'Debit card terminal / Tarjeta de Débito', type: 'BOTH' as const },
+          { name: 'Bank Transfer', description: 'SPEI / Electronic bank transfer', type: 'BOTH' as const },
+          { name: 'Insurance Co-pay', description: 'Dental Insurance / Seguro dental', type: 'INCOME' as const },
         ];
         for (const dm of defaultMethods) {
           try {
@@ -190,6 +190,7 @@ export class ClinicPaymentMethodsService {
                 moduleKey: 'CLINIC',
                 name: dm.name,
                 description: dm.description,
+                type: dm.type,
                 isActive: true,
               },
             });
@@ -206,6 +207,17 @@ export class ClinicPaymentMethodsService {
       where.branchId = targetBranchId;
     } else {
       where.branchId = { not: null };
+    }
+
+    if (query?.type) {
+      const qType = String(query.type).toUpperCase();
+      if (qType === 'EXPENSE') {
+        where.type = { in: ['EXPENSE', 'BOTH'] };
+      } else if (qType === 'INCOME') {
+        where.type = { in: ['INCOME', 'BOTH'] };
+      } else if (qType === 'BOTH') {
+        where.type = 'BOTH';
+      }
     }
 
     if (query?.search && query.search.trim().length > 0) {
@@ -306,6 +318,7 @@ export class ClinicPaymentMethodsService {
         moduleKey: 'CLINIC',
         name: trimmedName,
         description: dto.description?.trim() || null,
+        type: dto.type || 'BOTH',
         isActive: dto.isActive !== undefined ? dto.isActive : true,
       },
       include: {
@@ -372,6 +385,10 @@ export class ClinicPaymentMethodsService {
 
     if (dto.description !== undefined) {
       updateData.description = dto.description?.trim() || null;
+    }
+
+    if (dto.type !== undefined) {
+      updateData.type = dto.type;
     }
 
     if (dto.isActive !== undefined) {

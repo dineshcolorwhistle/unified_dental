@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   XCircle,
   DollarSign,
+  UserCheck,
 } from 'lucide-react';
 import {
   clinicServiceService,
@@ -471,6 +472,9 @@ export const ClinicServicesPage: React.FC = () => {
                 <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '12px' }}>
                   {t('clinicServices.fields.price', 'Price')}
                 </th>
+                <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '12px', textAlign: 'center' }}>
+                  {t('clinicServices.fields.doctorCount', 'Doctor Count')}
+                </th>
                 {branches.length > 1 && (
                   <th style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '12px' }}>
                     {t('clinicServices.fields.branch', 'Branch')}
@@ -487,13 +491,13 @@ export const ClinicServicesPage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={branches.length > 1 ? 6 : 5} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan={branches.length > 1 ? 7 : 6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     {t('common.loading', 'Loading services...')}
                   </td>
                 </tr>
               ) : paginatedServices.length === 0 ? (
                 <tr>
-                  <td colSpan={branches.length > 1 ? 6 : 5} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
+                  <td colSpan={branches.length > 1 ? 7 : 6} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
                     <div
                       style={{
                         width: '48px',
@@ -555,6 +559,36 @@ export const ClinicServicesPage: React.FC = () => {
                     </td>
                     <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--text-heading)' }}>
                       <span style={{ fontFamily: 'monospace', fontSize: '14px' }}>{formatPrice(item.price)}</span>
+                    </td>
+                    <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '16px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          backgroundColor:
+                            (item.doctorCount || 0) > 0
+                              ? 'rgba(56, 189, 248, 0.12)'
+                              : 'var(--badge-neutral-bg, rgba(148, 163, 184, 0.12))',
+                          color: (item.doctorCount || 0) > 0 ? '#0284c7' : 'var(--text-muted)',
+                          border:
+                            (item.doctorCount || 0) > 0
+                              ? '1px solid rgba(56, 189, 248, 0.25)'
+                              : '1px solid var(--border-color)',
+                        }}
+                      >
+                        <UserCheck size={13} />
+                        <span>
+                          {t('clinicServices.doctorCountBadge', {
+                            count: item.doctorCount ?? 0,
+                            defaultValue: `${item.doctorCount ?? 0} ${(item.doctorCount ?? 0) === 1 ? 'Doctor' : 'Doctors'}`,
+                          })}
+                        </span>
+                      </span>
                     </td>
                     {branches.length > 1 && (
                       <td style={{ padding: '14px 18px', color: 'var(--text-main)' }}>
@@ -749,13 +783,46 @@ export const ClinicServicesPage: React.FC = () => {
 
             {/* Modal Body */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                 <div>
                   <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
                     {t('clinicServices.fields.price', 'Price')}
                   </span>
                   <span style={{ fontSize: '18px', fontWeight: 800, color: '#0284c7', fontFamily: 'monospace' }}>
                     {formatPrice(viewingItem.price)}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('clinicServices.fields.doctorCount', 'Doctor Count')}
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 10px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      backgroundColor:
+                        (viewingItem.doctorCount || 0) > 0
+                          ? 'rgba(56, 189, 248, 0.12)'
+                          : 'var(--badge-neutral-bg, rgba(148, 163, 184, 0.12))',
+                      color: (viewingItem.doctorCount || 0) > 0 ? '#0284c7' : 'var(--text-muted)',
+                      border:
+                        (viewingItem.doctorCount || 0) > 0
+                          ? '1px solid rgba(56, 189, 248, 0.25)'
+                          : '1px solid var(--border-color)',
+                    }}
+                  >
+                    <UserCheck size={13} />
+                    <span>
+                      {t('clinicServices.doctorCountBadge', {
+                        count: viewingItem.doctorCount ?? 0,
+                        defaultValue: `${viewingItem.doctorCount ?? 0} ${(viewingItem.doctorCount ?? 0) === 1 ? 'Doctor' : 'Doctors'}`,
+                      })}
+                    </span>
                   </span>
                 </div>
                 <div>

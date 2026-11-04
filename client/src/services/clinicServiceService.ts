@@ -10,6 +10,7 @@ export interface ClinicServiceItem {
   description?: string | null;
   price: number | string;
   status: ServiceStatus;
+  doctorCount?: number;
   createdAt: string;
   updatedAt: string;
   branch?: {
