@@ -164,11 +164,12 @@ export class CreateWorkOrderDto {
   @IsNotEmpty()
   action: 'create' | 'createAndAssign';
 
-  @ApiProperty({ type: [WorkOrderProcessItemDto] })
+  @ApiProperty({ type: [WorkOrderProcessItemDto], required: false })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkOrderProcessItemDto)
-  processes: WorkOrderProcessItemDto[];
+  @IsOptional()
+  processes?: WorkOrderProcessItemDto[];
 }
 
 export class AddWorkOrderNoteDto {

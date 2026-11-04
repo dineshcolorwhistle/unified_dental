@@ -82,10 +82,10 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   const { user, isTenantAdmin, isLabAdmin } = useAuth();
   const isAdmin = Boolean(isTenantAdmin || isLabAdmin || user?.isSuperAdmin);
   const isTechnician = !isAdmin;
-  const canEdit = isAdmin;
   const { socket } = useNotifications();
 
   const [currentWO, setCurrentWO] = useState<WorkOrderListItem | null>(initialWorkOrder || null);
+  const canEdit = isAdmin && currentWO?.status !== 'COMPLETED';
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -343,6 +343,11 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
   const formattedWorkTime = totalMinutes >= 60
     ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
     : `${totalMinutes} mins`;
+
+  // Completion date determination
+  const isOrderCompleted = currentWO?.status === 'COMPLETED' || (totalSteps > 0 && completedProcesses.length === totalSteps);
+  const lastCompletedProcess = [...completedProcesses].reverse().find((p) => p.endedAt);
+  const completionDate = lastCompletedProcess?.endedAt || (isOrderCompleted ? currentWO?.updatedAt : undefined);
 
   // Determine stage milestone index
   const stageIndexMap: Record<string, number> = {
@@ -654,6 +659,29 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
               </h2>
             </div>
             <div className="view-wo-badges-row">
+              {isOrderCompleted && (
+                <span
+                  className="view-wo-badge view-wo-completed-badge"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    color: '#059669',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <CheckCircle2 size={12} />
+                  <span>
+                    {t('enums.processStatus.COMPLETED', 'Completed')}
+                    {completionDate ? ` (${formatDateTime(completionDate)})` : ''}
+                  </span>
+                </span>
+              )}
               {currentWO?.boxNumber && (
                 <span
                   className="view-wo-badge view-wo-box-badge"
@@ -1033,6 +1061,11 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                         <span style={{ fontWeight: 700, color: currentProcess?.status === 'COMPLETED' ? '#10b981' : 'var(--primary-600)' }}>
                           {currentProcess ? t(`enums.processStatus.${currentProcess.status}`, currentProcess.status) : '—'}
                         </span>
+                        {currentProcess?.status === 'COMPLETED' && (currentProcess.endedAt || completionDate) && (
+                          <span style={{ fontWeight: 600, color: 'var(--text-muted)', marginLeft: '6px', fontSize: '11px' }}>
+                            • {formatDateTime(currentProcess.endedAt || completionDate!)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1864,17 +1897,24 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
 
                                       if (proc.status === 'COMPLETED') {
                                         return (
-                                          <span style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: 700,
-                                            color: '#10b981',
-                                          }}>
-                                            <CheckCircle2 size={13} />
-                                            <span>{t('technician.status.completed', 'Completed')}</span>
-                                          </span>
+                                          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                            <span style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                              fontSize: '11px',
+                                              fontWeight: 700,
+                                              color: '#10b981',
+                                            }}>
+                                              <CheckCircle2 size={13} />
+                                              <span>{t('technician.status.completed', 'Completed')}</span>
+                                            </span>
+                                            {proc.endedAt && (
+                                              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                                {formatDateTime(proc.endedAt)}
+                                              </span>
+                                            )}
+                                          </div>
                                         );
                                       }
 

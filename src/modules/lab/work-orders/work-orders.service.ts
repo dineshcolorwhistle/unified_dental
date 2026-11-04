@@ -372,6 +372,32 @@ export class WorkOrdersService {
       deliveryDate = parseCalendarDate(dto.deliveryDate);
     }
 
+    // Validate assignment prerequisites
+    if (dto.action === 'createAndAssign') {
+      if (!Array.isArray(dto.processes) || dto.processes.length === 0) {
+        throw new BadRequestException('Cannot assign Work Order: At least one process step is required.');
+      }
+      for (const p of dto.processes) {
+        const isExt =
+          p.processType === ProcessType.EXTERNAL_VERIFICATION ||
+          p.processName?.toLowerCase().includes('external') ||
+          p.processName?.toLowerCase().includes('doctor');
+        if (isExt) {
+          if (!p.doctorId && !dto.doctorId) {
+            throw new BadRequestException(
+              `Cannot assign Work Order: External verification step "${p.processName}" requires an assigned doctor.`,
+            );
+          }
+        } else {
+          if (!p.technicianId) {
+            throw new BadRequestException(
+              `Cannot assign Work Order: Process step "${p.processName}" requires an assigned technician or administrator.`,
+            );
+          }
+        }
+      }
+    }
+
     // Technician created orders always start with CREATED status and zero payments
     const initialStatus =
       !isLabAdmin
@@ -492,21 +518,46 @@ export class WorkOrdersService {
           orderBy: { sequence: 'asc' },
         });
 
+        const defaultLabAdmin = await this.findBranchDefaultAdmin(tenantId, branchId);
+        const defaultAdminId = defaultLabAdmin?.id || actor.id;
+
         for (let i = 0; i < ptProcesses.length; i++) {
           const ptp = ptProcesses[i];
           const proc = ptp.process;
-          const isExt = proc.type === ProcessType.EXTERNAL_VERIFICATION;
-          const isInt = proc.type === ProcessType.INTERNAL_VERIFICATION;
+          const isExt =
+            proc.type === ProcessType.EXTERNAL_VERIFICATION ||
+            proc.name?.toLowerCase().includes('external') ||
+            proc.name?.toLowerCase().includes('doctor');
+          const isInt =
+            proc.type === ProcessType.INTERNAL_VERIFICATION ||
+            proc.name?.toLowerCase().includes('internal');
           const isVer = isExt || isInt || proc.name?.toLowerCase().includes('verif');
+
+          let stepTechId: string | null = null;
+          let stepDocId: string | null = null;
+          let stepProcessType = proc.type || ProcessType.PRODUCTION;
+
+          if (isExt) {
+            stepProcessType = ProcessType.EXTERNAL_VERIFICATION;
+            stepDocId = dto.doctorId;
+            stepTechId = null;
+          } else if (isInt) {
+            stepProcessType = ProcessType.INTERNAL_VERIFICATION;
+            stepTechId = proc.defaultTechnicianId || defaultAdminId;
+            stepDocId = null;
+          } else {
+            stepTechId = proc.defaultTechnicianId || null;
+            stepDocId = null;
+          }
 
           await tx.workOrderProcess.create({
             data: {
               workOrderId: wo.id,
               processId: proc.id,
               processName: proc.name.trim(),
-              processType: proc.type || ProcessType.PRODUCTION,
-              technicianId: isExt ? null : (proc.defaultTechnicianId || null),
-              doctorId: isExt ? dto.doctorId : null,
+              processType: stepProcessType,
+              technicianId: stepTechId,
+              doctorId: stepDocId,
               sequence: i,
               isVerification: Boolean(isVer),
               status: ProcessStatus.NOT_STARTED,
@@ -704,6 +755,8 @@ export class WorkOrdersService {
               sequence: true,
               isVerification: true,
               status: true,
+              startedAt: true,
+              endedAt: true,
               reworkCount: true,
               reworkActive: true,
               technician: { select: { id: true, name: true } },
@@ -1155,8 +1208,12 @@ export class WorkOrdersService {
       throw new NotFoundException(`Work Order with ID "${id}" not found.`);
     }
 
+    if (workOrder.status === WorkOrderStatus.COMPLETED) {
+      throw new BadRequestException('Completed Work Orders cannot be modified. They are view-only.');
+    }
+
     const updateData: any = {};
-    if (dto.patient !== undefined) updateData.patient = dto.patient;
+    if (dto.patient !== undefined) updateData.patient = dto.patient?.trim() || null;
     if (dto.fileNumber !== undefined) updateData.fileNumber = dto.fileNumber;
     if (dto.boxNumber !== undefined) updateData.boxNumber = dto.boxNumber;
     if (dto.specification !== undefined) updateData.specification = dto.specification;
@@ -1173,8 +1230,39 @@ export class WorkOrdersService {
     if (dto.prosthesisTypeId !== undefined) updateData.prosthesisTypeId = dto.prosthesisTypeId;
 
     const isSaveAndAssign = dto.action === 'saveAndAssign';
-    if (isSaveAndAssign && workOrder.status === WorkOrderStatus.CREATED) {
-      updateData.status = WorkOrderStatus.ASSIGNED;
+    if (isSaveAndAssign) {
+      const targetProcesses = Array.isArray(dto.processes)
+        ? dto.processes
+        : await this.prisma.workOrderProcess.findMany({ where: { workOrderId: id } });
+
+      if (!targetProcesses || targetProcesses.length === 0) {
+        throw new BadRequestException('Cannot assign Work Order: At least one process step is required.');
+      }
+
+      for (const p of targetProcesses) {
+        const isExt =
+          p.processType === ProcessType.EXTERNAL_VERIFICATION ||
+          p.processName?.toLowerCase().includes('external') ||
+          p.processName?.toLowerCase().includes('doctor');
+        if (isExt) {
+          const effectiveDocId = p.doctorId || dto.doctorId || workOrder.doctorId;
+          if (!effectiveDocId) {
+            throw new BadRequestException(
+              `Cannot assign Work Order: External verification step "${p.processName}" requires an assigned doctor.`,
+            );
+          }
+        } else {
+          if (!p.technicianId) {
+            throw new BadRequestException(
+              `Cannot assign Work Order: Process step "${p.processName}" requires an assigned technician or administrator.`,
+            );
+          }
+        }
+      }
+
+      if (workOrder.status === WorkOrderStatus.CREATED) {
+        updateData.status = WorkOrderStatus.ASSIGNED;
+      }
     }
 
     const isWOCreated = workOrder.status === WorkOrderStatus.CREATED;
@@ -1645,6 +1733,8 @@ export class WorkOrdersService {
                 sequence: true,
                 processName: true,
                 status: true,
+              startedAt: true,
+              endedAt: true,
                 technicianId: true,
                 totalActiveDuration: true,
               },

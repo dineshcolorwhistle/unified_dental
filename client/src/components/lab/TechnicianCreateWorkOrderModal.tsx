@@ -175,6 +175,7 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
         color: color.trim(),
         notes: notes.trim() || undefined,
         action: 'create' as const,
+        processes: [],
       };
 
       await workOrderService.create(payload);
@@ -298,19 +299,32 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
           </Tooltip>
         </div>
 
-        {/* Modal Body */}
+        {/* Form Container */}
         <form
           onSubmit={handleSubmit}
-          className="modal-body"
           style={{
             display: 'flex',
             flexDirection: 'column',
             flex: '1 1 auto',
             minHeight: 0,
-            overflowY: 'auto',
+            overflow: 'hidden',
+            margin: 0,
+            padding: 0,
           }}
         >
-          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* Scrollable Modal Body */}
+          <div
+            className="modal-body"
+            style={{
+              padding: '20px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+              flex: '1 1 auto',
+              overflowY: 'auto',
+              minHeight: 0,
+            }}
+          >
             {/* Info Notice Banner */}
             <div
               style={{
@@ -805,6 +819,8 @@ export const TechnicianCreateWorkOrderModal: React.FC<TechnicianCreateWorkOrderM
               gap: '12px',
               backgroundColor: 'var(--bg-modal-footer, var(--bg-surface))',
               flexShrink: 0,
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             <button

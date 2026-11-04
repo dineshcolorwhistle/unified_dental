@@ -414,6 +414,27 @@ export const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
     }
 
     if (action === 'createAndAssign') {
+      const unassignedStep = processList.find((step) => {
+        const isExt =
+          step.processType === 'EXTERNAL_VERIFICATION' ||
+          step.processName?.toLowerCase().includes('external');
+        if (isExt) {
+          return !step.doctorId && !doctorId;
+        }
+        return !step.technicianId;
+      });
+
+      if (unassignedStep) {
+        toast.error(
+          t(
+            'workOrders.validation.allStepsMustHaveAssignee',
+            'All process steps must have an assigned technician or administrator before activating the Work Order.',
+          ),
+        );
+        setActiveTab(2);
+        return;
+      }
+
       setShowConfirmAssignModal(true);
       return;
     }

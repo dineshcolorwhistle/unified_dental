@@ -200,10 +200,6 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
         paymentMethodService.getAll({ branchId: wo.branchId || undefined, activeOnly: true }).catch(() => []),
       ]);
 
-      populateForm(freshWo);
-      setPaymentsList((freshWo.payments as WorkOrderPaymentItem[]) || []);
-      setAvailablePaymentMethods(Array.isArray(pmRes) ? pmRes : []);
-
       const activeDocs = Array.isArray(doctorsRes) ? doctorsRes.filter((d) => d.isActive) : [];
       setDoctors(activeDocs);
 
@@ -220,13 +216,16 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
       );
 
       const rawAdmins = Array.isArray(adminRes.data) ? adminRes.data : (adminRes.data as any)?.data || [];
-      setLabAdmins(
-        rawAdmins.map((admin: any) => ({
-          id: admin.user?.id || admin.id,
-          name: admin.user?.name || admin.name || 'Lab Admin',
-          designation: admin.role || admin.roles?.[0] || admin.designation || undefined,
-        }))
-      );
+      const parsedAdmins = rawAdmins.map((admin: any) => ({
+        id: admin.user?.id || admin.id,
+        name: admin.user?.name || admin.name || 'Lab Admin',
+        designation: admin.role || admin.roles?.[0] || admin.designation || undefined,
+      }));
+      setLabAdmins(parsedAdmins);
+
+      populateForm(freshWo, parsedAdmins);
+      setPaymentsList((freshWo.payments as WorkOrderPaymentItem[]) || []);
+      setAvailablePaymentMethods(Array.isArray(pmRes) ? pmRes : []);
 
       const rawProcs = Array.isArray(procRes.data) ? procRes.data : (procRes.data as any)?.data || [];
       setAvailableProcesses(rawProcs);
@@ -237,7 +236,8 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     }
   };
 
-  const populateForm = (wo: WorkOrderListItem) => {
+  const populateForm = (wo: WorkOrderListItem, adminsList?: Array<{ id: string; name: string }>) => {
+    const effectiveAdmins = adminsList && adminsList.length > 0 ? adminsList : labAdmins;
     setDoctorId(wo.doctorId || '');
     setPatient(wo.patient || '');
     setFileNumber(wo.fileNumber || '');
@@ -258,20 +258,38 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
     // Processes
     if (Array.isArray(wo.processes)) {
-      const mapped: ProcessEditItem[] = wo.processes.map((p: any, idx: number) => ({
-        id: p.id,
-        tempId: p.id || `proc-${idx}-${Date.now()}`,
-        processId: p.processId || undefined,
-        processName: p.processName || '',
-        processType: p.processType || 'PRODUCTION',
-        technicianId: p.technicianId || undefined,
-        doctorId: p.doctorId || undefined,
-        sequence: p.sequence !== undefined ? p.sequence : idx,
-        isVerification: Boolean(p.isVerification),
-        status: p.status || 'NOT_STARTED',
-        reworkCount: p.reworkCount || 0,
-        reworkActive: Boolean(p.reworkActive),
-      }));
+      const mapped: ProcessEditItem[] = wo.processes.map((p: any, idx: number) => {
+        const isExt =
+          p.processType === 'EXTERNAL_VERIFICATION' ||
+          p.processName?.toLowerCase().includes('external') ||
+          p.processName?.toLowerCase().includes('doctor');
+        const isInt =
+          p.processType === 'INTERNAL_VERIFICATION' ||
+          p.processName?.toLowerCase().includes('internal');
+
+        let techId = p.technicianId || undefined;
+        let docId = p.doctorId || undefined;
+        if (isExt && !docId) {
+          docId = wo.doctorId || doctorId || undefined;
+        } else if (isInt && !techId && effectiveAdmins.length > 0) {
+          techId = effectiveAdmins[0].id;
+        }
+
+        return {
+          id: p.id,
+          tempId: p.id || `proc-${idx}-${Date.now()}`,
+          processId: p.processId || undefined,
+          processName: p.processName || '',
+          processType: p.processType || (isExt ? 'EXTERNAL_VERIFICATION' : isInt ? 'INTERNAL_VERIFICATION' : 'PRODUCTION'),
+          technicianId: techId,
+          doctorId: docId,
+          sequence: p.sequence !== undefined ? p.sequence : idx,
+          isVerification: Boolean(p.isVerification || isExt || isInt),
+          status: p.status || 'NOT_STARTED',
+          reworkCount: p.reworkCount || 0,
+          reworkActive: Boolean(p.reworkActive),
+        };
+      });
       mapped.sort((a, b) => a.sequence - b.sequence);
       setProcessList(mapped);
     } else {
@@ -280,6 +298,8 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   };
 
   if (!isOpen || !workOrder) return null;
+
+  const isCompletedOrder = workOrder?.status === 'COMPLETED';
 
   // Balance & Received calculation
   const totalQuoteNum = parseFloat(totalQuote) || 0;
@@ -400,6 +420,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
   // Tab validation
   const validateTab1 = (): boolean => {
     const errs: Record<string, string> = {};
+    if (!patient.trim()) errs.patient = t('workOrders.validation.patientRequired', 'Patient name is required');
     if (!specification.trim()) errs.specification = t('workOrders.validation.specRequired', 'Clinical specification is required');
     if (!color.trim()) errs.color = t('workOrders.validation.colorRequired', 'Color / shade is required');
     setErrors(errs);
@@ -693,6 +714,11 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
 
   // Submission handler
   const handleSubmit = async (action: 'save' | 'saveAndAssign') => {
+    if (isCompletedOrder) {
+      toast.error(t('workOrders.editModal.cannotEditCompleted', 'Completed Work Orders cannot be edited (view only).'));
+      return;
+    }
+
     if (!validateTab1()) {
       setActiveTab(1);
       return;
@@ -705,6 +731,27 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     }
 
     if (action === 'saveAndAssign') {
+      const unassignedStep = processList.find((step) => {
+        const isExt =
+          step.processType === 'EXTERNAL_VERIFICATION' ||
+          step.processName?.toLowerCase().includes('external');
+        if (isExt) {
+          return !step.doctorId && !doctorId && !workOrder?.doctorId;
+        }
+        return !step.technicianId;
+      });
+
+      if (unassignedStep) {
+        toast.error(
+          t(
+            'workOrders.validation.allStepsMustHaveAssignee',
+            'All process steps must have an assigned technician or administrator before activating the Work Order.',
+          ),
+        );
+        setActiveTab(2);
+        return;
+      }
+
       setShowConfirmAssignModal(true);
       return;
     }
@@ -1126,12 +1173,37 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
             </div>
           ) : (
             <>
+              {isCompletedOrder && (
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: 'var(--rose-600, #dc2626)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                  <span>
+                    {t(
+                      'workOrders.editModal.completedViewOnlyNotice',
+                      'This Work Order has been completed and is view-only. Modifications are disabled.',
+                    )}
+                  </span>
+                </div>
+              )}
               {/* ══════════════════════════════════════════════════════════════
                   TAB 1: ORDER DETAILS & NOTES ACCORDION
               ══════════════════════════════════════════════════════════════ */}
               {activeTab === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Doctor & Patient (Non-editable) */}
+                  {/* Doctor & Patient */}
                   <div className="form-grid-2" style={{ gap: '16px' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1152,27 +1224,31 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>{t('workOrders.form.patient', 'Patient')}</span>
-                        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Lock size={11} /> {t('common.readOnly', 'Read-only')}
-                        </span>
+                      <label className="form-label" style={{ fontWeight: 600 }}>
+                        {t('workOrders.form.patient', 'Patient')} <span style={{ color: 'var(--rose-500, #ef4444)' }}>*</span>
                       </label>
                       <input
                         type="text"
-                        className="form-input"
-                        placeholder="—"
+                        className={`form-input ${errors.patient ? 'has-error' : ''}`}
+                        placeholder={t('workOrders.form.patientPlaceholder', 'Enter patient name...')}
                         value={patient}
-                        disabled={true}
-                        readOnly
-                        style={{
-                          backgroundColor: 'var(--bg-surface)',
-                          cursor: 'not-allowed',
-                          color: 'var(--text-main)',
-                          opacity: 0.85,
-                          fontWeight: 500,
+                        disabled={isCompletedOrder}
+                        onChange={(e) => {
+                          setPatient(e.target.value);
+                          if (errors.patient) {
+                            setErrors((prev) => {
+                              const copy = { ...prev };
+                              delete copy.patient;
+                              return copy;
+                            });
+                          }
                         }}
                       />
+                      {errors.patient && (
+                        <span className="form-error" style={{ fontSize: '11px', color: 'var(--rose-500)', marginTop: '4px', display: 'block' }}>
+                          {errors.patient}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -2771,7 +2847,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                   type="button"
                   onClick={() => handleSubmit('save')}
                   className="btn btn-secondary"
-                  disabled={submitting}
+                  disabled={submitting || isCompletedOrder}
                   style={{ fontWeight: 700, minWidth: '90px' }}
                 >
                   {submitting && submittingAction === 'save' ? (
@@ -2785,7 +2861,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                   type="button"
                   onClick={() => handleSubmit('saveAndAssign')}
                   className="btn btn-primary"
-                  disabled={submitting}
+                  disabled={submitting || isCompletedOrder}
                   style={{
                     fontWeight: 700,
                     minWidth: '130px',
@@ -2810,7 +2886,7 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                 type="button"
                 onClick={() => handleSubmit('save')}
                 className="btn btn-primary"
-                disabled={submitting}
+                disabled={submitting || isCompletedOrder}
                 style={{
                   fontWeight: 700,
                   minWidth: '110px',

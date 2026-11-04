@@ -982,12 +982,19 @@ export const LabWorkOrdersPage: React.FC = () => {
                             </button>
                           </Tooltip>
 
-                          {/* Edit Work Order (Lab Admin role) */}
+                          {/* Edit Work Order (Lab Admin role) - Disabled for Completed orders */}
                           {isLabAdmin && (
-                            <Tooltip content={t('workOrders.table.editTooltip', 'Edit Work Order')}>
+                            <Tooltip
+                              content={
+                                order.status === 'COMPLETED'
+                                  ? t('workOrders.table.cannotEditCompleted', 'Completed Work Orders cannot be edited (view only)')
+                                  : t('workOrders.table.editTooltip', 'Edit Work Order')
+                              }
+                            >
                               <button
                                 type="button"
-                                onClick={() => setOrderToEdit(order)}
+                                onClick={() => order.status !== 'COMPLETED' && setOrderToEdit(order)}
+                                disabled={order.status === 'COMPLETED'}
                                 className="btn-icon"
                                 style={{
                                   width: '32px',
@@ -998,9 +1005,11 @@ export const LabWorkOrdersPage: React.FC = () => {
                                   justifyContent: 'center',
                                   border: '1px solid var(--border-color)',
                                   backgroundColor: 'var(--bg-surface)',
-                                  color: 'var(--text-main)',
-                                  cursor: 'pointer',
+                                  color: order.status === 'COMPLETED' ? 'var(--text-muted)' : 'var(--text-main)',
+                                  cursor: order.status === 'COMPLETED' ? 'not-allowed' : 'pointer',
+                                  opacity: order.status === 'COMPLETED' ? 0.45 : 1,
                                 }}
+                                aria-label={t('workOrders.table.editTooltip', 'Edit Work Order')}
                               >
                                 <Pencil size={14} />
                               </button>
