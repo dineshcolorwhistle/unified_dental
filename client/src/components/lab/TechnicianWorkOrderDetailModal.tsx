@@ -31,6 +31,8 @@ import {
   ProcessActivityLogItem,
 } from '../../services/workOrderService';
 import { PrintQrModal } from './PrintQrModal';
+import { UserRoleBadge } from '../common/UserRoleBadge';
+import { VerificationBadge } from '../common/VerificationBadge';
 import { WorkOrderChatTab } from './WorkOrderChatTab';
 
 interface TechnicianWorkOrderDetailModalProps {
@@ -521,12 +523,12 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                   <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                     {t('technician.doctor', { defaultValue: 'DOCTOR' })}
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
-                    <UserIcon size={14} style={{ color: 'var(--primary-500)' }} />
-                    <span>
-                      {workOrder.doctor?.name || '—'}
-                      {workOrder.doctor?.clinicName ? ` (${workOrder.doctor.clinicName})` : ''}
-                    </span>
+                  <div style={{ marginTop: '4px' }}>
+                    <UserRoleBadge
+                      role="doctor"
+                      name={workOrder.doctor?.name || '—'}
+                      subtext={workOrder.doctor?.clinicName}
+                    />
                   </div>
                 </div>
 
@@ -678,22 +680,10 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                                    {note.user?.name || 'User'}
-                                  </span>
-                                  <span
-                                    style={{
-                                      backgroundColor: '#e0f2fe',
-                                      color: '#0284c7',
-                                      fontSize: '10px',
-                                      fontWeight: 800,
-                                      padding: '2px 6px',
-                                      borderRadius: '4px',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    {note.userId === workOrder.createdById ? 'ADMIN' : 'TECHNICIAN'}
-                                  </span>
+                                  <UserRoleBadge
+                                    role={note.userId === workOrder.createdById ? 'admin' : 'technician'}
+                                    name={note.user?.name || 'User'}
+                                  />
                                 </div>
                                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                   {formatDate(note.createdAt)}, {formatTime(note.createdAt)}
@@ -1071,6 +1061,8 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                     const isCompleted = proc.status === 'COMPLETED';
                     const isCurrentWorkOrderProcess = proc.id === currentWorkOrderProcessId;
                     const isAssignedToMe = proc.technicianId === user?.id;
+                    const isExt = proc.processType === 'EXTERNAL_VERIFICATION';
+                    const isInt = proc.processType === 'INTERNAL_VERIFICATION' || proc.isVerification;
 
                     const priorDone = workOrder.processes
                       .filter((p) => p.sequence < proc.sequence)
@@ -1166,6 +1158,17 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                             backgroundColor: 'var(--bg-surface)',
                             border: isCurrentWorkOrderProcess
                               ? '1.5px solid #38bdf8'
+                              : isExt
+                              ? '1px solid rgba(13, 148, 136, 0.35)'
+                              : isInt
+                              ? '1px solid rgba(245, 158, 11, 0.35)'
+                              : '1px solid var(--border-subtle)',
+                            borderLeft: isCurrentWorkOrderProcess
+                              ? '4px solid #0284c7'
+                              : isExt
+                              ? '4px solid #0d9488'
+                              : isInt
+                              ? '4px solid #f59e0b'
                               : '1px solid var(--border-subtle)',
                             boxShadow: isCurrentWorkOrderProcess
                               ? '0 0 0 1px #38bdf8, 0 2px 4px rgba(56, 189, 248, 0.08)'
@@ -1180,6 +1183,7 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                               <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading)' }}>
                                 {proc.processName}
                               </span>
+                              <VerificationBadge type={proc.processType} isVerification={proc.isVerification} />
                               {isAssignedToMe && (
                                 <span
                                   style={{
@@ -1239,12 +1243,27 @@ export const TechnicianWorkOrderDetailModal: React.FC<TechnicianWorkOrderDetailM
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                              {proc.technician?.name
-                                ? `Tech: ${proc.technician.name}`
-                                : proc.doctor?.name
-                                ? `Doctor: ${proc.doctor.name}`
-                                : t('technician.unassigned', { defaultValue: 'Unassigned' })}
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                              {isExt ? (
+                                <UserRoleBadge
+                                  role="doctor"
+                                  name={proc.doctor?.name || workOrder.doctor?.name || t('workOrders.assignedDoctor', { defaultValue: 'Doctor' })}
+                                />
+                              ) : isInt ? (
+                                <UserRoleBadge
+                                  role="admin"
+                                  name={proc.technician?.name || t('roles.labAdmin', { defaultValue: 'Lab Admin' })}
+                                />
+                              ) : proc.technician?.name ? (
+                                <UserRoleBadge
+                                  role="technician"
+                                  name={proc.technician.name}
+                                />
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                  {t('technician.unassigned', { defaultValue: 'Unassigned' })}
+                                </span>
+                              )}
                             </div>
                           </div>
 

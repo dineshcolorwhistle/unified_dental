@@ -23,6 +23,9 @@ import {
   CircleDot,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { UserRoleBadge } from '../common/UserRoleBadge';
+import { VerificationBadge } from '../common/VerificationBadge';
+import { Wrench } from 'lucide-react';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { SearchableSelect } from '../common/SearchableSelect';
@@ -356,20 +359,22 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     label: m.name,
   }));
 
-  // Options for Production steps: All Technicians + All Lab Admins (with designation)
+  // Options for Production steps: All Technicians + All Lab Admins (with visual role identities)
   const productionOptions = (() => {
-    const list: Array<{ value: string; label: string; description?: string; badge?: string }> = [];
+    const list: any[] = [];
     const seen = new Set<string>();
 
     technicians.forEach((tech) => {
       if (!seen.has(tech.id)) {
         seen.add(tech.id);
-        const designation = tech.designation || t('workOrders.designations.technician', 'Technician');
         list.push({
           value: tech.id,
-          label: `${tech.name} (${designation})`,
-          description: designation,
-          badge: t('labUsers.technician', 'Technician'),
+          label: tech.name,
+          group: t('roles.groups.technicians', 'Technicians'),
+          badge: t('roles.technician', 'Technician'),
+          badgeBg: 'rgba(2, 132, 199, 0.12)',
+          badgeColor: '#0284c7',
+          icon: <Wrench size={12} style={{ color: '#0284c7', flexShrink: 0 }} />,
         });
       }
     });
@@ -377,12 +382,14 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     labAdmins.forEach((admin) => {
       if (!seen.has(admin.id)) {
         seen.add(admin.id);
-        const designation = admin.designation || t('workOrders.designations.labAdmin', 'Lab Admin');
         list.push({
           value: admin.id,
-          label: `${admin.name} (${designation})`,
-          description: designation,
-          badge: t('labUsers.labAdmin', 'Lab Admin'),
+          label: admin.name,
+          group: t('roles.groups.administrators', 'Lab Administrators'),
+          badge: t('roles.labAdmin', 'Lab Admin'),
+          badgeBg: 'rgba(79, 70, 229, 0.12)',
+          badgeColor: '#4338ca',
+          icon: <ShieldCheck size={12} style={{ color: '#4338ca', flexShrink: 0 }} />,
         });
       }
     });
@@ -390,16 +397,16 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     return list;
   })();
 
-  // Options for Internal Verification steps: All Lab Admins only (with designation)
-  const internalVerificationOptions = labAdmins.map((admin) => {
-    const designation = admin.designation || t('workOrders.designations.labAdmin', 'Lab Admin');
-    return {
-      value: admin.id,
-      label: `${admin.name} (${designation})`,
-      description: designation,
-      badge: t('labUsers.labAdmin', 'Lab Admin'),
-    };
-  });
+  // Options for Internal Verification steps: All Lab Admins only
+  const internalVerificationOptions = labAdmins.map((admin) => ({
+    value: admin.id,
+    label: admin.name,
+    group: t('roles.groups.administrators', 'Lab Administrators'),
+    badge: t('roles.labAdmin', 'Lab Admin'),
+    badgeBg: 'rgba(79, 70, 229, 0.12)',
+    badgeColor: '#4338ca',
+    icon: <ShieldCheck size={12} style={{ color: '#4338ca', flexShrink: 0 }} />,
+  }));
 
   // Combined options (Technicians + Lab Admins) for initial Add Step state
   const allAssigneeOptions = productionOptions;
@@ -1821,14 +1828,14 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                                 border: isCurrentProcess
                                   ? '2px solid var(--primary-600)'
                                   : isExt
-                                  ? '1px solid rgba(99, 102, 241, 0.35)'
+                                  ? '1px solid rgba(13, 148, 136, 0.35)'
                                   : isInt
                                   ? '1px solid rgba(245, 158, 11, 0.35)'
                                   : '1px solid var(--border-color)',
                                 borderLeft: isCurrentProcess
                                   ? '6px solid var(--primary-600)'
                                   : isExt
-                                  ? '4px solid #6366f1'
+                                  ? '4px solid #0d9488'
                                   : isInt
                                   ? '4px solid #f59e0b'
                                   : '1px solid var(--border-color)',
@@ -1848,14 +1855,14 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                                   backgroundColor: isCurrentProcess
                                     ? 'var(--primary-600)'
                                     : isExt
-                                    ? 'rgba(99, 102, 241, 0.15)'
+                                    ? 'rgba(13, 148, 136, 0.15)'
                                     : isInt
                                     ? 'rgba(245, 158, 11, 0.15)'
                                     : 'rgba(37, 99, 235, 0.15)',
                                   color: isCurrentProcess
                                     ? '#ffffff'
                                     : isExt
-                                    ? '#4f46e5'
+                                    ? '#0d9488'
                                     : isInt
                                     ? '#d97706'
                                     : 'var(--primary-600)',
@@ -2023,45 +2030,9 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                                     </label>
                                   )}
                                 </div>
-                                {isExt ? (
-                                  <span
-                                    style={{
-                                      fontSize: '10px',
-                                      fontWeight: 700,
-                                      color: '#4f46e5',
-                                      backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                                      border: '1px solid rgba(99, 102, 241, 0.25)',
-                                      padding: '2px 7px',
-                                      borderRadius: '5px',
-                                      marginTop: '3px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                    }}
-                                  >
-                                    <ShieldCheck size={11} />
-                                    <span>{t('labProcesses.types.EXTERNAL_VERIFICATION', 'External Verification')}</span>
-                                  </span>
-                                ) : isInt ? (
-                                  <span
-                                    style={{
-                                      fontSize: '10px',
-                                      fontWeight: 700,
-                                      color: '#d97706',
-                                      backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                                      border: '1px solid rgba(245, 158, 11, 0.25)',
-                                      padding: '2px 7px',
-                                      borderRadius: '5px',
-                                      marginTop: '3px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                    }}
-                                  >
-                                    <ShieldCheck size={11} />
-                                    <span>{t('labProcesses.types.INTERNAL_VERIFICATION', 'Internal Verification')}</span>
-                                  </span>
-                                ) : null}
+                                <div style={{ marginTop: '3px' }}>
+                                  <VerificationBadge type={step.processType} isVerification={step.isVerification} />
+                                </div>
                               </div>
 
                               {/* Assignee Selector:
@@ -2071,18 +2042,12 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
                               */}
                               <div className="process-edit-assignee-col" style={{ width: '210px', flexShrink: 0 }}>
                                 {isExt ? (
-                                  <input
-                                    type="text"
-                                    readOnly
-                                    className="form-input"
-                                    value={selectedDoctor ? selectedDoctor.name : t('workOrders.assignedDoctor', 'Assigned Doctor')}
-                                    style={{
-                                      fontSize: '12px',
-                                      backgroundColor: 'var(--bg-surface)',
-                                      cursor: 'default',
-                                      fontWeight: 600,
-                                    }}
-                                  />
+                                  <div style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 10px', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
+                                    <UserRoleBadge
+                                      role="doctor"
+                                      name={selectedDoctor ? selectedDoctor.name : t('workOrders.assignedDoctor', 'Assigned Doctor')}
+                                    />
+                                  </div>
                                 ) : isStepStarted ? (
                                   <Tooltip content={t('workOrders.editModal.cannotChangeStartedTech', 'Assigned technician cannot be changed after process has started')}>
                                     <div

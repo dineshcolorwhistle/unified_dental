@@ -46,6 +46,8 @@ import { Tooltip } from '../common/Tooltip';
 import { WorkOrderChatTab } from './WorkOrderChatTab';
 import { EditWorkOrderModal } from './EditWorkOrderModal';
 import { VerifyWorkOrderModal } from './VerifyWorkOrderModal';
+import { UserRoleBadge } from '../common/UserRoleBadge';
+import { VerificationBadge } from '../common/VerificationBadge';
 
 export interface ViewWorkOrderModalProps {
   workOrder?: WorkOrderListItem | null;
@@ -1049,11 +1051,22 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                         {currentProcess?.processName || '—'}
                       </div>
 
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                        {t('workOrders.viewModal.generalTab.assignedTechnician', 'Assigned Technician')}:{' '}
-                        <strong style={{ color: 'var(--text-main)' }}>
-                          {currentProcess?.technician?.name || currentProcess?.doctor?.name || '—'}
-                        </strong>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>{t('workOrders.viewModal.generalTab.assignedTechnician', 'Assigned Technician')}:</span>
+                        {currentProcess?.technician?.name || currentProcess?.doctor?.name ? (
+                          <UserRoleBadge
+                            role={
+                              currentProcess?.processType === 'EXTERNAL_VERIFICATION'
+                                ? 'doctor'
+                                : currentProcess?.processType === 'INTERNAL_VERIFICATION' || currentProcess?.isVerification
+                                ? 'admin'
+                                : 'technician'
+                            }
+                            name={currentProcess?.technician?.name || currentProcess?.doctor?.name}
+                          />
+                        ) : (
+                          <strong style={{ color: 'var(--text-main)' }}>—</strong>
+                        )}
                       </div>
 
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -1113,8 +1126,8 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                           <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                             {t('workOrders.viewModal.generalTab.doctor', 'DOCTOR')}
                           </span>
-                          <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-heading)', marginTop: '3px' }}>
-                            {currentWO.doctor?.name || '—'}
+                          <div style={{ marginTop: '4px' }}>
+                            <UserRoleBadge role="doctor" name={currentWO.doctor?.name || '—'} />
                           </div>
                         </div>
 
@@ -1811,48 +1824,19 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                         </span>
                                       )}
                                     </div>
-                                    {isExt ? (
-                                      <span
-                                        style={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px',
-                                          fontSize: '10px',
-                                          fontWeight: 700,
-                                          color: '#4f46e5',
-                                          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                          border: '1px solid rgba(99, 102, 241, 0.25)',
-                                          padding: '1px 6px',
-                                          borderRadius: '4px',
-                                          marginTop: '2px',
-                                        }}
-                                      >
-                                        <ShieldCheck size={10} />
-                                        {t('labProcesses.types.EXTERNAL_VERIFICATION', 'External Verification')}
-                                      </span>
-                                    ) : isInt ? (
-                                      <span
-                                        style={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px',
-                                          fontSize: '10px',
-                                          fontWeight: 700,
-                                          color: '#d97706',
-                                          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                          border: '1px solid rgba(245, 158, 11, 0.25)',
-                                          padding: '1px 6px',
-                                          borderRadius: '4px',
-                                          marginTop: '2px',
-                                        }}
-                                      >
-                                        <ShieldCheck size={10} />
-                                        {t('labProcesses.types.INTERNAL_VERIFICATION', 'Internal Verification')}
-                                      </span>
-                                    ) : null}
+                                    <div style={{ marginTop: '3px' }}>
+                                      <VerificationBadge type={proc.processType} isVerification={proc.isVerification} />
+                                    </div>
                                   </td>
                                   <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                    {assignee}
+                                    {assignee && assignee !== '—' ? (
+                                      <UserRoleBadge
+                                        role={isExt ? 'doctor' : isInt ? 'admin' : 'technician'}
+                                        name={assignee}
+                                      />
+                                    ) : (
+                                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                    )}
                                   </td>
                                   <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                                     <button
@@ -2339,7 +2323,9 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                   {cycle.reworkCount}
                                 </td>
                                 <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                                  {cycle.initiatedBy}
+                                  {cycle.initiatedBy ? (
+                                    <UserRoleBadge role="admin" name={cycle.initiatedBy} />
+                                  ) : '—'}
                                 </td>
                                 <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
                                   {cycle.initiationDateTime ? formatDateTime(cycle.initiationDateTime) : '—'}
@@ -2348,7 +2334,9 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                                   {cycle.triggeringStage}
                                 </td>
                                 <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                  {cycle.assignedTechnician}
+                                  {cycle.assignedTechnician ? (
+                                    <UserRoleBadge role="technician" name={cycle.assignedTechnician} />
+                                  ) : '—'}
                                 </td>
                                 <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
                                   {cycle.completionDateTime ? formatDateTime(cycle.completionDateTime) : '—'}

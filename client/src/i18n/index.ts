@@ -812,7 +812,14 @@ const resources = {
         superAdmin: 'Super Admin',
         labAdmin: 'Lab Admin',
         labTechnician: 'Lab Technician',
+        technician: 'Technician',
+        doctor: 'Doctor',
         user: 'User',
+        groups: {
+          administrators: 'Lab Administrators',
+          technicians: 'Technicians',
+          doctors: 'Doctors',
+        },
       },
       audit: {
         title: 'Audit Trail & Logs',
@@ -4326,7 +4333,14 @@ const resources = {
         superAdmin: 'Super Administrador',
         labAdmin: 'Administrador del Laboratorio',
         labTechnician: 'Técnico de Laboratorio',
+        technician: 'Técnico',
+        doctor: 'Doctor',
         user: 'Usuario',
+        groups: {
+          administrators: 'Administradores del Laboratorio',
+          technicians: 'Técnicos',
+          doctors: 'Doctores',
+        },
       },
       audit: {
         title: 'Registro de Auditoría',

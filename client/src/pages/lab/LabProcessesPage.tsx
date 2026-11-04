@@ -21,7 +21,9 @@ import {
   ShieldCheck,
   Stethoscope,
   Info,
+  Wrench,
 } from 'lucide-react';
+import { UserRoleBadge } from '../../components/common/UserRoleBadge';
 
 type ProcessType = 'PRODUCTION' | 'INTERNAL_VERIFICATION' | 'EXTERNAL_VERIFICATION';
 
@@ -281,7 +283,18 @@ export const LabProcessesPage: React.FC = () => {
 
     return list.map((item) => ({
       value: item.id,
-      label: `${item.name} (${item.roleType === 'admin' ? t('labProcesses.roles.admin', 'Admin') : t('labProcesses.roles.technician', 'Technician')})`,
+      label: item.name,
+      group: item.roleType === 'admin'
+        ? t('roles.groups.administrators', 'Lab Administrators')
+        : t('roles.groups.technicians', 'Technicians'),
+      badge: item.roleType === 'admin'
+        ? t('roles.labAdmin', 'Lab Admin')
+        : t('roles.technician', 'Technician'),
+      badgeBg: item.roleType === 'admin' ? 'rgba(79, 70, 229, 0.12)' : 'rgba(2, 132, 199, 0.12)',
+      badgeColor: item.roleType === 'admin' ? '#4338ca' : '#0284c7',
+      icon: item.roleType === 'admin'
+        ? <ShieldCheck size={12} style={{ color: '#4338ca', flexShrink: 0 }} />
+        : <Wrench size={12} style={{ color: '#0284c7', flexShrink: 0 }} />,
     }));
   }, [technicians, formData.type, t]);
 
@@ -520,11 +533,12 @@ export const LabProcessesPage: React.FC = () => {
               alignItems: 'center',
               gap: '5px',
               padding: '4px 10px',
-              borderRadius: '12px',
+              borderRadius: '6px',
               fontSize: '11px',
-              fontWeight: 700,
-              backgroundColor: 'var(--badge-info-bg)',
-              color: 'var(--blue-500)',
+              fontWeight: 600,
+              backgroundColor: 'var(--bg-surface-muted, rgba(100, 116, 139, 0.08))',
+              color: 'var(--text-muted, #64748b)',
+              border: '1px solid var(--border-subtle, rgba(100, 116, 139, 0.2))',
             }}
           >
             <Workflow size={12} />
@@ -539,11 +553,12 @@ export const LabProcessesPage: React.FC = () => {
               alignItems: 'center',
               gap: '5px',
               padding: '4px 10px',
-              borderRadius: '12px',
+              borderRadius: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              backgroundColor: 'var(--badge-warning-bg)',
-              color: 'var(--amber-500)',
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              color: '#d97706',
+              border: '1px solid rgba(245, 158, 11, 0.28)',
             }}
           >
             <ShieldCheck size={12} />
@@ -558,11 +573,12 @@ export const LabProcessesPage: React.FC = () => {
               alignItems: 'center',
               gap: '5px',
               padding: '4px 10px',
-              borderRadius: '12px',
+              borderRadius: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              backgroundColor: 'var(--badge-primary-bg)',
-              color: 'var(--primary-600)',
+              backgroundColor: 'rgba(13, 148, 136, 0.12)',
+              color: '#0d9488',
+              border: '1px solid rgba(13, 148, 136, 0.28)',
             }}
           >
             <Stethoscope size={12} />
@@ -792,15 +808,19 @@ export const LabProcessesPage: React.FC = () => {
                     </td>
                     <td style={{ padding: '10px 12px', fontSize: '13px' }}>
                       {proc.type === 'EXTERNAL_VERIFICATION' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--primary-600)', fontWeight: 600 }}>
-                          <Stethoscope size={14} />
-                          {t('labProcesses.table.externalDocBadge')}
-                        </span>
+                        <UserRoleBadge
+                          role="doctor"
+                          name={t('labProcesses.table.externalDocBadge', 'Clinic Doctor')}
+                        />
                       ) : proc.defaultTechnician ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                          <UserCheck size={14} style={{ color: 'var(--emerald-500)' }} />
-                          <span>{proc.defaultTechnician.name}</span>
-                        </div>
+                        <UserRoleBadge
+                          role={
+                            technicians.find((t) => t.id === proc.defaultTechnician?.id)?.roleType === 'admin'
+                              ? 'admin'
+                              : 'technician'
+                          }
+                          name={proc.defaultTechnician.name}
+                        />
                       ) : (
                         <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
                           {t('labProcesses.table.unassignedBadge')}

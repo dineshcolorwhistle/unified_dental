@@ -8,6 +8,8 @@ export interface SearchableSelectOption {
   sublabel?: string;
   group?: string;
   badge?: string;
+  badgeBg?: string;
+  badgeColor?: string;
   icon?: React.ReactNode;
 }
 
@@ -163,6 +165,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           {icon && <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>}
           {selectedOption ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+              {selectedOption.icon && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                  {selectedOption.icon}
+                </span>
+              )}
               <span
                 style={{
                   color: 'var(--text-main)',
@@ -181,8 +188,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     fontWeight: 700,
                     padding: '2px 6px',
                     borderRadius: '6px',
-                    backgroundColor: 'rgba(13, 148, 136, 0.1)',
-                    color: 'var(--primary-600)',
+                    backgroundColor: selectedOption.badgeBg || 'rgba(13, 148, 136, 0.1)',
+                    color: selectedOption.badgeColor || 'var(--primary-600)',
+                    border: selectedOption.badgeColor ? `1px solid ${selectedOption.badgeColor}33` : undefined,
                     flexShrink: 0,
                   }}
                 >
@@ -276,9 +284,10 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                 padding: '1px 5px',
                                 borderRadius: '4px',
                                 backgroundColor: isSelected
-                                  ? 'rgba(13, 148, 136, 0.2)'
-                                  : 'var(--bg-surface-muted)',
-                                color: isSelected ? 'var(--primary-600)' : 'var(--text-subtle)',
+                                  ? (opt.badgeBg || 'rgba(13, 148, 136, 0.2)')
+                                  : (opt.badgeBg || 'var(--bg-surface-muted)'),
+                                color: opt.badgeColor || (isSelected ? 'var(--primary-600)' : 'var(--text-subtle)'),
+                                border: opt.badgeColor ? `1px solid ${opt.badgeColor}33` : undefined,
                                 fontWeight: 700,
                               }}
                             >

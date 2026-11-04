@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Activity,
   ShieldCheck,
+  Stethoscope,
   Clock,
   CheckCircle2,
   Play,
@@ -16,6 +17,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
+import { UserRoleBadge } from '../../components/common/UserRoleBadge';
 import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { useNotifications } from '../../core/context/NotificationContext';
@@ -291,11 +293,11 @@ export const LabAdminDashboard: React.FC = () => {
         <span style={{
           fontSize: '11px', fontWeight: 700, padding: '3px 9px',
           borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.04em',
-          backgroundColor: 'rgba(99, 102, 241, 0.12)', color: '#4f46e5',
-          border: '1px solid rgba(99, 102, 241, 0.25)',
+          backgroundColor: 'rgba(13, 148, 136, 0.12)', color: '#0d9488',
+          border: '1px solid rgba(13, 148, 136, 0.28)',
           display: 'inline-flex', alignItems: 'center', gap: '4px',
         }}>
-          <ShieldCheck size={12} />
+          <Stethoscope size={12} />
           {t('dashboard.labAdmin.externalVerification')}
         </span>
       );
@@ -304,8 +306,8 @@ export const LabAdminDashboard: React.FC = () => {
       <span style={{
         fontSize: '11px', fontWeight: 700, padding: '3px 9px',
         borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.04em',
-        backgroundColor: 'rgba(147, 51, 234, 0.12)', color: '#9333ea',
-        border: '1px solid rgba(147, 51, 234, 0.25)',
+        backgroundColor: 'rgba(245, 158, 11, 0.12)', color: '#d97706',
+        border: '1px solid rgba(245, 158, 11, 0.28)',
         display: 'inline-flex', alignItems: 'center', gap: '4px',
       }}>
         <ShieldCheck size={12} />
@@ -1163,7 +1165,7 @@ export const LabAdminDashboard: React.FC = () => {
                     {getStepStatusBadge(item.currentStepStatus)}
                     {item.technicianName && (
                       <span style={{ marginLeft: 'auto', fontSize: '11px' }}>
-                        {item.technicianName}
+                        <UserRoleBadge role="technician" name={item.technicianName} />
                       </span>
                     )}
                   </div>
