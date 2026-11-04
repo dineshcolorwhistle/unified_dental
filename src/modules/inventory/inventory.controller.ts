@@ -11,7 +11,10 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import {
+  AddStockDto,
+  AdjustStockDto,
   CreateInventoryItemDto,
+  QueryInventoryActivitiesDto,
   QueryInventoryItemsDto,
   UpdateInventoryItemDto,
 } from './dto/inventory.dto';
@@ -64,6 +67,36 @@ export class InventoryController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.inventoryService.update(id, dto, user.activeTenantId, user);
+  }
+
+  @Post(':id/add-stock')
+  @ApiOperation({ summary: 'Add stock quantity to an Inventory Item' })
+  addStock(
+    @Param('id') id: string,
+    @Body() dto: AddStockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inventoryService.addStock(id, dto, user.activeTenantId, user);
+  }
+
+  @Post(':id/adjust-stock')
+  @ApiOperation({ summary: 'Manually adjust stock quantity of an Inventory Item' })
+  adjustStock(
+    @Param('id') id: string,
+    @Body() dto: AdjustStockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inventoryService.adjustStock(id, dto, user.activeTenantId, user);
+  }
+
+  @Get(':id/activities')
+  @ApiOperation({ summary: 'Get audit activity log for an Inventory Item' })
+  getActivities(
+    @Param('id') id: string,
+    @Query() query: QueryInventoryActivitiesDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.inventoryService.getItemActivities(id, query, user.activeTenantId, user);
   }
 
   @Delete(':id')

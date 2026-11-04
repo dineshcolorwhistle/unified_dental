@@ -17,6 +17,8 @@ import {
   DollarSign,
   Truck,
   Award,
+  Plus,
+  History,
 } from 'lucide-react';
 import { Tooltip } from '../common/Tooltip';
 import { formatDate, formatDateTime, formatCurrency } from '../../core/utils/dateUtils';
@@ -49,6 +51,8 @@ interface ViewInventoryItemModalProps {
   onClose: () => void;
   onEdit?: (item: InventoryItem) => void;
   onDelete?: (item: InventoryItem) => void;
+  onAddStock?: (item: InventoryItem) => void;
+  onViewHistory?: (item: InventoryItem) => void;
   isTenantAdmin: boolean;
 }
 
@@ -58,6 +62,8 @@ export const ViewInventoryItemModal: React.FC<ViewInventoryItemModalProps> = ({
   onClose,
   onEdit,
   onDelete,
+  onAddStock,
+  onViewHistory,
   isTenantAdmin,
 }) => {
   const { t, i18n } = useTranslation();
@@ -699,10 +705,35 @@ export const ViewInventoryItemModal: React.FC<ViewInventoryItemModalProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
             backgroundColor: 'var(--bg-modal, var(--bg-card))',
           }}
         >
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* View Activity History Button */}
+            {onViewHistory && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onViewHistory(item);
+                }}
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                }}
+              >
+                <History size={14} />
+                <span>{t('inventory.buttons.viewAuditHistory', 'Activity History')}</span>
+              </button>
+            )}
+
             {/* Delete Action for Tenant Admin */}
             {isTenantAdmin && onDelete && (
               <button
@@ -727,7 +758,7 @@ export const ViewInventoryItemModal: React.FC<ViewInventoryItemModalProps> = ({
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={onClose}
@@ -740,6 +771,34 @@ export const ViewInventoryItemModal: React.FC<ViewInventoryItemModalProps> = ({
             >
               {t('inventory.buttons.cancel')}
             </button>
+
+            {/* Add Stock Action for Branch Operator */}
+            {!isTenantAdmin && onAddStock && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAddStock(item);
+                }}
+                className="btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  backgroundColor: 'var(--badge-success-bg, #ecfdf5)',
+                  color: 'var(--badge-success-text, #059669)',
+                  border: '1px solid var(--badge-success-border, #a7f3d0)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                }}
+              >
+                <Plus size={14} />
+                <span>{t('inventory.buttons.addStock', 'Add Stock')}</span>
+              </button>
+            )}
 
             {/* Edit Action for Branch Operator */}
             {!isTenantAdmin && onEdit && (

@@ -16,6 +16,7 @@ import {
   TrendingDown,
   RefreshCw,
   Clock,
+  History,
   X,
 } from 'lucide-react';
 import api from '../services/api';
@@ -27,6 +28,8 @@ import { Tooltip } from '../components/common/Tooltip';
 import { Pagination } from '../components/common/Pagination';
 import { formatDate, formatCurrency } from '../core/utils/dateUtils';
 import { ViewInventoryItemModal, InventoryItem } from '../components/inventory/ViewInventoryItemModal';
+import { AddStockModal } from '../components/inventory/AddStockModal';
+import { InventoryActivityModal } from '../components/inventory/InventoryActivityModal';
 
 interface InventoryCategory {
   id: string;
@@ -102,6 +105,10 @@ export const InventoryPage: React.FC = () => {
 
   // Modal States
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  const [stockItem, setStockItem] = useState<InventoryItem | null>(null);
+  const [isStockModalOpen, setIsStockModalOpen] = useState<boolean>(false);
+  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [itemForm, setItemForm] = useState({
@@ -116,6 +123,7 @@ export const InventoryPage: React.FC = () => {
     supplier: '',
     expiryDate: '',
     description: '',
+    adjustmentReason: '',
     branchId: '',
   });
 
@@ -255,6 +263,7 @@ export const InventoryPage: React.FC = () => {
       supplier: '',
       expiryDate: '',
       description: '',
+      adjustmentReason: '',
       branchId: defaultBranchId,
     });
     setIsItemModalOpen(true);
@@ -275,6 +284,7 @@ export const InventoryPage: React.FC = () => {
       supplier: item.supplier || '',
       expiryDate: item.expiryDate ? item.expiryDate.split('T')[0] : '',
       description: item.description || '',
+      adjustmentReason: '',
       branchId: item.branchId,
     });
     setIsItemModalOpen(true);
@@ -310,6 +320,9 @@ export const InventoryPage: React.FC = () => {
       }
 
       if (editingItem) {
+        if (parseInt(itemForm.quantity, 10) !== editingItem.quantity) {
+          payload.adjustmentReason = itemForm.adjustmentReason?.trim() || 'Manual adjustment via item edit';
+        }
         await api.patch(`/inventory/items/${editingItem.id}`, payload);
         toast.success(t('inventory.toast.updatedItem'));
       } else {
@@ -1154,6 +1167,33 @@ export const InventoryPage: React.FC = () => {
                                 / min {itemMinQty}
                               </span>
                             </div>
+                            {!isTenantAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setStockItem(it);
+                                  setIsStockModalOpen(true);
+                                }}
+                                style={{
+                                  marginTop: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  padding: '2px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  borderRadius: '4px',
+                                  backgroundColor: itemQty <= itemMinQty ? 'var(--badge-warning-bg, #fffbeb)' : 'var(--badge-success-bg, #ecfdf5)',
+                                  color: itemQty <= itemMinQty ? 'var(--badge-warning-text, #d97706)' : 'var(--badge-success-text, #059669)',
+                                  border: itemQty <= itemMinQty ? '1px solid var(--badge-warning-border, #fde68a)' : '1px solid var(--badge-success-border, #a7f3d0)',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Plus size={11} />
+                                <span>{t('inventory.buttons.addStock', 'Add Stock')}</span>
+                              </button>
+                            )}
                           </td>
 
                           {/* Unit Price & Total Value */}
@@ -1183,6 +1223,60 @@ export const InventoryPage: React.FC = () => {
                           {/* Action Buttons */}
                           <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                              {/* Add Stock Button (Always accessible for Branch Operator) */}
+                              {!isTenantAdmin && (
+                                <Tooltip content={t('inventory.buttons.addStock', 'Add Stock')}>
+                                  <button
+                                    type="button"
+                                    className="btn-icon"
+                                    onClick={() => {
+                                      setStockItem(it);
+                                      setIsStockModalOpen(true);
+                                    }}
+                                    style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid var(--badge-success-border, #a7f3d0)',
+                                      backgroundColor: 'var(--badge-success-bg, #ecfdf5)',
+                                      color: 'var(--badge-success-text, #059669)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <Plus size={15} />
+                                  </button>
+                                </Tooltip>
+                              )}
+
+                              {/* Activity History / Audit Log Button */}
+                              <Tooltip content={t('inventory.buttons.viewAuditHistory', 'Activity History')}>
+                                <button
+                                  type="button"
+                                  className="btn-icon"
+                                  onClick={() => {
+                                    setHistoryItem(it);
+                                    setIsHistoryModalOpen(true);
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: '1px solid var(--border-color)',
+                                    backgroundColor: 'var(--bg-card)',
+                                    color: 'var(--primary-600, #2563eb)',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <History size={15} />
+                                </button>
+                              </Tooltip>
+
                               {/* View Item Button */}
                               <Tooltip content={t('inventory.buttons.viewDetails')}>
                                 <button
@@ -1198,11 +1292,11 @@ export const InventoryPage: React.FC = () => {
                                     justifyContent: 'center',
                                     border: '1px solid var(--border-color)',
                                     backgroundColor: 'var(--bg-card)',
-                                    color: 'var(--primary-600)',
+                                    color: 'var(--text-main)',
                                     cursor: 'pointer',
                                   }}
                                 >
-                                  <Eye size={14} />
+                                  <Eye size={15} />
                                 </button>
                               </Tooltip>
 
@@ -1226,7 +1320,7 @@ export const InventoryPage: React.FC = () => {
                                       cursor: 'pointer',
                                     }}
                                   >
-                                    <Edit2 size={14} />
+                                    <Edit2 size={15} />
                                   </button>
                                 </Tooltip>
                               )}
@@ -1251,7 +1345,7 @@ export const InventoryPage: React.FC = () => {
                                       cursor: 'pointer',
                                     }}
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={15} />
                                   </button>
                                 </Tooltip>
                               )}
@@ -1688,7 +1782,16 @@ export const InventoryPage: React.FC = () => {
                       min="0"
                       className="input"
                       value={itemForm.quantity}
-                      onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
+                      onChange={(e) => {
+                        const newQ = e.target.value;
+                        const numQ = parseInt(newQ, 10) || 0;
+                        const numMin = parseInt(itemForm.minQuantity, 10) || 0;
+                        let autoStatus = itemForm.status;
+                        if (autoStatus !== 'DISCONTINUED' && autoStatus !== 'OUT_OF_STOCK') {
+                          autoStatus = numQ <= numMin ? 'LOW_STOCK' : 'IN_STOCK';
+                        }
+                        setItemForm({ ...itemForm, quantity: newQ, status: autoStatus });
+                      }}
                       required
                     />
                   </div>
@@ -1702,7 +1805,16 @@ export const InventoryPage: React.FC = () => {
                       min="0"
                       className="input"
                       value={itemForm.minQuantity}
-                      onChange={(e) => setItemForm({ ...itemForm, minQuantity: e.target.value })}
+                      onChange={(e) => {
+                        const newMin = e.target.value;
+                        const numMin = parseInt(newMin, 10) || 0;
+                        const numQ = parseInt(itemForm.quantity, 10) || 0;
+                        let autoStatus = itemForm.status;
+                        if (autoStatus !== 'DISCONTINUED' && autoStatus !== 'OUT_OF_STOCK') {
+                          autoStatus = numQ <= numMin ? 'LOW_STOCK' : 'IN_STOCK';
+                        }
+                        setItemForm({ ...itemForm, minQuantity: newMin, status: autoStatus });
+                      }}
                       required
                     />
                   </div>
@@ -1779,6 +1891,39 @@ export const InventoryPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Conditional Adjustment Reason When Editing Quantity */}
+                {editingItem && parseInt(itemForm.quantity, 10) !== editingItem.quantity && (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--badge-warning-bg, #fffbeb)',
+                      border: '1px solid var(--badge-warning-border, #fde68a)',
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        color: 'var(--badge-warning-text, #d97706)',
+                        marginBottom: '6px',
+                      }}
+                    >
+                      {t('inventory.fields.adjustmentReason', 'Reason for Stock Adjustment')} <span style={{ color: 'var(--rose-500, #ef4444)' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={itemForm.adjustmentReason}
+                      onChange={(e) => setItemForm({ ...itemForm, adjustmentReason: e.target.value })}
+                      placeholder={t('inventory.placeholders.adjustmentReason', 'e.g. Physical inventory count discrepancy, damaged material')}
+                      required
+                      style={{ backgroundColor: 'var(--bg-card)' }}
+                    />
+                  </div>
+                )}
 
                 {/* Description */}
                 <div>
@@ -2004,7 +2149,47 @@ export const InventoryPage: React.FC = () => {
         onClose={() => setViewingItem(null)}
         onEdit={handleOpenEditItem}
         onDelete={(it) => setDeletingItem(it)}
+        onAddStock={(it) => {
+          setStockItem(it);
+          setIsStockModalOpen(true);
+        }}
+        onViewHistory={(it) => {
+          setHistoryItem(it);
+          setIsHistoryModalOpen(true);
+        }}
         isTenantAdmin={isTenantAdmin}
+      />
+
+      {/* ─── ADD STOCK MODAL ─── */}
+      <AddStockModal
+        isOpen={isStockModalOpen}
+        onClose={() => {
+          setIsStockModalOpen(false);
+          setStockItem(null);
+        }}
+        item={stockItem}
+        onStockAdded={(updatedItem) => {
+          setItems((prev) => prev.map((it) => (it.id === updatedItem.id ? updatedItem : it)));
+          if (viewingItem?.id === updatedItem.id) {
+            setViewingItem(updatedItem);
+          }
+          fetchItems();
+          fetchCategories();
+        }}
+      />
+
+      {/* ─── INVENTORY ACTIVITY / AUDIT MODAL ─── */}
+      <InventoryActivityModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => {
+          setIsHistoryModalOpen(false);
+          setHistoryItem(null);
+        }}
+        item={historyItem}
+        onOpenAddStock={(it) => {
+          setStockItem(it);
+          setIsStockModalOpen(true);
+        }}
       />
 
       {/* ─── DELETE ITEM CONFIRMATION MODAL ─── */}

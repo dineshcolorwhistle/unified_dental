@@ -236,6 +236,11 @@ export class UpdateInventoryItemDto {
   @IsOptional()
   description?: string;
 
+  @ApiPropertyOptional({ description: 'Reason for manual stock adjustment if quantity changed' })
+  @IsString()
+  @IsOptional()
+  adjustmentReason?: string;
+
   @ApiPropertyOptional({ description: 'Branch ID' })
   @IsUUID()
   @IsOptional()
@@ -273,6 +278,51 @@ export class QueryInventoryItemsDto {
   @IsString()
   @IsOptional()
   moduleKey?: string;
+
+  @ApiPropertyOptional({ description: 'Page number', default: 1 })
+  @Type(() => Number)
+  @IsOptional()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Page limit', default: 20 })
+  @Type(() => Number)
+  @IsOptional()
+  @Min(1)
+  limit?: number = 20;
+}
+
+export class AddStockDto {
+  @ApiProperty({ description: 'Additional quantity to add', example: 10 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity: number;
+
+  @ApiPropertyOptional({ description: 'Optional reason or note for adding stock', example: 'Low stock replenishment' })
+  @IsString()
+  @IsOptional()
+  reason?: string;
+}
+
+export class AdjustStockDto {
+  @ApiProperty({ description: 'Target new quantity', example: 15 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  quantity: number;
+
+  @ApiProperty({ description: 'Reason for manual stock adjustment', example: 'Physical inventory recount discrepancy' })
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
+}
+
+export class QueryInventoryActivitiesDto {
+  @ApiPropertyOptional({ description: 'Action filter (CREATED, MODIFIED, STOCK_ADDED, STOCK_ADJUSTED)' })
+  @IsString()
+  @IsOptional()
+  action?: string;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Type(() => Number)

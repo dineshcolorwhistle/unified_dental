@@ -9,7 +9,10 @@ import {
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { AuthenticatedUser } from '../../shared/common/decorators/current-user.decorator';
 import {
+  AddStockDto,
+  AdjustStockDto,
   CreateInventoryItemDto,
+  QueryInventoryActivitiesDto,
   QueryInventoryItemsDto,
   UpdateInventoryItemDto,
   InventoryItemStatus,
@@ -236,24 +239,34 @@ export class InventoryService {
       where.status = query.status;
     }
 
+    const andConditions: any[] = [];
+
     // Search filter
     if (query.search && query.search.trim()) {
       const search = query.search.trim();
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-        { brand: { contains: search, mode: 'insensitive' } },
-        { supplier: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { brand: { contains: search, mode: 'insensitive' } },
+          { supplier: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     // Low stock filter
     if (query.lowStockOnly) {
-      where.OR = [
-        { status: InventoryItemStatus.LOW_STOCK },
-        { status: InventoryItemStatus.OUT_OF_STOCK },
-      ];
+      andConditions.push({
+        OR: [
+          { status: InventoryItemStatus.LOW_STOCK },
+          { status: InventoryItemStatus.OUT_OF_STOCK },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     // Pagination
@@ -403,22 +416,22 @@ export class InventoryService {
       }
     }
 
-    // Derive auto-status if not manually forced
+    // Derive auto-status between IN_STOCK and LOW_STOCK, strictly preserving OUT_OF_STOCK and DISCONTINUED
     let status = dto.status || InventoryItemStatus.IN_STOCK;
     const quantity = Number(dto.quantity) || 0;
     const minQuantity = dto.minQuantity !== undefined ? Number(dto.minQuantity) : 5;
 
-    if (status === InventoryItemStatus.IN_STOCK || !dto.status) {
-      if (quantity === 0) {
-        status = InventoryItemStatus.OUT_OF_STOCK;
-      } else if (quantity <= minQuantity) {
+    if (status !== InventoryItemStatus.DISCONTINUED && status !== InventoryItemStatus.OUT_OF_STOCK) {
+      if (quantity <= minQuantity) {
         status = InventoryItemStatus.LOW_STOCK;
+      } else {
+        status = InventoryItemStatus.IN_STOCK;
       }
     }
 
     const expiryDate = this.normalizeDateToUtcNoon(dto.expiryDate);
 
-    return (this.prisma as any).inventoryItem.create({
+    const createdItem = await (this.prisma as any).inventoryItem.create({
       data: {
         tenantId,
         branchId,
@@ -448,6 +461,33 @@ export class InventoryService {
         },
       },
     });
+
+    try {
+      await (this.prisma as any).inventoryActivity.create({
+        data: {
+          tenantId,
+          itemId: createdItem.id,
+          userId: actor.id,
+          action: 'CREATED',
+          quantityChanged: quantity,
+          previousQuantity: 0,
+          newQuantity: quantity,
+          reason: 'Initial item creation',
+          changes: {
+            name: { new: createdItem.name },
+            sku: { new: createdItem.sku },
+            quantity: { new: quantity },
+            minQuantity: { new: minQuantity },
+            unitPrice: { new: Number(createdItem.unitPrice) },
+            status: { new: status },
+          },
+        },
+      });
+    } catch (actErr) {
+      this.logger.error(`Failed to record create activity for item ${createdItem.id}`, actErr);
+    }
+
+    return createdItem;
   }
 
   /**
@@ -509,19 +549,48 @@ export class InventoryService {
     const minQuantity =
       dto.minQuantity !== undefined ? Number(dto.minQuantity) : item.minQuantity;
 
+    const fieldChanges: Record<string, { old: any; new: any }> = {};
+    if (dto.name && dto.name.trim() !== item.name) {
+      fieldChanges.name = { old: item.name, new: dto.name.trim() };
+    }
+    if (dto.sku && dto.sku.trim() !== item.sku) {
+      fieldChanges.sku = { old: item.sku, new: dto.sku.trim() };
+    }
+    if (dto.categoryId && dto.categoryId !== item.categoryId) {
+      fieldChanges.categoryId = { old: item.categoryId, new: dto.categoryId };
+    }
+    if (dto.unitPrice !== undefined && Number(dto.unitPrice) !== Number(item.unitPrice)) {
+      fieldChanges.unitPrice = { old: Number(item.unitPrice), new: Number(dto.unitPrice) };
+    }
+    if (dto.minQuantity !== undefined && Number(dto.minQuantity) !== item.minQuantity) {
+      fieldChanges.minQuantity = { old: item.minQuantity, new: Number(dto.minQuantity) };
+    }
+    if (dto.brand !== undefined && (dto.brand?.trim() || null) !== item.brand) {
+      fieldChanges.brand = { old: item.brand, new: dto.brand?.trim() || null };
+    }
+    if (dto.supplier !== undefined && (dto.supplier?.trim() || null) !== item.supplier) {
+      fieldChanges.supplier = { old: item.supplier, new: dto.supplier?.trim() || null };
+    }
+    if (dto.description !== undefined && (dto.description?.trim() || null) !== item.description) {
+      fieldChanges.description = { old: item.description, new: dto.description?.trim() || null };
+    }
+    if (dto.status !== undefined && dto.status !== item.status) {
+      fieldChanges.status = { old: item.status, new: dto.status };
+    }
+
+    const isQuantityChanged = dto.quantity !== undefined && Number(dto.quantity) !== item.quantity;
+
     let status = dto.status !== undefined ? dto.status : item.status;
-    // If not discontinued and status wasn't explicitly set to a special state
-    if (status !== InventoryItemStatus.DISCONTINUED && !dto.status) {
-      if (quantity === 0) {
-        status = InventoryItemStatus.OUT_OF_STOCK;
-      } else if (quantity <= minQuantity) {
+    // Automatically transition between IN_STOCK and LOW_STOCK, strictly preserving manual OUT_OF_STOCK and DISCONTINUED
+    if (status !== InventoryItemStatus.DISCONTINUED && status !== InventoryItemStatus.OUT_OF_STOCK) {
+      if (quantity <= minQuantity) {
         status = InventoryItemStatus.LOW_STOCK;
       } else {
         status = InventoryItemStatus.IN_STOCK;
       }
     }
 
-    return (this.prisma as any).inventoryItem.update({
+    const updatedItem = await (this.prisma as any).inventoryItem.update({
       where: { id },
       data: {
         name: dto.name ? dto.name.trim() : undefined,
@@ -548,6 +617,331 @@ export class InventoryService {
         },
       },
     });
+
+    try {
+      if (isQuantityChanged) {
+        const diff = Number(dto.quantity) - item.quantity;
+        await (this.prisma as any).inventoryActivity.create({
+          data: {
+            tenantId,
+            itemId: item.id,
+            userId: actor.id,
+            action: 'STOCK_ADJUSTED',
+            quantityChanged: diff,
+            previousQuantity: item.quantity,
+            newQuantity: Number(dto.quantity),
+            reason: dto.adjustmentReason?.trim() || 'Manual stock quantity adjustment',
+          },
+        });
+      }
+
+      if (Object.keys(fieldChanges).length > 0) {
+        await (this.prisma as any).inventoryActivity.create({
+          data: {
+            tenantId,
+            itemId: item.id,
+            userId: actor.id,
+            action: 'MODIFIED',
+            changes: fieldChanges,
+            reason: 'Item details updated',
+          },
+        });
+      }
+    } catch (actErr) {
+      this.logger.error(`Failed to record update activity for item ${item.id}`, actErr);
+    }
+
+    return updatedItem;
+  }
+
+  /**
+   * Add stock quantity to an Inventory Item
+   */
+  async addStock(
+    id: string,
+    dto: AddStockDto,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    const item = await (this.prisma as any).inventoryItem.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        branch: true,
+      },
+    });
+
+    if (!item || item.tenantId !== tenantId) {
+      throw new NotFoundException('Inventory item not found.');
+    }
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Tenant Administrator can only view and delete inventory items.');
+    }
+
+    if (!isTenantAdminUser) {
+      const userBranchId = await this.resolveBranch(actor, tenantId, undefined, item.moduleKey);
+      if (item.branchId !== userBranchId) {
+        throw new ForbiddenException('Cannot add stock to item belonging to another branch.');
+      }
+    }
+
+    const addQty = Number(dto.quantity);
+    if (isNaN(addQty) || addQty <= 0) {
+      throw new BadRequestException('Added stock quantity must be a positive integer greater than zero.');
+    }
+
+    const previousQuantity = item.quantity;
+    const newQuantity = previousQuantity + addQty;
+
+    let newStatus = item.status;
+    // Automatically transition to IN_STOCK when added stock brings quantity above threshold, preserving DISCONTINUED
+    if (item.status !== InventoryItemStatus.DISCONTINUED) {
+      if (newQuantity > item.minQuantity) {
+        newStatus = InventoryItemStatus.IN_STOCK;
+      } else {
+        newStatus = InventoryItemStatus.LOW_STOCK;
+      }
+    }
+
+    const updatedItem = await (this.prisma as any).inventoryItem.update({
+      where: { id },
+      data: {
+        quantity: newQuantity,
+        status: newStatus,
+      },
+      include: {
+        category: {
+          select: { id: true, name: true, productType: true },
+        },
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    try {
+      await (this.prisma as any).inventoryActivity.create({
+        data: {
+          tenantId,
+          itemId: id,
+          userId: actor.id,
+          action: 'STOCK_ADDED',
+          quantityChanged: addQty,
+          previousQuantity,
+          newQuantity,
+          reason: dto.reason?.trim() || 'Stock replenishment',
+        },
+      });
+    } catch (actErr) {
+      this.logger.error(`Failed to record stock added activity for item ${id}`, actErr);
+    }
+
+    return updatedItem;
+  }
+
+  /**
+   * Manually adjust stock quantity with required reason
+   */
+  async adjustStock(
+    id: string,
+    dto: AdjustStockDto,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    const item = await (this.prisma as any).inventoryItem.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        branch: true,
+      },
+    });
+
+    if (!item || item.tenantId !== tenantId) {
+      throw new NotFoundException('Inventory item not found.');
+    }
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Tenant Administrator can only view and delete inventory items.');
+    }
+
+    if (!isTenantAdminUser) {
+      const userBranchId = await this.resolveBranch(actor, tenantId, undefined, item.moduleKey);
+      if (item.branchId !== userBranchId) {
+        throw new ForbiddenException('Cannot modify item belonging to another branch.');
+      }
+    }
+
+    const targetQty = Number(dto.quantity);
+    if (isNaN(targetQty) || targetQty < 0) {
+      throw new BadRequestException('Target stock quantity must be zero or a positive integer.');
+    }
+
+    const previousQuantity = item.quantity;
+    const diff = targetQty - previousQuantity;
+
+    let newStatus = item.status;
+    if (item.status !== InventoryItemStatus.DISCONTINUED) {
+      if (targetQty === 0) {
+        newStatus = InventoryItemStatus.OUT_OF_STOCK;
+      } else if (targetQty <= item.minQuantity) {
+        newStatus = InventoryItemStatus.LOW_STOCK;
+      } else {
+        newStatus = InventoryItemStatus.IN_STOCK;
+      }
+    }
+
+    const updatedItem = await (this.prisma as any).inventoryItem.update({
+      where: { id },
+      data: {
+        quantity: targetQty,
+        status: newStatus,
+      },
+      include: {
+        category: {
+          select: { id: true, name: true, productType: true },
+        },
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    try {
+      await (this.prisma as any).inventoryActivity.create({
+        data: {
+          tenantId,
+          itemId: id,
+          userId: actor.id,
+          action: 'STOCK_ADJUSTED',
+          quantityChanged: diff,
+          previousQuantity,
+          newQuantity: targetQty,
+          reason: dto.reason.trim(),
+        },
+      });
+    } catch (actErr) {
+      this.logger.error(`Failed to record stock adjustment activity for item ${id}`, actErr);
+    }
+
+    return updatedItem;
+  }
+
+  /**
+   * Get audit activity history for an Inventory Item with pagination and filter
+   */
+  async getItemActivities(
+    id: string,
+    query: QueryInventoryActivitiesDto,
+    tenantId: string,
+    actor: AuthenticatedUser,
+  ) {
+    const item = await (this.prisma as any).inventoryItem.findUnique({
+      where: { id },
+      include: {
+        category: {
+          select: { id: true, name: true, productType: true },
+        },
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    if (!item || item.tenantId !== tenantId) {
+      throw new NotFoundException('Inventory item not found.');
+    }
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (!isTenantAdminUser) {
+      const userBranchId = await this.resolveBranch(actor, tenantId, undefined, item.moduleKey);
+      if (item.branchId !== userBranchId) {
+        throw new ForbiddenException('Access denied to item belonging to another branch.');
+      }
+    }
+
+    const where: any = {
+      tenantId,
+      itemId: id,
+    };
+
+    if (query.action && query.action !== 'all') {
+      where.action = query.action;
+    }
+
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Number(query.limit) || 20);
+    const skip = (page - 1) * limit;
+
+    const [activities, totalMatching] = await Promise.all([
+      (this.prisma as any).inventoryActivity.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      (this.prisma as any).inventoryActivity.count({ where }),
+    ]);
+
+    let finalActivities = activities;
+    let totalCount = totalMatching;
+
+    // Fallback: if no activities logged yet (legacy items), provide synthetic CREATED activity
+    if (totalMatching === 0 && (!query.action || query.action === 'all' || query.action === 'CREATED')) {
+      finalActivities = [
+        {
+          id: `legacy-${item.id}`,
+          tenantId: item.tenantId,
+          itemId: item.id,
+          userId: item.createdById,
+          action: 'CREATED',
+          quantityChanged: item.quantity,
+          previousQuantity: 0,
+          newQuantity: item.quantity,
+          reason: 'Initial item creation',
+          changes: {
+            name: { new: item.name },
+            sku: { new: item.sku },
+            quantity: { new: item.quantity },
+            minQuantity: { new: item.minQuantity },
+            unitPrice: { new: Number(item.unitPrice) },
+            status: { new: item.status },
+          },
+          createdAt: item.createdAt,
+          user: item.createdBy || null,
+        },
+      ];
+      totalCount = 1;
+    }
+
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+
+    return {
+      item,
+      activities: finalActivities,
+      pagination: {
+        page,
+        limit,
+        totalItems: totalCount,
+        totalPages,
+      },
+    };
   }
 
   /**

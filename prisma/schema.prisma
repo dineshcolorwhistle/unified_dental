@@ -111,6 +111,7 @@ model Tenant {
   expenses        Expense[]
   inventoryCategories InventoryCategory[]
   inventoryItems      InventoryItem[]
+  inventoryActivities InventoryActivity[]
   portalExchangeTokens PortalExchangeToken[]
   qrInquiries          QrInquiry[]
   reminders            Reminder[]
@@ -282,6 +283,7 @@ model User {
   chatReads                  WorkOrderChatRead[]
   createdExpenses            Expense[] @relation("ExpenseCreatedBy")
   createdInventoryItems      InventoryItem[] @relation("InventoryItemCreatedBy")
+  inventoryActivities        InventoryActivity[]
   portalExchangeTokens       PortalExchangeToken[]
   createdReminders           Reminder[] @relation("ReminderCreatedBy")
   reminderAssignments        ReminderAssignee[]
@@ -997,6 +999,8 @@ model InventoryItem {
   category    InventoryCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   createdBy   User?             @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
+  activities  InventoryActivity[]
+
   @@unique([tenantId, sku])
   @@index([tenantId])
   @@index([tenantId, branchId])
@@ -1004,6 +1008,29 @@ model InventoryItem {
   @@index([categoryId])
   @@index([tenantId, status])
   @@map("inventory_items")
+}
+
+model InventoryActivity {
+  id               String        @id @default(uuid())
+  tenantId         String        @map("tenant_id")
+  itemId           String        @map("item_id")
+  userId           String?       @map("user_id")
+  action           String        // CREATED, MODIFIED, STOCK_ADDED, STOCK_ADJUSTED
+  quantityChanged  Int?          @map("quantity_changed")
+  previousQuantity Int?          @map("previous_quantity")
+  newQuantity      Int?          @map("new_quantity")
+  reason           String?
+  changes          Json?
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user   User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([createdAt])
+  @@map("inventory_activities")
 }
 
 // ─── Public Work Order QR Tracking Inquiries (Leads) ──────
