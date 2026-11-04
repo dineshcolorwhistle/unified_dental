@@ -1,9 +1,13 @@
 import {
+  IsArray,
   IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { DoctorServiceAssignmentDto } from './doctor-service-assignment.dto';
 
 export class CreateClinicDoctorDto {
   @IsOptional()
@@ -53,5 +57,11 @@ export class CreateClinicDoctorDto {
   @IsOptional()
   @IsString()
   licenseNumber?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DoctorServiceAssignmentDto)
+  services?: DoctorServiceAssignmentDto[];
 }
 

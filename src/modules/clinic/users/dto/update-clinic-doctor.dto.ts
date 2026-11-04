@@ -1,9 +1,13 @@
 import {
+  IsArray,
   IsEnum,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserStatus } from '@prisma/client';
+import { DoctorServiceAssignmentDto } from './doctor-service-assignment.dto';
 
 export class UpdateClinicDoctorDto {
   @IsOptional()
@@ -53,5 +57,11 @@ export class UpdateClinicDoctorDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DoctorServiceAssignmentDto)
+  services?: DoctorServiceAssignmentDto[];
 }
 

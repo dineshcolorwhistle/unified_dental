@@ -1378,6 +1378,37 @@ export class ClinicUsersService {
       if (d.email) doctorMap.set(d.email.toLowerCase(), d);
     }
 
+    const userIds = users.map((u) => u.id);
+    const doctorServices = userIds.length > 0
+      ? await this.prisma.doctorService.findMany({
+          where: {
+            tenantId,
+            doctorId: { in: userIds },
+          },
+          include: {
+            service: true,
+          },
+        })
+      : [];
+
+    const doctorServicesMap = new Map<string, Array<{
+      serviceId: string;
+      customPrice: number;
+      serviceName?: string;
+      basePrice?: number;
+    }>>();
+
+    for (const ds of doctorServices) {
+      const list = doctorServicesMap.get(ds.doctorId) || [];
+      list.push({
+        serviceId: ds.serviceId,
+        customPrice: Number(ds.customPrice),
+        serviceName: ds.service?.name,
+        basePrice: ds.service ? Number(ds.service.price) : undefined,
+      });
+      doctorServicesMap.set(ds.doctorId, list);
+    }
+
     return users.map((u) => {
       const primaryUserBranch =
         (effectiveBranchId && effectiveBranchId !== 'all'
@@ -1407,6 +1438,7 @@ export class ClinicUsersService {
             }
           : null,
         roles: ['Clinic Doctor'],
+        services: doctorServicesMap.get(u.id) || [],
       };
     });
   }
@@ -1605,6 +1637,34 @@ export class ClinicUsersService {
         },
       });
 
+      // Sync assigned services and custom pricing
+      if (dto.services && dto.services.length > 0) {
+        const serviceIds = dto.services.map((s) => s.serviceId);
+        const validServices = await tx.service.findMany({
+          where: {
+            id: { in: serviceIds },
+            tenantId,
+          },
+          select: { id: true },
+        });
+        const validServiceIdSet = new Set(validServices.map((vs) => vs.id));
+
+        const servicesToCreate = dto.services
+          .filter((s) => validServiceIdSet.has(s.serviceId))
+          .map((s) => ({
+            tenantId,
+            doctorId: user.id,
+            serviceId: s.serviceId,
+            customPrice: s.customPrice,
+          }));
+
+        if (servicesToCreate.length > 0) {
+          await tx.doctorService.createMany({
+            data: servicesToCreate,
+          });
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           tenantId,
@@ -1772,6 +1832,43 @@ export class ClinicUsersService {
           ...(normalizedColor !== undefined ? { colorCode: normalizedColor } : {}),
         },
       });
+
+      // Sync assigned services and custom pricing
+      if (dto.services !== undefined) {
+        await tx.doctorService.deleteMany({
+          where: {
+            tenantId,
+            doctorId: id,
+          },
+        });
+
+        if (dto.services.length > 0) {
+          const serviceIds = dto.services.map((s) => s.serviceId);
+          const validServices = await tx.service.findMany({
+            where: {
+              id: { in: serviceIds },
+              tenantId,
+            },
+            select: { id: true },
+          });
+          const validServiceIdSet = new Set(validServices.map((vs) => vs.id));
+
+          const servicesToCreate = dto.services
+            .filter((s) => validServiceIdSet.has(s.serviceId))
+            .map((s) => ({
+              tenantId,
+              doctorId: id,
+              serviceId: s.serviceId,
+              customPrice: s.customPrice,
+            }));
+
+          if (servicesToCreate.length > 0) {
+            await tx.doctorService.createMany({
+              data: servicesToCreate,
+            });
+          }
+        }
+      }
 
       await tx.auditLog.create({
         data: {
