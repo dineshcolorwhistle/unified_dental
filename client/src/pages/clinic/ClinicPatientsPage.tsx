@@ -28,7 +28,12 @@ import {
   Activity,
   User,
   Sparkles,
+  FilePlus,
+  History,
+  ClipboardList,
 } from 'lucide-react';
+import { AddPatientNoteModal } from '../../components/clinic/AddPatientNoteModal';
+import { PatientClinicalHistoryModal } from '../../components/clinic/PatientClinicalHistoryModal';
 
 interface PatientRecord {
   id: string;
@@ -125,6 +130,14 @@ export const ClinicPatientsPage: React.FC = () => {
   // Delete modal
   const [deletePatientTarget, setDeletePatientTarget] = useState<PatientRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  // Add Note Modal State
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState<boolean>(false);
+  const [addNoteInitialPatientId, setAddNoteInitialPatientId] = useState<string | null>(null);
+
+  // Clinical History Modal State
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [historyPatient, setHistoryPatient] = useState<PatientRecord | null>(null);
 
   // Form State
   const initialFormState = {
@@ -445,6 +458,17 @@ export const ClinicPatientsPage: React.FC = () => {
     }
   };
 
+  // Handle Clinical Notes & History
+  const handleOpenAddNote = (patient?: PatientRecord | null) => {
+    setAddNoteInitialPatientId(patient ? patient.id : null);
+    setIsAddNoteOpen(true);
+  };
+
+  const handleOpenClinicalHistory = (patient: PatientRecord) => {
+    setHistoryPatient(patient);
+    setIsHistoryOpen(true);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* ──────────────── Header Section ──────────────── */}
@@ -483,24 +507,44 @@ export const ClinicPatientsPage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleOpenCreate}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 18px',
-            fontSize: '13px',
-            fontWeight: 600,
-            borderRadius: '10px',
-            boxShadow: '0 2px 8px rgba(14, 165, 233, 0.25)',
-          }}
-        >
-          <UserPlus size={16} />
-          <span>{t('clinicPatients.addPatientBtn', 'New Patient')}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleOpenAddNote(null)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              fontSize: '13px',
+              fontWeight: 600,
+              borderRadius: '10px',
+            }}
+          >
+            <FilePlus size={16} />
+            <span>{t('clinicPatients.table.addNote', 'Add Note')}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleOpenCreate}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 18px',
+              fontSize: '13px',
+              fontWeight: 600,
+              borderRadius: '10px',
+              boxShadow: '0 2px 8px rgba(14, 165, 233, 0.25)',
+            }}
+          >
+            <UserPlus size={16} />
+            <span>{t('clinicPatients.addPatientBtn', 'New Patient')}</span>
+          </button>
+        </div>
       </div>
 
       {/* ──────────────── KPI Statistics Cards ──────────────── */}
@@ -728,28 +772,28 @@ export const ClinicPatientsPage: React.FC = () => {
               <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', margin: 0 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '24%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '22%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.patient', 'Patient Name & Record')}
                     </th>
                     <th style={{ padding: '12px 18px', textAlign: 'left', width: '10%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.ageGender', 'Age / Gender')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '18%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '16%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.contact', 'Contact Info')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '16%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '14%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.medicalAlert', 'Medical Alert')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '14%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'left', width: '12%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.branch', 'Branch')}
                     </th>
                     <th style={{ padding: '12px 18px', textAlign: 'center', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.status', 'Status')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'center', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      {t('clinicPatients.table.clinicalAction', 'Clinical Action')}
+                    <th style={{ padding: '12px 18px', textAlign: 'center', width: '12%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      {t('clinicPatients.table.clinicalActions', 'Clinical Actions')}
                     </th>
-                    <th style={{ padding: '12px 18px', textAlign: 'right', width: '6%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 18px', textAlign: 'right', width: '8%', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                       {t('clinicPatients.table.actions', 'Actions')}
                     </th>
                   </tr>
@@ -925,38 +969,105 @@ export const ClinicPatientsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Clinical Action: Odontogram */}
+                        {/* Clinical Actions: Odontogram, Add Note, Clinical History */}
                         <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => navigate(`/clinic/patients/${p.id}/odontogram`)}
-                            title={t('clinicPatients.table.odontogram', 'Odontogram')}
-                            style={{
-                              padding: '6px',
-                              borderRadius: '8px',
-                              color: 'var(--primary-600, #0d9488)',
-                              backgroundColor: 'rgba(20, 184, 166, 0.08)',
-                              border: '1px solid rgba(20, 184, 166, 0.25)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              minWidth: '34px',
-                              minHeight: '34px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.18)';
-                              e.currentTarget.style.borderColor = 'var(--primary-500, #14b8a6)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.08)';
-                              e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
-                            }}
-                          >
-                            <ToothIcon size={18} />
-                          </button>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            {/* 1. Odontogram */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => navigate(`/clinic/patients/${p.id}/odontogram`)}
+                              title={t('clinicPatients.table.odontogram', 'Odontogram')}
+                              style={{
+                                padding: '6px',
+                                borderRadius: '8px',
+                                color: 'var(--primary-600, #0d9488)',
+                                backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                                border: '1px solid rgba(20, 184, 166, 0.25)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: '34px',
+                                minHeight: '34px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.18)';
+                                e.currentTarget.style.borderColor = 'var(--primary-500, #14b8a6)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.08)';
+                                e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+                              }}
+                            >
+                              <ToothIcon size={18} />
+                            </button>
+
+                            {/* 2. Add Note */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => handleOpenAddNote(p)}
+                              title={t('clinicPatients.table.addNote', 'Add Note')}
+                              style={{
+                                padding: '6px',
+                                borderRadius: '8px',
+                                color: 'var(--primary-600, #0284c7)',
+                                backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                                border: '1px solid rgba(14, 165, 233, 0.25)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: '34px',
+                                minHeight: '34px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.18)';
+                                e.currentTarget.style.borderColor = 'var(--primary-500, #0284c7)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.08)';
+                                e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.25)';
+                              }}
+                            >
+                              <FilePlus size={17} />
+                            </button>
+
+                            {/* 3. Clinical History */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => handleOpenClinicalHistory(p)}
+                              title={t('clinicPatients.table.clinicalHistory', 'Clinical History')}
+                              style={{
+                                padding: '6px',
+                                borderRadius: '8px',
+                                color: 'var(--indigo-600, #6366f1)',
+                                backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                                border: '1px solid rgba(99, 102, 241, 0.25)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: '34px',
+                                minHeight: '34px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.18)';
+                                e.currentTarget.style.borderColor = 'var(--indigo-500, #6366f1)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
+                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                              }}
+                            >
+                              <History size={17} />
+                            </button>
+                          </div>
                         </td>
 
                         {/* Actions (Delete only visible for Tenant Admin) */}
@@ -1999,6 +2110,7 @@ export const ClinicPatientsPage: React.FC = () => {
                 padding: '14px 24px',
                 borderTop: '1px solid var(--border-color)',
                 backgroundColor: 'var(--header-bg, #ffffff)',
+                flexWrap: 'wrap',
               }}
             >
               <button
@@ -2007,7 +2119,47 @@ export const ClinicPatientsPage: React.FC = () => {
                 onClick={() => setViewingPatient(null)}
                 style={{ fontSize: '13px' }}
               >
-                Close
+                {t('common.close', 'Close')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const p = viewingPatient;
+                  setViewingPatient(null);
+                  handleOpenAddNote(p);
+                }}
+                style={{
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--primary-600, #0284c7)',
+                  borderColor: 'rgba(14, 165, 233, 0.3)',
+                }}
+              >
+                <FilePlus size={14} />
+                {t('clinicPatients.table.addNote', 'Add Note')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const p = viewingPatient;
+                  setViewingPatient(null);
+                  handleOpenClinicalHistory(p);
+                }}
+                style={{
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--indigo-600, #6366f1)',
+                  borderColor: 'rgba(99, 102, 241, 0.3)',
+                }}
+              >
+                <History size={14} />
+                {t('clinicPatients.table.clinicalHistory', 'Clinical History')}
               </button>
               <button
                 type="button"
@@ -2127,6 +2279,34 @@ export const ClinicPatientsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ──────────────── ADD PATIENT NOTE MODAL ──────────────── */}
+      <AddPatientNoteModal
+        isOpen={isAddNoteOpen}
+        onClose={() => {
+          setIsAddNoteOpen(false);
+          setAddNoteInitialPatientId(null);
+        }}
+        onSuccess={() => {
+          // History modal or other views can be updated
+        }}
+        initialPatientId={addNoteInitialPatientId}
+        patientsList={patients}
+      />
+
+      {/* ──────────────── PATIENT CLINICAL HISTORY MODAL ──────────────── */}
+      <PatientClinicalHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => {
+          setIsHistoryOpen(false);
+          setHistoryPatient(null);
+        }}
+        patient={historyPatient}
+        onOpenAddNote={(pid) => {
+          setAddNoteInitialPatientId(pid);
+          setIsAddNoteOpen(true);
+        }}
+      />
     </div>
   );
 };

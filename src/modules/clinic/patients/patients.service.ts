@@ -10,6 +10,8 @@ import { AuthenticatedUser } from '../../../shared/common/decorators/current-use
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { QueryPatientDto } from './dto/query-patient.dto';
+import { CreatePatientNoteDto } from './dto/create-patient-note.dto';
+import { QueryPatientNoteDto } from './dto/query-patient-note.dto';
 import { PatientStatus, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -369,5 +371,210 @@ export class PatientsService {
     });
 
     return { success: true, message: 'Patient removed successfully' };
+  }
+
+  /**
+   * Create a new clinical note for a patient
+   */
+  async createNote(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    dto: CreatePatientNoteDto,
+    patientIdParam?: string,
+  ) {
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const patientId = patientIdParam || dto.patientId;
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    // Verify patient exists and belongs to current tenant
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, tenantId },
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID '${patientId}' not found`);
+    }
+
+    const noteDate = dto.noteDate ? new Date(dto.noteDate) : new Date();
+    if (isNaN(noteDate.getTime())) {
+      throw new BadRequestException('Invalid note date format');
+    }
+
+    const createdNote = await this.prisma.patientNote.create({
+      data: {
+        tenantId,
+        patientId,
+        createdById: actor.id,
+        noteDate,
+        topic: dto.topic ? dto.topic.trim() : null,
+        note: dto.note.trim(),
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Optional audit log recording
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          tenantId,
+          userId: actor.id,
+          action: 'CREATE',
+          resourceType: 'PATIENT_NOTE',
+          resourceId: createdNote.id,
+          newValues: {
+            patientId,
+            topic: createdNote.topic,
+            noteDate: createdNote.noteDate,
+          },
+        },
+      });
+    } catch (auditErr) {
+      // Non-blocking
+    }
+
+    return createdNote;
+  }
+
+  /**
+   * List clinical history notes for a patient with search and pagination
+   */
+  async findPatientNotes(
+    tenantId: string,
+    patientId: string,
+    query?: QueryPatientNoteDto,
+  ) {
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+    if (!patientId) throw new BadRequestException('Patient ID is required');
+
+    // Verify patient exists in tenant and fetch header info
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, tenantId },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID '${patientId}' not found`);
+    }
+
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query?.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PatientNoteWhereInput = {
+      tenantId,
+      patientId,
+    };
+
+    if (query?.search && query.search.trim()) {
+      const q = query.search.trim();
+      where.OR = [
+        { topic: { contains: q, mode: 'insensitive' } },
+        { note: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, notes] = await Promise.all([
+      this.prisma.patientNote.count({ where }),
+      this.prisma.patientNote.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { noteDate: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      notes,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      patient: {
+        id: patient.id,
+        recordNumber: patient.recordNumber,
+        firstName: patient.firstName,
+        fatherLastName: patient.fatherLastName,
+        motherLastName: patient.motherLastName,
+        phoneCountryCode: patient.phoneCountryCode,
+        phoneNumber: patient.phoneNumber,
+        email: patient.email,
+        dateOfBirth: patient.dateOfBirth,
+        gender: patient.gender,
+        branch: patient.branch,
+      },
+    };
+  }
+
+  /**
+   * Delete a clinical note (Author or Tenant Admin)
+   */
+  async deletePatientNote(
+    tenantId: string,
+    patientId: string,
+    noteId: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const note = await this.prisma.patientNote.findFirst({
+      where: { id: noteId, patientId, tenantId },
+    });
+
+    if (!note) {
+      throw new NotFoundException(`Patient note not found`);
+    }
+
+    // Check if actor is author or tenant admin
+    const isAuthor = note.createdById === actor.id;
+    let isAdmin = false;
+    try {
+      await this.assertTenantAdmin(actor, tenantId);
+      isAdmin = true;
+    } catch {
+      isAdmin = false;
+    }
+
+    if (!isAuthor && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to delete this clinical note',
+      );
+    }
+
+    await this.prisma.patientNote.delete({
+      where: { id: noteId },
+    });
+
+    return { success: true, message: 'Clinical note deleted successfully' };
   }
 }

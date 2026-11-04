@@ -130,6 +130,7 @@ model Tenant {
   patientOdontograms          PatientOdontogram[]
   patientOdontogramDiagnostics PatientOdontogramDiagnostic[]
   patientOdontogramTreatments PatientOdontogramTreatment[]
+  patientNotes         PatientNote[]
 
   @@map("tenants")
 }
@@ -294,6 +295,7 @@ model User {
   doctorServices             DoctorService[] @relation("DoctorServices")
   diagnosedOdontograms       PatientOdontogramDiagnostic[]
   createdOdontogramTreatments PatientOdontogramTreatment[]
+  patientNotes               PatientNote[] @relation("PatientNoteCreatedBy")
 
   @@map("users")
 }
@@ -1210,12 +1212,34 @@ model Patient {
   odontogram                  PatientOdontogram?
   odontogramDiagnostics       PatientOdontogramDiagnostic[]
   odontogramTreatments        PatientOdontogramTreatment[]
+  clinicalNotes               PatientNote[]
 
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, branchId])
   @@index([tenantId, recordNumber])
   @@map("patients")
+}
+
+model PatientNote {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  patientId   String    @map("patient_id")
+  createdById String    @map("created_by_id")
+  noteDate    DateTime  @map("note_date")
+  topic       String?   @map("topic")
+  note        String    @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("PatientNoteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, patientId])
+  @@index([patientId, noteDate])
+  @@index([createdById])
+  @@map("patient_notes")
 }
 
 model ClinicWorkingHour {

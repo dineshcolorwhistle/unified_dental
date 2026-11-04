@@ -13,6 +13,8 @@ import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { QueryPatientDto } from './dto/query-patient.dto';
+import { CreatePatientNoteDto } from './dto/create-patient-note.dto';
+import { QueryPatientNoteDto } from './dto/query-patient-note.dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 
 @ApiTags('Dental Clinic — Patients')
@@ -74,5 +76,44 @@ export class PatientsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.patientsService.remove(id, user.activeTenantId, user);
+  }
+
+  @Post('notes')
+  @ApiOperation({ summary: 'Add a new clinical note with patientId in body' })
+  createNote(
+    @Body() dto: CreatePatientNoteDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.patientsService.createNote(user.activeTenantId, user, dto);
+  }
+
+  @Post(':id/notes')
+  @ApiOperation({ summary: 'Add a new clinical note for a specific patient' })
+  createNoteForPatient(
+    @Param('id') id: string,
+    @Body() dto: CreatePatientNoteDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.patientsService.createNote(user.activeTenantId, user, dto, id);
+  }
+
+  @Get(':id/notes')
+  @ApiOperation({ summary: 'Get clinical history notes for a patient' })
+  findPatientNotes(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryPatientNoteDto,
+  ) {
+    return this.patientsService.findPatientNotes(user.activeTenantId, id, query);
+  }
+
+  @Delete(':patientId/notes/:noteId')
+  @ApiOperation({ summary: 'Delete a clinical note (Author or Tenant Admin)' })
+  deletePatientNote(
+    @Param('patientId') patientId: string,
+    @Param('noteId') noteId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.patientsService.deletePatientNote(user.activeTenantId, patientId, noteId, user);
   }
 }
