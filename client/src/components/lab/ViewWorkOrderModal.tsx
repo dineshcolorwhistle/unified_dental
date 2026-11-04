@@ -646,84 +646,46 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
           }}
         >
           <div className="view-wo-header-info">
-            <div className="view-wo-title-row">
-              <h2
-                className="view-wo-title"
-                style={{
-                  fontSize: '19px',
-                  fontWeight: 800,
-                  color: 'var(--text-heading)',
-                  margin: 0,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                WO#: {currentWO?.folioNumber || '—'}
-              </h2>
-            </div>
-            <div className="view-wo-badges-row">
-              {isOrderCompleted && (
-                <span
-                  className="view-wo-badge view-wo-completed-badge"
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                    border: '1px solid rgba(16, 185, 129, 0.35)',
-                    color: '#059669',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                  }}
-                >
-                  <CheckCircle2 size={12} />
-                  <span>
-                    {t('enums.processStatus.COMPLETED', 'Completed')}
-                    {completionDate ? ` (${formatDateTime(completionDate)})` : ''}
-                  </span>
-                </span>
-              )}
-              {currentWO?.boxNumber && (
-                <span
-                  className="view-wo-badge view-wo-box-badge"
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                    border: '1px solid rgba(37, 99, 235, 0.25)',
-                    color: 'var(--primary-600)',
-                  }}
-                >
-                  {t('workOrders.table.boxNumber', 'Box Number')}: {currentWO.boxNumber}
-                </span>
-              )}
-              {currentWO?.deliveryDate && (
-                <span
-                  className="view-wo-badge view-wo-delivery-badge"
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    color: '#059669',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <Calendar size={12} />
-                  <span>{t('workOrders.table.deliveryDate', 'Delivery Date')}: {formatDate(currentWO.deliveryDate)}</span>
-                </span>
-              )}
-            </div>
+            <h2
+              className="view-wo-title"
+              style={{
+                fontSize: '19px',
+                fontWeight: 800,
+                color: 'var(--text-heading)',
+                margin: 0,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              WO#: {currentWO?.folioNumber || '—'}
+            </h2>
           </div>
 
-          <div className="view-wo-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="view-wo-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isOrderCompleted && (
+              <span
+                className="view-wo-badge view-wo-completed-badge"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#059669',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <CheckCircle2 size={13} />
+                <span>
+                  {t('enums.processStatus.COMPLETED', 'Completed')}
+                  {completionDate ? ` (${formatDate(completionDate)})` : ''}
+                </span>
+              </span>
+            )}
+
             {canEdit && (
               <button
                 type="button"
@@ -1174,6 +1136,18 @@ export const ViewWorkOrderModal: React.FC<ViewWorkOrderModalProps> = ({
                             {currentWO.branch?.code ? ` (${currentWO.branch.code})` : ''}
                           </div>
                         </div>
+
+                        {/* Box Number */}
+                        {currentWO.boxNumber && (
+                          <div>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                              {t('workOrders.table.boxNumber', 'BOX NUMBER')}
+                            </span>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginTop: '3px' }}>
+                              {currentWO.boxNumber}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Delivery Date */}
                         <div>
