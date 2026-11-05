@@ -45,6 +45,35 @@ export class UpdateExpenseCategoryDto {
   description?: string;
 }
 
+export class CreateExpenseSubcategoryDto {
+  @ApiProperty({ description: 'Expense subcategory name', example: 'Polymer Liquid' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ description: 'Parent Category ID', example: 'd3b07384-d113-40e9-9a2c-e160e1d13735' })
+  @IsUUID()
+  @IsNotEmpty()
+  categoryId: string;
+
+  @ApiPropertyOptional({ description: 'Detailed description of the subcategory' })
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
+
+export class UpdateExpenseSubcategoryDto {
+  @ApiPropertyOptional({ description: 'Expense subcategory name' })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Detailed description of the subcategory' })
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
+
 export class CreateExpenseDto {
   @ApiProperty({ description: 'Expense title / concept', example: 'Material Acrílico Polímero' })
   @IsString()
@@ -55,6 +84,11 @@ export class CreateExpenseDto {
   @IsUUID()
   @IsNotEmpty()
   categoryId: string;
+
+  @ApiPropertyOptional({ description: 'Optional Subcategory ID', example: 'e4c18495-e224-41fa-8b3d-f271f2e24846' })
+  @IsUUID()
+  @IsOptional()
+  subcategoryId?: string;
 
   @ApiProperty({ description: 'Expense amount', example: 1250.50 })
   @Type(() => Number)
@@ -99,6 +133,11 @@ export class UpdateExpenseDto {
   @IsOptional()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Optional Subcategory ID' })
+  @IsUUID()
+  @IsOptional()
+  subcategoryId?: string;
+
   @ApiPropertyOptional({ description: 'Expense amount' })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -137,6 +176,11 @@ export class QueryExpensesDto {
   @IsString()
   @IsOptional()
   categoryId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by Expense Subcategory ID' })
+  @IsString()
+  @IsOptional()
+  subcategoryId?: string;
 
   @ApiPropertyOptional({ description: 'Start Date (YYYY-MM-DD)' })
   @IsString()

@@ -25,7 +25,9 @@ export interface Expense {
   paymentMethod: string;
   branchId: string;
   categoryId: string;
+  subcategoryId?: string;
   category?: { id: string; name: string };
+  subcategory?: { id: string; name: string };
   branch?: { id: string; name: string; code?: string };
   createdBy?: { id: string; name: string; email: string };
   createdAt?: string;
@@ -188,6 +190,26 @@ export const ViewExpenseModal: React.FC<ViewExpenseModalProps> = ({
                 <Tag size={13} />
                 <span>{expense.category?.name || '—'}</span>
               </span>
+
+              {expense.subcategory?.name && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-heading)',
+                  }}
+                >
+                  <Tag size={13} style={{ opacity: 0.7 }} />
+                  <span>{expense.subcategory.name}</span>
+                </span>
+              )}
 
               <span
                 style={{

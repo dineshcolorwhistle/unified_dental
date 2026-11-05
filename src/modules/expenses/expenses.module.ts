@@ -7,6 +7,8 @@ import { ExpensesController } from './expenses.controller';
 import { ExpensesService } from './expenses.service';
 import { ExpenseCategoriesController } from './expense-categories.controller';
 import { ExpenseCategoriesService } from './expense-categories.service';
+import { ExpenseSubcategoriesController } from './expense-subcategories.controller';
+import { ExpenseSubcategoriesService } from './expense-subcategories.service';
 
 @Module({
   imports: [
@@ -17,15 +19,18 @@ import { ExpenseCategoriesService } from './expense-categories.service';
   ],
   controllers: [
     ExpenseCategoriesController,
+    ExpenseSubcategoriesController,
     ExpensesController,
   ],
   providers: [
     ExpensesService,
     ExpenseCategoriesService,
+    ExpenseSubcategoriesService,
   ],
   exports: [
     ExpensesService,
     ExpenseCategoriesService,
+    ExpenseSubcategoriesService,
   ],
 })
 export class ExpensesModule {}

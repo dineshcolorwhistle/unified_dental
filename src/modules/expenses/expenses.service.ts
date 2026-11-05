@@ -196,6 +196,11 @@ export class ExpensesService {
       where.categoryId = query.categoryId;
     }
 
+    // Subcategory filter
+    if (query.subcategoryId && query.subcategoryId !== 'all') {
+      where.subcategoryId = query.subcategoryId;
+    }
+
     // Search filter
     if (query.search && query.search.trim()) {
       const search = query.search.trim();
@@ -253,6 +258,9 @@ export class ExpensesService {
           category: {
             select: { id: true, name: true },
           },
+          subcategory: {
+            select: { id: true, name: true },
+          },
           branch: {
             select: { id: true, name: true, code: true },
           },
@@ -291,6 +299,7 @@ export class ExpensesService {
       where: { id },
       include: {
         category: true,
+        subcategory: true,
         branch: {
           select: { id: true, name: true, code: true },
         },
@@ -340,6 +349,21 @@ export class ExpensesService {
       throw new BadRequestException('Invalid expense category specified.');
     }
 
+    if (dto.subcategoryId) {
+      const subcategory = await this.prisma.expenseSubcategory.findUnique({
+        where: { id: dto.subcategoryId },
+      });
+      if (
+        !subcategory ||
+        subcategory.tenantId !== tenantId ||
+        subcategory.categoryId !== category.id
+      ) {
+        throw new BadRequestException(
+          'Invalid expense subcategory specified for the selected category.',
+        );
+      }
+    }
+
     const expenseDate = this.normalizeDateToUtcNoon(dto.expenseDate);
 
     return this.prisma.expense.create({
@@ -348,6 +372,7 @@ export class ExpensesService {
         branchId,
         moduleKey,
         categoryId: category.id,
+        subcategoryId: dto.subcategoryId || null,
         title: dto.title.trim(),
         description: dto.description?.trim() || null,
         amount: new Decimal(dto.amount),
@@ -357,6 +382,9 @@ export class ExpensesService {
       },
       include: {
         category: {
+          select: { id: true, name: true },
+        },
+        subcategory: {
           select: { id: true, name: true },
         },
         branch: {
@@ -412,12 +440,31 @@ export class ExpensesService {
       }
     }
 
+    if (dto.subcategoryId !== undefined) {
+      if (dto.subcategoryId) {
+        const effectiveCategoryId = dto.categoryId || expense.categoryId;
+        const subcategory = await this.prisma.expenseSubcategory.findUnique({
+          where: { id: dto.subcategoryId },
+        });
+        if (
+          !subcategory ||
+          subcategory.tenantId !== tenantId ||
+          subcategory.categoryId !== effectiveCategoryId
+        ) {
+          throw new BadRequestException(
+            'Invalid expense subcategory specified for the selected category.',
+          );
+        }
+      }
+    }
+
     return this.prisma.expense.update({
       where: { id },
       data: {
         title: dto.title ? dto.title.trim() : undefined,
         description: dto.description !== undefined ? dto.description?.trim() || null : undefined,
         categoryId: dto.categoryId || undefined,
+        subcategoryId: dto.subcategoryId !== undefined ? (dto.subcategoryId || null) : undefined,
         amount: dto.amount !== undefined ? new Decimal(dto.amount) : undefined,
         expenseDate: dto.expenseDate ? this.normalizeDateToUtcNoon(dto.expenseDate) : undefined,
         paymentMethod: dto.paymentMethod ? dto.paymentMethod.trim() : undefined,
@@ -425,6 +472,9 @@ export class ExpensesService {
       },
       include: {
         category: {
+          select: { id: true, name: true },
+        },
+        subcategory: {
           select: { id: true, name: true },
         },
         branch: {

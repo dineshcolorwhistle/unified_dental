@@ -151,18 +151,81 @@ export class ExpenseCategoriesService {
       ];
     }
 
-    return this.prisma.expenseCategory.findMany({
+    const categories = await this.prisma.expenseCategory.findMany({
       where,
       include: {
         branch: {
           select: { id: true, name: true, code: true },
         },
         _count: {
-          select: { expenses: true },
+          select: { expenses: true, subcategories: true },
+        },
+        subcategories: {
+          include: {
+            _count: {
+              select: { expenses: true },
+            },
+          },
+          orderBy: { name: 'asc' },
         },
       },
       orderBy: { name: 'asc' },
     });
+
+    if (categories.length === 0) {
+      return [];
+    }
+
+    const categoryIds = categories.map((c) => c.id);
+
+    // Aggregate category and subcategory sums
+    const expenseWhere: any = {
+      tenantId,
+      categoryId: { in: categoryIds },
+    };
+    if (moduleKey) {
+      expenseWhere.moduleKey = moduleKey;
+    }
+    if (resolvedBranchId) {
+      expenseWhere.branchId = resolvedBranchId;
+    }
+
+    const [categorySums, subcategorySums] = await Promise.all([
+      this.prisma.expense.groupBy({
+        by: ['categoryId'],
+        where: expenseWhere,
+        _sum: { amount: true },
+      }),
+      this.prisma.expense.groupBy({
+        by: ['subcategoryId'],
+        where: {
+          ...expenseWhere,
+          subcategoryId: { not: null },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const catSumMap = new Map<string, number>();
+    for (const item of categorySums) {
+      catSumMap.set(item.categoryId, item._sum.amount ? Number(item._sum.amount) : 0);
+    }
+
+    const subSumMap = new Map<string, number>();
+    for (const item of subcategorySums) {
+      if (item.subcategoryId) {
+        subSumMap.set(item.subcategoryId, item._sum.amount ? Number(item._sum.amount) : 0);
+      }
+    }
+
+    return categories.map((cat) => ({
+      ...cat,
+      totalAmount: catSumMap.get(cat.id) || 0,
+      subcategories: (cat.subcategories || []).map((sub) => ({
+        ...sub,
+        totalAmount: subSumMap.get(sub.id) || 0,
+      })),
+    }));
   }
 
   /**
@@ -283,7 +346,7 @@ export class ExpenseCategoriesService {
       where: { id },
       include: {
         _count: {
-          select: { expenses: true },
+          select: { expenses: true, subcategories: true },
         },
       },
     });
@@ -295,6 +358,12 @@ export class ExpenseCategoriesService {
     if (category._count.expenses > 0) {
       throw new ConflictException(
         `Cannot delete category '${category.name}' because it is currently linked to ${category._count.expenses} expense(s). Please reassign or delete linked expenses first.`,
+      );
+    }
+
+    if (category._count.subcategories > 0) {
+      throw new ConflictException(
+        `Cannot delete category '${category.name}' because it contains ${category._count.subcategories} subcategory(ies). Please delete its subcategories first.`,
       );
     }
 

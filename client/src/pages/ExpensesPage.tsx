@@ -13,6 +13,10 @@ import {
   X,
   AlertTriangle,
   Eye,
+  ChevronRight,
+  ChevronDown,
+  FolderPlus,
+  Tag,
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../core/context/AuthContext';
@@ -26,13 +30,25 @@ import { formatDate, formatCurrency } from '../core/utils/dateUtils';
 import { ViewExpenseModal } from '../components/expenses/ViewExpenseModal';
 import { paymentMethodService, PaymentMethodItem } from '../services/paymentMethodService';
 
+export interface ExpenseSubcategory {
+  id: string;
+  name: string;
+  description?: string;
+  categoryId: string;
+  category?: { id: string; name: string };
+  _count?: { expenses: number };
+  totalAmount?: number;
+}
+
 interface ExpenseCategory {
   id: string;
   name: string;
   description?: string;
   branchId?: string;
   branch?: { id: string; name: string; code?: string };
-  _count?: { expenses: number };
+  _count?: { expenses: number; subcategories?: number };
+  totalAmount?: number;
+  subcategories?: ExpenseSubcategory[];
 }
 
 interface Expense {
@@ -44,7 +60,9 @@ interface Expense {
   paymentMethod: string;
   branchId: string;
   categoryId: string;
+  subcategoryId?: string;
   category?: { id: string; name: string };
+  subcategory?: { id: string; name: string };
   branch?: { id: string; name: string; code?: string };
   createdBy?: { id: string; name: string; email: string };
   createdAt?: string;
@@ -97,6 +115,7 @@ export const ExpensesPage: React.FC = () => {
   // Filter states
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>(getInitialDateRange);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
 
@@ -119,6 +138,9 @@ export const ExpensesPage: React.FC = () => {
   const [categoryPage, setCategoryPage] = useState(1);
   const [categoryPageSize, setCategoryPageSize] = useState(15);
 
+  // Expanded categories accordion map
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
   // Modal states
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -127,6 +149,7 @@ export const ExpensesPage: React.FC = () => {
     expenseDate: new Date().toISOString().split('T')[0],
     title: '',
     categoryId: '',
+    subcategoryId: '',
     description: '',
     amount: '',
     paymentMethod: 'BBVA Crédito',
@@ -141,8 +164,17 @@ export const ExpensesPage: React.FC = () => {
     branchId: '',
   });
 
+  const [isSubcategoryModalOpen, setIsSubcategoryModalOpen] = useState(false);
+  const [editingSubcategory, setEditingSubcategory] = useState<ExpenseSubcategory | null>(null);
+  const [subcategoryForm, setSubcategoryForm] = useState({
+    categoryId: '',
+    name: '',
+    description: '',
+  });
+
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<ExpenseCategory | null>(null);
+  const [deletingSubcategory, setDeletingSubcategory] = useState<ExpenseSubcategory | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Available branches list scoped strictly to current active module mode
@@ -155,6 +187,7 @@ export const ExpensesPage: React.FC = () => {
   useEffect(() => {
     setSelectedBranch('all');
     setSelectedCategory('all');
+    setSelectedSubcategory('all');
     setPage(1);
     setCategoryPage(1);
   }, [currentModuleKey]);
@@ -201,6 +234,7 @@ export const ExpensesPage: React.FC = () => {
         params: {
           search: search.trim() || undefined,
           categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
+          subcategoryId: selectedSubcategory !== 'all' ? selectedSubcategory : undefined,
           startDate: dateRange.startDate || undefined,
           endDate: dateRange.endDate || undefined,
           branchId: selectedBranch !== 'all' ? selectedBranch : undefined,
@@ -225,7 +259,7 @@ export const ExpensesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user, isTenantAdmin, search, selectedCategory, dateRange, selectedBranch, currentModuleKey, page, pageSize, toast, t]);
+  }, [authLoading, user, isTenantAdmin, search, selectedCategory, selectedSubcategory, dateRange, selectedBranch, currentModuleKey, page, pageSize, toast, t]);
 
   useEffect(() => {
     fetchCategories();
@@ -260,6 +294,7 @@ export const ExpensesPage: React.FC = () => {
   const handleResetFilters = () => {
     setSearch('');
     setSelectedCategory('all');
+    setSelectedSubcategory('all');
     setSelectedBranch('all');
     setDateRange(getInitialDateRange());
     setPage(1);
@@ -272,6 +307,7 @@ export const ExpensesPage: React.FC = () => {
       expenseDate: new Date().toISOString().split('T')[0],
       title: '',
       categoryId: categories.length > 0 ? categories[0].id : '',
+      subcategoryId: '',
       description: '',
       amount: '',
       paymentMethod: paymentMethodOptions.length > 0 ? paymentMethodOptions[0].value : (configuredPaymentMethods.find((pm) => !pm.type || pm.type === 'EXPENSE' || pm.type === 'BOTH')?.name || ''),
@@ -286,6 +322,7 @@ export const ExpensesPage: React.FC = () => {
       expenseDate: expense.expenseDate ? expense.expenseDate.split('T')[0] : '',
       title: expense.title,
       categoryId: expense.categoryId,
+      subcategoryId: expense.subcategoryId || '',
       description: expense.description || '',
       amount: String(expense.amount),
       paymentMethod: expense.paymentMethod,
@@ -306,6 +343,7 @@ export const ExpensesPage: React.FC = () => {
       const payload = {
         title: expenseForm.title.trim(),
         categoryId: expenseForm.categoryId,
+        subcategoryId: expenseForm.subcategoryId || undefined,
         amount: parseFloat(expenseForm.amount),
         expenseDate: expenseForm.expenseDate,
         paymentMethod: expenseForm.paymentMethod,
@@ -422,11 +460,107 @@ export const ExpensesPage: React.FC = () => {
     }
   };
 
+  // Subcategory Actions
+  const toggleExpandCategory = (catId: string) => {
+    setExpandedCategories((p) => ({ ...p, [catId]: !p[catId] }));
+  };
+
+  const handleOpenAddSubcategory = (preselectedCatId?: string) => {
+    setEditingSubcategory(null);
+    setSubcategoryForm({
+      categoryId: preselectedCatId || (categories.length > 0 ? categories[0].id : ''),
+      name: '',
+      description: '',
+    });
+    setIsSubcategoryModalOpen(true);
+  };
+
+  const handleOpenEditSubcategory = (sub: ExpenseSubcategory) => {
+    setEditingSubcategory(sub);
+    setSubcategoryForm({
+      categoryId: sub.categoryId,
+      name: sub.name,
+      description: sub.description || '',
+    });
+    setIsSubcategoryModalOpen(true);
+  };
+
+  const handleSubmitSubcategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subcategoryForm.name.trim() || !subcategoryForm.categoryId) return;
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: subcategoryForm.name.trim(),
+        categoryId: subcategoryForm.categoryId,
+        description: subcategoryForm.description.trim() || undefined,
+      };
+
+      if (editingSubcategory) {
+        await api.patch(`/expenses/subcategories/${editingSubcategory.id}`, payload);
+        toast.success(t('expenses.toast.updatedSubcategory'));
+      } else {
+        await api.post('/expenses/subcategories', payload);
+        toast.success(t('expenses.toast.createdSubcategory'));
+        setExpandedCategories((p) => ({ ...p, [subcategoryForm.categoryId]: true }));
+      }
+
+      setIsSubcategoryModalOpen(false);
+      fetchCategories();
+      fetchExpenses();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || t('expenses.toast.errorSubcategory');
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmDeleteSubcategory = async () => {
+    if (!deletingSubcategory) return;
+    setSubmitting(true);
+    try {
+      await api.delete(`/expenses/subcategories/${deletingSubcategory.id}`);
+      toast.success(t('expenses.toast.deletedSubcategory'));
+      setDeletingSubcategory(null);
+      fetchCategories();
+      fetchExpenses();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || t('expenses.toast.errorSubcategory');
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Select Options
   const categoryFilterOptions = [
     { value: 'all', label: t('expenses.filters.categoryAll') },
     ...categories.map((c) => ({ value: c.id, label: c.name })),
   ];
+
+  const subcategoryFilterOptions = useMemo(() => {
+    if (selectedCategory === 'all') {
+      const allSubs = categories.flatMap((c) => c.subcategories || []);
+      return [
+        { value: 'all', label: t('expenses.filters.subcategoryAll') },
+        ...allSubs.map((s) => ({ value: s.id, label: s.name })),
+      ];
+    }
+    const cat = categories.find((c) => c.id === selectedCategory);
+    const subs = cat?.subcategories || [];
+    return [
+      { value: 'all', label: t('expenses.filters.subcategoryAll') },
+      ...subs.map((s) => ({ value: s.id, label: s.name })),
+    ];
+  }, [categories, selectedCategory, t]);
+
+  const expenseFormSubcategoryOptions = useMemo(() => {
+    if (!expenseForm.categoryId) return [];
+    const cat = categories.find((c) => c.id === expenseForm.categoryId);
+    return (cat?.subcategories || []).map((s) => ({ value: s.id, label: s.name }));
+  }, [categories, expenseForm.categoryId]);
 
   const branchFilterOptions = [
     { value: 'all', label: t('expenses.filters.branchAll') },
@@ -556,7 +690,7 @@ export const ExpensesPage: React.FC = () => {
 
       {/* Primary Action Button (Lab Admin only; Tenant Admin can only view and delete) */}
       {!isTenantAdmin && (
-        <div style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {activeTab === 'expenses' ? (
             <button
               type="button"
@@ -575,22 +709,42 @@ export const ExpensesPage: React.FC = () => {
               <span>{t('expenses.addExpense')}</span>
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleOpenAddCategory}
-              className="btn btn-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 18px',
-                fontWeight: 600,
-                fontSize: '13.5px',
-              }}
-            >
-              <Plus size={16} />
-              <span>{t('expenses.addCategory')}</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleOpenAddCategory}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 18px',
+                  fontWeight: 600,
+                  fontSize: '13.5px',
+                }}
+              >
+                <Plus size={16} />
+                <span>{t('expenses.addCategory')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOpenAddSubcategory()}
+                className="btn btn-secondary"
+                disabled={categories.length === 0}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 18px',
+                  fontWeight: 600,
+                  fontSize: '13.5px',
+                }}
+              >
+                <FolderPlus size={16} />
+                <span>{t('expenses.addSubcategory')}</span>
+              </button>
+            </>
           )}
         </div>
       )}
@@ -635,15 +789,29 @@ export const ExpensesPage: React.FC = () => {
           </div>
 
           {/* Category Filter */}
-          <div style={{ width: '200px' }}>
+          <div style={{ width: '190px' }}>
             <SearchableSelect
               options={categoryFilterOptions}
               value={selectedCategory}
               onChange={(val) => {
                 setSelectedCategory(val);
+                setSelectedSubcategory('all');
                 setPage(1);
               }}
               placeholder={t('expenses.filters.categoryAll')}
+            />
+          </div>
+
+          {/* Subcategory Filter */}
+          <div style={{ width: '190px' }}>
+            <SearchableSelect
+              options={subcategoryFilterOptions}
+              value={selectedSubcategory}
+              onChange={(val) => {
+                setSelectedSubcategory(val);
+                setPage(1);
+              }}
+              placeholder={t('expenses.filters.subcategoryAll')}
             />
           </div>
 
@@ -926,19 +1094,40 @@ export const ExpensesPage: React.FC = () => {
                         )}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '3px 9px',
-                            borderRadius: '6px',
-                            fontSize: '11.5px',
-                            fontWeight: 600,
-                            backgroundColor: 'var(--badge-primary-bg)',
-                            color: 'var(--primary-600)',
-                          }}
-                        >
-                          {expense.category?.name || '—'}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              alignSelf: 'flex-start',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              backgroundColor: 'var(--badge-primary-bg)',
+                              color: 'var(--primary-600)',
+                            }}
+                          >
+                            {expense.category?.name || '—'}
+                          </span>
+                          {expense.subcategory?.name && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                alignSelf: 'flex-start',
+                                gap: '4px',
+                                fontSize: '11.5px',
+                                color: 'var(--text-muted)',
+                                fontWeight: 500,
+                                paddingLeft: '2px',
+                              }}
+                            >
+                              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--primary-500)', display: 'inline-block' }} />
+                              {expense.subcategory.name}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>
                         {formatCurrency(expense.amount)}
@@ -1041,6 +1230,7 @@ export const ExpensesPage: React.FC = () => {
               totalPages={totalPages}
               totalItems={totalItems}
               pageSize={pageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
               onPageChange={(p) => setPage(p)}
               onPageSizeChange={(newSize) => {
                 setPageSize(newSize);
@@ -1056,6 +1246,7 @@ export const ExpensesPage: React.FC = () => {
             <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'auto' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--table-th-bg)', borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ width: '40px', padding: '10px 8px 10px 14px' }}></th>
                   <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                     {t('expenses.fields.categoryName')}
                   </th>
@@ -1063,7 +1254,13 @@ export const ExpensesPage: React.FC = () => {
                     {t('expenses.fields.categoryDescription')}
                   </th>
                   <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    {t('expenses.fields.subcategoriesCount')}
+                  </th>
+                  <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                     {t('expenses.metrics.expenseCount')}
+                  </th>
+                  <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    {t('expenses.fields.totalAmount')}
                   </th>
                   {isTenantAdmin && (
                     <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -1078,7 +1275,7 @@ export const ExpensesPage: React.FC = () => {
               <tbody>
                 {categories.length === 0 ? (
                   <tr>
-                    <td colSpan={isTenantAdmin ? 5 : 4} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                    <td colSpan={isTenantAdmin ? 8 : 7} style={{ padding: '50px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                         <div
                           style={{
@@ -1109,83 +1306,316 @@ export const ExpensesPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedCategories.map((cat) => (
-                    <tr
-                      key={cat.id}
-                      style={{
-                        borderBottom: '1px solid var(--border-color)',
-                        transition: 'background-color 0.15s ease',
-                      }}
-                    >
-                      <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: '13.5px', color: 'var(--text-heading)' }}>
-                        {cat.name}
-                      </td>
-                      <td style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                        {cat.description || '—'}
-                      </td>
-                      <td style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--text-main)' }}>
-                        {cat._count?.expenses || 0}
-                      </td>
-                      {isTenantAdmin && (
-                        <td style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                          {cat.branch?.name || t('expenses.filters.branchAll')}
-                        </td>
-                      )}
-                      <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                          {/* Edit Category (Lab Admin ONLY — Tenant Admin can only view and delete) */}
-                          {!isTenantAdmin && (
-                            <Tooltip content={t('expenses.editCategory')}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditCategory(cat)}
-                                className="btn-icon"
-                                style={{
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  border: '1px solid var(--border-color)',
-                                  backgroundColor: 'var(--bg-card)',
-                                  color: 'var(--text-main)',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                            </Tooltip>
+                  paginatedCategories.map((cat) => {
+                    const isExpanded = Boolean(expandedCategories[cat.id]);
+                    const subCount = cat.subcategories?.length || 0;
+
+                    return (
+                      <React.Fragment key={cat.id}>
+                        <tr
+                          style={{
+                            borderBottom: '1px solid var(--border-color)',
+                            transition: 'background-color 0.15s ease',
+                            backgroundColor: isExpanded ? 'var(--bg-surface)' : 'transparent',
+                          }}
+                        >
+                          {/* Accordion Expand/Collapse Trigger */}
+                          <td style={{ padding: '10px 8px 10px 14px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandCategory(cat.id)}
+                              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '6px',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </button>
+                          </td>
+
+                          {/* Category Name */}
+                          <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: '13.5px', color: 'var(--text-heading)' }}>
+                            <div
+                              onClick={() => toggleExpandCategory(cat.id)}
+                              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <span>{cat.name}</span>
+                            </div>
+                          </td>
+
+                          {/* Description */}
+                          <td style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                            {cat.description || '—'}
+                          </td>
+
+                          {/* Subcategories Count Badge */}
+                          <td style={{ padding: '10px 14px', fontSize: '13px' }}>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandCategory(cat.id)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '3px 9px',
+                                borderRadius: '6px',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                backgroundColor: subCount > 0 ? 'var(--badge-info-bg, rgba(59, 130, 246, 0.1))' : 'var(--bg-surface)',
+                                color: subCount > 0 ? 'var(--blue-600, #2563eb)' : 'var(--text-muted)',
+                                border: '1px solid var(--border-color)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <FolderPlus size={12} />
+                              <span>{subCount} {t('expenses.fields.subcategoriesCount')}</span>
+                            </button>
+                          </td>
+
+                          {/* Expense Count */}
+                          <td style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>
+                            {cat._count?.expenses || 0}
+                          </td>
+
+                          {/* Total Amount Tracked */}
+                          <td style={{ padding: '10px 14px', fontSize: '13.5px', fontWeight: 700, color: 'var(--primary-600)', whiteSpace: 'nowrap' }}>
+                            {formatCurrency(cat.totalAmount || 0)}
+                          </td>
+
+                          {/* Branch Scoping */}
+                          {isTenantAdmin && (
+                            <td style={{ padding: '10px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                              {cat.branch?.name || t('expenses.filters.branchAll')}
+                            </td>
                           )}
 
-                          {/* Delete Category (Tenant Admin ONLY) */}
-                          {isTenantAdmin && (
-                            <Tooltip content={t('expenses.deleteModal.titleCategory')}>
-                              <button
-                                type="button"
-                                onClick={() => setDeletingCategory(cat)}
-                                className="btn-icon"
+                          {/* Category Actions */}
+                          <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                              {/* Quick Add Subcategory (Non-tenant admin only) */}
+                              {!isTenantAdmin && (
+                                <Tooltip content={t('expenses.addSubcategory')}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenAddSubcategory(cat.id)}
+                                    className="btn-icon"
+                                    style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid var(--border-color)',
+                                      backgroundColor: 'var(--bg-card)',
+                                      color: 'var(--primary-600)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <FolderPlus size={14} />
+                                  </button>
+                                </Tooltip>
+                              )}
+
+                              {/* Edit Category */}
+                              {!isTenantAdmin && (
+                                <Tooltip content={t('expenses.editCategory')}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditCategory(cat)}
+                                    className="btn-icon"
+                                    style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid var(--border-color)',
+                                      backgroundColor: 'var(--bg-card)',
+                                      color: 'var(--text-main)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                </Tooltip>
+                              )}
+
+                              {/* Delete Category (Tenant Admin ONLY) */}
+                              {isTenantAdmin && (
+                                <Tooltip content={t('expenses.deleteModal.titleCategory')}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingCategory(cat)}
+                                    className="btn-icon"
+                                    style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid var(--badge-danger-border, #fecdd3)',
+                                      backgroundColor: 'var(--badge-danger-bg)',
+                                      color: 'var(--badge-danger-text, var(--rose-600))',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Nested Subcategories Expansion Row */}
+                        {isExpanded && (
+                          <tr style={{ backgroundColor: 'var(--bg-surface)' }}>
+                            <td colSpan={isTenantAdmin ? 8 : 7} style={{ padding: '12px 20px 16px 48px' }}>
+                              <div
                                 style={{
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  border: '1px solid var(--badge-danger-border, #fecdd3)',
-                                  backgroundColor: 'var(--badge-danger-bg)',
-                                  color: 'var(--badge-danger-text, var(--rose-600))',
-                                  cursor: 'pointer',
+                                  borderRadius: '10px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: 'var(--bg-card)',
+                                  padding: '14px 18px',
                                 }}
                               >
-                                <Trash2 size={14} />
-                              </button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Tag size={15} style={{ color: 'var(--primary-600)' }} />
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                                      {t('expenses.subcategories')} ({subCount})
+                                    </span>
+                                  </div>
+                                  {!isTenantAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenAddSubcategory(cat.id)}
+                                      className="btn btn-secondary"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '4px 12px',
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      <Plus size={13} />
+                                      <span>{t('expenses.addSubcategory')}</span>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {!cat.subcategories || cat.subcategories.length === 0 ? (
+                                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                    {t('expenses.noSubcategoriesFound')}
+                                  </div>
+                                ) : (
+                                  <div className="table-responsive">
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                                      <thead>
+                                        <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                                          <th style={{ padding: '8px 10px', fontWeight: 600 }}>{t('expenses.fields.subcategoryName')}</th>
+                                          <th style={{ padding: '8px 10px', fontWeight: 600 }}>{t('expenses.fields.subcategoryDescription')}</th>
+                                          <th style={{ padding: '8px 10px', fontWeight: 600 }}>{t('expenses.metrics.expenseCount')}</th>
+                                          <th style={{ padding: '8px 10px', fontWeight: 600 }}>{t('expenses.fields.totalAmount')}</th>
+                                          <th style={{ padding: '8px 10px', fontWeight: 600, textAlign: 'right' }}>{t('expenses.fields.actions')}</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {cat.subcategories.map((sub) => (
+                                          <tr key={sub.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                            <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary-500)' }} />
+                                                <span>{sub.name}</span>
+                                              </div>
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
+                                              {sub.description || '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-main)', fontWeight: 600 }}>
+                                              {sub._count?.expenses || 0}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--primary-600)', whiteSpace: 'nowrap' }}>
+                                              {formatCurrency(sub.totalAmount || 0)}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                                {!isTenantAdmin && (
+                                                  <Tooltip content={t('expenses.editSubcategory')}>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleOpenEditSubcategory(sub)}
+                                                      className="btn-icon"
+                                                      style={{
+                                                        width: '28px',
+                                                        height: '28px',
+                                                        borderRadius: '6px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        border: '1px solid var(--border-color)',
+                                                        backgroundColor: 'var(--bg-surface)',
+                                                        color: 'var(--text-main)',
+                                                        cursor: 'pointer',
+                                                      }}
+                                                    >
+                                                      <Edit2 size={12} />
+                                                    </button>
+                                                  </Tooltip>
+                                                )}
+
+                                                {isTenantAdmin && (
+                                                  <Tooltip content={t('expenses.deleteModal.titleSubcategory')}>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setDeletingSubcategory(sub)}
+                                                      className="btn-icon"
+                                                      style={{
+                                                        width: '28px',
+                                                        height: '28px',
+                                                        borderRadius: '6px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        border: '1px solid var(--badge-danger-border, #fecdd3)',
+                                                        backgroundColor: 'var(--badge-danger-bg)',
+                                                        color: 'var(--badge-danger-text, var(--rose-600))',
+                                                        cursor: 'pointer',
+                                                      }}
+                                                    >
+                                                      <Trash2 size={12} />
+                                                    </button>
+                                                  </Tooltip>
+                                                )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1198,6 +1628,7 @@ export const ExpensesPage: React.FC = () => {
               totalPages={Math.ceil(categories.length / categoryPageSize) || 1}
               totalItems={categories.length}
               pageSize={categoryPageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
               onPageChange={(p) => setCategoryPage(p)}
               onPageSizeChange={(newSize) => {
                 setCategoryPageSize(newSize);
@@ -1272,8 +1703,8 @@ export const ExpensesPage: React.FC = () => {
             {/* Modal Form */}
             <form onSubmit={handleSubmitExpense} style={{ padding: '24px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                {/* Row 1: Date, Title, Category */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+                {/* Row 1: Date, Title, Category, Subcategory */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '16px' }}>
                   {/* Expense Date */}
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '6px' }}>
@@ -1313,8 +1744,29 @@ export const ExpensesPage: React.FC = () => {
                     <SearchableSelect
                       options={categoryFormOptions}
                       value={expenseForm.categoryId}
-                      onChange={(val) => setExpenseForm((p) => ({ ...p, categoryId: val }))}
+                      onChange={(val) => setExpenseForm((p) => ({ ...p, categoryId: val, subcategoryId: '' }))}
                       placeholder={t('expenses.placeholders.selectCategory')}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  {/* Subcategory */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '6px' }}>
+                      {t('expenses.fields.subcategory')}
+                    </label>
+                    <SearchableSelect
+                      options={expenseFormSubcategoryOptions}
+                      value={expenseForm.subcategoryId}
+                      onChange={(val) => setExpenseForm((p) => ({ ...p, subcategoryId: val }))}
+                      placeholder={
+                        !expenseForm.categoryId
+                          ? t('expenses.placeholders.selectCategoryFirst')
+                          : expenseFormSubcategoryOptions.length === 0
+                          ? t('expenses.noSubcategories')
+                          : t('expenses.placeholders.selectSubcategoryOptional')
+                      }
+                      disabled={!expenseForm.categoryId || expenseFormSubcategoryOptions.length === 0}
                       style={{ width: '100%' }}
                     />
                   </div>
@@ -1738,6 +2190,236 @@ export const ExpensesPage: React.FC = () => {
                 type="button"
                 disabled={submitting}
                 onClick={handleConfirmDeleteCategory}
+                className="btn btn-danger"
+                style={{
+                  padding: '8px 20px',
+                  fontSize: '13px',
+                }}
+              >
+                {submitting ? t('expenses.deleteModal.deleting') : t('expenses.deleteModal.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Subcategory Modal */}
+      {isSubcategoryModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1050,
+            padding: '20px',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              backgroundColor: 'var(--bg-modal)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              width: '100%',
+              maxWidth: '520px',
+              padding: 0,
+              overflow: 'hidden',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 24px',
+                borderBottom: '1px solid var(--border-color)',
+              }}
+            >
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                  {editingSubcategory ? t('expenses.modals.editSubcategoryTitle') : t('expenses.modals.addSubcategoryTitle')}
+                </h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  {editingSubcategory ? t('expenses.modals.editSubcategorySubtitle') : t('expenses.modals.addSubcategorySubtitle')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSubcategoryModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSubmitSubcategory} style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* Parent Category */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '6px' }}>
+                    {t('expenses.fields.parentCategory')} *
+                  </label>
+                  <SearchableSelect
+                    options={categoryFormOptions}
+                    value={subcategoryForm.categoryId}
+                    onChange={(val) => setSubcategoryForm((p) => ({ ...p, categoryId: val }))}
+                    placeholder={t('expenses.placeholders.selectCategory')}
+                    disabled={Boolean(editingSubcategory)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                {/* Subcategory Name */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '6px' }}>
+                    {t('expenses.fields.subcategoryName')} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="input"
+                    placeholder={t('expenses.placeholders.subcategoryName')}
+                    value={subcategoryForm.name}
+                    onChange={(e) => setSubcategoryForm((p) => ({ ...p, name: e.target.value }))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '6px' }}>
+                    {t('expenses.fields.subcategoryDescription')}
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="input"
+                    placeholder={t('expenses.placeholders.subcategoryDescription')}
+                    value={subcategoryForm.description}
+                    onChange={(e) => setSubcategoryForm((p) => ({ ...p, description: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      minHeight: '75px',
+                      padding: '10px 12px',
+                      resize: 'vertical',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: '12px',
+                  marginTop: '28px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid var(--border-color)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsSubcategoryModalOpen(false)}
+                  className="btn btn-secondary"
+                  disabled={submitting}
+                >
+                  {t('expenses.buttons.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn btn-primary"
+                >
+                  {submitting
+                    ? t('expenses.buttons.submitting')
+                    : editingSubcategory
+                    ? t('expenses.buttons.saveChanges')
+                    : t('expenses.buttons.submit')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Subcategory Modal (Tenant Admin ONLY) */}
+      {deletingSubcategory && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1060,
+            padding: '16px',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              backgroundColor: 'var(--bg-modal)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              width: '100%',
+              maxWidth: '440px',
+              padding: '24px',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(244, 63, 94, 0.15)',
+                color: '#f43f5e',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px auto',
+              }}
+            >
+              <AlertTriangle size={24} />
+            </div>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 8px 0' }}>
+              {t('expenses.deleteModal.titleSubcategory')}
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px 0' }}>
+              {t('expenses.deleteModal.msgSubcategory')}
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setDeletingSubcategory(null)}
+                className="btn btn-secondary"
+                style={{
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                }}
+              >
+                {t('expenses.deleteModal.cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleConfirmDeleteSubcategory}
                 className="btn btn-danger"
                 style={{
                   padding: '8px 20px',
