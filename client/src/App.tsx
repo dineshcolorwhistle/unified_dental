@@ -61,6 +61,7 @@ import { ClinicServicesPage } from './pages/clinic/ClinicServicesPage';
 import { ClinicWhatsappTemplatesPage } from './pages/clinic/ClinicWhatsappTemplatesPage';
 import { ClinicOdontogramSettingsPage } from './pages/clinic/ClinicOdontogramSettingsPage';
 import { PatientOdontogramPage } from './pages/clinic/PatientOdontogramPage';
+import { PatientTreatmentPlanPage } from './pages/clinic/PatientTreatmentPlanPage';
 import './i18n';
 
 const ProtectedRoute: React.FC<{
@@ -238,6 +239,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/users/doctors" element={<ProtectedRoute><FeatureProtectedRoute feature="clinic_users"><ClinicUsersDoctorsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/patients" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><ClinicPatientsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/patients/:patientId/odontogram" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><PatientOdontogramPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/patients/:patientId/treatment-plan" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><PatientTreatmentPlanPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicAppointmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments/working-hours" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicWorkingHoursPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/income" element={<ProtectedRoute><FeatureProtectedRoute feature="income"><ClinicIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />

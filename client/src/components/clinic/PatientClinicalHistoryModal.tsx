@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api';
+import { clinicOdontogramService } from '../../services/clinicOdontogramService';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { Pagination } from '../common/Pagination';
+import { ToothIcon } from '../common/ToothIcon';
 import { formatDate } from '../../core/utils/dateUtils';
 import {
   X,
@@ -20,6 +23,7 @@ import {
   RefreshCw,
   Phone,
   FileText,
+  ClipboardList,
 } from 'lucide-react';
 
 export interface PatientNoteItem {
@@ -66,6 +70,7 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
   onOpenAddNote,
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { success, error } = useToast();
   const errorRef = useRef(error);
@@ -75,6 +80,7 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
 
   const [notes, setNotes] = useState<PatientNoteItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [hasTreatments, setHasTreatments] = useState<boolean>(false);
   const [search, setSearch] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(10);
@@ -126,13 +132,32 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
   }, [patient?.id, page, limit, search, t]);
 
   useEffect(() => {
+    let isMounted = true;
     if (isOpen && patient?.id) {
       fetchHistory();
+      // Check if patient has any treatments recorded on the odontogram
+      clinicOdontogramService
+        .getPatientOdontogram(patient.id)
+        .then((res) => {
+          if (isMounted) {
+            setHasTreatments(Boolean(res?.treatments && res.treatments.length > 0));
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch patient odontogram treatments:', err);
+          if (isMounted) {
+            setHasTreatments(false);
+          }
+        });
     } else if (!isOpen) {
       setNotes([]);
       setSearch('');
       setPage(1);
+      setHasTreatments(false);
     }
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, patient?.id, fetchHistory]);
 
   const handleDeleteNote = async (noteId: string) => {
@@ -258,69 +283,79 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
               <History size={22} />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2
-                  style={{
-                    fontSize: '18px',
-                    fontWeight: 800,
-                    margin: 0,
-                    color: 'var(--text-heading, #0f172a)',
-                  }}
-                >
-                  {t('clinicPatients.clinicalHistoryModal.title', 'Clinical History')}
-                </h2>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    color: 'var(--primary-600, #0284c7)',
-                    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                  }}
-                >
-                  {patient.recordNumber}
-                </span>
-              </div>
+              <h2
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  margin: 0,
+                  color: 'var(--text-heading, #0f172a)',
+                }}
+              >
+                {t('clinicPatients.clinicalHistoryModal.title', 'Clinical History')}
+              </h2>
               <div
                 style={{
                   fontSize: '13px',
                   fontWeight: 600,
-                  color: 'var(--text-heading, #1e293b)',
+                  color: 'var(--text-muted, #64748b)',
                   marginTop: '2px',
                 }}
               >
                 {patientFullName}
-                {patient.phoneNumber && (
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 400,
-                      color: 'var(--text-muted, #64748b)',
-                      marginLeft: '8px',
-                    }}
-                  >
-                    • {patient.phoneCountryCode || '+52'} {patient.phoneNumber}
-                  </span>
-                )}
-                {patient.branch?.name && (
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 400,
-                      color: 'var(--text-muted, #64748b)',
-                      marginLeft: '8px',
-                    }}
-                  >
-                    • {patient.branch.name}
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* 1. View Odontogram Button */}
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                onClose();
+                navigate(`/clinic/patients/${patient.id}/odontogram`);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '8px 12px',
+                borderRadius: '8px',
+              }}
+              title={t('clinicPatients.clinicalHistoryModal.viewOdontogram', 'View Odontogram')}
+            >
+              <ToothIcon size={15} />
+              <span>{t('clinicPatients.clinicalHistoryModal.viewOdontogram', 'View Odontogram')}</span>
+            </button>
+
+            {/* 2. Treatment Plan Button (shown only if treatments exist) */}
+            {hasTreatments && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => {
+                  onClose();
+                  navigate(`/clinic/patients/${patient.id}/treatment-plan`);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                }}
+                title={t('clinicPatients.clinicalHistoryModal.treatmentPlan', 'Treatment Plan')}
+              >
+                <ClipboardList size={15} />
+                <span>{t('clinicPatients.clinicalHistoryModal.treatmentPlan', 'Treatment Plan')}</span>
+              </button>
+            )}
+
+            {/* 3. Existing Add Note Button */}
             <button
               type="button"
               className="btn btn-primary"
@@ -338,6 +373,7 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
               <FilePlus size={16} />
               <span>{t('clinicPatients.clinicalHistoryModal.addNoteBtn', 'Add Note')}</span>
             </button>
+
             <button
               type="button"
               className="btn btn-ghost"
