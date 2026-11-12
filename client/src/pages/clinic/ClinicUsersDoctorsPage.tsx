@@ -6,7 +6,8 @@ import { useToast } from '../../core/context/ToastContext';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { Tooltip } from '../../components/common/Tooltip';
 import { Pagination } from '../../components/common/Pagination';
-import { formatDate } from '../../core/utils/dateUtils';
+import { formatDate, getTodayDateString } from '../../core/utils/dateUtils';
+import { exportToCSV, type ExportColumnDef } from '../../core/utils/exportUtils';
 import {
   Stethoscope,
   Plus,
@@ -29,6 +30,7 @@ import {
   Check,
   Briefcase,
   Lock,
+  Download,
 } from 'lucide-react';
 import {
   specializationService,
@@ -762,6 +764,54 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
     setCurrentPage(1);
   }, [search, selectedBranchFilter]);
 
+  // Export Doctors to CSV (6 core fields with language-based dynamic headers)
+  const handleExportDoctors = () => {
+    if (filteredDoctors.length === 0) {
+      toast.error(t('exportDoctors.noRecordsToast', 'No doctors available to export'));
+      return;
+    }
+
+    const columns: ExportColumnDef<ClinicDoctorRecord>[] = [
+      {
+        header: t('exportDoctors.doctorName', 'Doctor Name'),
+        accessor: (doc) => doc.name || '',
+      },
+      {
+        header: t('exportDoctors.clinicPractice', 'Clinic / Practice'),
+        accessor: (doc) => doc.branch?.name || '',
+      },
+      {
+        header: t('exportDoctors.email', 'Email'),
+        accessor: (doc) => doc.email || '',
+      },
+      {
+        header: t('exportDoctors.phone', 'Phone'),
+        accessor: (doc) => doc.phone || '',
+      },
+      {
+        header: t('exportDoctors.specialization', 'Specialization'),
+        accessor: (doc) => doc.specialization || '',
+      },
+      {
+        header: t('exportDoctors.address', 'Address'),
+        accessor: (doc) => doc.address || '',
+      },
+    ];
+
+    const todayStr = getTodayDateString();
+    const filename = `doctors_clinic_${todayStr}`;
+    const exported = exportToCSV(filename, columns, filteredDoctors);
+
+    if (exported) {
+      toast.success(
+        t('exportDoctors.successToast', {
+          count: filteredDoctors.length,
+          defaultValue: `Exported ${filteredDoctors.length} doctor records successfully`,
+        })
+      );
+    }
+  };
+
   const handleOpenCreateModal = () => {
     const nextColor = findNextAvailableColor(doctorsList);
     setCreateFormData({
@@ -1015,8 +1065,28 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Add Doctor Button (Rule 1 & Rule 2) */}
-        <div>
+        {/* Action Buttons: Export & Add Doctor */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportDoctors}
+            disabled={loading || filteredDoctors.length === 0}
+            title={t('exportDoctors.exportBtn', 'Export CSV')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: 600,
+              padding: '10px 18px',
+              borderRadius: '8px',
+              minHeight: '40px',
+            }}
+          >
+            <Download size={17} />
+            <span>{t('exportDoctors.exportBtn', 'Export CSV')}</span>
+          </button>
+
           {isTenantAdmin ? (
             <Tooltip
               content={t(

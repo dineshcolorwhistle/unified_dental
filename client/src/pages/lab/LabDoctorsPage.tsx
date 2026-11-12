@@ -12,6 +12,8 @@ import api from '../../services/api';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { Tooltip } from '../../components/common/Tooltip';
 import { Pagination } from '../../components/common/Pagination';
+import { exportToCSV, type ExportColumnDef } from '../../core/utils/exportUtils';
+import { getTodayDateString } from '../../core/utils/dateUtils';
 import {
   UserRound,
   Users,
@@ -34,6 +36,7 @@ import {
   UserPlus,
   UserMinus,
   AlertTriangle,
+  Download,
 } from 'lucide-react';
 
 const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
@@ -261,6 +264,54 @@ export const LabDoctorsPage: React.FC = () => {
     ],
     [t],
   );
+
+  // Export Doctors to CSV (6 core fields with language-based dynamic headers)
+  const handleExportDoctors = () => {
+    if (doctors.length === 0) {
+      toast.error(t('exportDoctors.noRecordsToast', 'No doctors available to export'));
+      return;
+    }
+
+    const columns: ExportColumnDef<DoctorListItem>[] = [
+      {
+        header: t('exportDoctors.doctorName', 'Doctor Name'),
+        accessor: (doc) => doc.name || '',
+      },
+      {
+        header: t('exportDoctors.clinicPractice', 'Clinic / Practice'),
+        accessor: (doc) => doc.clinicName || doc.branch?.name || '',
+      },
+      {
+        header: t('exportDoctors.email', 'Email'),
+        accessor: (doc) => doc.email || '',
+      },
+      {
+        header: t('exportDoctors.phone', 'Phone'),
+        accessor: (doc) => doc.phone || '',
+      },
+      {
+        header: t('exportDoctors.specialization', 'Specialization'),
+        accessor: (doc) => doc.specialization || '',
+      },
+      {
+        header: t('exportDoctors.address', 'Address'),
+        accessor: (doc) => doc.address || '',
+      },
+    ];
+
+    const todayStr = getTodayDateString();
+    const filename = `doctors_lab_${todayStr}`;
+    const exported = exportToCSV(filename, columns, doctors);
+
+    if (exported) {
+      toast.success(
+        t('exportDoctors.successToast', {
+          count: doctors.length,
+          defaultValue: `Exported ${doctors.length} doctor records successfully`,
+        })
+      );
+    }
+  };
 
   // Doctor Form Handlers
   const handleOpenCreateDoctor = () => {
@@ -561,13 +612,33 @@ export const LabDoctorsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Primary Action Button — LAB ADMIN ONLY */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Primary Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {activeTab === 'ALL_DOCTORS' && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleExportDoctors}
+              disabled={loading || doctors.length === 0}
+              title={t('exportDoctors.exportBtn', 'Export CSV')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                minHeight: '40px',
+              }}
+            >
+              <Download size={16} />
+              <span>{t('exportDoctors.exportBtn', 'Export CSV')}</span>
+            </button>
+          )}
+
           {isLabAdmin && activeTab === 'ALL_DOCTORS' && (
             <button
               className="btn btn-primary"
               onClick={handleOpenCreateDoctor}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', minHeight: '40px' }}
             >
               <Plus size={16} />
               <span>{t('labDoctors.addDoctor')}</span>

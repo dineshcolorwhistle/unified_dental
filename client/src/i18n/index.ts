@@ -2652,6 +2652,19 @@ const resources = {
         selectBranch: 'Select Branch',
         all: 'All',
         remove: 'Remove',
+        export: 'Export',
+        exportCSV: 'Export CSV',
+      },
+      exportDoctors: {
+        exportBtn: 'Export CSV',
+        doctorName: 'Doctor Name',
+        clinicPractice: 'Clinic / Practice',
+        email: 'Email',
+        phone: 'Phone',
+        specialization: 'Specialization',
+        address: 'Address',
+        successToast: 'Exported {{count}} doctor records successfully',
+        noRecordsToast: 'No doctors available to export',
       },
       technician: {
         dashboard: {
@@ -6457,6 +6470,19 @@ const resources = {
         selectBranch: 'Seleccionar Sucursal',
         all: 'Todos',
         remove: 'Eliminar',
+        export: 'Exportar',
+        exportCSV: 'Exportar CSV',
+      },
+      exportDoctors: {
+        exportBtn: 'Exportar CSV',
+        doctorName: 'Nombre del Doctor',
+        clinicPractice: 'Clínica / Consultorio',
+        email: 'Correo Electrónico',
+        phone: 'Teléfono',
+        specialization: 'Especialidad',
+        address: 'Dirección',
+        successToast: 'Se exportaron {{count}} registros de doctores exitosamente',
+        noRecordsToast: 'No hay doctores disponibles para exportar',
       },
       technician: {
         dashboard: {
