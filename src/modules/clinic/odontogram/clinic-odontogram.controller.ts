@@ -249,5 +249,20 @@ export class ClinicOdontogramController {
       dto,
     );
   }
+
+  @Patch('patient/:patientId/proposed-plan')
+  @ApiOperation({ summary: 'Save patient proposed treatment plan with visits, doctor assignments, and subtotal' })
+  saveProposedTreatmentPlan(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { proposedPlan: any },
+  ) {
+    return this.odontogramService.saveProposedTreatmentPlan(
+      user.activeTenantId,
+      patientId,
+      user,
+      body.proposedPlan,
+    );
+  }
 }
 

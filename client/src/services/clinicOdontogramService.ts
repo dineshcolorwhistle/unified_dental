@@ -142,6 +142,7 @@ export interface PatientOdontogramHeader {
   branchId: string | null;
   teethModel: TeethModel;
   notes: string | null;
+  proposedPlan?: any;
   createdAt: string;
   updatedAt: string;
 }
@@ -388,6 +389,17 @@ export const clinicOdontogramService = {
     const { data } = await api.post<PatientOdontogramResponse>(
       `/clinic/odontogram/patient/${patientId}/save`,
       payload,
+    );
+    return data;
+  },
+
+  saveProposedTreatmentPlan: async (
+    patientId: string,
+    proposedPlan: any,
+  ): Promise<{ success: boolean; proposedPlan: any }> => {
+    const { data } = await api.patch<{ success: boolean; proposedPlan: any }>(
+      `/clinic/odontogram/patient/${patientId}/proposed-plan`,
+      { proposedPlan },
     );
     return data;
   },

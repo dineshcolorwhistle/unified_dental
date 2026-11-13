@@ -57,12 +57,14 @@ interface AddPatientNoteModalProps {
   patientsList?: PatientOptionItem[];
 }
 
+const DEFAULT_PATIENTS_LIST: PatientOptionItem[] = [];
+
 export const AddPatientNoteModal: React.FC<AddPatientNoteModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
   initialPatientId,
-  patientsList = [],
+  patientsList = DEFAULT_PATIENTS_LIST,
 }) => {
   const { t } = useTranslation();
   const { success, error } = useToast();
@@ -176,8 +178,10 @@ export const AddPatientNoteModal: React.FC<AddPatientNoteModalProps> = ({
       setActiveMobileTab('form');
       setCopiedNoteId(null);
 
-      // If patient list is empty, fetch available patients
-      if (patientsList.length === 0) {
+      // If patient list is provided, use it; otherwise fetch active patients if empty
+      if (patientsList && patientsList.length > 0) {
+        setAllPatients(patientsList);
+      } else if (allPatients.length === 0) {
         setLoadingPatients(true);
         api
           .get('/clinic/patients?limit=100&status=ACTIVE')
@@ -191,19 +195,13 @@ export const AddPatientNoteModal: React.FC<AddPatientNoteModalProps> = ({
           .finally(() => {
             setLoadingPatients(false);
           });
-      } else {
-        setAllPatients(patientsList);
-      }
-
-      if (activeId) {
-        fetchNotes(activeId, 1, notesLimit, '');
       }
     } else {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     }
-  }, [isOpen, initialPatientId, patientsList, notesLimit, fetchNotes]);
+  }, [isOpen, initialPatientId]);
 
   // Selected patient details
   const selectedPatient = useMemo(() => {

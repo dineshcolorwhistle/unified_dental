@@ -690,13 +690,56 @@ export class ClinicOdontogramService {
       });
     }
 
+    const rawPlan = await this.prisma.$queryRawUnsafe<any[]>(
+      'SELECT proposed_plan FROM patient_odontograms WHERE id = $1',
+      odontogram.id,
+    );
+    const proposedPlan = rawPlan?.[0]?.proposed_plan || null;
+
     return {
       patient,
-      odontogram,
+      odontogram: {
+        ...odontogram,
+        proposedPlan,
+      },
       diagnostics: odontogram.diagnostics || [],
       treatments: odontogram.treatments || [],
       config,
     };
+  }
+
+  /**
+   * Save proposed treatment plan (visits, groups, doctors, services, prices, notes)
+   */
+  async saveProposedTreatmentPlan(
+    tenantId: string,
+    patientId: string,
+    actor: AuthenticatedUser,
+    proposedPlan: any,
+  ) {
+    const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
+    let odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { patientId },
+    });
+    if (!odontogram) {
+      const config = await this.getConfig(tenantId, actor, patient.branchId || undefined);
+      odontogram = await this.prisma.patientOdontogram.create({
+        data: {
+          tenantId,
+          patientId,
+          branchId: patient.branchId,
+          teethModel: config.defaultTeethModel || TeethModel.ADULT,
+        },
+      });
+    }
+
+    await this.prisma.$executeRawUnsafe(
+      'UPDATE patient_odontograms SET proposed_plan = $1::jsonb, updated_at = NOW() WHERE id = $2',
+      JSON.stringify(proposedPlan || {}),
+      odontogram.id,
+    );
+
+    return { success: true, proposedPlan };
   }
 
   /**

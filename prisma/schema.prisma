@@ -1522,6 +1522,7 @@ model PatientOdontogram {
   branchId          String?      @map("branch_id")
   teethModel        TeethModel   @default(ADULT) @map("teeth_model")
   notes             String?      @db.Text
+  proposedPlan      Json?        @map("proposed_plan")
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
