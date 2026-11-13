@@ -320,6 +320,10 @@ export class InventoryService {
       const price = Number(it.unitPrice) || 0;
       totalStockValue += qty * price;
 
+      if (it.status === InventoryItemStatus.DISCONTINUED) {
+        continue;
+      }
+
       if (qty === 0 || it.status === InventoryItemStatus.OUT_OF_STOCK) {
         outOfStockCount++;
       } else if (qty <= it.minQuantity || it.status === InventoryItemStatus.LOW_STOCK) {
@@ -379,6 +383,24 @@ export class InventoryService {
   }
 
   /**
+   * Automatically calculates item status (IN_STOCK, LOW_STOCK, OUT_OF_STOCK)
+   * based on quantity and minimum quantity threshold.
+   * Note: DISCONTINUED is exclusively a manually assigned status.
+   */
+  calculateAutoStatus(quantity: number, minQuantity: number): InventoryItemStatus {
+    const q = Number(quantity) || 0;
+    const minQ = Number(minQuantity) || 0;
+
+    if (q <= 0) {
+      return InventoryItemStatus.OUT_OF_STOCK;
+    }
+    if (q <= minQ) {
+      return InventoryItemStatus.LOW_STOCK;
+    }
+    return InventoryItemStatus.IN_STOCK;
+  }
+
+  /**
    * Create Inventory Item (Branch operator only; Tenant Admin restricted)
    */
   async create(
@@ -416,18 +438,14 @@ export class InventoryService {
       }
     }
 
-    // Derive auto-status between IN_STOCK and LOW_STOCK, strictly preserving OUT_OF_STOCK and DISCONTINUED
-    let status = dto.status || InventoryItemStatus.IN_STOCK;
+    // Status auto management: IN_STOCK, LOW_STOCK, and OUT_OF_STOCK are calculated automatically.
+    // DISCONTINUED status can only be updated/assigned manually.
     const quantity = Number(dto.quantity) || 0;
     const minQuantity = dto.minQuantity !== undefined ? Number(dto.minQuantity) : 5;
-
-    if (status !== InventoryItemStatus.DISCONTINUED && status !== InventoryItemStatus.OUT_OF_STOCK) {
-      if (quantity <= minQuantity) {
-        status = InventoryItemStatus.LOW_STOCK;
-      } else {
-        status = InventoryItemStatus.IN_STOCK;
-      }
-    }
+    const status =
+      dto.status === InventoryItemStatus.DISCONTINUED
+        ? InventoryItemStatus.DISCONTINUED
+        : this.calculateAutoStatus(quantity, minQuantity);
 
     const expiryDate = this.normalizeDateToUtcNoon(dto.expiryDate);
 
@@ -574,20 +592,27 @@ export class InventoryService {
     if (dto.description !== undefined && (dto.description?.trim() || null) !== item.description) {
       fieldChanges.description = { old: item.description, new: dto.description?.trim() || null };
     }
-    if (dto.status !== undefined && dto.status !== item.status) {
-      fieldChanges.status = { old: item.status, new: dto.status };
-    }
-
     const isQuantityChanged = dto.quantity !== undefined && Number(dto.quantity) !== item.quantity;
 
-    let status = dto.status !== undefined ? dto.status : item.status;
-    // Automatically transition between IN_STOCK and LOW_STOCK, strictly preserving manual OUT_OF_STOCK and DISCONTINUED
-    if (status !== InventoryItemStatus.DISCONTINUED && status !== InventoryItemStatus.OUT_OF_STOCK) {
-      if (quantity <= minQuantity) {
-        status = InventoryItemStatus.LOW_STOCK;
-      } else {
-        status = InventoryItemStatus.IN_STOCK;
-      }
+    // Status auto management: IN_STOCK, LOW_STOCK, and OUT_OF_STOCK are calculated automatically.
+    // DISCONTINUED status can only be set or cleared manually.
+    let status: string;
+    if (dto.status === InventoryItemStatus.DISCONTINUED) {
+      status = InventoryItemStatus.DISCONTINUED;
+    } else if (
+      item.status === InventoryItemStatus.DISCONTINUED &&
+      (dto.status === undefined || dto.status === InventoryItemStatus.DISCONTINUED)
+    ) {
+      // Retain DISCONTINUED unless user explicitly changed status
+      status = InventoryItemStatus.DISCONTINUED;
+    } else {
+      // Non-discontinued item or user explicitly changed status away from DISCONTINUED:
+      // Status is automatically determined from stock quantity vs minimum quantity
+      status = this.calculateAutoStatus(quantity, minQuantity);
+    }
+
+    if (status !== item.status) {
+      fieldChanges.status = { old: item.status, new: status };
     }
 
     const updatedItem = await (this.prisma as any).inventoryItem.update({
@@ -696,13 +721,10 @@ export class InventoryService {
     const newQuantity = previousQuantity + addQty;
 
     let newStatus = item.status;
-    // Automatically transition to IN_STOCK when added stock brings quantity above threshold, preserving DISCONTINUED
+    // Status auto management: IN_STOCK, LOW_STOCK, and OUT_OF_STOCK are calculated automatically,
+    // strictly preserving manual DISCONTINUED status.
     if (item.status !== InventoryItemStatus.DISCONTINUED) {
-      if (newQuantity > item.minQuantity) {
-        newStatus = InventoryItemStatus.IN_STOCK;
-      } else {
-        newStatus = InventoryItemStatus.LOW_STOCK;
-      }
+      newStatus = this.calculateAutoStatus(newQuantity, item.minQuantity);
     }
 
     const updatedItem = await (this.prisma as any).inventoryItem.update({
@@ -786,14 +808,10 @@ export class InventoryService {
     const diff = targetQty - previousQuantity;
 
     let newStatus = item.status;
+    // Status auto management: IN_STOCK, LOW_STOCK, and OUT_OF_STOCK are calculated automatically,
+    // strictly preserving manual DISCONTINUED status.
     if (item.status !== InventoryItemStatus.DISCONTINUED) {
-      if (targetQty === 0) {
-        newStatus = InventoryItemStatus.OUT_OF_STOCK;
-      } else if (targetQty <= item.minQuantity) {
-        newStatus = InventoryItemStatus.LOW_STOCK;
-      } else {
-        newStatus = InventoryItemStatus.IN_STOCK;
-      }
+      newStatus = this.calculateAutoStatus(targetQty, item.minQuantity);
     }
 
     const updatedItem = await (this.prisma as any).inventoryItem.update({

@@ -50,7 +50,16 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
   const validAddQty = !isNaN(parsedAddQty) && parsedAddQty > 0 ? parsedAddQty : 0;
   const newCalculatedQty = currentQty + validAddQty;
 
-  const willBeInStock = newCalculatedQty > minQty;
+  const isDiscontinued = item.status === 'DISCONTINUED';
+  const newCalculatedStatus = isDiscontinued
+    ? 'DISCONTINUED'
+    : newCalculatedQty <= 0
+    ? 'OUT_OF_STOCK'
+    : newCalculatedQty <= minQty
+    ? 'LOW_STOCK'
+    : 'IN_STOCK';
+
+  const willBeInStock = newCalculatedStatus === 'IN_STOCK';
 
   const handleQuickAdd = (amount: number) => {
     const current = parseInt(quantity, 10) || 0;
@@ -267,14 +276,33 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
                   style={{
                     fontSize: '20px',
                     fontWeight: 800,
-                    color: willBeInStock ? 'var(--badge-success-text, #059669)' : 'var(--badge-warning-text, #d97706)',
+                    color:
+                      newCalculatedStatus === 'DISCONTINUED'
+                        ? 'var(--text-muted)'
+                        : newCalculatedStatus === 'OUT_OF_STOCK'
+                        ? 'var(--badge-danger-text, #ef4444)'
+                        : willBeInStock
+                        ? 'var(--badge-success-text, #059669)'
+                        : 'var(--badge-warning-text, #d97706)',
                     marginTop: '2px',
                   }}
                 >
                   {newCalculatedQty}
                 </div>
-                <div style={{ fontSize: '11px', color: willBeInStock ? 'var(--badge-success-text, #059669)' : 'var(--text-muted)' }}>
-                  {willBeInStock ? t('inventory.statusOptions.IN_STOCK', 'In Stock') : t('inventory.statusOptions.LOW_STOCK', 'Low Stock')}
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color:
+                      newCalculatedStatus === 'DISCONTINUED'
+                        ? 'var(--text-muted)'
+                        : newCalculatedStatus === 'OUT_OF_STOCK'
+                        ? 'var(--badge-danger-text, #ef4444)'
+                        : willBeInStock
+                        ? 'var(--badge-success-text, #059669)'
+                        : 'var(--badge-warning-text, #d97706)',
+                  }}
+                >
+                  {t(`inventory.statusOptions.${newCalculatedStatus}`, newCalculatedStatus)}
                 </div>
               </div>
             </div>

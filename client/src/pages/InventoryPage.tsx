@@ -245,19 +245,30 @@ export const InventoryPage: React.FC = () => {
     setPage(1);
   };
 
+  // Helper to calculate auto status from stock quantity and minimum quantity
+  const calculateItemAutoStatus = (qty: number, minQty: number): string => {
+    if (qty <= 0) return 'OUT_OF_STOCK';
+    if (qty <= minQty) return 'LOW_STOCK';
+    return 'IN_STOCK';
+  };
+
   // Open Add Item Modal
   const handleOpenAddItem = async () => {
     const defaultBranchId = user?.activeBranchId || availableBranches[0]?.id || '';
     const suggestedSku = await generateNewSku();
+
+    const initialQty = 0;
+    const initialMinQty = 5;
+    const initialStatus = calculateItemAutoStatus(initialQty, initialMinQty);
 
     setEditingItem(null);
     setItemForm({
       name: '',
       sku: suggestedSku,
       categoryId: categories[0]?.id || '',
-      status: 'IN_STOCK',
-      quantity: '0',
-      minQuantity: '5',
+      status: initialStatus,
+      quantity: String(initialQty),
+      minQuantity: String(initialMinQty),
       unitPrice: '0',
       brand: '',
       supplier: '',
@@ -271,14 +282,21 @@ export const InventoryPage: React.FC = () => {
 
   // Open Edit Item Modal
   const handleOpenEditItem = (item: InventoryItem) => {
+    const currentQty = item.quantity ?? 0;
+    const currentMinQty = item.minQuantity ?? 5;
+    const currentStatus =
+      item.status === 'DISCONTINUED'
+        ? 'DISCONTINUED'
+        : calculateItemAutoStatus(currentQty, currentMinQty);
+
     setEditingItem(item);
     setItemForm({
       name: item.name,
       sku: item.sku,
       categoryId: item.categoryId,
-      status: item.status,
-      quantity: String(item.quantity ?? 0),
-      minQuantity: String(item.minQuantity ?? 5),
+      status: currentStatus,
+      quantity: String(currentQty),
+      minQuantity: String(currentMinQty),
       unitPrice: String(item.unitPrice ?? 0),
       brand: item.brand || '',
       supplier: item.supplier || '',
@@ -461,11 +479,19 @@ export const InventoryPage: React.FC = () => {
 
   const categoryFormOptions = categories.map((c) => ({ value: c.id, label: c.name }));
 
+  const currentFormQty = parseInt(itemForm.quantity, 10) || 0;
+  const currentFormMinQty = parseInt(itemForm.minQuantity, 10) || 0;
+  const currentCalculatedStatus = calculateItemAutoStatus(currentFormQty, currentFormMinQty);
+
   const statusFormOptions = [
-    { value: 'IN_STOCK', label: t('inventory.statusOptions.IN_STOCK') },
-    { value: 'LOW_STOCK', label: t('inventory.statusOptions.LOW_STOCK') },
-    { value: 'OUT_OF_STOCK', label: t('inventory.statusOptions.OUT_OF_STOCK') },
-    { value: 'DISCONTINUED', label: t('inventory.statusOptions.DISCONTINUED') },
+    {
+      value: currentCalculatedStatus,
+      label: `${t(`inventory.statusOptions.${currentCalculatedStatus}`)} (${t('inventory.statusAuto', 'Automatic')})`,
+    },
+    {
+      value: 'DISCONTINUED',
+      label: `${t('inventory.statusOptions.DISCONTINUED')} (${t('inventory.statusManual', 'Manual')})`,
+    },
   ];
 
   const productTypeOptions = [
@@ -1167,33 +1193,6 @@ export const InventoryPage: React.FC = () => {
                                 / min {itemMinQty}
                               </span>
                             </div>
-                            {!isTenantAdmin && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setStockItem(it);
-                                  setIsStockModalOpen(true);
-                                }}
-                                style={{
-                                  marginTop: '4px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  padding: '2px 8px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  borderRadius: '4px',
-                                  backgroundColor: itemQty <= itemMinQty ? 'var(--badge-warning-bg, #fffbeb)' : 'var(--badge-success-bg, #ecfdf5)',
-                                  color: itemQty <= itemMinQty ? 'var(--badge-warning-text, #d97706)' : 'var(--badge-success-text, #059669)',
-                                  border: itemQty <= itemMinQty ? '1px solid var(--badge-warning-border, #fde68a)' : '1px solid var(--badge-success-border, #a7f3d0)',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <Plus size={11} />
-                                <span>{t('inventory.buttons.addStock', 'Add Stock')}</span>
-                              </button>
-                            )}
                           </td>
 
                           {/* Unit Price & Total Value */}
@@ -1764,10 +1763,21 @@ export const InventoryPage: React.FC = () => {
                     </label>
                     <SearchableSelect
                       options={statusFormOptions}
-                      value={itemForm.status}
-                      onChange={(val) => setItemForm({ ...itemForm, status: val })}
+                      value={itemForm.status === 'DISCONTINUED' ? 'DISCONTINUED' : currentCalculatedStatus}
+                      onChange={(val) => {
+                        if (val === 'DISCONTINUED') {
+                          setItemForm({ ...itemForm, status: 'DISCONTINUED' });
+                        } else {
+                          const numQ = parseInt(itemForm.quantity, 10) || 0;
+                          const numMin = parseInt(itemForm.minQuantity, 10) || 0;
+                          setItemForm({ ...itemForm, status: calculateItemAutoStatus(numQ, numMin) });
+                        }
+                      }}
                       placeholder={t('inventory.placeholders.selectStatus')}
                     />
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.3 }}>
+                      {t('inventory.statusAutoHelper')}
+                    </div>
                   </div>
                 </div>
 
@@ -1786,11 +1796,10 @@ export const InventoryPage: React.FC = () => {
                         const newQ = e.target.value;
                         const numQ = parseInt(newQ, 10) || 0;
                         const numMin = parseInt(itemForm.minQuantity, 10) || 0;
-                        let autoStatus = itemForm.status;
-                        if (autoStatus !== 'DISCONTINUED' && autoStatus !== 'OUT_OF_STOCK') {
-                          autoStatus = numQ <= numMin ? 'LOW_STOCK' : 'IN_STOCK';
-                        }
-                        setItemForm({ ...itemForm, quantity: newQ, status: autoStatus });
+                        const nextStatus = itemForm.status === 'DISCONTINUED'
+                          ? 'DISCONTINUED'
+                          : calculateItemAutoStatus(numQ, numMin);
+                        setItemForm({ ...itemForm, quantity: newQ, status: nextStatus });
                       }}
                       required
                     />
@@ -1809,11 +1818,10 @@ export const InventoryPage: React.FC = () => {
                         const newMin = e.target.value;
                         const numMin = parseInt(newMin, 10) || 0;
                         const numQ = parseInt(itemForm.quantity, 10) || 0;
-                        let autoStatus = itemForm.status;
-                        if (autoStatus !== 'DISCONTINUED' && autoStatus !== 'OUT_OF_STOCK') {
-                          autoStatus = numQ <= numMin ? 'LOW_STOCK' : 'IN_STOCK';
-                        }
-                        setItemForm({ ...itemForm, minQuantity: newMin, status: autoStatus });
+                        const nextStatus = itemForm.status === 'DISCONTINUED'
+                          ? 'DISCONTINUED'
+                          : calculateItemAutoStatus(numQ, numMin);
+                        setItemForm({ ...itemForm, minQuantity: newMin, status: nextStatus });
                       }}
                       required
                     />

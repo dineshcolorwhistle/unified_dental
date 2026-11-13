@@ -3073,6 +3073,9 @@ const resources = {
           OUT_OF_STOCK: 'Out of Stock',
           DISCONTINUED: 'Discontinued',
         },
+        statusAuto: 'Automatic',
+        statusManual: 'Manual',
+        statusAutoHelper: 'In Stock, Low Stock, and Out of Stock are automatically calculated from stock levels. Only Discontinued can be updated manually.',
         productTypeOptions: {
           FOR_USE: 'For Use',
           FOR_SALE: 'For Sale',
@@ -6925,6 +6928,9 @@ const resources = {
           OUT_OF_STOCK: 'Agotado',
           DISCONTINUED: 'Descontinuado',
         },
+        statusAuto: 'Automático',
+        statusManual: 'Manual',
+        statusAutoHelper: 'En Existencia, Existencia Baja y Agotado se calculan automáticamente según el stock. Solo Descontinuado se actualiza manualmente.',
         productTypeOptions: {
           FOR_USE: 'Para Uso',
           FOR_SALE: 'Para Venta',
