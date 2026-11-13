@@ -7,6 +7,7 @@ import {
   getDateKeyInTz,
 } from '../../shared/common/utils/timezone.util';
 import { ReminderRecurrence, ReminderEndType } from '@prisma/client';
+import { computeReminderStatus } from './utils/reminder-status.util';
 
 @Injectable()
 export class RemindersScheduler implements OnModuleInit, OnModuleDestroy {
@@ -52,6 +53,7 @@ export class RemindersScheduler implements OnModuleInit, OnModuleDestroy {
         include: {
           assignees: true,
           tenant: { select: { id: true, name: true, slug: true, settings: true } },
+          _count: { select: { notificationLogs: true } },
         },
       });
 
@@ -59,6 +61,11 @@ export class RemindersScheduler implements OnModuleInit, OnModuleDestroy {
 
       for (const reminder of activeReminders) {
         try {
+          const tz = (reminder.tenant?.settings as any)?.timezone || DEFAULT_TIMEZONE;
+          const statusResult = computeReminderStatus(reminder, tz, now);
+          if (statusResult.computedStatus !== 'ACTIVE') {
+            continue;
+          }
           await this.evaluateReminderForAlert(reminder, now);
         } catch (err) {
           this.logger.error(`Error processing reminder ${reminder.id}: ${err.message}`);
@@ -212,6 +219,14 @@ export class RemindersScheduler implements OnModuleInit, OnModuleDestroy {
     if (reminder.endType === ReminderEndType.ON_DATE && reminder.endDate) {
       const endDateKey = getDateKeyInTz(reminder.endDate, tz);
       if (dateKey > endDateKey) return false;
+    }
+
+    if (
+      reminder.endType === ReminderEndType.AFTER_OCCURRENCES &&
+      typeof reminder.endOccurrences === 'number' &&
+      (reminder._count?.notificationLogs ?? 0) >= reminder.endOccurrences
+    ) {
+      return false;
     }
 
     const startParts = getTimePartsInTz(reminder.startDate, tz);

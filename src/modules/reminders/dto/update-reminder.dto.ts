@@ -1,9 +1,9 @@
 import { PartialType } from '@nestjs/swagger';
 import { CreateReminderDto } from './create-reminder.dto';
-import { IsBoolean, IsOptional } from 'class-validator';
 
-export class UpdateReminderDto extends PartialType(CreateReminderDto) {
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-}
+/**
+ * DTO for editing reminder details.
+ * Note: Status is automatically calculated based on schedule and lifecycle.
+ * Manual status updates are disallowed. Cancellation is performed via the dedicated /cancel endpoint.
+ */
+export class UpdateReminderDto extends PartialType(CreateReminderDto) {}

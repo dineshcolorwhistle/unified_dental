@@ -48,8 +48,8 @@ export class QueryRemindersDto {
   @IsString()
   moduleKey?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by active status' })
+  @ApiPropertyOptional({ description: 'Filter by status: ALL, ACTIVE, COMPLETED, CANCELLED' })
   @IsOptional()
   @IsString()
-  status?: string; // 'active', 'all', 'inactive'
+  status?: string; // 'all', 'active', 'completed', 'cancelled'
 }

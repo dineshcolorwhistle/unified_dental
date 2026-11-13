@@ -67,6 +67,15 @@ export class RemindersController {
     return this.remindersService.update(id, dto, user.activeTenantId, user);
   }
 
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancel an active Reminder (subject to lifecycle rules)' })
+  cancel(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.remindersService.cancel(id, user.activeTenantId, user);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a Reminder (Tenant Admin ONLY)' })
   remove(

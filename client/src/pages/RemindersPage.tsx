@@ -12,6 +12,8 @@ import {
   Calendar,
   AlertTriangle,
   X,
+  XCircle,
+  Send,
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../core/context/AuthContext';
@@ -66,6 +68,7 @@ export const RemindersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [recurrenceFilter, setRecurrenceFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -73,6 +76,8 @@ export const RemindersPage: React.FC = () => {
   const [reminderToView, setReminderToView] = useState<ReminderItem | null>(null);
   const [reminderToDelete, setReminderToDelete] = useState<ReminderItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reminderToCancel, setReminderToCancel] = useState<ReminderItem | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   // View mode: list or calendar
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -95,6 +100,9 @@ export const RemindersPage: React.FC = () => {
       if (recurrenceFilter !== 'ALL') {
         params.recurrence = recurrenceFilter;
       }
+      if (statusFilter !== 'ALL') {
+        params.status = statusFilter;
+      }
 
       const res = await api.get('/reminders', { params });
       const items: ReminderItem[] = Array.isArray(res.data)
@@ -109,13 +117,14 @@ export const RemindersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, priorityFilter, recurrenceFilter, currentModuleKey]);
+  }, [page, limit, search, priorityFilter, recurrenceFilter, statusFilter, currentModuleKey]);
 
   useEffect(() => {
     setPage(1);
     setSearch('');
     setPriorityFilter('ALL');
     setRecurrenceFilter('ALL');
+    setStatusFilter('ALL');
   }, [currentModuleKey]);
 
   useEffect(() => {
@@ -126,7 +135,26 @@ export const RemindersPage: React.FC = () => {
     setSearch('');
     setPriorityFilter('ALL');
     setRecurrenceFilter('ALL');
+    setStatusFilter('ALL');
     setPage(1);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!reminderToCancel) return;
+    setCancelling(true);
+    try {
+      await api.patch(`/reminders/${reminderToCancel.id}/cancel`);
+      toast.success(t('reminders.cancelSuccess', 'Reminder cancelled successfully.'));
+      setReminderToCancel(null);
+      if (reminderToView && reminderToView.id === reminderToCancel.id) {
+        setReminderToView(null);
+      }
+      fetchReminders();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || t('reminders.notifications.actionFailed', 'Failed to cancel reminder.'));
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -161,6 +189,46 @@ export const RemindersPage: React.FC = () => {
     { value: 'YEARLY', label: t('reminders.yearly', 'Yearly') },
   ];
 
+  const statusOptions = [
+    { value: 'ALL', label: t('reminders.filters.allStatuses', 'All Statuses') },
+    { value: 'ACTIVE', label: t('reminders.status.active', 'Active') },
+    { value: 'COMPLETED', label: t('reminders.status.completed', 'Completed') },
+    { value: 'CANCELLED', label: t('reminders.status.cancelled', 'Cancelled') },
+  ];
+
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return {
+          bg: 'var(--badge-success-bg, #dcfce7)',
+          text: 'var(--emerald-700, #15803d)',
+          border: 'var(--emerald-200, #a7f3d0)',
+          label: t('reminders.status.active', 'Active'),
+        };
+      case 'COMPLETED':
+        return {
+          bg: 'var(--badge-gray-bg, #f1f5f9)',
+          text: 'var(--text-muted, #64748b)',
+          border: 'var(--border-color, #e2e8f0)',
+          label: t('reminders.status.completed', 'Completed'),
+        };
+      case 'CANCELLED':
+        return {
+          bg: 'var(--badge-danger-bg, #fee2e2)',
+          text: 'var(--rose-700, #b91c1c)',
+          border: 'var(--rose-200, #fecdd3)',
+          label: t('reminders.status.cancelled', 'Cancelled'),
+        };
+      default:
+        return {
+          bg: 'var(--badge-primary-bg, #f0fdfa)',
+          text: 'var(--primary-700, #0f766e)',
+          border: 'var(--primary-200, #99f6e4)',
+          label: status || t('reminders.status.active', 'Active'),
+        };
+    }
+  };
+
   const getPriorityBadge = (p: string) => {
     switch (p) {
       case 'URGENT':
@@ -172,6 +240,20 @@ export const RemindersPage: React.FC = () => {
       default:
         return { bg: 'var(--badge-gray-bg, #f1f5f9)', text: 'var(--text-muted)' };
     }
+  };
+
+  const formatDispatchesSummary = (r: ReminderItem) => {
+    const sent = r.sentCount ?? 0;
+    if (r.recurrence === 'ONE_TIME') {
+      if (r.computedStatus === 'COMPLETED' || sent > 0) {
+        return `${t('reminders.sent', 'Sent')} (1/1)`;
+      }
+      return `${t('reminders.pending', 'Pending')} (0/1)`;
+    }
+    if (r.endType === 'AFTER_OCCURRENCES' && r.endOccurrences) {
+      return `${sent} / ${r.endOccurrences} ${t('reminders.sent', 'sent')}`;
+    }
+    return `${sent} ${t('reminders.sent', 'sent')}`;
   };
 
   const formatRecurrenceSummary = (r: ReminderItem) => {
@@ -296,9 +378,20 @@ export const RemindersPage: React.FC = () => {
           />
         </div>
 
-        {/* Priority & Recurrence Dropdowns Row */}
+        {/* Priority, Recurrence & Status Dropdowns Row */}
         <div className="reminders-filter-dropdowns" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ width: '160px', minWidth: '140px' }}>
+          <div style={{ width: '150px', minWidth: '130px' }}>
+            <SearchableSelect
+              options={statusOptions}
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setPage(1);
+              }}
+            />
+          </div>
+
+          <div style={{ width: '150px', minWidth: '130px' }}>
             <SearchableSelect
               options={priorityOptions}
               value={priorityFilter}
@@ -309,7 +402,7 @@ export const RemindersPage: React.FC = () => {
             />
           </div>
 
-          <div style={{ width: '170px', minWidth: '140px' }}>
+          <div style={{ width: '160px', minWidth: '130px' }}>
             <SearchableSelect
               options={recurrenceOptions}
               value={recurrenceFilter}
@@ -322,7 +415,7 @@ export const RemindersPage: React.FC = () => {
         </div>
 
         {/* Reset Filter Button */}
-        {(search || priorityFilter !== 'ALL' || recurrenceFilter !== 'ALL') && (
+        {(search || priorityFilter !== 'ALL' || recurrenceFilter !== 'ALL' || statusFilter !== 'ALL') && (
           <button
             type="button"
             className="btn btn-secondary reminders-filter-reset-btn"
@@ -345,10 +438,13 @@ export const RemindersPage: React.FC = () => {
                   {t('reminders.table.titleAndCategory', 'Title & Category')}
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  {t('reminders.table.status', 'Status')}
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   {t('reminders.table.priority', 'Priority')}
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  {t('reminders.table.recurrence', 'Recurrence')}
+                  {t('reminders.table.recurrence', 'Recurrence & Dispatches')}
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   {t('reminders.table.scheduledTime', 'Scheduled / Start Date & Time')}
@@ -364,13 +460,13 @@ export const RemindersPage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     {t('common.loading', 'Loading reminders...')}
                   </td>
                 </tr>
               ) : reminders.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                  <td colSpan={7} style={{ padding: '50px 20px', textAlign: 'center' }}>
                     <div
                       style={{
                         width: '48px',
@@ -409,6 +505,7 @@ export const RemindersPage: React.FC = () => {
               ) : (
                 reminders.map((item) => {
                   const badge = getPriorityBadge(item.priority);
+                  const statusBadge = getStatusBadge(item.computedStatus);
                   return (
                     <tr
                       key={item.id}
@@ -429,6 +526,38 @@ export const RemindersPage: React.FC = () => {
                         )}
                       </td>
 
+                      {/* Status */}
+                      <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '9999px',
+                            backgroundColor: statusBadge.bg,
+                            color: statusBadge.text,
+                            border: `1px solid ${statusBadge.border}`,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.03em',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              backgroundColor: statusBadge.text,
+                              display: 'inline-block',
+                            }}
+                          />
+                          {statusBadge.label}
+                        </span>
+                      </td>
+
                       {/* Priority */}
                       <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
                         <span
@@ -447,24 +576,31 @@ export const RemindersPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Recurrence */}
+                      {/* Recurrence & Dispatches */}
                       <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: 'var(--text-main)' }}>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            backgroundColor: 'var(--bg-surface, #f8fafc)',
-                            border: '1px solid var(--border-color)',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                          }}
-                        >
-                          <Clock size={13} style={{ color: 'var(--primary-600)' }} />
-                          {formatRecurrenceSummary(item)}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: 'var(--bg-surface, #f8fafc)',
+                              border: '1px solid var(--border-color)',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              width: 'fit-content',
+                            }}
+                          >
+                            <Clock size={12} style={{ color: 'var(--primary-600)' }} />
+                            {formatRecurrenceSummary(item)}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                            <Send size={11} style={{ flexShrink: 0 }} />
+                            <span>{formatDispatchesSummary(item)}</span>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Scheduled Time */}
@@ -537,8 +673,8 @@ export const RemindersPage: React.FC = () => {
                             </button>
                           </Tooltip>
 
-                          {/* Edit: Lab Admin (in LAB) / Clinic Admin or Tenant Admin (in CLINIC) */}
-                          {canEdit && (
+                          {/* Edit: Lab Admin (in LAB) / Clinic Admin or Tenant Admin (in CLINIC) - Active only */}
+                          {canEdit && item.computedStatus === 'ACTIVE' && (
                             <Tooltip content={t('reminders.actions.edit', 'Edit Reminder')}>
                               <button
                                 type="button"
@@ -550,6 +686,20 @@ export const RemindersPage: React.FC = () => {
                                 style={{ width: '32px', height: '32px' }}
                               >
                                 <Edit2 size={15} />
+                              </button>
+                            </Tooltip>
+                          )}
+
+                          {/* Cancel: Strictly conditional on lifecycle (hidden when completed or already cancelled) */}
+                          {canEdit && item.canCancel && (
+                            <Tooltip content={t('reminders.cancelReminder', 'Cancel Reminder')}>
+                              <button
+                                type="button"
+                                className="btn-icon"
+                                onClick={() => setReminderToCancel(item)}
+                                style={{ width: '32px', height: '32px', color: 'var(--amber-600, #d97706)' }}
+                              >
+                                <XCircle size={15} />
                               </button>
                             </Tooltip>
                           )}
@@ -662,6 +812,10 @@ export const RemindersPage: React.FC = () => {
         isOpen={Boolean(reminderToView)}
         onClose={() => setReminderToView(null)}
         reminder={reminderToView}
+        onCancelReminder={(r) => {
+          setReminderToCancel(r);
+        }}
+        canCancel={canEdit}
       />
 
       {/* Delete Confirmation Modal (Tenant Admin ONLY) */}
@@ -759,6 +913,112 @@ export const RemindersPage: React.FC = () => {
                 disabled={deleting}
               >
                 {deleting ? t('common.deleting', 'Deleting...') : t('reminders.actions.confirmDelete', 'Yes, Delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {reminderToCancel && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '16px',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              padding: 0,
+              overflow: 'hidden',
+              borderRadius: '16px',
+              backgroundColor: 'var(--bg-card)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+            }}
+          >
+            <div style={{ padding: '24px', display: 'flex', gap: '16px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--badge-warning-bg, #fef3c7)',
+                  color: 'var(--amber-700, #b45309)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <XCircle size={22} />
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-heading)', margin: '0 0 6px 0' }}>
+                  {t('reminders.cancelConfirmTitle', 'Cancel Reminder')}
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                  {t(
+                    'reminders.cancelConfirmDesc',
+                    'Are you sure you want to cancel this reminder? This will stop upcoming notifications from being dispatched.',
+                  )}
+                </p>
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-surface, #f8fafc)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                  }}
+                >
+                  {reminderToCancel.title}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                padding: '16px 24px',
+                borderTop: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-surface, #f8fafc)',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setReminderToCancel(null)}
+                disabled={cancelling}
+              >
+                {t('reminders.actions.cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-warning"
+                onClick={handleCancelConfirm}
+                disabled={cancelling}
+                style={{
+                  backgroundColor: 'var(--amber-600, #d97706)',
+                  color: '#ffffff',
+                  borderColor: 'var(--amber-600, #d97706)',
+                }}
+              >
+                {cancelling ? t('common.loading', 'Processing...') : t('reminders.confirmCancel', 'Yes, Cancel Reminder')}
               </button>
             </div>
           </div>

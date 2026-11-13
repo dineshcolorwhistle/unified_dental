@@ -28,6 +28,21 @@ export interface ReminderItem {
   endOccurrences?: number;
   branchId?: string;
   moduleKey?: string;
+  isActive?: boolean;
+  computedStatus?: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  sentCount?: number;
+  canCancel?: boolean;
+  isStarted?: boolean;
+  targetOccurrences?: number | null;
+  scheduledAtUtc?: string;
+  notificationLogs?: Array<{
+    id: string;
+    occurrenceKey: string;
+    scheduledAt: string;
+    notifiedAt: string;
+    recipientCount: number;
+    status: string;
+  }>;
   assignees: Array<{
     id: string;
     userId?: string;

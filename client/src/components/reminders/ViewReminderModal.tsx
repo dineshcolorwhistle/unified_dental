@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Calendar, Clock, Repeat, Users, Tag, AlertCircle } from 'lucide-react';
+import { X, Calendar, Clock, Repeat, Users, Tag, AlertCircle, Send, XCircle } from 'lucide-react';
 import { ReminderItem } from './CreateReminderModal';
 import { formatDate } from '../../core/utils/dateUtils';
 
@@ -8,12 +8,16 @@ interface ViewReminderModalProps {
   isOpen: boolean;
   onClose: () => void;
   reminder: ReminderItem | null;
+  onCancelReminder?: (reminder: ReminderItem) => void;
+  canCancel?: boolean;
 }
 
 export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
   isOpen,
   onClose,
   reminder,
+  onCancelReminder,
+  canCancel = false,
 }) => {
   const { t } = useTranslation();
 
@@ -32,7 +36,41 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
     }
   };
 
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return {
+          bg: 'var(--badge-success-bg, #dcfce7)',
+          text: 'var(--emerald-700, #15803d)',
+          border: 'var(--emerald-200, #a7f3d0)',
+          label: t('reminders.status.active', 'Active'),
+        };
+      case 'COMPLETED':
+        return {
+          bg: 'var(--badge-gray-bg, #f1f5f9)',
+          text: 'var(--text-muted, #64748b)',
+          border: 'var(--border-color, #e2e8f0)',
+          label: t('reminders.status.completed', 'Completed'),
+        };
+      case 'CANCELLED':
+        return {
+          bg: 'var(--badge-danger-bg, #fee2e2)',
+          text: 'var(--rose-700, #b91c1c)',
+          border: 'var(--rose-200, #fecdd3)',
+          label: t('reminders.status.cancelled', 'Cancelled'),
+        };
+      default:
+        return {
+          bg: 'var(--badge-primary-bg, #f0fdfa)',
+          text: 'var(--primary-700, #0f766e)',
+          border: 'var(--primary-200, #99f6e4)',
+          label: status || t('reminders.status.active', 'Active'),
+        };
+    }
+  };
+
   const badgeStyle = getPriorityBadge(reminder.priority);
+  const statusBadge = getStatusBadge(reminder.computedStatus);
 
   const formatRecurrenceText = () => {
     switch (reminder.recurrence) {
@@ -62,6 +100,20 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
     }
   };
 
+  const formatDispatchesText = () => {
+    const sent = reminder.sentCount ?? 0;
+    if (reminder.recurrence === 'ONE_TIME') {
+      if (reminder.computedStatus === 'COMPLETED' || sent > 0) {
+        return `${t('reminders.sent', 'Sent')} (1/1)`;
+      }
+      return `${t('reminders.pending', 'Pending')} (0/1)`;
+    }
+    if (reminder.endType === 'AFTER_OCCURRENCES' && reminder.endOccurrences) {
+      return `${sent} / ${reminder.endOccurrences} ${t('reminders.sent', 'sent')}`;
+    }
+    return `${sent} ${t('reminders.sent', 'sent')}`;
+  };
+
   return (
     <div
       style={{
@@ -79,7 +131,7 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
         className="card"
         style={{
           width: '100%',
-          maxWidth: '520px',
+          maxWidth: '560px',
           padding: 0,
           overflow: 'hidden',
           borderRadius: '16px',
@@ -103,10 +155,40 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
                 {reminder.title}
               </h2>
+
+              {/* Status Badge */}
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: statusBadge.bg,
+                  color: statusBadge.text,
+                  border: `1px solid ${statusBadge.border}`,
+                  textTransform: 'uppercase',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: statusBadge.text,
+                    display: 'inline-block',
+                  }}
+                />
+                {statusBadge.label}
+              </span>
+
+              {/* Priority Badge */}
               <span
                 style={{
                   fontSize: '11px',
@@ -171,6 +253,18 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
                 </span>
                 <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>
                   {formatRecurrenceText()}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <Send size={18} style={{ color: 'var(--primary-600)', marginTop: '2px', flexShrink: 0 }} />
+              <div>
+                <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  {t('reminders.dispatches', 'Dispatches')}
+                </span>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  {formatDispatchesText()}
                 </span>
               </div>
             </div>
@@ -273,7 +367,7 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
 
           {/* Description */}
           {reminder.description && (
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '20px' }}>
               <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
                 {t('reminders.description', 'Description')}
               </span>
@@ -293,6 +387,83 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Notification Delivery History Log */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+              <Send size={16} style={{ color: 'var(--primary-600)' }} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                {t('reminders.deliveryHistory', 'Notification Delivery History')}
+              </span>
+            </div>
+
+            {reminder.notificationLogs && reminder.notificationLogs.length > 0 ? (
+              <div
+                style={{
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  overflow: 'hidden',
+                  fontSize: '12.5px',
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'var(--bg-surface, #f8fafc)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        {t('reminders.dispatchedAt', 'Dispatched At')}
+                      </th>
+                      <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        {t('reminders.recipientsNotified', 'Recipients')}
+                      </th>
+                      <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                        {t('reminders.executionStatus', 'Status')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reminder.notificationLogs.map((log) => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-main)' }}>
+                          {formatDate(log.notifiedAt)}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
+                          {log.recipientCount} {t('reminders.assignedTo', 'recipients')}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--badge-success-bg, #dcfce7)',
+                              color: 'var(--emerald-700, #15803d)',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {log.status || 'SENT'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-surface, #f8fafc)',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '12.5px',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                {t('reminders.noHistory', 'No notifications have been dispatched yet.')}
+              </div>
+            )}
+          </div>
 
           {/* 2-Hour Notification banner notice */}
           <div
@@ -319,9 +490,34 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
             padding: '14px 24px',
             borderTop: '1px solid var(--border-color)',
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
           }}
         >
+          <div>
+            {canCancel && reminder.canCancel && onCancelReminder && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  onClose();
+                  onCancelReminder(reminder);
+                }}
+                style={{
+                  color: 'var(--rose-600, #e11d48)',
+                  borderColor: 'var(--rose-200, #fecdd3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <XCircle size={15} />
+                <span>{t('reminders.cancelReminder', 'Cancel Reminder')}</span>
+              </button>
+            )}
+          </div>
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             {t('common.close', 'Close')}
           </button>

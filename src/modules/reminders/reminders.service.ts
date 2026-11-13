@@ -12,6 +12,7 @@ import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { QueryRemindersDto } from './dto/query-reminders.dto';
 import { parseCalendarDate, DEFAULT_TIMEZONE } from '../../shared/common/utils/timezone.util';
 import { ReminderPriority, ReminderRecurrence, ReminderEndType } from '@prisma/client';
+import { computeReminderStatus } from './utils/reminder-status.util';
 
 export interface CandidateAssignee {
   id: string; // "u:<userId>" or "d:<doctorId>"
@@ -242,18 +243,19 @@ export class RemindersService {
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
 
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { settings: true },
+    });
+    const tz = (tenant?.settings as any)?.timezone || DEFAULT_TIMEZONE;
+    const now = new Date();
+
     const where: any = {
       tenantId,
     };
 
     if (moduleKey && moduleKey !== 'all' && moduleKey !== 'ALL') {
       where.moduleKey = moduleKey;
-    }
-
-    if (status === 'active') {
-      where.isActive = true;
-    } else if (status === 'inactive') {
-      where.isActive = false;
     }
 
     if (branchId && branchId !== 'all') {
@@ -281,6 +283,60 @@ export class RemindersService {
       ];
     }
 
+    const normStatus = (status || 'all').toLowerCase();
+
+    // If status filter is 'cancelled', filter directly by isActive: false
+    if (normStatus === 'cancelled' || normStatus === 'inactive') {
+      where.isActive = false;
+    }
+
+    // When status is 'active' or 'completed', since computedStatus is dynamic,
+    // evaluate candidate items and paginate the filtered set
+    if (normStatus === 'active' || normStatus === 'completed') {
+      where.isActive = true;
+
+      const candidates = await this.prisma.reminder.findMany({
+        where,
+        orderBy: [{ startDate: 'desc' }, { reminderTime: 'asc' }],
+        include: {
+          assignees: true,
+          branch: { select: { id: true, name: true, code: true } },
+          creator: { select: { id: true, name: true, email: true } },
+          _count: { select: { notificationLogs: true } },
+        },
+      });
+
+      const targetStatus = normStatus.toUpperCase();
+      const filtered = candidates
+        .map((item) => {
+          const statusData = computeReminderStatus(item, tz, now);
+          return {
+            ...item,
+            computedStatus: statusData.computedStatus,
+            sentCount: statusData.sentCount,
+            canCancel: statusData.canCancel,
+            isStarted: statusData.isStarted,
+            targetOccurrences: statusData.targetOccurrences,
+            scheduledAtUtc: statusData.scheduledAtUtc,
+          };
+        })
+        .filter((item) => item.computedStatus === targetStatus);
+
+      const total = filtered.length;
+      const paginated = filtered.slice(skip, skip + take);
+
+      return {
+        data: paginated,
+        meta: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          totalPages: Math.ceil(total / take) || 1,
+        },
+      };
+    }
+
+    // Default: 'all' or 'cancelled'
     const [items, total] = await Promise.all([
       this.prisma.reminder.findMany({
         where,
@@ -297,8 +353,21 @@ export class RemindersService {
       this.prisma.reminder.count({ where }),
     ]);
 
+    const enriched = items.map((item) => {
+      const statusData = computeReminderStatus(item, tz, now);
+      return {
+        ...item,
+        computedStatus: statusData.computedStatus,
+        sentCount: statusData.sentCount,
+        canCancel: statusData.canCancel,
+        isStarted: statusData.isStarted,
+        targetOccurrences: statusData.targetOccurrences,
+        scheduledAtUtc: statusData.scheduledAtUtc,
+      };
+    });
+
     return {
-      data: items,
+      data: enriched,
       meta: {
         page: Number(page),
         limit: Number(limit),
@@ -309,18 +378,25 @@ export class RemindersService {
   }
 
   /**
-   * Find single reminder by ID
+   * Find single reminder by ID with enriched status and delivery logs
    */
   async findOne(id: string, tenantId: string, actor: AuthenticatedUser) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { settings: true },
+    });
+    const tz = (tenant?.settings as any)?.timezone || DEFAULT_TIMEZONE;
+
     const reminder = await this.prisma.reminder.findFirst({
       where: { id, tenantId },
       include: {
         assignees: true,
         branch: { select: { id: true, name: true, code: true } },
         creator: { select: { id: true, name: true, email: true } },
+        _count: { select: { notificationLogs: true } },
         notificationLogs: {
           orderBy: { scheduledAt: 'desc' },
-          take: 10,
+          take: 50,
         },
       },
     });
@@ -329,7 +405,17 @@ export class RemindersService {
       throw new NotFoundException(`Reminder with ID '${id}' not found`);
     }
 
-    return reminder;
+    const statusData = computeReminderStatus(reminder, tz, new Date());
+
+    return {
+      ...reminder,
+      computedStatus: statusData.computedStatus,
+      sentCount: statusData.sentCount,
+      canCancel: statusData.canCancel,
+      isStarted: statusData.isStarted,
+      targetOccurrences: statusData.targetOccurrences,
+      scheduledAtUtc: statusData.scheduledAtUtc,
+    };
   }
 
   /**
@@ -556,17 +642,81 @@ export class RemindersService {
         endDate: parsedEndDate,
         endOccurrences: dto.endOccurrences !== undefined ? dto.endOccurrences : undefined,
         branchId: dto.branchId !== undefined ? (dto.branchId || null) : undefined,
-        isActive: dto.isActive !== undefined ? dto.isActive : undefined,
         assignees: assigneesUpdate,
       },
       include: {
         assignees: true,
         branch: { select: { id: true, name: true, code: true } },
+        _count: { select: { notificationLogs: true } },
       },
     });
 
     this.logger.log(`✅ Reminder updated: "${updated.title}" by ${actor.email}`);
     return updated;
+  }
+
+  /**
+   * Cancel an active Reminder
+   * Conditional rules:
+   * - ONE_TIME: can ONLY be cancelled if not started and scheduled time has not passed.
+   * - RECURRING: can ONLY be cancelled if currently ACTIVE (not already completed or cancelled).
+   * Boundary:
+   * - Lab Admin for LAB module.
+   * - Clinic Admin or Tenant Admin for CLINIC module.
+   */
+  async cancel(id: string, tenantId: string, actor: AuthenticatedUser) {
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    const isLabAdminUser = await this.isLabAdmin(actor, tenantId);
+    const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
+
+    const existing = await this.findOne(id, tenantId, actor);
+    const targetModule = (existing.moduleKey || 'LAB').toUpperCase();
+
+    // Lab Module boundary: Lab Admin ONLY
+    if (targetModule === 'LAB' && isTenantAdminUser && !isLabAdminUser) {
+      throw new ForbiddenException(
+        'Tenant Administrators cannot cancel operational reminders for the Lab module. Action is reserved for Lab Administrators.',
+      );
+    }
+
+    // Clinic Module boundary: Clinic Admin or Tenant Admin allowed
+    if (targetModule === 'CLINIC' && !isTenantAdminUser && !isClinicAdminUser) {
+      throw new ForbiddenException(
+        'You do not have permission to cancel operational reminders for the Clinic module.',
+      );
+    }
+
+    if (!existing.canCancel) {
+      if (existing.computedStatus === 'COMPLETED') {
+        throw new BadRequestException('This reminder is already completed and cannot be cancelled.');
+      }
+      if (existing.computedStatus === 'CANCELLED') {
+        throw new BadRequestException('This reminder is already cancelled.');
+      }
+      throw new BadRequestException(
+        'This reminder has already started or its scheduled time has passed, so it cannot be cancelled.',
+      );
+    }
+
+    const updated = await this.prisma.reminder.update({
+      where: { id: existing.id },
+      data: { isActive: false },
+      include: {
+        assignees: true,
+        branch: { select: { id: true, name: true, code: true } },
+        _count: { select: { notificationLogs: true } },
+      },
+    });
+
+    this.logger.log(`🛑 Reminder cancelled: "${updated.title}" by ${actor.email}`);
+
+    return {
+      ...updated,
+      computedStatus: 'CANCELLED',
+      sentCount: existing.sentCount,
+      canCancel: false,
+      isStarted: existing.isStarted,
+    };
   }
 
   /**
