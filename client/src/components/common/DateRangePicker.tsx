@@ -1,14 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, Check } from 'lucide-react';
 import { formatDate } from '../../core/utils/dateUtils';
 
 export interface DateRange {
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
+  startDate: string; // YYYY-MM-DD (or empty string for all)
+  endDate: string;   // YYYY-MM-DD (or empty string for all)
+  preset?: string;
 }
 
 export type PresetKey =
+  | 'all'
   | 'today'
   | 'yesterday'
   | 'last7Days'
@@ -21,23 +23,93 @@ export type PresetKey =
   | 'lastYear'
   | 'customRange';
 
-interface DateRangePickerProps {
+export interface DateRangePickerProps {
   value: DateRange;
   onChange: (range: DateRange) => void;
   className?: string;
   style?: React.CSSProperties;
+  align?: 'left' | 'right' | 'auto';
 }
 
-function toDateString(d: Date): string {
+function toYMD(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
-function parseYMD(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
+function calculatePresetRange(key: PresetKey): { startDate: string; endDate: string } {
+  const today = new Date();
+  const todayStr = toYMD(today);
+
+  switch (key) {
+    case 'all':
+      return { startDate: '', endDate: '' };
+
+    case 'today':
+      return { startDate: todayStr, endDate: todayStr };
+
+    case 'yesterday': {
+      const y = new Date(today);
+      y.setDate(today.getDate() - 1);
+      const yStr = toYMD(y);
+      return { startDate: yStr, endDate: yStr };
+    }
+
+    case 'last7Days': {
+      const d = new Date(today);
+      d.setDate(today.getDate() - 6);
+      return { startDate: toYMD(d), endDate: todayStr };
+    }
+
+    case 'last30Days': {
+      const d = new Date(today);
+      d.setDate(today.getDate() - 29);
+      return { startDate: toYMD(d), endDate: todayStr };
+    }
+
+    case 'thisMonth': {
+      const s = new Date(today.getFullYear(), today.getMonth(), 1);
+      const e = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { startDate: toYMD(s), endDate: toYMD(e) };
+    }
+
+    case 'lastMonth': {
+      const s = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const e = new Date(today.getFullYear(), today.getMonth(), 0);
+      return { startDate: toYMD(s), endDate: toYMD(e) };
+    }
+
+    case 'last3Months': {
+      const s = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      const e = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { startDate: toYMD(s), endDate: toYMD(e) };
+    }
+
+    case 'last6Months': {
+      const s = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+      const e = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { startDate: toYMD(s), endDate: toYMD(e) };
+    }
+
+    case 'thisYear': {
+      return {
+        startDate: `${today.getFullYear()}-01-01`,
+        endDate: `${today.getFullYear()}-12-31`,
+      };
+    }
+
+    case 'lastYear': {
+      const prevYear = today.getFullYear() - 1;
+      return {
+        startDate: `${prevYear}-01-01`,
+        endDate: `${prevYear}-12-31`,
+      };
+    }
+
+    default:
+      return { startDate: '', endDate: '' };
+  }
 }
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
@@ -45,33 +117,61 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   onChange,
   className = '',
   style,
+  align = 'auto',
 }) => {
-  const { t, i18n } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-  const [activePreset, setActivePreset] = useState<PresetKey>('thisMonth');
+  const { i18n } = useTranslation();
+  const isSpanish = i18n.language?.startsWith('es');
+  const locale = isSpanish ? 'es-MX' : 'en-US';
 
-  // Viewing month for left calendar (first day of that month)
-  const [viewDate, setViewDate] = useState<Date>(() => {
-    if (value.startDate) {
-      const d = parseYMD(value.startDate);
-      return new Date(d.getFullYear(), d.getMonth(), 1);
+  const [isOpen, setIsOpen] = useState(false);
+  const [activePreset, setActivePreset] = useState<PresetKey>(() => {
+    if (!value.startDate && !value.endDate) {
+      return 'all';
     }
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return (value.preset as PresetKey) || 'customRange';
   });
 
-  // Range selection in-progress state
-  const [hoverDate, setHoverDate] = useState<string | null>(null);
-  const [pickingStart, setPickingStart] = useState<string | null>(null);
+  const [customStartDate, setCustomStartDate] = useState<string>(() => value.startDate || toYMD(new Date()));
+  const [customEndDate, setCustomEndDate] = useState<string>(() => value.endDate || toYMD(new Date()));
+  const [computedAlign, setComputedAlign] = useState<'left' | 'right'>('left');
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
+  // Sync external changes
+  useEffect(() => {
+    if (!value.startDate && !value.endDate) {
+      setActivePreset('all');
+    } else if (value.preset) {
+      setActivePreset(value.preset as PresetKey);
+    }
+    if (value.startDate) setCustomStartDate(value.startDate);
+    if (value.endDate) setCustomEndDate(value.endDate);
+  }, [value.startDate, value.endDate, value.preset]);
+
+  // Viewport detection to eliminate right/left overflow
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      if (align === 'right') {
+        setComputedAlign('right');
+      } else if (align === 'left') {
+        setComputedAlign('left');
+      } else {
+        const rect = containerRef.current.getBoundingClientRect();
+        // If placing left-aligned popover (230px wide) would cross screen boundary, anchor right
+        if (rect.left + 240 > window.innerWidth || window.innerWidth - rect.right < 120) {
+          setComputedAlign('right');
+        } else {
+          setComputedAlign('left');
+        }
+      }
+    }
+  }, [isOpen, align]);
+
+  // Close on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
-        setPickingStart(null);
       }
     }
     if (isOpen) {
@@ -82,269 +182,64 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     };
   }, [isOpen]);
 
-  // Handle preset calculations
-  const applyPreset = (key: PresetKey) => {
-    const today = new Date();
-    let start: Date;
-    let end: Date = today;
+  const presets: { key: PresetKey; label: string }[] = useMemo(() => [
+    { key: 'all', label: isSpanish ? 'Todas las Fechas (ALL)' : 'All Dates (ALL)' },
+    { key: 'today', label: isSpanish ? 'Hoy' : 'Today' },
+    { key: 'yesterday', label: isSpanish ? 'Ayer' : 'Yesterday' },
+    { key: 'last7Days', label: isSpanish ? 'Últimos 7 Días' : 'Last 7 Days' },
+    { key: 'last30Days', label: isSpanish ? 'Últimos 30 Días' : 'Last 30 Days' },
+    { key: 'thisMonth', label: isSpanish ? 'Este Mes' : 'This Month' },
+    { key: 'lastMonth', label: isSpanish ? 'Mes Pasado' : 'Last Month' },
+    { key: 'last3Months', label: isSpanish ? 'Últimos 3 Meses' : 'Last 3 Months' },
+    { key: 'last6Months', label: isSpanish ? 'Últimos 6 Meses' : 'Last 6 Months' },
+    { key: 'thisYear', label: isSpanish ? 'Este Año' : 'This Year' },
+    { key: 'lastYear', label: isSpanish ? 'Año Pasado' : 'Last Year' },
+    { key: 'customRange', label: isSpanish ? 'Rango Personalizado' : 'Custom Range' },
+  ], [isSpanish]);
 
-    switch (key) {
-      case 'today':
-        start = today;
-        end = today;
-        break;
-      case 'yesterday': {
-        const y = new Date(today);
-        y.setDate(today.getDate() - 1);
-        start = y;
-        end = y;
-        break;
-      }
-      case 'last7Days': {
-        const d = new Date(today);
-        d.setDate(today.getDate() - 6);
-        start = d;
-        break;
-      }
-      case 'last30Days': {
-        const d = new Date(today);
-        d.setDate(today.getDate() - 29);
-        start = d;
-        break;
-      }
-      case 'thisMonth': {
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        break;
-      }
-      case 'lastMonth': {
-        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        end = new Date(today.getFullYear(), today.getMonth(), 0);
-        break;
-      }
-      case 'last3Months': {
-        start = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        break;
-      }
-      case 'last6Months': {
-        start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        break;
-      }
-      case 'thisYear': {
-        start = new Date(today.getFullYear(), 0, 1);
-        end = new Date(today.getFullYear(), 11, 31);
-        break;
-      }
-      case 'lastYear': {
-        start = new Date(today.getFullYear() - 1, 0, 1);
-        end = new Date(today.getFullYear() - 1, 11, 31);
-        break;
-      }
-      case 'customRange':
-        setActivePreset('customRange');
-        return;
-      default:
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const handleSelectPreset = (key: PresetKey) => {
+    if (key === 'customRange') {
+      setActivePreset('customRange');
+      setCustomStartDate(value.startDate || toYMD(new Date()));
+      setCustomEndDate(value.endDate || toYMD(new Date()));
+      return;
     }
 
-    const sStr = toDateString(start);
-    const eStr = toDateString(end);
+    const range = calculatePresetRange(key);
     setActivePreset(key);
-    setViewDate(new Date(start.getFullYear(), start.getMonth(), 1));
-    setPickingStart(null);
-    onChange({ startDate: sStr, endDate: eStr });
+    onChange({ ...range, preset: key });
+    setIsOpen(false);
   };
 
-  const handleDateClick = (dateStr: string) => {
-    if (!pickingStart) {
-      setPickingStart(dateStr);
-      setActivePreset('customRange');
-    } else {
-      let finalStart = pickingStart;
-      let finalEnd = dateStr;
-      if (new Date(dateStr) < new Date(pickingStart)) {
-        finalStart = dateStr;
-        finalEnd = pickingStart;
-      }
-      setPickingStart(null);
-      setActivePreset('customRange');
-      onChange({ startDate: finalStart, endDate: finalEnd });
+  const handleApplyCustomRange = () => {
+    if (!customStartDate || !customEndDate) return;
+    let s = customStartDate;
+    let e = customEndDate;
+    if (s > e) {
+      s = customEndDate;
+      e = customStartDate;
     }
-  };
-
-  const navMonth = (delta: number) => {
-    setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
-  };
-
-  const leftMonth = viewDate;
-  const rightMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
-
-  // Preset list
-  const presets: { key: PresetKey; label: string }[] = [
-    { key: 'today', label: t('expenses.presets.today', 'Today') },
-    { key: 'yesterday', label: t('expenses.presets.yesterday', 'Yesterday') },
-    { key: 'last7Days', label: t('expenses.presets.last7Days', 'Last 7 Days') },
-    { key: 'last30Days', label: t('expenses.presets.last30Days', 'Last 30 Days') },
-    { key: 'thisMonth', label: t('expenses.presets.thisMonth', 'This Month') },
-    { key: 'lastMonth', label: t('expenses.presets.lastMonth', 'Last Month') },
-    { key: 'last3Months', label: t('expenses.presets.last3Months', 'Last 3 Months') },
-    { key: 'last6Months', label: t('expenses.presets.last6Months', 'Last 6 Months') },
-    { key: 'thisYear', label: t('expenses.presets.thisYear', 'This Year') },
-    { key: 'lastYear', label: t('expenses.presets.lastYear', 'Last Year') },
-    { key: 'customRange', label: t('expenses.presets.customRange', 'Custom Range') },
-  ];
-
-  // Render a calendar month
-  const renderMonth = (monthDate: Date) => {
-    const year = monthDate.getFullYear();
-    const month = monthDate.getMonth();
-    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-    const monthName = monthDate.toLocaleString(i18n.language === 'es' ? 'es-MX' : 'en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
-
-    const capitalizedMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-
-    const dayHeaders = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-    const cells = [];
-
-    // Prev month days
-    for (let i = firstDayIndex - 1; i >= 0; i--) {
-      const dayNum = daysInPrevMonth - i;
-      cells.push({
-        day: dayNum,
-        isCurrentMonth: false,
-        dateStr: toDateString(new Date(year, month - 1, dayNum)),
-      });
-    }
-
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-      cells.push({
-        day: i,
-        isCurrentMonth: true,
-        dateStr: toDateString(new Date(year, month, i)),
-      });
-    }
-
-    // Next month days to fill 35 or 42 cells
-    const remaining = (7 - (cells.length % 7)) % 7;
-    for (let i = 1; i <= remaining; i++) {
-      cells.push({
-        day: i,
-        isCurrentMonth: false,
-        dateStr: toDateString(new Date(year, month + 1, i)),
-      });
-    }
-
-    // Effective start and end for highlighting
-    const effectiveStart = pickingStart || value.startDate;
-    const effectiveEnd = pickingStart ? (hoverDate || pickingStart) : value.endDate;
-    const sDate = effectiveStart ? parseYMD(effectiveStart) : null;
-    const eDate = effectiveEnd ? parseYMD(effectiveEnd) : null;
-    const isReversed = sDate && eDate && sDate > eDate;
-    const rangeStart = isReversed ? eDate : sDate;
-    const rangeEnd = isReversed ? sDate : eDate;
-
-    return (
-      <div style={{ width: '250px' }}>
-        <div
-          style={{
-            fontSize: '13px',
-            fontWeight: 700,
-            color: 'var(--text-heading)',
-            textAlign: 'center',
-            marginBottom: '12px',
-          }}
-        >
-          {capitalizedMonthName}
-        </div>
-
-        {/* Days of week */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '6px' }}>
-          {dayHeaders.map((dh) => (
-            <div
-              key={dh}
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                textAlign: 'center',
-                padding: '4px 0',
-              }}
-            >
-              {dh}
-            </div>
-          ))}
-        </div>
-
-        {/* Days grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-          {cells.map((cell, idx) => {
-            const cellDate = parseYMD(cell.dateStr);
-            const isStart = rangeStart && toDateString(cellDate) === toDateString(rangeStart);
-            const isEnd = rangeEnd && toDateString(cellDate) === toDateString(rangeEnd);
-            const inRange = rangeStart && rangeEnd && cellDate >= rangeStart && cellDate <= rangeEnd;
-
-            let bgColor = 'transparent';
-            let textColor = cell.isCurrentMonth ? 'var(--text-main)' : 'var(--text-muted)';
-            let borderRadius = '6px';
-
-            if (isStart || isEnd) {
-              bgColor = 'var(--primary-600)';
-              textColor = '#ffffff';
-              borderRadius = '6px';
-            } else if (inRange) {
-              bgColor = 'var(--badge-primary-bg)';
-              textColor = 'var(--primary-700)';
-              borderRadius = '0px';
-            }
-
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleDateClick(cell.dateStr)}
-                onMouseEnter={() => pickingStart && setHoverDate(cell.dateStr)}
-                style={{
-                  height: '30px',
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px',
-                  fontWeight: isStart || isEnd ? 700 : 500,
-                  backgroundColor: bgColor,
-                  color: textColor,
-                  borderRadius,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.15s ease',
-                  opacity: cell.isCurrentMonth ? 1 : 0.45,
-                }}
-              >
-                {cell.day}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
+    setActivePreset('customRange');
+    onChange({ startDate: s, endDate: e, preset: 'customRange' });
+    setIsOpen(false);
   };
 
   // Formatted trigger label
-  const formattedDisplay = `${formatDate(value.startDate, { locale: i18n.language === 'es' ? 'es-MX' : 'en-US' })} ${t(
-    'expenses.dateTo',
-    'to',
-  )} ${formatDate(value.endDate, { locale: i18n.language === 'es' ? 'es-MX' : 'en-US' })}`;
+  const formattedDisplay = useMemo(() => {
+    if (!value.startDate && !value.endDate) {
+      return 'ALL';
+    }
+    if (value.startDate && value.endDate) {
+      if (value.startDate === value.endDate) {
+        return formatDate(value.startDate, { locale });
+      }
+      return `${formatDate(value.startDate, { locale })} ${isSpanish ? 'a' : 'to'} ${formatDate(value.endDate, { locale })}`;
+    }
+    if (value.startDate) {
+      return `${isSpanish ? 'Desde' : 'From'} ${formatDate(value.startDate, { locale })}`;
+    }
+    return 'ALL';
+  }, [value.startDate, value.endDate, isSpanish, locale]);
 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', ...style }} className={className}>
@@ -355,145 +250,161 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: '8px',
           height: '38px',
           padding: '0 12px',
           borderRadius: '8px',
-          border: '1px solid var(--border-color)',
+          border: isOpen ? '1px solid var(--primary-600)' : '1px solid var(--border-color)',
           backgroundColor: 'var(--bg-input)',
           color: 'var(--text-main)',
           fontSize: '13px',
           fontWeight: 500,
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
+          boxShadow: isOpen ? '0 0 0 3px rgba(37, 99, 235, 0.12)' : 'none',
+          transition: 'all 0.15s ease',
         }}
       >
-        <CalendarIcon size={16} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
-        <span>{formattedDisplay}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+          <CalendarIcon size={15} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+          <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', fontWeight: !value.startDate && !value.endDate ? 700 : 500 }}>
+            {formattedDisplay}
+          </span>
+        </span>
         <ChevronDown size={14} style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: '2px' }} />
       </button>
 
-      {/* Popover Dropdown */}
+      {/* Compact Popover Dropdown */}
       {isOpen && (
         <div
-          className="date-picker-popover"
+          className="date-picker-dropdown"
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
-            left: 0,
-            zIndex: 1000,
-            display: 'flex',
+            ...(computedAlign === 'right' ? { right: 0, left: 'auto' } : { left: 0, right: 'auto' }),
+            zIndex: 1050,
+            width: '230px',
             backgroundColor: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
             borderRadius: '12px',
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.15)',
-            overflow: 'hidden',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+            padding: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
           }}
         >
-          {/* Left Presets Sidebar */}
+          {/* Caret pointing up */}
           <div
-            className="date-picker-presets"
             style={{
-              width: '160px',
-              padding: '12px 8px',
-              borderRight: '1px solid var(--border-color)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '3px',
-              backgroundColor: 'var(--bg-surface)',
+              position: 'absolute',
+              top: '-5px',
+              ...(computedAlign === 'right' ? { right: '18px' } : { left: '18px' }),
+              width: '10px',
+              height: '10px',
+              backgroundColor: 'var(--bg-card)',
+              borderLeft: '1px solid var(--border-color)',
+              borderTop: '1px solid var(--border-color)',
+              transform: 'rotate(45deg)',
             }}
-          >
+          />
+
+          {/* Preset Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '280px', overflowY: 'auto' }}>
             {presets.map((preset) => {
               const isActive = activePreset === preset.key;
               return (
                 <button
                   key={preset.key}
                   type="button"
-                  onClick={() => applyPreset(preset.key)}
+                  onClick={() => handleSelectPreset(preset.key)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
+                    width: '100%',
                     padding: '7px 12px',
-                    borderRadius: '8px',
-                    fontSize: '12.5px',
-                    fontWeight: isActive ? 700 : 500,
-                    textAlign: 'left',
+                    borderRadius: '7px',
                     border: 'none',
-                    cursor: 'pointer',
                     backgroundColor: isActive ? 'var(--primary-600)' : 'transparent',
                     color: isActive ? '#ffffff' : 'var(--text-main)',
-                    transition: 'all 0.15s ease',
+                    fontWeight: isActive ? 700 : 500,
+                    fontSize: '12.5px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
                   }}
                 >
-                  {preset.label}
+                  <span>{preset.label}</span>
+                  {isActive && <Check size={14} style={{ color: '#ffffff' }} />}
                 </button>
               );
             })}
           </div>
 
-          {/* Right Dual Calendar */}
-          <div className="date-picker-calendar-area" style={{ padding: '16px 20px', position: 'relative' }}>
-            {/* Prev / Next Navigation buttons */}
+          {/* Custom Range Expansion */}
+          {activePreset === 'customRange' && (
             <div
               style={{
-                position: 'absolute',
-                top: '16px',
-                left: '20px',
-                right: '20px',
+                padding: '8px 4px 4px',
+                borderTop: '1px solid var(--border-color)',
+                marginTop: '4px',
                 display: 'flex',
-                justifyContent: 'space-between',
-                pointerEvents: 'none',
+                flexDirection: 'column',
+                gap: '6px',
               }}
             >
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
+                  {isSpanish ? 'Desde:' : 'From:'}
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  style={{ width: '100%', height: '32px', fontSize: '12px', padding: '4px 8px' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
+                  {isSpanish ? 'Hasta:' : 'To:'}
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  style={{ width: '100%', height: '32px', fontSize: '12px', padding: '4px 8px' }}
+                />
+              </div>
               <button
                 type="button"
-                onClick={() => navMonth(-1)}
+                onClick={handleApplyCustomRange}
+                className="btn btn-primary btn-sm"
                 style={{
-                  pointerEvents: 'auto',
-                  background: 'none',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  width: '28px',
-                  height: '28px',
-                  display: 'flex',
-                  alignItems: 'center',
+                  width: '100%',
+                  height: '30px',
+                  fontSize: '12px',
+                  fontWeight: 600,
                   justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: 'var(--text-main)',
-                  backgroundColor: 'var(--bg-card)',
+                  marginTop: '2px',
                 }}
               >
-                <ChevronLeft size={16} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navMonth(1)}
-                style={{
-                  pointerEvents: 'auto',
-                  background: 'none',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  width: '28px',
-                  height: '28px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: 'var(--text-main)',
-                  backgroundColor: 'var(--bg-card)',
-                }}
-              >
-                <ChevronRight size={16} />
+                {isSpanish ? 'Aplicar' : 'Apply'}
               </button>
             </div>
-
-            {/* Calendars side-by-side */}
-            <div className="date-picker-dual-calendar" style={{ display: 'flex', gap: '32px' }}>
-              <div className="date-picker-month-first">{renderMonth(leftMonth)}</div>
-              <div className="date-picker-month-second">{renderMonth(rightMonth)}</div>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>

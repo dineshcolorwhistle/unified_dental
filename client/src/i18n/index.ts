@@ -2921,7 +2921,7 @@ const resources = {
         filters: {
           searchPlaceholder: 'Search...',
           category: 'Category:',
-          categoryAll: 'All',
+          categoryAll: 'All Categories',
           subcategory: 'Subcategory:',
           subcategoryAll: 'All Subcategories',
           dateRange: 'Date Range',
@@ -2935,6 +2935,7 @@ const resources = {
           expenseCount: 'EXPENSE COUNT',
         },
         presets: {
+          all: 'ALL',
           today: 'Today',
           yesterday: 'Yesterday',
           last7Days: 'Last 7 Days',
@@ -6776,7 +6777,7 @@ const resources = {
         filters: {
           searchPlaceholder: 'Buscar...',
           category: 'Categoría:',
-          categoryAll: 'Todas',
+          categoryAll: 'Todas las Categorías',
           subcategory: 'Subcategoría:',
           subcategoryAll: 'Todas las Subcategorías',
           dateRange: 'Rango de Fechas',
@@ -6790,6 +6791,7 @@ const resources = {
           expenseCount: 'CANTIDAD DE GASTOS',
         },
         presets: {
+          all: 'TODAS',
           today: 'Hoy',
           yesterday: 'Ayer',
           last7Days: 'Últimos 7 Días',

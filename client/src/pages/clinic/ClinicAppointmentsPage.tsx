@@ -5,6 +5,7 @@ import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { Pagination } from '../../components/common/Pagination';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
+import { DateRangePicker, DateRange } from '../../components/common/DateRangePicker';
 import {
   CalendarCheck,
   Calendar as CalendarIcon,
@@ -170,37 +171,6 @@ const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
   { value: '+44', label: '+44' },
 ];
 
-const DATE_RANGE_PRESETS = [
-  { key: 'today', labelEn: 'Today', labelEs: 'Hoy' },
-  { key: 'yesterday', labelEn: 'Yesterday', labelEs: 'Ayer' },
-  { key: 'last7Days', labelEn: 'Last 7 Days', labelEs: 'Last 7 Days' },
-  { key: 'last30Days', labelEn: 'Last 30 Days', labelEs: 'Last 30 Days' },
-  { key: 'thisMonth', labelEn: 'This Month', labelEs: 'This Month' },
-  { key: 'lastMonth', labelEn: 'Last Month', labelEs: 'Last Month' },
-  { key: 'thisYear', labelEn: 'This Year', labelEs: 'This Year' },
-  { key: 'lastYear', labelEn: 'Last Year', labelEs: 'Last Year' },
-  { key: 'customRange', labelEn: 'Custom Range', labelEs: 'Custom Range' },
-  { key: 'all', labelEn: 'All Dates', labelEs: 'All Dates' },
-];
-
-const formatYMD = (d: Date): string => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getLast7DaysRange = () => {
-  const now = new Date();
-  const d = new Date(now);
-  d.setDate(now.getDate() - 6);
-  return {
-    startDate: formatYMD(d),
-    endDate: formatYMD(now),
-    preset: 'last7Days',
-  };
-};
-
 export const ClinicAppointmentsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { isClinicAdmin, isTenantAdmin, isClinicDoctor, user } = useAuth();
@@ -242,16 +212,12 @@ export const ClinicAppointmentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [doctorFilter, setDoctorFilter] = useState<string>('ALL');
 
-  // Date Range Filter State (Defaults to Last 7 Days per user requirement)
-  const [dateRange, setDateRange] = useState<{
-    startDate: string;
-    endDate: string;
-    preset: string;
-  }>(() => getLast7DaysRange());
-  const [isDateRangeOpen, setIsDateRangeOpen] = useState<boolean>(false);
-  const [customStartDate, setCustomStartDate] = useState<string>(() => getLast7DaysRange().startDate);
-  const [customEndDate, setCustomEndDate] = useState<string>(() => getLast7DaysRange().endDate);
-  const dateRangeDropdownRef = useRef<HTMLDivElement>(null);
+  // Date Range Filter State (Defaults to ALL per user requirement)
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: '',
+    endDate: '',
+    preset: 'all',
+  });
 
   // Doctor & Patient Options for Selectors
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
@@ -469,122 +435,11 @@ export const ClinicAppointmentsPage: React.FC = () => {
     fetchPatients();
   }, [fetchStats, fetchDoctors, fetchPatients]);
 
-  // Click outside to close Date Range dropdown
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dateRangeDropdownRef.current && !dateRangeDropdownRef.current.contains(e.target as Node)) {
-        setIsDateRangeOpen(false);
-      }
-    }
-    if (isDateRangeOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDateRangeOpen]);
-
-  const handleSelectDatePreset = (key: string) => {
-    const today = new Date();
-    const todayStr = formatYMD(today);
-
-    if (key === 'customRange') {
-      setDateRange((prev) => ({ ...prev, preset: 'customRange' }));
-      setCustomStartDate(dateRange.startDate || todayStr);
-      setCustomEndDate(dateRange.endDate || todayStr);
-      return;
-    }
-
-    let start = todayStr;
-    let end = todayStr;
-
-    switch (key) {
-      case 'today':
-        start = todayStr;
-        end = todayStr;
-        break;
-      case 'yesterday': {
-        const y = new Date(today);
-        y.setDate(today.getDate() - 1);
-        start = formatYMD(y);
-        end = start;
-        break;
-      }
-      case 'last7Days': {
-        const d = new Date(today);
-        d.setDate(today.getDate() - 6);
-        start = formatYMD(d);
-        end = todayStr;
-        break;
-      }
-      case 'last30Days': {
-        const d = new Date(today);
-        d.setDate(today.getDate() - 29);
-        start = formatYMD(d);
-        end = todayStr;
-        break;
-      }
-      case 'thisMonth': {
-        const s = new Date(today.getFullYear(), today.getMonth(), 1);
-        const e = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        start = formatYMD(s);
-        end = formatYMD(e);
-        break;
-      }
-      case 'lastMonth': {
-        const s = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        const e = new Date(today.getFullYear(), today.getMonth(), 0);
-        start = formatYMD(s);
-        end = formatYMD(e);
-        break;
-      }
-      case 'thisYear': {
-        start = `${today.getFullYear()}-01-01`;
-        end = `${today.getFullYear()}-12-31`;
-        break;
-      }
-      case 'lastYear': {
-        const prevYear = today.getFullYear() - 1;
-        start = `${prevYear}-01-01`;
-        end = `${prevYear}-12-31`;
-        break;
-      }
-      case 'all': {
-        start = '';
-        end = '';
-        break;
-      }
-      default:
-        break;
-    }
-
-    setDateRange({ startDate: start, endDate: end, preset: key });
-    setIsDateRangeOpen(false);
-    setPage(1);
-  };
-
-  const handleApplyCustomRange = () => {
-    if (!customStartDate || !customEndDate) return;
-    let s = customStartDate;
-    let e = customEndDate;
-    if (s > e) {
-      s = customEndDate;
-      e = customStartDate;
-    }
-    setDateRange({ startDate: s, endDate: e, preset: 'customRange' });
-    setIsDateRangeOpen(false);
-    setPage(1);
-  };
-
   const handleResetFilters = () => {
     setSearch('');
     setDoctorFilter('ALL');
     setStatusFilter('ALL');
-    const defaultRange = getLast7DaysRange();
-    setDateRange(defaultRange);
-    setCustomStartDate(defaultRange.startDate);
-    setCustomEndDate(defaultRange.endDate);
-    setIsDateRangeOpen(false);
+    setDateRange({ startDate: '', endDate: '', preset: 'all' });
     setPage(1);
   };
 
@@ -1221,164 +1076,15 @@ export const ClinicAppointmentsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Date Range Filter (Moved to the last filter, no label on top) */}
+          {/* Date Range Filter */}
           {viewMode === 'list' && (
-            <div style={{ position: 'relative', minWidth: '220px' }} ref={dateRangeDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsDateRangeOpen((prev) => !prev)}
-                style={{
-                  width: '100%',
-                  height: '40px',
-                  padding: '0 14px',
-                  borderRadius: '8px',
-                  border: isDateRangeOpen ? '1.5px solid #2563eb' : '1.5px solid #93c5fd',
-                  backgroundColor: 'var(--bg-input, #ffffff)',
-                  color: 'var(--text-heading, #1e293b)',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  boxShadow: isDateRangeOpen ? '0 0 0 3px rgba(37, 99, 235, 0.15)' : 'none',
-                  transition: 'all 0.15s ease',
-                  outline: 'none',
-                }}
-              >
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {dateRange.startDate && dateRange.endDate
-                    ? `${dateRange.startDate} to ${dateRange.endDate}`
-                    : isSpanish
-                    ? 'Todas las Fechas'
-                    : 'All Dates'}
-                </span>
-                <ChevronDown size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              </button>
-
-              {/* Popover Dropdown Menu */}
-              {isDateRangeOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 6px)',
-                    left: 0,
-                    zIndex: 1050,
-                    minWidth: '200px',
-                    backgroundColor: 'var(--bg-card, #ffffff)',
-                    border: '1px solid var(--border-color, #e2e8f0)',
-                    borderRadius: '12px',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.15)',
-                    padding: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '2px',
-                  }}
-                >
-                  {/* Caret pointing up */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '-6px',
-                      left: '24px',
-                      width: '10px',
-                      height: '10px',
-                      backgroundColor: 'var(--bg-card, #ffffff)',
-                      borderLeft: '1px solid var(--border-color, #e2e8f0)',
-                      borderTop: '1px solid var(--border-color, #e2e8f0)',
-                      transform: 'rotate(45deg)',
-                    }}
-                  />
-
-                  {DATE_RANGE_PRESETS.map((preset) => {
-                    const isActive = dateRange.preset === preset.key;
-                    return (
-                      <button
-                        key={preset.key}
-                        type="button"
-                        onClick={() => handleSelectDatePreset(preset.key)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 14px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          backgroundColor: isActive ? '#5b73e8' : 'transparent',
-                          color: isActive ? '#ffffff' : 'var(--text-main, #1e293b)',
-                          fontWeight: isActive ? 600 : 500,
-                          fontSize: '13px',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          transition: 'all 0.12s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isActive) {
-                            e.currentTarget.style.backgroundColor = 'var(--bg-secondary, rgba(0,0,0,0.04))';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isActive) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <span>{isSpanish ? preset.labelEs : preset.labelEn}</span>
-                      </button>
-                    );
-                  })}
-
-                  {/* Custom Range Inputs if customRange is active */}
-                  {dateRange.preset === 'customRange' && (
-                    <div
-                      style={{
-                        padding: '8px 4px 4px',
-                        borderTop: '1px solid var(--border-color, #e2e8f0)',
-                        marginTop: '4px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                      }}
-                    >
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
-                          {isSpanish ? 'Desde:' : 'From:'}
-                        </label>
-                        <input
-                          type="date"
-                          className="input"
-                          value={customStartDate}
-                          onChange={(e) => setCustomStartDate(e.target.value)}
-                          style={{ width: '100%', height: '32px', fontSize: '12px', padding: '4px 8px' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
-                          {isSpanish ? 'Hasta:' : 'To:'}
-                        </label>
-                        <input
-                          type="date"
-                          className="input"
-                          value={customEndDate}
-                          onChange={(e) => setCustomEndDate(e.target.value)}
-                          style={{ width: '100%', height: '32px', fontSize: '12px', padding: '4px 8px' }}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleApplyCustomRange}
-                        className="btn btn-primary btn-sm"
-                        style={{ width: '100%', height: '30px', fontSize: '12px', justifyContent: 'center', marginTop: '2px' }}
-                      >
-                        {isSpanish ? 'Aplicar' : 'Apply'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <DateRangePicker
+              value={dateRange}
+              onChange={(newRange) => {
+                setDateRange(newRange);
+                setPage(1);
+              }}
+            />
           )}
 
           {/* Reset Filters Option (after Date Range) */}

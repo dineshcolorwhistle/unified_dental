@@ -77,16 +77,9 @@ interface ExpenseMetrics {
 
 
 function getInitialDateRange(): DateRange {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const toYMD = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
   return {
-    startDate: toYMD(start),
-    endDate: toYMD(end),
+    startDate: '',
+    endDate: '',
   };
 }
 
@@ -1004,6 +997,9 @@ export const ExpensesPage: React.FC = () => {
                     {t('expenses.fields.category')}
                   </th>
                   <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    {t('expenses.fields.subcategory')}
+                  </th>
+                  <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                     {t('expenses.fields.amount')}
                   </th>
                   <th style={{ padding: '10px 14px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -1022,13 +1018,13 @@ export const ExpensesPage: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={isTenantAdmin ? 7 : 6} style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan={isTenantAdmin ? 8 : 7} style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
                       {t('common.loading')}
                     </td>
                   </tr>
                 ) : expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={isTenantAdmin ? 7 : 6} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                    <td colSpan={isTenantAdmin ? 8 : 7} style={{ padding: '50px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                         <div
                           style={{
@@ -1094,40 +1090,53 @@ export const ExpensesPage: React.FC = () => {
                         )}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            alignSelf: 'flex-start',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            backgroundColor: 'var(--badge-primary-bg)',
+                            color: 'var(--primary-600)',
+                          }}
+                        >
+                          {expense.category?.name || '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        {expense.subcategory?.name ? (
                           <span
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               alignSelf: 'flex-start',
+                              gap: '5px',
                               padding: '2px 8px',
                               borderRadius: '6px',
                               fontSize: '11.5px',
-                              fontWeight: 600,
-                              backgroundColor: 'var(--badge-primary-bg)',
-                              color: 'var(--primary-600)',
+                              fontWeight: 500,
+                              backgroundColor: 'var(--bg-surface)',
+                              color: 'var(--text-main)',
+                              border: '1px solid var(--border-color)',
                             }}
                           >
-                            {expense.category?.name || '—'}
-                          </span>
-                          {expense.subcategory?.name && (
                             <span
                               style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                alignSelf: 'flex-start',
-                                gap: '4px',
-                                fontSize: '11.5px',
-                                color: 'var(--text-muted)',
-                                fontWeight: 500,
-                                paddingLeft: '2px',
+                                width: '5px',
+                                height: '5px',
+                                borderRadius: '50%',
+                                backgroundColor: 'var(--primary-500)',
+                                display: 'inline-block',
                               }}
-                            >
-                              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--primary-500)', display: 'inline-block' }} />
-                              {expense.subcategory.name}
-                            </span>
-                          )}
-                        </div>
+                            />
+                            {expense.subcategory.name}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>
                         {formatCurrency(expense.amount)}

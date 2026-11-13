@@ -46,16 +46,9 @@ interface BranchOption {
 }
 
 function getInitialDateRange(): DateRange {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const toYMD = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
   return {
-    startDate: toYMD(start),
-    endDate: toYMD(end),
+    startDate: '',
+    endDate: '',
   };
 }
 
@@ -73,8 +66,8 @@ export const FinancePage: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>(getInitialDateRange);
 
-  const startDate = dateRange.startDate;
-  const endDate = dateRange.endDate;
+  const startDate = dateRange.startDate || undefined;
+  const endDate = dateRange.endDate || undefined;
 
   // Overview data
   const [overviewData, setOverviewData] = useState<FinanceOverviewResponse | null>(null);
