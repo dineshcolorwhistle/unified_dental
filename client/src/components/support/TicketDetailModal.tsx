@@ -25,6 +25,7 @@ import {
   SupportTicketMessage,
   SupportTicketStatus,
 } from '../../services/supportService';
+import { formatDateTime, formatTime } from '../../core/utils/dateUtils';
 
 interface TicketDetailModalProps {
   isOpen: boolean;
@@ -382,7 +383,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Calendar size={14} style={{ color: '#f59e0b' }} />
                 <span>
-                  <strong>{t('support.date', 'Created')}:</strong> {new Date(ticket.createdAt).toLocaleString()}
+                  <strong>{t('support.date', 'Created')}:</strong> {formatDateTime(ticket.createdAt)}
                 </span>
               </div>
             </div>
@@ -435,7 +436,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                         {t('support.originalTicketDescription', 'Original Ticket Description')} •{' '}
-                        {new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(ticket.createdAt)}
                       </div>
                     </div>
                   </div>
@@ -587,10 +588,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                             : t('support.badgeLabAdmin', 'Lab Admin')}
                         </span>
                         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {new Date(msg.createdAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatTime(msg.createdAt)}
                         </span>
                       </div>
 

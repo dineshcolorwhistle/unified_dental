@@ -26,6 +26,7 @@ import {
   ClinicServiceItem,
   ServiceStatus,
 } from '../../services/clinicServiceService';
+import { formatDate } from '../../core/utils/dateUtils';
 
 export const ClinicServicesPage: React.FC = () => {
   const { t } = useTranslation();
@@ -901,7 +902,7 @@ export const ClinicServicesPage: React.FC = () => {
                     {t('common.created', 'Created')}
                   </span>
                   <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>
-                    {new Date(viewingItem.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                    {formatDate(viewingItem.createdAt, { format: 'medium' })}
                   </span>
                 </div>
                 <div>
@@ -909,7 +910,7 @@ export const ClinicServicesPage: React.FC = () => {
                     {t('common.updated', 'Last Updated')}
                   </span>
                   <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>
-                    {new Date(viewingItem.updatedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                    {formatDate(viewingItem.updatedAt, { format: 'medium' })}
                   </span>
                 </div>
               </div>

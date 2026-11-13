@@ -28,6 +28,7 @@ import { CreateTicketModal } from '../../components/support/CreateTicketModal';
 import { EditTicketModal } from '../../components/support/EditTicketModal';
 import { DeleteTicketConfirmModal } from '../../components/support/DeleteTicketConfirmModal';
 import { TicketDetailModal } from '../../components/support/TicketDetailModal';
+import { formatDate, formatTime } from '../../core/utils/dateUtils';
 
 export const LabSupportPortalPage: React.FC = () => {
   const { t } = useTranslation();
@@ -545,13 +546,9 @@ export const LabSupportPortalPage: React.FC = () => {
 
                     {/* Creation Date & Time */}
                     <td style={{ padding: '14px 20px', color: 'var(--text-secondary)', fontSize: '12px' }}>
-                      {new Date(tItem.createdAt).toLocaleDateString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}{' '}
+                      {formatDate(tItem.createdAt, { format: 'medium' })}{' '}
                       <span style={{ color: 'var(--text-muted)' }}>
-                        {new Date(tItem.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(tItem.createdAt)}
                       </span>
                     </td>
 

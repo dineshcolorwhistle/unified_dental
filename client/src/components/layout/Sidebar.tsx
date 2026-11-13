@@ -436,6 +436,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {t('nav.platformAdmin')}
                   </span>
                 )}
+                {isTenantContext && activeModuleMode === 'CLINIC' && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      color: '#2dd4bf',
+                      backgroundColor: 'rgba(45, 212, 191, 0.12)',
+                      border: '1px solid rgba(45, 212, 191, 0.25)',
+                      borderRadius: '5px',
+                      padding: '1px 6px',
+                      marginTop: '3px',
+                      width: 'fit-content',
+                      letterSpacing: '0.02em',
+                      lineHeight: '1.3',
+                    }}
+                    title={t('header.clinicModule')}
+                  >
+                    <Stethoscope size={11} style={{ flexShrink: 0 }} />
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t('header.clinicModule')}
+                    </span>
+                  </div>
+                )}
+                {isTenantContext && activeModuleMode === 'LAB' && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      color: '#38bdf8',
+                      backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      borderRadius: '5px',
+                      padding: '1px 6px',
+                      marginTop: '3px',
+                      width: 'fit-content',
+                      letterSpacing: '0.02em',
+                      lineHeight: '1.3',
+                    }}
+                    title={t('header.labModule')}
+                  >
+                    <FlaskConical size={11} style={{ flexShrink: 0 }} />
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t('header.labModule')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -494,7 +546,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 visible={brandHover.isHovered}
                 targetRect={brandHover.rect}
                 title={brandName}
-                subtitle={t('nav.expandSidebar')}
+                subtitle={
+                  isTenantContext
+                    ? activeModuleMode === 'CLINIC'
+                      ? t('header.clinicModule')
+                      : t('header.labModule')
+                    : t('nav.platformAdmin')
+                }
               />
             )}
           </div>

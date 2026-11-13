@@ -31,6 +31,7 @@ import {
   OdontogramDiagnosticItem,
   OdontogramTreatmentItem,
 } from '../../services/clinicOdontogramService';
+import { formatDateTime } from '../../core/utils/dateUtils';
 
 type ActiveTab = 'DIAGNOSTICS' | 'TREATMENT';
 
@@ -93,16 +94,8 @@ export const PatientOdontogramPage: React.FC = () => {
   // Format date helper
   const formatLastSaved = (dateStr?: string | null): string => {
     if (!dateStr) return t('patientOdontogram.notSavedYet', 'Not saved yet');
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return t('patientOdontogram.notSavedYet', 'Not saved yet');
-    return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    const formatted = formatDateTime(dateStr);
+    return formatted === '—' ? t('patientOdontogram.notSavedYet', 'Not saved yet') : formatted;
   };
 
   // Fetch Patient Odontogram & Settings Catalogs

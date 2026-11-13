@@ -1,3 +1,5 @@
+import i18n from '../../i18n';
+
 /**
  * Client-side Date, Time, and Currency Localization Utilities.
  * Adheres to tenant business timezone and Mexican client conventions.
@@ -5,6 +7,23 @@
 
 export const DEFAULT_TIMEZONE = 'America/Mexico_City';
 export const DEFAULT_CURRENCY = 'MXN';
+
+/**
+ * Global reactive active timezone store for the currently authenticated tenant.
+ */
+let currentActiveTimezone = DEFAULT_TIMEZONE;
+
+export function setActiveTimezone(tz: string | null | undefined): void {
+  if (tz && typeof tz === 'string' && tz.trim().length > 0) {
+    currentActiveTimezone = tz.trim();
+  } else {
+    currentActiveTimezone = DEFAULT_TIMEZONE;
+  }
+}
+
+export function getActiveTimezone(): string {
+  return currentActiveTimezone || DEFAULT_TIMEZONE;
+}
 
 export interface TimezoneOption {
   value: string;
@@ -114,7 +133,7 @@ export function normalizeCalendarDate(date: string | Date | null | undefined): D
   }
 
   // Handle YYYY-MM-DD strings
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
   if (match) {
     const [, y, m, d] = match;
     return new Date(Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 12, 0, 0, 0));
@@ -138,11 +157,21 @@ export function formatDate(
   options: FormatDateOptions = {},
 ): string {
   if (!date) return '—';
-  const d = normalizeCalendarDate(date);
+
+  let d: Date | null = null;
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+    d = normalizeCalendarDate(date);
+  } else if (date instanceof Date) {
+    d = isNaN(date.getTime()) ? null : date;
+  } else {
+    const parsed = new Date(date);
+    d = isNaN(parsed.getTime()) ? null : parsed;
+  }
   if (!d) return '—';
 
-  const locale = options.locale || 'es-MX';
-  const timeZone = options.timeZone || DEFAULT_TIMEZONE;
+  const defaultLocale = (i18n.language && i18n.language.startsWith('es')) ? 'es-MX' : 'en-US';
+  const locale = options.locale || defaultLocale;
+  const timeZone = options.timeZone || getActiveTimezone() || DEFAULT_TIMEZONE;
   const style = options.format || 'short';
 
   try {
@@ -193,8 +222,9 @@ export function formatTime(
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return '—';
 
-  const locale = options.locale || 'es-MX';
-  const timeZone = options.timeZone || DEFAULT_TIMEZONE;
+  const defaultLocale = (i18n.language && i18n.language.startsWith('es')) ? 'es-MX' : 'en-US';
+  const locale = options.locale || defaultLocale;
+  const timeZone = options.timeZone || getActiveTimezone() || DEFAULT_TIMEZONE;
   const hour12 = options.hour12 !== undefined ? options.hour12 : true;
 
   try {
@@ -220,8 +250,9 @@ export function formatDateTime(
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return '—';
 
-  const locale = options.locale || 'es-MX';
-  const timeZone = options.timeZone || DEFAULT_TIMEZONE;
+  const defaultLocale = (i18n.language && i18n.language.startsWith('es')) ? 'es-MX' : 'en-US';
+  const locale = options.locale || defaultLocale;
+  const timeZone = options.timeZone || getActiveTimezone() || DEFAULT_TIMEZONE;
 
   try {
     return new Intl.DateTimeFormat(locale, {
@@ -236,6 +267,44 @@ export function formatDateTime(
     }).format(d);
   } catch {
     return d.toLocaleString();
+  }
+}
+
+/**
+ * Formats a live date and time for the top header clock pill.
+ * Returns { dateText, timeText } localized with active timezone.
+ */
+export function formatHeaderDateTime(
+  date: Date = new Date(),
+  options: { locale?: string; timeZone?: string } = {},
+): { dateText: string; timeText: string } {
+  const timeZone = options.timeZone || getActiveTimezone() || DEFAULT_TIMEZONE;
+  const isSpanish = (options.locale || i18n.language || '').startsWith('es');
+  const locale = isSpanish ? 'es-MX' : 'en-US';
+
+  try {
+    const dateText = new Intl.DateTimeFormat(locale, {
+      timeZone,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+
+    const timeText = new Intl.DateTimeFormat(locale, {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    }).format(date);
+
+    return { dateText, timeText };
+  } catch {
+    return {
+      dateText: date.toLocaleDateString(),
+      timeText: date.toLocaleTimeString(),
+    };
   }
 }
 
@@ -267,7 +336,7 @@ export function formatCurrency(
 /**
  * Returns today's calendar date as a YYYY-MM-DD string in the target business timezone.
  */
-export function getTodayDateString(timeZone: string = DEFAULT_TIMEZONE): string {
+export function getTodayDateString(timeZone: string = getActiveTimezone() || DEFAULT_TIMEZONE): string {
   try {
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone,

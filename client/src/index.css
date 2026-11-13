@@ -285,6 +285,56 @@ button {
   height: 100%;
 }
 
+/* Header Live Clock Pill (Web / Desktop only) */
+.header-live-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12.5px;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.header-live-clock:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--primary-400);
+}
+
+.header-live-clock-icon {
+  color: var(--primary-600);
+  flex-shrink: 0;
+}
+
+.header-live-clock-date {
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.header-live-clock-divider {
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin: 0 1px;
+}
+
+.header-live-clock-time {
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .header-live-clock {
+    display: none !important;
+  }
+}
+
 /* Sidebar */
 .app-sidebar {
   width: 260px;

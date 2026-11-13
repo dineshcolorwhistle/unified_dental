@@ -31,6 +31,7 @@ import {
   formatCurrency,
   DEFAULT_TIMEZONE,
   DEFAULT_CURRENCY,
+  setActiveTimezone,
 } from '../core/utils/dateUtils';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import { Tooltip } from '../components/common/Tooltip';
@@ -130,6 +131,7 @@ export const TenantSettingsPage: React.FC = () => {
           dateFormat: selectedDateFormat,
         },
       });
+      setActiveTimezone(selectedTimezone);
       await refreshProfile();
       toast.success(t('tenantSettings.regionalSaveSuccess'));
     } catch (err: any) {

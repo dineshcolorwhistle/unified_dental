@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../../services/api';
 import { getTenantSlug } from '../utils/tenantContext';
+import { setActiveTimezone, DEFAULT_TIMEZONE } from '../utils/dateUtils';
 
 export interface UserProfile {
   id: string;
@@ -59,6 +60,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   hasPermission: (permissionKey: string) => boolean;
   isModuleEnabled: (moduleKey: string) => boolean;
+  activeTimezone: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,6 +68,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Synchronize global date/time utilities with the logged-in tenant's configured timezone
+  useEffect(() => {
+    const tz = user?.activeTenant?.settings?.timezone;
+    setActiveTimezone(tz || DEFAULT_TIMEZONE);
+  }, [user?.activeTenant?.settings?.timezone]);
 
   const refreshProfile = async () => {
     try {
@@ -312,6 +320,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
         hasPermission,
         isModuleEnabled,
+        activeTimezone: user?.activeTenant?.settings?.timezone || DEFAULT_TIMEZONE,
       }}
     >
       {children}

@@ -7,7 +7,7 @@ import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { Pagination } from '../common/Pagination';
 import { ToothIcon } from '../common/ToothIcon';
-import { formatDate } from '../../core/utils/dateUtils';
+import { formatDate, formatDateTime } from '../../core/utils/dateUtils';
 import {
   X,
   History,
@@ -194,33 +194,11 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
 
   // Format date and time for audit
   const formatAuditDateTime = (dateString: string) => {
-    try {
-      const d = new Date(dateString);
-      if (isNaN(d.getTime())) return dateString;
-      return d.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateString;
-    }
+    return formatDateTime(dateString);
   };
 
   const formatNoteDateOnly = (dateString: string) => {
-    try {
-      const d = new Date(dateString);
-      if (isNaN(d.getTime())) return dateString;
-      return d.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch {
-      return dateString;
-    }
+    return formatDate(dateString, { format: 'medium' });
   };
 
   return (

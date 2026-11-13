@@ -7,6 +7,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { NotificationDropdown } from './NotificationDropdown';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { BranchSwitcher } from './BranchSwitcher';
+import { HeaderLiveClock } from './HeaderLiveClock';
 import { getPlatformRootUrl } from '../../core/utils/tenantContext';
 import {
   LogOut,
@@ -209,48 +210,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </button>
             )}
           </div>
-        ) : activeModuleMode === 'LAB' ? (
-          /* Non-Tenant Admin locked to Lab: Static Badge */
-          <div
-            className="header-role-badge header-locked-module"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              backgroundColor: 'var(--bg-surface)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              fontSize: '12px',
-              fontWeight: 700,
-              color: 'var(--primary-600)',
-            }}
-          >
-            <FlaskConical size={14} /> <span className="header-module-label">{t('header.labModule')}</span>
-          </div>
-        ) : activeModuleMode === 'CLINIC' ? (
-          /* Non-Tenant Admin locked to Clinic: Static Badge */
-          <div
-            className="header-role-badge header-locked-module"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              backgroundColor: 'var(--bg-surface)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              fontSize: '12px',
-              fontWeight: 700,
-              color: 'var(--primary-600)',
-            }}
-          >
-            <Stethoscope size={14} /> <span className="header-module-label">{t('header.clinicModule')}</span>
-          </div>
         ) : null}
 
         {/* Branch Switcher (Tenant Admin only) */}
         {tenant && isTenantAdmin && <BranchSwitcher />}
+
+        {/* Live Date & Time Clock (Web / Desktop only) */}
+        <HeaderLiveClock />
 
         {/* Language Switcher */}
         <LanguageSwitcher />

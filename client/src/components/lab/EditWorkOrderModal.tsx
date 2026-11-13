@@ -325,22 +325,6 @@ export const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({
     paymentStatusBg = 'rgba(245, 158, 11, 0.12)';
   }
 
-  const formatDateTime = (dateStr?: string) => {
-    if (!dateStr) return '—';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
   // Options
   const doctorOptions = doctors.map((d) => ({
     value: d.id,

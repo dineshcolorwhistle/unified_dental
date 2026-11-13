@@ -23,6 +23,7 @@ import {
   SupportMetrics,
 } from '../services/supportService';
 import { TicketDetailModal } from '../components/support/TicketDetailModal';
+import { formatDate, formatTime } from '../core/utils/dateUtils';
 
 export const PlatformSupportPortalPage: React.FC = () => {
   const { t } = useTranslation();
@@ -673,13 +674,9 @@ export const PlatformSupportPortalPage: React.FC = () => {
 
                     {/* Creation Date */}
                     <td style={{ padding: '14px 20px', color: 'var(--text-secondary)', fontSize: '12px' }}>
-                      {new Date(tItem.createdAt).toLocaleDateString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}{' '}
+                      {formatDate(tItem.createdAt, { format: 'medium' })}{' '}
                       <span style={{ color: 'var(--text-muted)' }}>
-                        {new Date(tItem.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(tItem.createdAt)}
                       </span>
                     </td>
 
