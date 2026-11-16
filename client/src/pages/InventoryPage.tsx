@@ -105,6 +105,7 @@ export const InventoryPage: React.FC = () => {
 
   // Modal States
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  const [viewingInitialTab, setViewingInitialTab] = useState<'overview' | 'history'>('overview');
   const [stockItem, setStockItem] = useState<InventoryItem | null>(null);
   const [isStockModalOpen, setIsStockModalOpen] = useState<boolean>(false);
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
@@ -338,11 +339,17 @@ export const InventoryPage: React.FC = () => {
       }
 
       if (editingItem) {
-        if (parseInt(itemForm.quantity, 10) !== editingItem.quantity) {
+        const isQtyChanged = parseInt(itemForm.quantity, 10) !== editingItem.quantity;
+        const isPriceChanged =
+          parseFloat(itemForm.unitPrice) !== parseFloat(String(editingItem.unitPrice || 0));
+        if (isQtyChanged || isPriceChanged) {
           payload.adjustmentReason = itemForm.adjustmentReason?.trim() || 'Manual adjustment via item edit';
         }
-        await api.patch(`/inventory/items/${editingItem.id}`, payload);
+        const res = await api.patch(`/inventory/items/${editingItem.id}`, payload);
         toast.success(t('inventory.toast.updatedItem'));
+        if (viewingItem?.id === editingItem.id && res.data) {
+          setViewingItem(res.data);
+        }
       } else {
         await api.post('/inventory/items', payload);
         toast.success(t('inventory.toast.createdItem'));
@@ -1124,7 +1131,10 @@ export const InventoryPage: React.FC = () => {
                           {/* Item & SKU */}
                           <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
                             <div
-                              onClick={() => setViewingItem(it)}
+                              onClick={() => {
+                                setViewingItem(it);
+                                setViewingInitialTab('overview');
+                              }}
                               style={{
                                 fontWeight: 700,
                                 color: 'var(--text-heading)',
@@ -1256,8 +1266,8 @@ export const InventoryPage: React.FC = () => {
                                   type="button"
                                   className="btn-icon"
                                   onClick={() => {
-                                    setHistoryItem(it);
-                                    setIsHistoryModalOpen(true);
+                                    setViewingItem(it);
+                                    setViewingInitialTab('history');
                                   }}
                                   style={{
                                     width: '32px',
@@ -1281,7 +1291,10 @@ export const InventoryPage: React.FC = () => {
                                 <button
                                   type="button"
                                   className="btn-icon"
-                                  onClick={() => setViewingItem(it)}
+                                  onClick={() => {
+                                    setViewingItem(it);
+                                    setViewingInitialTab('overview');
+                                  }}
                                   style={{
                                     width: '32px',
                                     height: '32px',
@@ -1900,38 +1913,40 @@ export const InventoryPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Conditional Adjustment Reason When Editing Quantity */}
-                {editingItem && parseInt(itemForm.quantity, 10) !== editingItem.quantity && (
-                  <div
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      backgroundColor: 'var(--badge-warning-bg, #fffbeb)',
-                      border: '1px solid var(--badge-warning-border, #fde68a)',
-                    }}
-                  >
-                    <label
+                {/* Conditional Adjustment Reason When Editing Quantity or Price */}
+                {editingItem &&
+                  (parseInt(itemForm.quantity, 10) !== editingItem.quantity ||
+                    parseFloat(itemForm.unitPrice) !== parseFloat(String(editingItem.unitPrice || 0))) && (
+                    <div
                       style={{
-                        display: 'block',
-                        fontSize: '12.5px',
-                        fontWeight: 700,
-                        color: 'var(--badge-warning-text, #d97706)',
-                        marginBottom: '6px',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--badge-warning-bg, #fffbeb)',
+                        border: '1px solid var(--badge-warning-border, #fde68a)',
                       }}
                     >
-                      {t('inventory.fields.adjustmentReason', 'Reason for Stock Adjustment')} <span style={{ color: 'var(--rose-500, #ef4444)' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={itemForm.adjustmentReason}
-                      onChange={(e) => setItemForm({ ...itemForm, adjustmentReason: e.target.value })}
-                      placeholder={t('inventory.placeholders.adjustmentReason', 'e.g. Physical inventory count discrepancy, damaged material')}
-                      required
-                      style={{ backgroundColor: 'var(--bg-card)' }}
-                    />
-                  </div>
-                )}
+                      <label
+                        style={{
+                          display: 'block',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          color: 'var(--badge-warning-text, #d97706)',
+                          marginBottom: '6px',
+                        }}
+                      >
+                        {t('inventory.fields.adjustmentReason', 'Reason for Stock / Price Adjustment')} <span style={{ color: 'var(--rose-500, #ef4444)' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={itemForm.adjustmentReason}
+                        onChange={(e) => setItemForm({ ...itemForm, adjustmentReason: e.target.value })}
+                        placeholder={t('inventory.placeholders.adjustmentReason', 'e.g. Physical inventory count discrepancy, supplier price change, damaged material')}
+                        required
+                        style={{ backgroundColor: 'var(--bg-card)' }}
+                      />
+                    </div>
+                  )}
 
                 {/* Description */}
                 <div>
@@ -2155,15 +2170,12 @@ export const InventoryPage: React.FC = () => {
         item={viewingItem}
         isOpen={Boolean(viewingItem)}
         onClose={() => setViewingItem(null)}
+        initialTab={viewingInitialTab}
         onEdit={handleOpenEditItem}
         onDelete={(it) => setDeletingItem(it)}
         onAddStock={(it) => {
           setStockItem(it);
           setIsStockModalOpen(true);
-        }}
-        onViewHistory={(it) => {
-          setHistoryItem(it);
-          setIsHistoryModalOpen(true);
         }}
         isTenantAdmin={isTenantAdmin}
       />

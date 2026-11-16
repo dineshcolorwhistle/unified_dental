@@ -593,6 +593,9 @@ export class InventoryService {
       fieldChanges.description = { old: item.description, new: dto.description?.trim() || null };
     }
     const isQuantityChanged = dto.quantity !== undefined && Number(dto.quantity) !== item.quantity;
+    if (isQuantityChanged) {
+      fieldChanges.quantity = { old: item.quantity, new: Number(dto.quantity) };
+    }
 
     // Status auto management: IN_STOCK, LOW_STOCK, and OUT_OF_STOCK are calculated automatically.
     // DISCONTINUED status can only be set or cleared manually.
@@ -644,31 +647,29 @@ export class InventoryService {
     });
 
     try {
-      if (isQuantityChanged) {
-        const diff = Number(dto.quantity) - item.quantity;
+      if (Object.keys(fieldChanges).length > 0 || isQuantityChanged) {
+        const isPriceChanged =
+          dto.unitPrice !== undefined && Number(dto.unitPrice) !== Number(item.unitPrice);
+        const diff = isQuantityChanged ? Number(dto.quantity) - item.quantity : null;
+        const updateReason = dto.adjustmentReason?.trim()
+          ? dto.adjustmentReason.trim()
+          : isQuantityChanged
+          ? `Stock quantity updated from ${item.quantity} to ${dto.quantity}`
+          : isPriceChanged
+          ? `Unit price updated from ${item.unitPrice} to ${dto.unitPrice}`
+          : 'Item details updated';
+
         await (this.prisma as any).inventoryActivity.create({
           data: {
             tenantId,
             itemId: item.id,
             userId: actor.id,
-            action: 'STOCK_ADJUSTED',
+            action: 'ITEM_UPDATED',
             quantityChanged: diff,
             previousQuantity: item.quantity,
-            newQuantity: Number(dto.quantity),
-            reason: dto.adjustmentReason?.trim() || 'Manual stock quantity adjustment',
-          },
-        });
-      }
-
-      if (Object.keys(fieldChanges).length > 0) {
-        await (this.prisma as any).inventoryActivity.create({
-          data: {
-            tenantId,
-            itemId: item.id,
-            userId: actor.id,
-            action: 'MODIFIED',
-            changes: fieldChanges,
-            reason: 'Item details updated',
+            newQuantity: Number(dto.quantity !== undefined ? dto.quantity : item.quantity),
+            changes: Object.keys(fieldChanges).length > 0 ? fieldChanges : null,
+            reason: updateReason,
           },
         });
       }
@@ -895,7 +896,11 @@ export class InventoryService {
     };
 
     if (query.action && query.action !== 'all') {
-      where.action = query.action;
+      if (query.action === 'MODIFIED' || query.action === 'ITEM_UPDATED') {
+        where.action = { in: ['MODIFIED', 'ITEM_UPDATED'] };
+      } else {
+        where.action = query.action;
+      }
     }
 
     const page = Math.max(1, Number(query.page) || 1);
