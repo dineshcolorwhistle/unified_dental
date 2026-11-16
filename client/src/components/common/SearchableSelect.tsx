@@ -161,10 +161,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-          {icon && <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
+          {icon && <span style={{ color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}>{icon}</span>}
           {selectedOption ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}
+              title={selectedOption.label}
+            >
               {selectedOption.icon && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
                   {selectedOption.icon}
@@ -177,6 +180,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   whiteSpace: 'nowrap',
                   textOverflow: 'ellipsis',
                   overflow: 'hidden',
+                  display: 'block',
+                  minWidth: 0,
+                  flex: 1,
                 }}
               >
                 {selectedOption.label}
@@ -199,7 +205,16 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
               )}
             </div>
           ) : (
-            <span style={{ color: 'var(--text-muted)' }}>
+            <span
+              style={{
+                color: 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
               {placeholder || t('common.search')}
             </span>
           )}

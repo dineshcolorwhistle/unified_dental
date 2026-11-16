@@ -2611,11 +2611,9 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                     </div>
                   ) : (
                     <div
-                      className="table-responsive"
                       style={{
-                        overflowX: 'auto',
                         width: '100%',
-                        WebkitOverflowScrolling: 'touch',
+                        overflowX: 'hidden',
                         minHeight: '260px',
                       }}
                     >
@@ -2623,7 +2621,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                         className="table"
                         style={{
                           width: '100%',
-                          minWidth: '920px',
+                          tableLayout: 'auto',
                           borderCollapse: 'collapse',
                           textAlign: 'left',
                           fontSize: '13px',
@@ -2636,7 +2634,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                               borderBottom: '1px solid var(--border-color, #e2e8f0)',
                             }}
                           >
-                            <th style={{ width: '48px', padding: '10px 14px', textAlign: 'center' }}>
+                            <th style={{ width: '38px', padding: '10px 4px', textAlign: 'center' }}>
                               <input
                                 type="checkbox"
                                 checked={group.items.length > 0 && group.items.every((it) => it.isSelected)}
@@ -2650,28 +2648,28 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 }}
                               />
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px' }}>
+                            <th style={{ padding: '10px 8px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px' }}>
                               {t('patientTreatmentPlan.treatmentColumn', 'Treatment')}
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px' }}>
+                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '13%' }}>
                               {t('patientTreatmentPlan.zoneQuadrantColumn', 'Zone / Quadrant')}
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '70px', textAlign: 'center' }}>
-                              {t('patientTreatmentPlan.qtyColumn', 'Qty')}
-                            </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '210px' }}>
+                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '17%' }}>
                               {t('patientTreatmentPlan.doctorColumn', 'Doctor *')}
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '230px' }}>
+                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '21%' }}>
                               {t('patientTreatmentPlan.serviceColumn', 'Service *')}
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '120px' }}>
-                              {t('patientTreatmentPlan.unitPriceColumn', 'Unit Price')}
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '56px', textAlign: 'center' }}>
+                              {t('patientTreatmentPlan.qtyColumn', 'Qty')}
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '120px' }}>
+                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '95px' }}>
+                              {t('patientTreatmentPlan.unitPriceMxnColumn', 'Unit Price (MXN)')}
+                            </th>
+                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '95px' }}>
                               {t('patientTreatmentPlan.subtotalColumn', 'Subtotal')}
                             </th>
-                            <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '70px', textAlign: 'center' }}>
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '44px', textAlign: 'center' }}>
                               {t('patientTreatmentPlan.appointmentColumn', 'Appointment')}
                             </th>
                           </tr>
@@ -2769,32 +2767,12 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 </td>
 
                                 {/* Zone / Quadrant */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle', color: 'var(--text-muted, #64748b)', fontSize: '12px' }}>
+                                <td style={{ padding: '8px 6px', verticalAlign: 'middle', color: 'var(--text-muted, #64748b)', fontSize: '11.5px', lineHeight: 1.3 }}>
                                   {item.zoneText}
                                 </td>
 
-                                {/* Qty Input */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'center' }}>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    value={item.quantity}
-                                    onChange={(e) => handleItemQtyChange(group.id, item.id, e.target.value)}
-                                    className="form-control"
-                                    style={{
-                                      width: '56px',
-                                      padding: '5px 6px',
-                                      fontSize: '13px',
-                                      textAlign: 'center',
-                                      fontWeight: 700,
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--border-color, #cbd5e1)',
-                                    }}
-                                  />
-                                </td>
-
                                 {/* Doctor * Dropdown */}
-                                <td style={{ padding: '8px 10px', verticalAlign: 'middle', width: '210px', minWidth: '180px' }}>
+                                <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
                                     options={doctorOptions}
                                     value={item.doctorId}
@@ -2804,17 +2782,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   />
                                 </td>
 
-                                {/* Service * Dropdown (Loaded based on selected doctor) */}
-                                <td style={{ padding: '8px 10px', verticalAlign: 'middle', width: '230px', minWidth: '200px' }}>
+                                {/* Service * Dropdown (Only service name, truncated with ellipsis, NO amount badge) */}
+                                <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
-                                    options={doctorServices.map((srv) => {
-                                      const price = srv.customPrice ?? srv.basePrice;
-                                      return {
-                                        value: srv.serviceId,
-                                        label: srv.serviceName || srv.serviceId,
-                                        badge: price !== undefined ? `${price.toFixed(2)} MXN` : undefined,
-                                      };
-                                    })}
+                                    options={doctorServices.map((srv) => ({
+                                      value: srv.serviceId,
+                                      label: srv.serviceName || srv.serviceId,
+                                    }))}
                                     value={item.serviceId}
                                     onChange={(val) => handleItemServiceChange(group.id, item.id, val)}
                                     disabled={!item.doctorId}
@@ -2829,49 +2803,55 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   />
                                 </td>
 
-                                {/* Unit Price Input */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
-                                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                    <span
-                                      style={{
-                                        position: 'absolute',
-                                        left: '8px',
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        color: 'var(--text-muted, #94a3b8)',
-                                      }}
-                                    >
-                                      MXN
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      value={item.unitPrice}
-                                      onChange={(e) => handleItemUnitPriceChange(group.id, item.id, e.target.value)}
-                                      className="form-control"
-                                      style={{
-                                        paddingLeft: '38px',
-                                        paddingRight: '8px',
-                                        paddingTop: '5px',
-                                        paddingBottom: '5px',
-                                        fontSize: '12.5px',
-                                        borderRadius: '6px',
-                                        border: '1px solid var(--border-color, #cbd5e1)',
-                                        width: '100%',
-                                        fontWeight: 600,
-                                      }}
-                                    />
-                                  </div>
+                                {/* Qty Input (Moved BEFORE Unit Price) */}
+                                <td style={{ padding: '8px 4px', verticalAlign: 'middle', textAlign: 'center', width: '56px' }}>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={item.quantity}
+                                    onChange={(e) => handleItemQtyChange(group.id, item.id, e.target.value)}
+                                    className="form-control"
+                                    style={{
+                                      width: '46px',
+                                      padding: '5px 2px',
+                                      fontSize: '13px',
+                                      textAlign: 'center',
+                                      fontWeight: 700,
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-color, #cbd5e1)',
+                                      margin: '0 auto',
+                                      display: 'block',
+                                    }}
+                                  />
+                                </td>
+
+                                {/* Unit Price Input (MXN shown in header only, only numeric amount here) */}
+                                <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '95px' }}>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={item.unitPrice}
+                                    onChange={(e) => handleItemUnitPriceChange(group.id, item.id, e.target.value)}
+                                    className="form-control"
+                                    style={{
+                                      padding: '5px 8px',
+                                      fontSize: '12.5px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-color, #cbd5e1)',
+                                      width: '100%',
+                                      fontWeight: 600,
+                                    }}
+                                  />
                                 </td>
 
                                 {/* Subtotal Display */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading, #0f172a)' }}>
+                                <td style={{ padding: '8px 6px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading, #0f172a)', whiteSpace: 'nowrap', fontSize: '13px' }}>
                                   {item.subtotal.toFixed(2)} MXN
                                 </td>
 
                                 {/* Appointment Calendar Button */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                <td style={{ padding: '8px 4px', verticalAlign: 'middle', textAlign: 'center', width: '44px' }}>
                                   <button
                                     type="button"
                                     onClick={() => handleOpenApptModalForItem(item, group)}
