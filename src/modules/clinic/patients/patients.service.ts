@@ -198,10 +198,86 @@ export class PatientsService {
   }
 
   /**
+   * Helper to verify if actor has Tenant Administrator or Super Admin privileges
+   */
+  async isTenantAdmin(actor: AuthenticatedUser, tenantId: string): Promise<boolean> {
+    if (actor.isSuperAdmin) return true;
+
+    const isOwnerMem = (actor as any).memberships?.some(
+      (m: any) => m.tenantId === tenantId && m.isOwner,
+    );
+    if (isOwnerMem) return true;
+
+    const hasAdminRole = actor.roles?.some((r: string) => {
+      const lower = r.toLowerCase();
+      return (
+        lower === 'tenant-admin' ||
+        lower.includes('tenant administrator') ||
+        lower.includes('tenant admin')
+      );
+    });
+    if (hasAdminRole) return true;
+
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { userId_tenantId: { userId: actor.id, tenantId } },
+    });
+    if (membership?.isOwner) return true;
+
+    const userAdminRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: { slug: { in: ['tenant-admin', 'admin', 'administrator'] } },
+      },
+    });
+
+    return Boolean(userAdminRole);
+  }
+
+  /**
+   * Helper to verify if actor has Clinic operational privileges (Clinic Admin, Doctor, Staff)
+   */
+  async isClinicOperational(actor: AuthenticatedUser, tenantId: string): Promise<boolean> {
+    const hasRole = actor.roles?.some((r: string) => {
+      const lower = r.toLowerCase();
+      return (
+        lower.includes('clinic-admin') ||
+        lower.includes('clinic admin') ||
+        lower.includes('clinic doctor') ||
+        lower.includes('clinic-doctor') ||
+        lower.includes('clinic staff') ||
+        lower.includes('clinic-staff') ||
+        lower === 'doctor'
+      );
+    });
+    if (hasRole) return true;
+
+    const userRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId: actor.id,
+        tenantId,
+        role: {
+          slug: { in: ['clinic-admin', 'clinic-doctor', 'clinic-staff', 'doctor', 'staff'] },
+        },
+      },
+    });
+
+    return Boolean(userRole);
+  }
+
+  /**
    * Create a new patient
    */
   async create(dto: CreatePatientDto, tenantId: string, actor: AuthenticatedUser) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    const isOperational = await this.isClinicOperational(actor, tenantId);
+    if (isTenantAdminUser && !isOperational && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to register new patients. Patient registration is reserved for Clinic staff and administrators.',
+      );
+    }
 
     const recordNumber = await this.generateRecordNumber(tenantId);
 
@@ -259,6 +335,14 @@ export class PatientsService {
    */
   async update(id: string, dto: UpdatePatientDto, tenantId: string, actor: AuthenticatedUser) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    const isOperational = await this.isClinicOperational(actor, tenantId);
+    if (isTenantAdminUser && !isOperational && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to edit patient details. Editing is reserved for Clinic staff and administrators.',
+      );
+    }
 
     const existing = await this.prisma.patient.findFirst({
       where: { id, tenantId },
@@ -383,6 +467,14 @@ export class PatientsService {
     patientIdParam?: string,
   ) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    const isOperational = await this.isClinicOperational(actor, tenantId);
+    if (isTenantAdminUser && !isOperational && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create clinical notes.',
+      );
+    }
 
     const patientId = patientIdParam || dto.patientId;
     if (!patientId) {

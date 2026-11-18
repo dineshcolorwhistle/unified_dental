@@ -228,8 +228,14 @@ export class ClinicServicesService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Tenant Admins or Clinic Admins can create services.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create clinic services. Creation is reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can create services.');
     }
 
     const trimmedName = dto.name.trim();
@@ -286,8 +292,14 @@ export class ClinicServicesService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Tenant Admins or Clinic Admins can update services.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to update clinic services. Updates are reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can update services.');
     }
 
     const existing = await this.prisma.service.findFirst({

@@ -150,8 +150,14 @@ export class SpecializationsService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Tenant Admins or Clinic Admins can create specializations.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create specializations. Creation is reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can create specializations.');
     }
 
     const trimmedName = dto.name.trim();
@@ -185,8 +191,14 @@ export class SpecializationsService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Tenant Admins or Clinic Admins can update specializations.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to update specializations. Updates are reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can update specializations.');
     }
 
     const existing = await this.prisma.specialization.findFirst({

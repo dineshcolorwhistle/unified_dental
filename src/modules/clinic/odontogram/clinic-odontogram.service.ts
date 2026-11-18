@@ -180,6 +180,11 @@ export class ClinicOdontogramService {
     dto: UpdateOdontogramConfigDto,
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to modify odontogram configuration defaults. Configuration is reserved for Clinic Administrators.',
+      );
+    }
     let targetBranchId: string | null = null;
 
     if (!isTenantAdminUser) {
@@ -270,6 +275,11 @@ export class ClinicOdontogramService {
     dto: CreateOdontogramTreatmentDto,
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create treatments. Creation is reserved for Clinic Administrators.',
+      );
+    }
     let finalBranchId: string | null = null;
 
     if (!isTenantAdminUser) {
@@ -339,6 +349,11 @@ export class ClinicOdontogramService {
     dto: UpdateOdontogramTreatmentDto,
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to update treatments. Updates are reserved for Clinic Administrators.',
+      );
+    }
 
     const treatment = await this.prisma.clinicOdontogramTreatment.findFirst({
       where: { id, tenantId },
@@ -457,6 +472,11 @@ export class ClinicOdontogramService {
     dto: CreateOdontogramDiagnosticDto,
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create diagnostics. Creation is reserved for Clinic Administrators.',
+      );
+    }
     let finalBranchId: string | null = null;
 
     if (!isTenantAdminUser) {
@@ -523,6 +543,11 @@ export class ClinicOdontogramService {
     dto: UpdateOdontogramDiagnosticDto,
   ) {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to update diagnostics. Updates are reserved for Clinic Administrators.',
+      );
+    }
 
     const diagnostic = await this.prisma.clinicOdontogramDiagnostic.findFirst({
       where: { id, tenantId },
@@ -717,6 +742,13 @@ export class ClinicOdontogramService {
     actor: AuthenticatedUser,
     proposedPlan: any,
   ) {
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to edit or save clinical treatment plans.',
+      );
+    }
+
     const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
     let odontogram = await this.prisma.patientOdontogram.findUnique({
       where: { patientId },
@@ -751,6 +783,13 @@ export class ClinicOdontogramService {
     actor: AuthenticatedUser,
     dto: UpdatePatientOdontogramDto,
   ) {
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to edit patient odontograms.',
+      );
+    }
+
     await this.getVerifiedPatient(tenantId, patientId, actor);
 
     let odontogram = await this.prisma.patientOdontogram.findUnique({
@@ -787,6 +826,13 @@ export class ClinicOdontogramService {
     actor: AuthenticatedUser,
     dto: AddPatientDiagnosticDto,
   ) {
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to add diagnostic findings.',
+      );
+    }
+
     const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
 
     let odontogram = await this.prisma.patientOdontogram.findUnique({
@@ -913,6 +959,13 @@ export class ClinicOdontogramService {
     actor: AuthenticatedUser,
     dto: AddPatientTreatmentDto,
   ) {
+    const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to add applied treatments.',
+      );
+    }
+
     const patient = await this.getVerifiedPatient(tenantId, patientId, actor);
 
     let odontogram = await this.prisma.patientOdontogram.findUnique({

@@ -4,6 +4,7 @@ import {
   Plus,
   Trash2,
   Edit2,
+  Eye,
   Building2,
   AlertCircle,
   Loader2,
@@ -21,6 +22,7 @@ import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import { Pagination } from '../../components/common/Pagination';
+import { formatDate } from '../../core/utils/dateUtils';
 import {
   clinicOdontogramService,
   TeethModel,
@@ -51,7 +53,7 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
   const { toast } = useToast();
 
   const isSuperAdmin = user?.isSuperAdmin;
-  const canAddEdit = isClinicAdmin || isTenantAdmin || isSuperAdmin;
+  const canAddEdit = (isClinicAdmin || isSuperAdmin) && !isTenantAdmin;
   const canDelete = isTenantAdmin || isSuperAdmin;
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('DEFAULT');
@@ -73,6 +75,7 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
   const [showCreateTreatmentModal, setShowCreateTreatmentModal] = useState(false);
   const [showEditTreatmentModal, setShowEditTreatmentModal] = useState(false);
   const [selectedTreatment, setSelectedTreatment] = useState<OdontogramTreatmentItem | null>(null);
+  const [viewingTreatment, setViewingTreatment] = useState<OdontogramTreatmentItem | null>(null);
   const [treatmentForm, setTreatmentForm] = useState<CreateOdontogramTreatmentPayload>({
     name: '',
     description: '',
@@ -93,6 +96,7 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
   const [showCreateDiagnosticModal, setShowCreateDiagnosticModal] = useState(false);
   const [showEditDiagnosticModal, setShowEditDiagnosticModal] = useState(false);
   const [selectedDiagnostic, setSelectedDiagnostic] = useState<OdontogramDiagnosticItem | null>(null);
+  const [viewingDiagnostic, setViewingDiagnostic] = useState<OdontogramDiagnosticItem | null>(null);
   const [diagnosticForm, setDiagnosticForm] = useState<CreateOdontogramDiagnosticPayload>({
     name: '',
     description: '',
@@ -1052,6 +1056,22 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                             )}
                             <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  className="btn-icon"
+                                  onClick={() => setViewingTreatment(item)}
+                                  title={t('common.view', 'View Details')}
+                                  style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    padding: '6px',
+                                    borderRadius: 'var(--radius-sm)',
+                                  }}
+                                >
+                                  <Eye size={15} />
+                                </button>
                                 {canAddEdit && (
                                   <button
                                     type="button"
@@ -1328,6 +1348,22 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                             )}
                             <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  className="btn-icon"
+                                  onClick={() => setViewingDiagnostic(item)}
+                                  title={t('common.view', 'View Details')}
+                                  style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    padding: '6px',
+                                    borderRadius: 'var(--radius-sm)',
+                                  }}
+                                >
+                                  <Eye size={15} />
+                                </button>
                                 {canAddEdit && (
                                   <button
                                     type="button"
@@ -1393,6 +1429,394 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* ═════════════════════════════════════════════════ */}
+      {/* MODAL: VIEW TREATMENT DETAILS                     */}
+      {/* ═════════════════════════════════════════════════ */}
+      {viewingTreatment && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1050,
+            padding: '16px',
+          }}
+          onClick={() => setViewingTreatment(null)}
+        >
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '480px',
+              width: '100%',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '16px',
+              boxShadow: 'var(--shadow-xl)',
+              border: '1px solid var(--border-color)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '24px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    backgroundColor: `${viewingTreatment.color}20`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: viewingTreatment.color,
+                  }}
+                >
+                  <ToothIcon size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                    {viewingTreatment.name}
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    {t('odontogramSettings.viewTreatmentModal.subtitle', 'Odontogram Treatment Details')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setViewingTreatment(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                {/* Color Swatch */}
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('odontogramSettings.fields.color', 'Visual Color')}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '6px',
+                        backgroundColor: viewingTreatment.color,
+                        border: '1px solid rgba(0,0,0,0.1)',
+                      }}
+                    />
+                    <span style={{ fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
+                      {viewingTreatment.color}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Scope */}
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('odontogramSettings.fields.scope', 'Scope')}
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 10px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: viewingTreatment.appliesToWholeTooth ? 'rgba(59, 130, 246, 0.12)' : 'rgba(168, 85, 247, 0.12)',
+                      color: viewingTreatment.appliesToWholeTooth ? '#2563eb' : '#9333ea',
+                      border: viewingTreatment.appliesToWholeTooth ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid rgba(168, 85, 247, 0.25)',
+                    }}
+                  >
+                    {viewingTreatment.appliesToWholeTooth
+                      ? t('odontogramSettings.treatmentsTab.wholeToothBadge', 'Whole Tooth')
+                      : t('odontogramSettings.treatmentsTab.surfaceBadge', 'Surfaces')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Branch */}
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  {t('odontogramSettings.fields.branch', 'Clinic Branch')}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>
+                  <Building2 size={15} style={{ color: '#0284c7' }} />
+                  <span>{viewingTreatment.branch?.name || t('odontogramSettings.allBranches', 'All Branches')}</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  {t('odontogramSettings.fields.description', 'Description')}
+                </span>
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13px',
+                    color: viewingTreatment.description ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontStyle: viewingTreatment.description ? 'normal' : 'italic',
+                  }}
+                >
+                  {viewingTreatment.description || t('common.noDescription', 'No description provided.')}
+                </div>
+              </div>
+
+              {/* Audit Timestamps */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{t('common.created', 'Created')}</span>
+                  <span>{formatDate(viewingTreatment.createdAt, { format: 'medium' })}</span>
+                </div>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{t('common.updated', 'Updated')}</span>
+                  <span>{formatDate(viewingTreatment.updatedAt, { format: 'medium' })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setViewingTreatment(null)}
+              >
+                {t('common.close', 'Close')}
+              </button>
+              {canAddEdit && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const item = viewingTreatment;
+                    setViewingTreatment(null);
+                    openEditTreatment(item);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit2 size={14} />
+                  <span>{t('common.edit', 'Edit')}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════ */}
+      {/* MODAL: VIEW DIAGNOSTIC DETAILS                    */}
+      {/* ═════════════════════════════════════════════════ */}
+      {viewingDiagnostic && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1050,
+            padding: '16px',
+          }}
+          onClick={() => setViewingDiagnostic(null)}
+        >
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '480px',
+              width: '100%',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '16px',
+              boxShadow: 'var(--shadow-xl)',
+              border: '1px solid var(--border-color)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '24px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    backgroundColor: `${viewingDiagnostic.color}20`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: viewingDiagnostic.color,
+                  }}
+                >
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                    {viewingDiagnostic.name}
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    {t('odontogramSettings.viewDiagnosticModal.subtitle', 'Odontogram Diagnostic Condition Details')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setViewingDiagnostic(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                {/* Color Swatch */}
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('odontogramSettings.fields.color', 'Visual Color')}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '6px',
+                        backgroundColor: viewingDiagnostic.color,
+                        border: '1px solid rgba(0,0,0,0.1)',
+                      }}
+                    />
+                    <span style={{ fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
+                      {viewingDiagnostic.color}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Scope */}
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('odontogramSettings.fields.scope', 'Scope')}
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 10px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: viewingDiagnostic.appliesToWholeTooth ? 'rgba(59, 130, 246, 0.12)' : 'rgba(168, 85, 247, 0.12)',
+                      color: viewingDiagnostic.appliesToWholeTooth ? '#2563eb' : '#9333ea',
+                      border: viewingDiagnostic.appliesToWholeTooth ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid rgba(168, 85, 247, 0.25)',
+                    }}
+                  >
+                    {viewingDiagnostic.appliesToWholeTooth
+                      ? t('odontogramSettings.diagnosticsTab.wholeToothBadge', 'Whole Tooth')
+                      : t('odontogramSettings.diagnosticsTab.surfaceBadge', 'Surfaces')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Branch */}
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  {t('odontogramSettings.fields.branch', 'Clinic Branch')}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>
+                  <Building2 size={15} style={{ color: '#0284c7' }} />
+                  <span>{viewingDiagnostic.branch?.name || t('odontogramSettings.allBranches', 'All Branches')}</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  {t('odontogramSettings.fields.description', 'Description')}
+                </span>
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13px',
+                    color: viewingDiagnostic.description ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontStyle: viewingDiagnostic.description ? 'normal' : 'italic',
+                  }}
+                >
+                  {viewingDiagnostic.description || t('common.noDescription', 'No description provided.')}
+                </div>
+              </div>
+
+              {/* Audit Timestamps */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{t('common.created', 'Created')}</span>
+                  <span>{formatDate(viewingDiagnostic.createdAt, { format: 'medium' })}</span>
+                </div>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{t('common.updated', 'Updated')}</span>
+                  <span>{formatDate(viewingDiagnostic.updatedAt, { format: 'medium' })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setViewingDiagnostic(null)}
+              >
+                {t('common.close', 'Close')}
+              </button>
+              {canAddEdit && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const item = viewingDiagnostic;
+                    setViewingDiagnostic(null);
+                    openEditDiagnostic(item);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit2 size={14} />
+                  <span>{t('common.edit', 'Edit')}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ═════════════════════════════════════════════════ */}

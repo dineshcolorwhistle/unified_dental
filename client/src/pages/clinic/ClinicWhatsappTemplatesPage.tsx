@@ -389,15 +389,17 @@ export const ClinicWhatsappTemplatesPage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleOpenCreateModal}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Plus size={16} />
-          <span>{t('clinicWhatsapp.addBtn', 'Add Template')}</span>
-        </button>
+        {!isTenantAdmin && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleOpenCreateModal}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={16} />
+            <span>{t('clinicWhatsapp.addBtn', 'Add Template')}</span>
+          </button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -673,27 +675,29 @@ export const ClinicWhatsappTemplatesPage: React.FC = () => {
                           </button>
                         </Tooltip>
 
-                        <Tooltip content={t('common.edit', 'Edit')}>
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            onClick={() => handleOpenEditModal(item)}
-                            style={{
-                              width: '30px',
-                              height: '30px',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--bg-surface)',
-                              color: 'var(--text-main)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                        </Tooltip>
+                        {!isTenantAdmin && (
+                          <Tooltip content={t('common.edit', 'Edit')}>
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              onClick={() => handleOpenEditModal(item)}
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          </Tooltip>
+                        )}
 
                         {isTenantAdmin && (
                           <Tooltip content={t('common.delete', 'Delete')}>

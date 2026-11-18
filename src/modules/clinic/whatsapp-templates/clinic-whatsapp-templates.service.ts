@@ -222,8 +222,14 @@ export class ClinicWhatsappTemplatesService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Administrators can create WhatsApp templates.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create clinic WhatsApp templates. Creation is reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can create WhatsApp templates.');
     }
 
     let branchId: string | null = null;
@@ -292,8 +298,14 @@ export class ClinicWhatsappTemplatesService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Administrators can update WhatsApp templates.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to update clinic WhatsApp templates. Updates are reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can update WhatsApp templates.');
     }
 
     const existing = await this.prisma.whatsappTemplate.findFirst({

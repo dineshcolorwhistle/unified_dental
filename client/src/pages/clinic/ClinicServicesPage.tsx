@@ -338,15 +338,17 @@ export const ClinicServicesPage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleOpenCreateModal}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Plus size={16} />
-          <span>{t('clinicServices.addBtn', 'Add Service')}</span>
-        </button>
+        {!isTenantAdmin && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleOpenCreateModal}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={16} />
+            <span>{t('clinicServices.addBtn', 'Add Service')}</span>
+          </button>
+        )}
       </div>
 
       {/* Filter Bar (No redundant search button) */}
@@ -659,27 +661,29 @@ export const ClinicServicesPage: React.FC = () => {
                         </Tooltip>
 
                         {/* Edit Option */}
-                        <Tooltip content={t('common.edit', 'Edit')}>
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            onClick={() => handleOpenEditModal(item)}
-                            style={{
-                              width: '30px',
-                              height: '30px',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: 'var(--bg-surface)',
-                              color: 'var(--text-main)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                        </Tooltip>
+                        {!isTenantAdmin && (
+                          <Tooltip content={t('common.edit', 'Edit')}>
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              onClick={() => handleOpenEditModal(item)}
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          </Tooltip>
+                        )}
 
                         {/* Delete Option (Tenant Admin only) */}
                         {isTenantAdmin && (
@@ -925,19 +929,21 @@ export const ClinicServicesPage: React.FC = () => {
               >
                 {t('common.close', 'Close')}
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  const item = viewingItem;
-                  setViewingItem(null);
-                  handleOpenEditModal(item);
-                }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Edit2 size={14} />
-                <span>{t('common.edit', 'Edit')}</span>
-              </button>
+              {!isTenantAdmin && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const item = viewingItem;
+                    setViewingItem(null);
+                    handleOpenEditModal(item);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit2 size={14} />
+                  <span>{t('common.edit', 'Edit')}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -269,8 +269,14 @@ export class ClinicPaymentMethodsService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Clinic Administrators and Tenant Administrators can create payment methods.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to create clinic payment methods. Creation is reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can create payment methods.');
     }
 
     let branchId = dto.branchId ? dto.branchId.trim() : null;
@@ -342,8 +348,14 @@ export class ClinicPaymentMethodsService {
     const isTenantAdminUser = await this.isTenantAdmin(actor, tenantId);
     const isClinicAdminUser = await this.isClinicAdmin(actor, tenantId);
 
-    if (!isTenantAdminUser && !isClinicAdminUser) {
-      throw new ForbiddenException('Only Clinic Administrators and Tenant Administrators can update payment methods.');
+    if (isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException(
+        'Tenant Administrators do not have permission to update clinic payment methods. Updates are reserved for Clinic Administrators.',
+      );
+    }
+
+    if (!isTenantAdminUser && !isClinicAdminUser && !actor.isSuperAdmin) {
+      throw new ForbiddenException('Only Clinic Administrators can update payment methods.');
     }
 
     const existing = await this.findOne(tenantId, id, actor);

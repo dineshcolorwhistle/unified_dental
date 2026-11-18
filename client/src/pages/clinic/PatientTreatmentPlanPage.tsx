@@ -22,10 +22,13 @@ import {
   X,
   FileText,
   Clock,
+  Printer,
 } from 'lucide-react';
 import api from '../../services/api';
+import { useAuth } from '../../core/context/AuthContext';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import { AddPatientNoteModal, PatientOptionItem } from '../../components/clinic/AddPatientNoteModal';
+import { TreatmentPlanPrintView } from '../../components/clinic/TreatmentPlanPrintView';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { useToast } from '../../core/context/ToastContext';
 import {
@@ -82,9 +85,14 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { error, success } = useToast();
+  const { user, isTenantAdmin, isClinicAdmin, isClinicDoctor } = useAuth();
+  const canEditPlan = (isClinicAdmin || isClinicDoctor || Boolean(user?.isSuperAdmin)) && !isTenantAdmin;
 
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<PatientOdontogramResponse | null>(null);
+
+  // View Mode: 'plan' (interactive plan view) or 'print-preview' (full-page print preview)
+  const [viewMode, setViewMode] = useState<'plan' | 'print-preview'>('plan');
 
   // Doctors & Services state
   const [doctors, setDoctors] = useState<DoctorWithServices[]>([]);
@@ -770,6 +778,22 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     );
   }
 
+  // Full-Page Print Preview Mode (No popup, clean dedicated page view)
+  if (viewMode === 'print-preview') {
+    return (
+      <TreatmentPlanPrintView
+        onBack={() => setViewMode('plan')}
+        clinicName={user?.activeTenant?.name}
+        patient={patient}
+        treatments={treatments}
+        planGroups={planGroups}
+        doctors={doctors}
+        clinicServices={clinicServices}
+        grandTotal={grandTotal}
+      />
+    );
+  }
+
   return (
     <div
       style={{
@@ -797,13 +821,18 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             onClick={() => navigate('/clinic/patients')}
             className="btn btn-secondary"
             style={{
-              width: '38px',
-              height: '38px',
+              width: '40px',
+              height: '40px',
               padding: 0,
               borderRadius: '10px',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
+              border: '1px solid var(--border-color, #cbd5e1)',
+              backgroundColor: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-heading, #0f172a)',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+              cursor: 'pointer',
             }}
             title={t('patientTreatmentPlan.backToPatients', 'Back to Patients')}
           >
@@ -842,14 +871,20 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '9px 16px',
+              padding: '9px 18px',
               borderRadius: '10px',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: '13px',
               minHeight: '40px',
+              border: '1.5px solid #0d9488',
+              backgroundColor: 'rgba(13, 148, 136, 0.08)',
+              color: '#0f766e',
+              boxShadow: '0 1px 3px rgba(13, 148, 136, 0.15)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
-            <FileText size={16} />
+            <FileText size={16} style={{ color: '#0d9488' }} />
             <span>{t('patientTreatmentPlan.addNote', 'Add Note')}</span>
           </button>
 
@@ -861,15 +896,46 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '9px 16px',
+              padding: '9px 18px',
               borderRadius: '10px',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: '13px',
               minHeight: '40px',
+              border: '1.5px solid #0d9488',
+              backgroundColor: 'rgba(13, 148, 136, 0.08)',
+              color: '#0f766e',
+              boxShadow: '0 1px 3px rgba(13, 148, 136, 0.15)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
             <ToothIcon size={16} />
             <span>{t('patientTreatmentPlan.viewOdontogram', 'View Odontogram')}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setViewMode('print-preview')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 20px',
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '13px',
+              minHeight: '40px',
+              backgroundColor: '#0d9488',
+              color: '#ffffff',
+              border: '1.5px solid #0f766e',
+              boxShadow: '0 2px 8px rgba(13, 148, 136, 0.35)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Printer size={16} />
+            <span>{t('patientTreatmentPlan.printPlan', 'Print Plan')}</span>
           </button>
         </div>
       </div>
@@ -1147,6 +1213,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              border: '1px solid var(--border-color, #cbd5e1)',
+              backgroundColor: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-heading, #0f172a)',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+              cursor: 'pointer',
             }}
             aria-label={
               summaryExpanded
@@ -2331,9 +2402,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             fontWeight: 700,
             fontSize: '13px',
             color: 'var(--primary-700, #0f766e)',
-            borderColor: 'var(--primary-300, #5eead4)',
-            backgroundColor: 'rgba(13, 148, 136, 0.04)',
+            border: '1px solid var(--primary-500, #0d9488)',
+            backgroundColor: 'rgba(13, 148, 136, 0.08)',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
             minHeight: '40px',
+            cursor: 'pointer',
           }}
         >
           <Layers size={16} />
@@ -2554,13 +2627,16 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          padding: '6px 14px',
+                          padding: '7px 14px',
                           borderRadius: '8px',
                           fontSize: '12px',
                           fontWeight: 700,
                           color: 'var(--primary-700, #0f766e)',
                           backgroundColor: 'var(--bg-card, #ffffff)',
-                          border: '1px solid var(--primary-300, #5eead4)',
+                          border: '1px solid var(--primary-500, #0d9488)',
+                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          cursor: 'pointer',
+                          minHeight: '38px',
                         }}
                       >
                         <Calendar size={14} />
@@ -2572,20 +2648,21 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                           type="button"
                           onClick={() => handleDeleteGroup(group.id)}
                           style={{
-                            width: '32px',
-                            height: '32px',
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '8px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            border: '1px solid #fecaca',
-                            backgroundColor: '#fff1f2',
-                            color: '#be123c',
+                            border: '1px solid #f87171',
+                            backgroundColor: '#fee2e2',
+                            color: '#b91c1c',
                             cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
                           }}
                           title={t('patientTreatmentPlan.deleteGroup', 'Delete group')}
                         >
-                          <X size={15} />
+                          <X size={16} />
                         </button>
                       )}
                     </div>
@@ -2856,15 +2933,16 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                     type="button"
                                     onClick={() => handleOpenApptModalForItem(item, group)}
                                     style={{
-                                      width: '32px',
-                                      height: '32px',
-                                      borderRadius: '6px',
+                                      width: '34px',
+                                      height: '34px',
+                                      borderRadius: '8px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
-                                      border: '1px solid var(--primary-300, #5eead4)',
+                                      border: '1px solid var(--primary-500, #0d9488)',
                                       backgroundColor: 'rgba(13, 148, 136, 0.08)',
                                       color: 'var(--primary-700, #0f766e)',
+                                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
                                       cursor: 'pointer',
                                     }}
                                     title={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
@@ -2945,34 +3023,36 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSavePlan}
-              disabled={savingPlan}
-              className="btn btn-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 22px',
-                borderRadius: '10px',
-                fontWeight: 700,
-                fontSize: '14px',
-                minHeight: '42px',
-                backgroundColor: 'var(--primary-600, #0d9488)',
-                color: '#ffffff',
-                border: 'none',
-                cursor: savingPlan ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)',
-              }}
-            >
-              {savingPlan ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              <span>
-                {savingPlan
-                  ? t('patientTreatmentPlan.savingPlan', 'Saving...')
-                  : t('patientTreatmentPlan.savePlan', 'Save Plan')}
-              </span>
-            </button>
+            {canEditPlan && (
+              <button
+                type="button"
+                onClick={handleSavePlan}
+                disabled={savingPlan}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 22px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  minHeight: '42px',
+                  backgroundColor: 'var(--primary-600, #0d9488)',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: savingPlan ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)',
+                }}
+              >
+                {savingPlan ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                <span>
+                  {savingPlan
+                    ? t('patientTreatmentPlan.savingPlan', 'Saving...')
+                    : t('patientTreatmentPlan.savePlan', 'Save Plan')}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>

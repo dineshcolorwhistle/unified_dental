@@ -91,7 +91,7 @@ type ModalTab = 'personal' | 'contact' | 'medical';
 
 export const ClinicPatientsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, isTenantAdmin: authIsTenantAdmin } = useAuth();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
@@ -169,8 +169,9 @@ export const ClinicPatientsPage: React.FC = () => {
 
   // Tenant Admin check for deletion and organization controls
   const isTenantAdmin = useMemo(() => {
-    return (
-      user?.isSuperAdmin ||
+    return Boolean(
+      authIsTenantAdmin ||
+      user?.isTenantAdmin ||
       user?.roles?.some((r: string) => {
         const lower = r.toLowerCase();
         return (
@@ -180,7 +181,11 @@ export const ClinicPatientsPage: React.FC = () => {
         );
       })
     );
-  }, [user]);
+  }, [authIsTenantAdmin, user]);
+
+  // Tenant Admin is strictly prohibited from editing or creating patient module data
+  const canEditPatient = !isTenantAdmin;
+  const canCreatePatient = !isTenantAdmin;
 
   // Load Branches
   useEffect(() => {
@@ -507,44 +512,46 @@ export const ClinicPatientsPage: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => handleOpenAddNote(null)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 16px',
-              fontSize: '13px',
-              fontWeight: 600,
-              borderRadius: '10px',
-            }}
-          >
-            <FilePlus size={16} />
-            <span>{t('clinicPatients.table.addNote', 'Add Note')}</span>
-          </button>
+        {canCreatePatient && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => handleOpenAddNote(null)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '10px',
+              }}
+            >
+              <FilePlus size={16} />
+              <span>{t('clinicPatients.table.addNote', 'Add Note')}</span>
+            </button>
 
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleOpenCreate}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 18px',
-              fontSize: '13px',
-              fontWeight: 600,
-              borderRadius: '10px',
-              boxShadow: '0 2px 8px rgba(14, 165, 233, 0.25)',
-            }}
-          >
-            <UserPlus size={16} />
-            <span>{t('clinicPatients.addPatientBtn', 'New Patient')}</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleOpenCreate}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '10px',
+                boxShadow: '0 2px 8px rgba(14, 165, 233, 0.25)',
+              }}
+            >
+              <UserPlus size={16} />
+              <span>{t('clinicPatients.addPatientBtn', 'New Patient')}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ──────────────── KPI Statistics Cards ──────────────── */}
@@ -761,10 +768,12 @@ export const ClinicPatientsPage: React.FC = () => {
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
               {t('clinicPatients.table.emptyHelp', 'Get started by clicking "+ New Patient" to register clinical records.')}
             </p>
-            <button type="button" className="btn btn-primary" onClick={handleOpenCreate} style={{ fontSize: '13px' }}>
-              <UserPlus size={15} style={{ marginRight: '6px' }} />
-              {t('clinicPatients.addPatientBtn', 'New Patient')}
-            </button>
+            {canCreatePatient && (
+              <button type="button" className="btn btn-primary" onClick={handleOpenCreate} style={{ fontSize: '13px' }}>
+                <UserPlus size={15} style={{ marginRight: '6px' }} />
+                {t('clinicPatients.addPatientBtn', 'New Patient')}
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -1085,15 +1094,17 @@ export const ClinicPatientsPage: React.FC = () => {
                             >
                               <Eye size={15} />
                             </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => handleOpenEdit(p)}
-                              title={t('clinicPatients.table.edit', 'Edit Patient')}
-                              style={{ padding: '6px', borderRadius: '6px' }}
-                            >
-                              <Edit2 size={15} />
-                            </button>
+                            {canEditPatient && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => handleOpenEdit(p)}
+                                title={t('clinicPatients.table.edit', 'Edit Patient')}
+                                style={{ padding: '6px', borderRadius: '6px' }}
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                            )}
                             {isTenantAdmin && (
                               <button
                                 type="button"
@@ -2181,19 +2192,21 @@ export const ClinicPatientsPage: React.FC = () => {
                 <ToothIcon size={14} />
                 {t('clinicPatients.table.odontogram', 'Odontogram')}
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  const p = viewingPatient;
-                  setViewingPatient(null);
-                  handleOpenEdit(p);
-                }}
-                style={{ fontSize: '13px' }}
-              >
-                <Edit2 size={14} style={{ marginRight: '6px' }} />
-                {t('clinicPatients.table.edit', 'Edit Patient')}
-              </button>
+              {canEditPatient && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const p = viewingPatient;
+                    setViewingPatient(null);
+                    handleOpenEdit(p);
+                  }}
+                  style={{ fontSize: '13px' }}
+                >
+                  <Edit2 size={14} style={{ marginRight: '6px' }} />
+                  {t('clinicPatients.table.edit', 'Edit Patient')}
+                </button>
+              )}
             </div>
           </div>
         </div>

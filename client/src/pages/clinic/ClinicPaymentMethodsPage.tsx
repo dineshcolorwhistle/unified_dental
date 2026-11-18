@@ -13,6 +13,7 @@ import {
   Building2,
   Trash2,
   Edit2,
+  Eye,
   X,
   AlertTriangle,
   CheckCircle2,
@@ -24,6 +25,7 @@ import {
   PaymentMethodItem,
   PaymentMethodType,
 } from '../../services/paymentMethodService';
+import { formatDate } from '../../core/utils/dateUtils';
 
 export const ClinicPaymentMethodsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -45,6 +47,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethodItem | null>(null);
+  const [viewingMethod, setViewingMethod] = useState<PaymentMethodItem | null>(null);
   const [deletingMethod, setDeletingMethod] = useState<PaymentMethodItem | null>(null);
 
   // Form States
@@ -324,15 +327,17 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleOpenCreateModal}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Plus size={16} />
-          <span>{t('clinicPaymentMethods.actions.addMethod', 'Add Payment Method')}</span>
-        </button>
+        {!isTenantAdmin && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleOpenCreateModal}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={16} />
+            <span>{t('clinicPaymentMethods.actions.addMethod', 'Add Payment Method')}</span>
+          </button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -623,11 +628,12 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                     </td>
                     <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <Tooltip content={t('common.edit', 'Edit')}>
+                        {/* View Option */}
+                        <Tooltip content={t('common.view', 'View Details')}>
                           <button
                             type="button"
                             className="btn-icon"
-                            onClick={() => handleOpenEditModal(pm)}
+                            onClick={() => setViewingMethod(pm)}
                             style={{
                               width: '30px',
                               height: '30px',
@@ -641,9 +647,34 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                               cursor: 'pointer',
                             }}
                           >
-                            <Edit2 size={14} />
+                            <Eye size={14} />
                           </button>
                         </Tooltip>
+
+                        {/* Edit Option (Restricted: Tenant Admin cannot edit) */}
+                        {!isTenantAdmin && (
+                          <Tooltip content={t('common.edit', 'Edit')}>
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              onClick={() => handleOpenEditModal(pm)}
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          </Tooltip>
+                        )}
 
                         {/* Delete: Tenant Admin ONLY */}
                         {isTenantAdmin && (
@@ -694,6 +725,213 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
           />
         )}
       </div>
+
+      {/* ─── VIEW DETAILS MODAL ─── */}
+      {viewingMethod && (
+        <div className="modal-overlay" style={{ zIndex: 1070 }} onClick={() => setViewingMethod(null)}>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: '480px',
+              width: '100%',
+              padding: '24px',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#0284c7',
+                  }}
+                >
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                    {viewingMethod.name}
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    {t('clinicPaymentMethods.viewModal.subtitle', 'Payment Method Details')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setViewingMethod(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('clinicPaymentMethods.fields.type', 'Usage Type')}
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      backgroundColor:
+                        viewingMethod.type === 'INCOME'
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : viewingMethod.type === 'EXPENSE'
+                          ? 'rgba(245, 158, 11, 0.12)'
+                          : 'rgba(56, 189, 248, 0.12)',
+                      color:
+                        viewingMethod.type === 'INCOME'
+                          ? '#10b981'
+                          : viewingMethod.type === 'EXPENSE'
+                          ? '#d97706'
+                          : '#0284c7',
+                      border:
+                        viewingMethod.type === 'INCOME'
+                          ? '1px solid rgba(16, 185, 129, 0.25)'
+                          : viewingMethod.type === 'EXPENSE'
+                          ? '1px solid rgba(245, 158, 11, 0.25)'
+                          : '1px solid rgba(56, 189, 248, 0.25)',
+                    }}
+                  >
+                    {viewingMethod.type === 'INCOME'
+                      ? t('clinicPaymentMethods.types.income', 'Income')
+                      : viewingMethod.type === 'EXPENSE'
+                      ? t('clinicPaymentMethods.types.expense', 'Expense')
+                      : t('clinicPaymentMethods.types.both', 'Both')}
+                  </span>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t('common.status', 'Status')}
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      backgroundColor:
+                        viewingMethod.isActive
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : 'rgba(239, 68, 68, 0.12)',
+                      color: viewingMethod.isActive ? '#10b981' : '#ef4444',
+                      border:
+                        viewingMethod.isActive
+                          ? '1px solid rgba(16, 185, 129, 0.25)'
+                          : '1px solid rgba(239, 68, 68, 0.25)',
+                    }}
+                  >
+                    {viewingMethod.isActive ? (
+                      <>
+                        <CheckCircle2 size={12} />
+                        <span>{t('common.active', 'Active')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={12} />
+                        <span>{t('common.inactive', 'Inactive')}</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Branch */}
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  {t('clinicPaymentMethods.fields.branch', 'Clinic Branch')}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>
+                  <Building2 size={15} style={{ color: '#0284c7' }} />
+                  <span>{viewingMethod.branch?.name || t('clinicPaymentMethods.table.allBranches', 'All Branches')}</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  {t('clinicPaymentMethods.fields.description', 'Description')}
+                </span>
+                <div
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13px',
+                    color: viewingMethod.description ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontStyle: viewingMethod.description ? 'normal' : 'italic',
+                  }}
+                >
+                  {viewingMethod.description || t('common.noDescription', 'No description provided.')}
+                </div>
+              </div>
+
+              {/* Audit Timestamps */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{t('common.created', 'Created')}</span>
+                  <span>{formatDate(viewingMethod.createdAt, { format: 'medium' })}</span>
+                </div>
+                <div>
+                  <span style={{ display: 'block', fontWeight: 600 }}>{t('common.updated', 'Updated')}</span>
+                  <span>{formatDate(viewingMethod.updatedAt, { format: 'medium' })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setViewingMethod(null)}
+              >
+                {t('common.close', 'Close')}
+              </button>
+              {!isTenantAdmin && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const pm = viewingMethod;
+                    setViewingMethod(null);
+                    handleOpenEditModal(pm);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit2 size={14} />
+                  <span>{t('common.edit', 'Edit')}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── CREATE MODAL ─── */}
       {showCreateModal && (

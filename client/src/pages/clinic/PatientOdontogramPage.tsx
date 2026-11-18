@@ -58,10 +58,10 @@ export const PatientOdontogramPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { isTenantAdmin, isClinicAdmin, user } = useAuth();
+  const { isTenantAdmin, isClinicAdmin, isClinicDoctor, user } = useAuth();
 
   const isSuperAdmin = user?.isSuperAdmin;
-  const canModify = isClinicAdmin || isTenantAdmin || isSuperAdmin;
+  const canModify = (isClinicAdmin || isClinicDoctor || Boolean(isSuperAdmin)) && !isTenantAdmin;
 
   // Main Loading & State
   const [loading, setLoading] = useState<boolean>(true);
