@@ -696,28 +696,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     ];
   }, [activeTreatments, t]);
 
-  // Arch & Zone Statistics for active selection
-  const archStats = useMemo(() => {
-    const q1 = quadrantsData.find((q) => q.key === 'Q1')?.totalCount || 0;
-    const q2 = quadrantsData.find((q) => q.key === 'Q2')?.totalCount || 0;
-    const q3 = quadrantsData.find((q) => q.key === 'Q3')?.totalCount || 0;
-    const q4 = quadrantsData.find((q) => q.key === 'Q4')?.totalCount || 0;
-
-    let posteriorCount = 0;
-    let anteriorCount = 0;
-    quadrantsData.forEach((q) => {
-      posteriorCount += q.posterior.length;
-      anteriorCount += q.anterior.length;
-    });
-
-    return {
-      total: activeTreatments.length,
-      maxilla: q1 + q2,
-      mandible: q4 + q3,
-      posterior: posteriorCount,
-      anterior: anteriorCount,
-    };
-  }, [quadrantsData, activeTreatments]);
 
   if (loading) {
     return (
@@ -1359,77 +1337,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
             {/* ─── Interactive 4-Quadrant Anatomical Dental Chart (Option 1) ─── */}
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                {/* Arch & Zone Quick Metrics Bar */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    flexWrap: 'wrap',
-                    padding: '12px 18px',
-                    backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-color, #e2e8f0)',
-                    fontSize: '12px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
-                      {t('patientTreatmentPlan.upperArch', 'Maxilla (Upper Arch)')}:
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: archStats.maxilla > 0 ? 'var(--text-heading, #0f172a)' : 'var(--text-muted, #94a3b8)',
-                      }}
-                    >
-                      {archStats.maxilla}
-                    </span>
-                  </div>
-                  <span style={{ color: 'var(--border-color, #cbd5e1)' }}>•</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
-                      {t('patientTreatmentPlan.lowerArch', 'Mandible (Lower Arch)')}:
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: archStats.mandible > 0 ? 'var(--text-heading, #0f172a)' : 'var(--text-muted, #94a3b8)',
-                      }}
-                    >
-                      {archStats.mandible}
-                    </span>
-                  </div>
-                  <span style={{ color: 'var(--border-color, #cbd5e1)' }}>•</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
-                      {t('patientTreatmentPlan.posteriorZone', 'Posterior')}:
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: archStats.posterior > 0 ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #94a3b8)',
-                      }}
-                    >
-                      {archStats.posterior}
-                    </span>
-                  </div>
-                  <span style={{ color: 'var(--border-color, #cbd5e1)' }}>•</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
-                      {t('patientTreatmentPlan.anteriorZone', 'Anterior')}:
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: archStats.anterior > 0 ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #94a3b8)',
-                      }}
-                    >
-                      {archStats.anterior}
-                    </span>
-                  </div>
-                </div>
-
                 {/* ─── 4-Quadrant Anatomical Cross ─── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {/* Upper Arch Label & Midline orientation */}
@@ -1627,7 +1534,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                           ({q.posterior.length})
                                         </span>
                                       </div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         {q.posterior.map((item) => {
                                           const statusKey =
                                             item.status === 'COMPLETED'
@@ -1658,71 +1565,94 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                             <div
                                               key={item.id}
                                               style={{
-                                                padding: '8px 12px',
+                                                padding: '7px 10px',
                                                 borderRadius: '8px',
                                                 backgroundColor: 'var(--bg-surface, #f8fafc)',
                                                 border: '1px solid var(--border-color, #e2e8f0)',
-                                                display: 'flex',
+                                                display: 'inline-flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                flexWrap: 'wrap',
                                                 gap: '8px',
+                                                flex: '1 1 auto',
+                                                minWidth: '150px',
+                                                maxWidth: '100%',
+                                                boxSizing: 'border-box',
                                               }}
                                             >
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <span
-                                                  style={{
-                                                    fontFamily: 'monospace',
-                                                    fontWeight: 800,
-                                                    fontSize: '12px',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: 'var(--bg-card, #ffffff)',
-                                                    border: '1px solid var(--border-color, #cbd5e1)',
-                                                    color: 'var(--text-heading, #0f172a)',
-                                                  }}
-                                                >
-                                                  #{item.toothNumber}
-                                                </span>
-                                                <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
-                                                  {getSurfaceDisplayName(item.surface, item.toothNumber)}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                  {item.color && (
-                                                    <span
-                                                      style={{
-                                                        width: '8px',
-                                                        height: '8px',
-                                                        borderRadius: '50%',
-                                                        backgroundColor: item.color,
-                                                        flexShrink: 0,
-                                                      }}
-                                                    />
-                                                  )}
-                                                  <span
-                                                    style={{
-                                                      fontSize: '12.5px',
-                                                      fontWeight: 600,
-                                                      color: 'var(--text-heading, #0f172a)',
-                                                    }}
-                                                  >
-                                                    {item.treatmentName}
-                                                  </span>
-                                                </div>
-                                              </div>
-
                                               <span
                                                 style={{
-                                                  fontSize: '10.5px',
-                                                  fontWeight: 700,
-                                                  padding: '2px 8px',
-                                                  borderRadius: '10px',
-                                                  backgroundColor: statusBg,
-                                                  color: statusColor,
+                                                  fontFamily: 'monospace',
+                                                  fontWeight: 800,
+                                                  fontSize: '12px',
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  backgroundColor: 'var(--bg-card, #ffffff)',
+                                                  border: '1px solid var(--border-color, #cbd5e1)',
+                                                  color: 'var(--text-heading, #0f172a)',
+                                                  flexShrink: 0,
                                                 }}
                                               >
-                                                {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                #{item.toothNumber}
                                               </span>
+                                              <span
+                                                style={{
+                                                  fontSize: '12px',
+                                                  color: 'var(--text-muted, #64748b)',
+                                                  flexShrink: 0,
+                                                  whiteSpace: 'nowrap',
+                                                }}
+                                              >
+                                                {getSurfaceDisplayName(item.surface, item.toothNumber)}
+                                              </span>
+                                              <div
+                                                style={{
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '6px',
+                                                  minWidth: 0,
+                                                }}
+                                              >
+                                                {item.color && (
+                                                  <span
+                                                    style={{
+                                                      width: '8px',
+                                                      height: '8px',
+                                                      borderRadius: '50%',
+                                                      backgroundColor: item.color,
+                                                      flexShrink: 0,
+                                                    }}
+                                                  />
+                                                )}
+                                                <span
+                                                  style={{
+                                                    fontSize: '12.5px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--text-heading, #0f172a)',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                  }}
+                                                  title={item.treatmentName}
+                                                >
+                                                  {item.treatmentName}
+                                                </span>
+                                              </div>
+
+                                              {item.status && item.status !== 'PLANNED' && (
+                                                <span
+                                                  style={{
+                                                    fontSize: '10.5px',
+                                                    fontWeight: 700,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    backgroundColor: statusBg,
+                                                    color: statusColor,
+                                                    marginLeft: 'auto',
+                                                    flexShrink: 0,
+                                                  }}
+                                                >
+                                                  {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                </span>
+                                              )}
                                             </div>
                                           );
                                         })}
@@ -1756,7 +1686,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                           ({q.anterior.length})
                                         </span>
                                       </div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         {q.anterior.map((item) => {
                                           const statusKey =
                                             item.status === 'COMPLETED'
@@ -1787,71 +1717,94 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                             <div
                                               key={item.id}
                                               style={{
-                                                padding: '8px 12px',
+                                                padding: '7px 10px',
                                                 borderRadius: '8px',
                                                 backgroundColor: 'var(--bg-surface, #f8fafc)',
                                                 border: '1px solid var(--border-color, #e2e8f0)',
-                                                display: 'flex',
+                                                display: 'inline-flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                flexWrap: 'wrap',
                                                 gap: '8px',
+                                                flex: '1 1 auto',
+                                                minWidth: '150px',
+                                                maxWidth: '100%',
+                                                boxSizing: 'border-box',
                                               }}
                                             >
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <span
-                                                  style={{
-                                                    fontFamily: 'monospace',
-                                                    fontWeight: 800,
-                                                    fontSize: '12px',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: 'var(--bg-card, #ffffff)',
-                                                    border: '1px solid var(--border-color, #cbd5e1)',
-                                                    color: 'var(--text-heading, #0f172a)',
-                                                  }}
-                                                >
-                                                  #{item.toothNumber}
-                                                </span>
-                                                <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
-                                                  {getSurfaceDisplayName(item.surface, item.toothNumber)}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                  {item.color && (
-                                                    <span
-                                                      style={{
-                                                        width: '8px',
-                                                        height: '8px',
-                                                        borderRadius: '50%',
-                                                        backgroundColor: item.color,
-                                                        flexShrink: 0,
-                                                      }}
-                                                    />
-                                                  )}
-                                                  <span
-                                                    style={{
-                                                      fontSize: '12.5px',
-                                                      fontWeight: 600,
-                                                      color: 'var(--text-heading, #0f172a)',
-                                                    }}
-                                                  >
-                                                    {item.treatmentName}
-                                                  </span>
-                                                </div>
-                                              </div>
-
                                               <span
                                                 style={{
-                                                  fontSize: '10.5px',
-                                                  fontWeight: 700,
-                                                  padding: '2px 8px',
-                                                  borderRadius: '10px',
-                                                  backgroundColor: statusBg,
-                                                  color: statusColor,
+                                                  fontFamily: 'monospace',
+                                                  fontWeight: 800,
+                                                  fontSize: '12px',
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  backgroundColor: 'var(--bg-card, #ffffff)',
+                                                  border: '1px solid var(--border-color, #cbd5e1)',
+                                                  color: 'var(--text-heading, #0f172a)',
+                                                  flexShrink: 0,
                                                 }}
                                               >
-                                                {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                #{item.toothNumber}
                                               </span>
+                                              <span
+                                                style={{
+                                                  fontSize: '12px',
+                                                  color: 'var(--text-muted, #64748b)',
+                                                  flexShrink: 0,
+                                                  whiteSpace: 'nowrap',
+                                                }}
+                                              >
+                                                {getSurfaceDisplayName(item.surface, item.toothNumber)}
+                                              </span>
+                                              <div
+                                                style={{
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '6px',
+                                                  minWidth: 0,
+                                                }}
+                                              >
+                                                {item.color && (
+                                                  <span
+                                                    style={{
+                                                      width: '8px',
+                                                      height: '8px',
+                                                      borderRadius: '50%',
+                                                      backgroundColor: item.color,
+                                                      flexShrink: 0,
+                                                    }}
+                                                  />
+                                                )}
+                                                <span
+                                                  style={{
+                                                    fontSize: '12.5px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--text-heading, #0f172a)',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                  }}
+                                                  title={item.treatmentName}
+                                                >
+                                                  {item.treatmentName}
+                                                </span>
+                                              </div>
+
+                                              {item.status && item.status !== 'PLANNED' && (
+                                                <span
+                                                  style={{
+                                                    fontSize: '10.5px',
+                                                    fontWeight: 700,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    backgroundColor: statusBg,
+                                                    color: statusColor,
+                                                    marginLeft: 'auto',
+                                                    flexShrink: 0,
+                                                  }}
+                                                >
+                                                  {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                </span>
+                                              )}
                                             </div>
                                           );
                                         })}
@@ -2072,7 +2025,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                           ({q.posterior.length})
                                         </span>
                                       </div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         {q.posterior.map((item) => {
                                           const statusKey =
                                             item.status === 'COMPLETED'
@@ -2103,71 +2056,94 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                             <div
                                               key={item.id}
                                               style={{
-                                                padding: '8px 12px',
+                                                padding: '7px 10px',
                                                 borderRadius: '8px',
                                                 backgroundColor: 'var(--bg-surface, #f8fafc)',
                                                 border: '1px solid var(--border-color, #e2e8f0)',
-                                                display: 'flex',
+                                                display: 'inline-flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                flexWrap: 'wrap',
                                                 gap: '8px',
+                                                flex: '1 1 auto',
+                                                minWidth: '150px',
+                                                maxWidth: '100%',
+                                                boxSizing: 'border-box',
                                               }}
                                             >
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <span
-                                                  style={{
-                                                    fontFamily: 'monospace',
-                                                    fontWeight: 800,
-                                                    fontSize: '12px',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: 'var(--bg-card, #ffffff)',
-                                                    border: '1px solid var(--border-color, #cbd5e1)',
-                                                    color: 'var(--text-heading, #0f172a)',
-                                                  }}
-                                                >
-                                                  #{item.toothNumber}
-                                                </span>
-                                                <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
-                                                  {getSurfaceDisplayName(item.surface, item.toothNumber)}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                  {item.color && (
-                                                    <span
-                                                      style={{
-                                                        width: '8px',
-                                                        height: '8px',
-                                                        borderRadius: '50%',
-                                                        backgroundColor: item.color,
-                                                        flexShrink: 0,
-                                                      }}
-                                                    />
-                                                  )}
-                                                  <span
-                                                    style={{
-                                                      fontSize: '12.5px',
-                                                      fontWeight: 600,
-                                                      color: 'var(--text-heading, #0f172a)',
-                                                    }}
-                                                  >
-                                                    {item.treatmentName}
-                                                  </span>
-                                                </div>
-                                              </div>
-
                                               <span
                                                 style={{
-                                                  fontSize: '10.5px',
-                                                  fontWeight: 700,
-                                                  padding: '2px 8px',
-                                                  borderRadius: '10px',
-                                                  backgroundColor: statusBg,
-                                                  color: statusColor,
+                                                  fontFamily: 'monospace',
+                                                  fontWeight: 800,
+                                                  fontSize: '12px',
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  backgroundColor: 'var(--bg-card, #ffffff)',
+                                                  border: '1px solid var(--border-color, #cbd5e1)',
+                                                  color: 'var(--text-heading, #0f172a)',
+                                                  flexShrink: 0,
                                                 }}
                                               >
-                                                {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                #{item.toothNumber}
                                               </span>
+                                              <span
+                                                style={{
+                                                  fontSize: '12px',
+                                                  color: 'var(--text-muted, #64748b)',
+                                                  flexShrink: 0,
+                                                  whiteSpace: 'nowrap',
+                                                }}
+                                              >
+                                                {getSurfaceDisplayName(item.surface, item.toothNumber)}
+                                              </span>
+                                              <div
+                                                style={{
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '6px',
+                                                  minWidth: 0,
+                                                }}
+                                              >
+                                                {item.color && (
+                                                  <span
+                                                    style={{
+                                                      width: '8px',
+                                                      height: '8px',
+                                                      borderRadius: '50%',
+                                                      backgroundColor: item.color,
+                                                      flexShrink: 0,
+                                                    }}
+                                                  />
+                                                )}
+                                                <span
+                                                  style={{
+                                                    fontSize: '12.5px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--text-heading, #0f172a)',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                  }}
+                                                  title={item.treatmentName}
+                                                >
+                                                  {item.treatmentName}
+                                                </span>
+                                              </div>
+
+                                              {item.status && item.status !== 'PLANNED' && (
+                                                <span
+                                                  style={{
+                                                    fontSize: '10.5px',
+                                                    fontWeight: 700,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    backgroundColor: statusBg,
+                                                    color: statusColor,
+                                                    marginLeft: 'auto',
+                                                    flexShrink: 0,
+                                                  }}
+                                                >
+                                                  {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                </span>
+                                              )}
                                             </div>
                                           );
                                         })}
@@ -2201,7 +2177,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                           ({q.anterior.length})
                                         </span>
                                       </div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         {q.anterior.map((item) => {
                                           const statusKey =
                                             item.status === 'COMPLETED'
@@ -2232,71 +2208,94 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                             <div
                                               key={item.id}
                                               style={{
-                                                padding: '8px 12px',
+                                                padding: '7px 10px',
                                                 borderRadius: '8px',
                                                 backgroundColor: 'var(--bg-surface, #f8fafc)',
                                                 border: '1px solid var(--border-color, #e2e8f0)',
-                                                display: 'flex',
+                                                display: 'inline-flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                flexWrap: 'wrap',
                                                 gap: '8px',
+                                                flex: '1 1 auto',
+                                                minWidth: '150px',
+                                                maxWidth: '100%',
+                                                boxSizing: 'border-box',
                                               }}
                                             >
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <span
-                                                  style={{
-                                                    fontFamily: 'monospace',
-                                                    fontWeight: 800,
-                                                    fontSize: '12px',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: 'var(--bg-card, #ffffff)',
-                                                    border: '1px solid var(--border-color, #cbd5e1)',
-                                                    color: 'var(--text-heading, #0f172a)',
-                                                  }}
-                                                >
-                                                  #{item.toothNumber}
-                                                </span>
-                                                <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
-                                                  {getSurfaceDisplayName(item.surface, item.toothNumber)}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                  {item.color && (
-                                                    <span
-                                                      style={{
-                                                        width: '8px',
-                                                        height: '8px',
-                                                        borderRadius: '50%',
-                                                        backgroundColor: item.color,
-                                                        flexShrink: 0,
-                                                      }}
-                                                    />
-                                                  )}
-                                                  <span
-                                                    style={{
-                                                      fontSize: '12.5px',
-                                                      fontWeight: 600,
-                                                      color: 'var(--text-heading, #0f172a)',
-                                                    }}
-                                                  >
-                                                    {item.treatmentName}
-                                                  </span>
-                                                </div>
-                                              </div>
-
                                               <span
                                                 style={{
-                                                  fontSize: '10.5px',
-                                                  fontWeight: 700,
-                                                  padding: '2px 8px',
-                                                  borderRadius: '10px',
-                                                  backgroundColor: statusBg,
-                                                  color: statusColor,
+                                                  fontFamily: 'monospace',
+                                                  fontWeight: 800,
+                                                  fontSize: '12px',
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  backgroundColor: 'var(--bg-card, #ffffff)',
+                                                  border: '1px solid var(--border-color, #cbd5e1)',
+                                                  color: 'var(--text-heading, #0f172a)',
+                                                  flexShrink: 0,
                                                 }}
                                               >
-                                                {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                #{item.toothNumber}
                                               </span>
+                                              <span
+                                                style={{
+                                                  fontSize: '12px',
+                                                  color: 'var(--text-muted, #64748b)',
+                                                  flexShrink: 0,
+                                                  whiteSpace: 'nowrap',
+                                                }}
+                                              >
+                                                {getSurfaceDisplayName(item.surface, item.toothNumber)}
+                                              </span>
+                                              <div
+                                                style={{
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: '6px',
+                                                  minWidth: 0,
+                                                }}
+                                              >
+                                                {item.color && (
+                                                  <span
+                                                    style={{
+                                                      width: '8px',
+                                                      height: '8px',
+                                                      borderRadius: '50%',
+                                                      backgroundColor: item.color,
+                                                      flexShrink: 0,
+                                                    }}
+                                                  />
+                                                )}
+                                                <span
+                                                  style={{
+                                                    fontSize: '12.5px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--text-heading, #0f172a)',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                  }}
+                                                  title={item.treatmentName}
+                                                >
+                                                  {item.treatmentName}
+                                                </span>
+                                              </div>
+
+                                              {item.status && item.status !== 'PLANNED' && (
+                                                <span
+                                                  style={{
+                                                    fontSize: '10.5px',
+                                                    fontWeight: 700,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    backgroundColor: statusBg,
+                                                    color: statusColor,
+                                                    marginLeft: 'auto',
+                                                    flexShrink: 0,
+                                                  }}
+                                                >
+                                                  {t(`patientTreatmentPlan.${statusKey}`, item.status)}
+                                                </span>
+                                              )}
                                             </div>
                                           );
                                         })}

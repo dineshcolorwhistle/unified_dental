@@ -516,24 +516,6 @@ export const ClinicPatientsPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => handleOpenAddNote(null)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 16px',
-                fontSize: '13px',
-                fontWeight: 600,
-                borderRadius: '10px',
-              }}
-            >
-              <FilePlus size={16} />
-              <span>{t('clinicPatients.table.addNote', 'Add Note')}</span>
-            </button>
-
-            <button
-              type="button"
               className="btn btn-primary"
               onClick={handleOpenCreate}
               style={{

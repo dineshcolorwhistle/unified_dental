@@ -34,19 +34,6 @@ import {
 
 type ActiveTab = 'DEFAULT' | 'TREATMENTS' | 'DIAGNOSTICS';
 
-const COLOR_PRESETS = [
-  '#3B82F6', // Dental Blue
-  '#10B981', // Mint Emerald
-  '#EF4444', // Caries Red
-  '#F59E0B', // Amber Gold
-  '#8B5CF6', // Amalgam Purple
-  '#EC4899', // Gingival Pink
-  '#06B6D4', // Sky Cyan
-  '#14B8A6', // Soft Teal
-  '#6366F1', // Royal Indigo
-  '#F97316', // Coral Orange
-];
-
 export const ClinicOdontogramSettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const { user, isTenantAdmin, isClinicAdmin } = useAuth();
@@ -2032,43 +2019,6 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                       />
                     </div>
                   </div>
-
-                  {/* Preset Swatches Palette */}
-                  <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
-                      {t('odontogramSettings.quickPresets', 'Quick Presets')}:
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {COLOR_PRESETS.map((color) => {
-                        const isSelected = treatmentForm.color.toUpperCase() === color.toUpperCase();
-                        return (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => setTreatmentForm({ ...treatmentForm, color })}
-                            style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
-                              backgroundColor: color,
-                              border: isSelected ? '2px solid var(--text-heading)' : '1px solid rgba(0,0,0,0.15)',
-                              cursor: 'pointer',
-                              padding: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transform: isSelected ? 'scale(1.15)' : 'none',
-                              boxShadow: isSelected ? `0 0 0 2px var(--bg-card), 0 0 0 4px ${color}` : 'none',
-                              transition: 'all 0.15s ease',
-                            }}
-                            title={color}
-                          >
-                            {isSelected && <Check size={14} style={{ color: '#fff', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Applies to Whole Tooth */}
@@ -2370,43 +2320,6 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                           width: '100%',
                         }}
                       />
-                    </div>
-                  </div>
-
-                  {/* Preset Swatches Palette */}
-                  <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
-                      {t('odontogramSettings.quickPresets', 'Quick Presets')}:
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {COLOR_PRESETS.map((color) => {
-                        const isSelected = diagnosticForm.color.toUpperCase() === color.toUpperCase();
-                        return (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => setDiagnosticForm({ ...diagnosticForm, color })}
-                            style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
-                              backgroundColor: color,
-                              border: isSelected ? '2px solid var(--text-heading)' : '1px solid rgba(0,0,0,0.15)',
-                              cursor: 'pointer',
-                              padding: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transform: isSelected ? 'scale(1.15)' : 'none',
-                              boxShadow: isSelected ? `0 0 0 2px var(--bg-card), 0 0 0 4px ${color}` : 'none',
-                              transition: 'all 0.15s ease',
-                            }}
-                            title={color}
-                          >
-                            {isSelected && <Check size={14} style={{ color: '#fff', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }} />}
-                          </button>
-                        );
-                      })}
                     </div>
                   </div>
                 </div>

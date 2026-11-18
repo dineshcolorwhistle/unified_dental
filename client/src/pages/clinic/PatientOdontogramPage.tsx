@@ -12,6 +12,7 @@ import {
   Check,
   Trash2,
   X,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
@@ -475,6 +476,29 @@ export const PatientOdontogramPage: React.FC = () => {
     return parts.join(' ');
   }, [data?.patient]);
 
+  // Check if a treatment plan / treatments have already been saved or applied for this patient
+  const hasSavedTreatmentPlan = useMemo(() => {
+    // 1. Saved treatments on the patient's odontogram
+    if (data?.treatments && data.treatments.length > 0) {
+      return true;
+    }
+    // 2. Currently applied treatments in the odontogram
+    if (appliedTreatments && appliedTreatments.length > 0) {
+      return true;
+    }
+    // 3. Saved proposed plan in odontogram
+    const plan = (data?.odontogram as any)?.proposedPlan;
+    if (plan) {
+      if (Array.isArray(plan.groups) && plan.groups.length > 0) {
+        return true;
+      }
+      if (Array.isArray(plan) && plan.length > 0) {
+        return true;
+      }
+    }
+    return false;
+  }, [data?.treatments, appliedTreatments, data?.odontogram]);
+
   if (loading) {
     return (
       <div
@@ -529,6 +553,7 @@ export const PatientOdontogramPage: React.FC = () => {
           marginBottom: '20px',
         }}
       >
+        {/* Top Info Row: Patient Metadata on Left, Back to Patient on Right */}
         <div
           style={{
             display: 'flex',
@@ -545,8 +570,8 @@ export const PatientOdontogramPage: React.FC = () => {
                 width: '48px',
                 height: '48px',
                 borderRadius: '12px',
-                backgroundColor: 'rgba(56, 189, 248, 0.14)',
-                color: '#0284c7',
+                backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                color: 'var(--primary-600, #0d9488)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -571,8 +596,8 @@ export const PatientOdontogramPage: React.FC = () => {
                 </h1>
                 <span
                   style={{
-                    backgroundColor: '#e0f2fe',
-                    color: '#0284c7',
+                    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                    color: 'var(--primary-700, #0f766e)',
                     padding: '3px 10px',
                     borderRadius: '6px',
                     fontSize: '13px',
@@ -602,7 +627,7 @@ export const PatientOdontogramPage: React.FC = () => {
                   {t('patientOdontogram.doctor', 'Doctor:')} <strong style={{ color: '#1e293b' }}>Dr. Robert Smith</strong>
                 </span>
                 {data.patient.branch && (
-                  <span style={{ color: '#0284c7', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--primary-600, #0d9488)', fontWeight: 600 }}>
                     {data.patient.branch.name}
                   </span>
                 )}
@@ -613,94 +638,154 @@ export const PatientOdontogramPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Teeth Model Switcher Pills + Header Save Button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div
+          {/* Right: Back to Patient Button */}
+          <div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/clinic/patients')}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                backgroundColor: '#f1f5f9',
+                gap: '8px',
+                height: '38px',
+                padding: '0 14px',
                 borderRadius: '8px',
-                padding: '3px',
-                gap: '2px',
+                fontSize: '13px',
+                fontWeight: 600,
               }}
             >
+              <ArrowLeft size={16} />
+              <span>{t('patientOdontogram.backToPatient', 'Back to Patient')}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Controls Row: Teeth Model Switcher on Left, Action Buttons ALIGNED TO RIGHT */}
+        <div
+          style={{
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid #f1f5f9',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          {/* Left: Teeth Model Switcher Pills */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              backgroundColor: '#f1f5f9',
+              borderRadius: '8px',
+              padding: '3px',
+              gap: '2px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setLocalTeethModel('ADULT')}
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 600,
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: localTeethModel === 'ADULT' ? 'var(--primary-600, #0d9488)' : 'transparent',
+                color: localTeethModel === 'ADULT' ? '#ffffff' : '#475569',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {t('patientOdontogram.models.adult', 'Adult (32)')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocalTeethModel('CHILD')}
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 600,
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: localTeethModel === 'CHILD' ? 'var(--primary-600, #0d9488)' : 'transparent',
+                color: localTeethModel === 'CHILD' ? '#ffffff' : '#475569',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {t('patientOdontogram.models.child', 'Child (20)')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocalTeethModel('COMPLETE')}
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 600,
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: localTeethModel === 'COMPLETE' ? 'var(--primary-600, #0d9488)' : 'transparent',
+                color: localTeethModel === 'COMPLETE' ? '#ffffff' : '#475569',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {t('patientOdontogram.models.complete', 'Complete (52)')}
+            </button>
+          </div>
+
+          {/* Right: Actions Aligned to the Right (View Treatment Plan + Save Odontogram) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {hasSavedTreatmentPlan && (
               <button
                 type="button"
-                onClick={() => setLocalTeethModel('ADULT')}
+                className="btn btn-secondary"
+                onClick={() => navigate(`/clinic/patients/${patientId}/treatment-plan`)}
                 style={{
-                  fontSize: '12.5px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  height: '38px',
+                  padding: '0 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
                   fontWeight: 600,
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
                   cursor: 'pointer',
-                  backgroundColor: localTeethModel === 'ADULT' ? '#38bdf8' : 'transparent',
-                  color: localTeethModel === 'ADULT' ? '#ffffff' : '#475569',
+                  border: '1px solid var(--primary-300, #5eead4)',
+                  backgroundColor: 'var(--badge-primary-bg, #f0fdfa)',
+                  color: 'var(--primary-700, #0f766e)',
                   transition: 'all 0.15s ease',
                 }}
               >
-                {t('patientOdontogram.models.adult', 'Adult (32)')}
+                <FileSpreadsheet size={16} />
+                <span>{t('patientOdontogram.viewTreatmentPlan', 'View Treatment Plan')}</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setLocalTeethModel('CHILD')}
-                style={{
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: localTeethModel === 'CHILD' ? '#38bdf8' : 'transparent',
-                  color: localTeethModel === 'CHILD' ? '#ffffff' : '#475569',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {t('patientOdontogram.models.child', 'Child (20)')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocalTeethModel('COMPLETE')}
-                style={{
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: localTeethModel === 'COMPLETE' ? '#38bdf8' : 'transparent',
-                  color: localTeethModel === 'COMPLETE' ? '#ffffff' : '#475569',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {t('patientOdontogram.models.complete', 'Complete (52)')}
-              </button>
-            </div>
+            )}
 
             {canModify && (
               <button
                 type="button"
+                className="btn btn-primary"
                 onClick={handleSaveOdontogram}
                 disabled={savingAll}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  backgroundColor: '#38bdf8',
-                  color: '#ffffff',
-                  border: 'none',
+                  height: '38px',
+                  padding: '0 20px',
                   borderRadius: '8px',
-                  padding: '8px 18px',
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: savingAll ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 1px 2px rgba(56, 189, 248, 0.25)',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 {savingAll ? <Loader2 size={16} className="spinner" /> : <Save size={16} />}
-                <span>{t('patientOdontogram.saveOdontogram', 'Save Odontogram')}</span>
+                <span>{savingAll ? t('common.saving', 'Saving...') : t('patientOdontogram.saveOdontogram', 'Save Odontogram')}</span>
               </button>
             )}
           </div>
@@ -2219,40 +2304,63 @@ export const PatientOdontogramPage: React.FC = () => {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-secondary"
             onClick={() => navigate('/clinic/patients')}
             style={{ fontSize: '13px', height: '40px', padding: '0 16px' }}
           >
-            {t('patientOdontogram.backToPatients', 'Back to Patients')}
+            <ArrowLeft size={16} style={{ marginRight: '6px' }} />
+            {t('patientOdontogram.backToPatient', 'Back to Patient')}
           </button>
+
+          {hasSavedTreatmentPlan && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate(`/clinic/patients/${patientId}/treatment-plan`)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '40px',
+                padding: '0 16px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: '1px solid var(--primary-300, #5eead4)',
+                backgroundColor: 'var(--badge-primary-bg, #f0fdfa)',
+                color: 'var(--primary-700, #0f766e)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <FileSpreadsheet size={16} />
+              <span>{t('patientOdontogram.viewTreatmentPlan', 'View Treatment Plan')}</span>
+            </button>
+          )}
 
           {canModify && (
             <button
               type="button"
+              className="btn btn-primary"
               onClick={handleSaveOdontogram}
               disabled={savingAll}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                backgroundColor: '#38bdf8',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0 24px',
                 height: '40px',
+                padding: '0 24px',
+                borderRadius: '8px',
                 fontSize: '13.5px',
                 fontWeight: 600,
                 cursor: savingAll ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 4px rgba(56, 189, 248, 0.25)',
-                transition: 'all 0.15s ease',
               }}
             >
               {savingAll ? <Loader2 size={16} className="spinner" /> : <Save size={16} />}
-              <span>{t('common.save', 'Save')}</span>
+              <span>{t('patientOdontogram.saveOdontogram', 'Save Odontogram')}</span>
             </button>
           )}
         </div>

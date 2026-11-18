@@ -1707,6 +1707,8 @@ const resources = {
       patientOdontogram: {
         pageTitle: 'Patient Odontogram',
         backToPatients: 'Back to Patients',
+        backToPatient: 'Back to Patient',
+        viewTreatmentPlan: 'View Treatment Plan',
         record: 'Record #',
         patient: 'Patient:',
         doctor: 'Doctor:',
@@ -5693,6 +5695,8 @@ const resources = {
       patientOdontogram: {
         pageTitle: 'Odontograma del Paciente',
         backToPatients: 'Volver a Pacientes',
+        backToPatient: 'Volver al Paciente',
+        viewTreatmentPlan: 'Ver Plan de Tratamiento',
         record: 'Expediente #',
         patient: 'Paciente:',
         doctor: 'Doctor:',

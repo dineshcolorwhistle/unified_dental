@@ -263,6 +263,14 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
+          .treatment-plan-quadrant-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+          @media (max-width: 640px) {
+            .treatment-plan-quadrant-grid {
+              grid-template-columns: 1fr !important;
+            }
+          }
           @page {
             size: portrait;
             margin: 12mm 14mm;
@@ -572,11 +580,12 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
             </div>
           </div>
 
-          {/* 4-Quadrant Anatomical Cards Cross Grid */}
+          {/* 4-Quadrant Anatomical Cards Cross Grid (2 x 2 Layout) */}
           <div
+            className="treatment-plan-quadrant-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
               gap: '12px',
               padding: '16px',
               backgroundColor: '#ffffff',
@@ -626,25 +635,29 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {/* Posterior Procedures */}
                     {q.posterior.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {t('patientTreatmentPlan.posteriorZone', 'Posterior')}
                         </div>
-                        {q.posterior.map((proc, pIdx) => (
-                          <div
-                            key={pIdx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              backgroundColor: '#ffffff',
-                              padding: '5px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid #f1f5f9',
-                              fontSize: '11.5px',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {q.posterior.map((proc, pIdx) => (
+                            <div
+                              key={pIdx}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                backgroundColor: '#ffffff',
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                fontSize: '11.5px',
+                                flex: '1 1 auto',
+                                minWidth: '120px',
+                                maxWidth: '100%',
+                                boxSizing: 'border-box',
+                              }}
+                            >
                               <span
                                 style={{
                                   width: '8px',
@@ -654,40 +667,41 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                                   flexShrink: 0,
                                 }}
                               />
-                              <strong style={{ color: '#0f172a' }}>{proc.treatmentName}</strong>
-                              <span style={{ fontSize: '10px', color: '#64748b' }}>
+                              <strong style={{ color: '#0f172a', whiteSpace: 'nowrap' }}>{proc.treatmentName}</strong>
+                              <span style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
                                 (#{proc.toothNumbers.join(', #')})
                               </span>
                             </div>
-                            <span style={{ fontWeight: 800, color: '#0f766e', fontSize: '11px' }}>
-                              x{proc.count}
-                            </span>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {/* Anterior Procedures */}
                     {q.anterior.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {t('patientTreatmentPlan.anteriorZone', 'Anterior')}
                         </div>
-                        {q.anterior.map((proc, aIdx) => (
-                          <div
-                            key={aIdx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              backgroundColor: '#ffffff',
-                              padding: '5px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid #f1f5f9',
-                              fontSize: '11.5px',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {q.anterior.map((proc, aIdx) => (
+                            <div
+                              key={aIdx}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                backgroundColor: '#ffffff',
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                fontSize: '11.5px',
+                                flex: '1 1 auto',
+                                minWidth: '120px',
+                                maxWidth: '100%',
+                                boxSizing: 'border-box',
+                              }}
+                            >
                               <span
                                 style={{
                                   width: '8px',
@@ -697,16 +711,13 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                                   flexShrink: 0,
                                 }}
                               />
-                              <strong style={{ color: '#0f172a' }}>{proc.treatmentName}</strong>
-                              <span style={{ fontSize: '10px', color: '#64748b' }}>
+                              <strong style={{ color: '#0f172a', whiteSpace: 'nowrap' }}>{proc.treatmentName}</strong>
+                              <span style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
                                 (#{proc.toothNumbers.join(', #')})
                               </span>
                             </div>
-                            <span style={{ fontWeight: 800, color: '#0f766e', fontSize: '11px' }}>
-                              x{proc.count}
-                            </span>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
