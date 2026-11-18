@@ -295,6 +295,8 @@ model User {
   doctorWorkingHours         DoctorWorkingHour[]
   doctorAppointments         Appointment[] @relation("AppointmentDoctor")
   createdAppointments        Appointment[] @relation("AppointmentCreatedBy")
+  startedAppointments        Appointment[] @relation("AppointmentStartedBy")
+  endedAppointments          Appointment[] @relation("AppointmentEndedBy")
   doctorServices             DoctorService[] @relation("DoctorServices")
   diagnosedOdontograms       PatientOdontogramDiagnostic[]
   createdOdontogramTreatments PatientOdontogramTreatment[]
@@ -1352,11 +1354,15 @@ model Appointment {
   startTime          String   @map("start_time")
   endTime            String   @map("end_time")
   durationMinutes    Int      @default(30) @map("duration_minutes")
+  actualStartTime    DateTime? @map("actual_start_time")
+  actualEndTime      DateTime? @map("actual_end_time")
   type               String   @default("CONSULTATION")
   status             String   @default("SCHEDULED")
   reason             String?
   notes              String?  @db.Text
   cancellationReason String?  @map("cancellation_reason")
+  startedById        String?  @map("started_by_id")
+  endedById          String?  @map("ended_by_id")
   createdById        String?  @map("created_by_id")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
@@ -1366,6 +1372,8 @@ model Appointment {
   patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor    User     @relation("AppointmentDoctor", fields: [doctorId], references: [id], onDelete: Cascade)
   createdBy User?    @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  startedBy User?    @relation("AppointmentStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  endedBy   User?    @relation("AppointmentEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, branchId])

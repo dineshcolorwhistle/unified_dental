@@ -324,6 +324,18 @@ export class AppointmentsService {
               name: true,
             },
           },
+          startedBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          endedBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       }),
     ]);
@@ -374,6 +386,12 @@ export class AppointmentsService {
         },
         createdBy: {
           select: { id: true, name: true },
+        },
+        startedBy: {
+          select: { id: true, name: true, email: true },
+        },
+        endedBy: {
+          select: { id: true, name: true, email: true },
         },
       },
     });
@@ -471,6 +489,8 @@ export class AppointmentsService {
         startTime: dto.startTime,
         endTime,
         durationMinutes: duration,
+        actualStartTime: dto.actualStartTime ? new Date(dto.actualStartTime) : null,
+        actualEndTime: dto.actualEndTime ? new Date(dto.actualEndTime) : null,
         type: appointmentType,
         status: 'SCHEDULED',
         reason: dto.reason || null,
@@ -525,6 +545,12 @@ export class AppointmentsService {
     if (dto.branchId) updateData.branchId = dto.branchId;
     if (dto.reason !== undefined) updateData.reason = dto.reason;
     if (dto.notes !== undefined) updateData.notes = dto.notes;
+    if (dto.actualStartTime !== undefined) {
+      updateData.actualStartTime = dto.actualStartTime ? new Date(dto.actualStartTime) : null;
+    }
+    if (dto.actualEndTime !== undefined) {
+      updateData.actualEndTime = dto.actualEndTime ? new Date(dto.actualEndTime) : null;
+    }
     if (dto.type) {
       if (!VALID_TYPES.includes(dto.type)) {
         throw new BadRequestException(`Invalid appointment type: ${dto.type}`);
@@ -538,6 +564,26 @@ export class AppointmentsService {
       updateData.status = dto.status;
       if (dto.status === 'CANCELLED' && dto.cancellationReason) {
         updateData.cancellationReason = dto.cancellationReason;
+      }
+      if (dto.status === 'IN_PROGRESS') {
+        if (!existing.actualStartTime && !updateData.actualStartTime) {
+          updateData.actualStartTime = new Date();
+        }
+        if (!existing.startedById) {
+          updateData.startedById = actor.id;
+        }
+      }
+      if (dto.status === 'COMPLETED') {
+        if (!existing.actualStartTime && !updateData.actualStartTime) {
+          updateData.actualStartTime = new Date();
+        }
+        if (!existing.actualEndTime && !updateData.actualEndTime) {
+          updateData.actualEndTime = new Date();
+        }
+        if (!existing.startedById) {
+          updateData.startedById = actor.id;
+        }
+        updateData.endedById = actor.id;
       }
     }
 
@@ -616,6 +662,12 @@ export class AppointmentsService {
         branch: {
           select: { id: true, name: true },
         },
+        startedBy: {
+          select: { id: true, name: true },
+        },
+        endedBy: {
+          select: { id: true, name: true },
+        },
       },
     });
 
@@ -632,6 +684,8 @@ export class AppointmentsService {
     tenantId: string,
     actor: AuthenticatedUser,
     cancellationReason?: string,
+    actualStartTime?: string | Date,
+    actualEndTime?: string | Date,
   ) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
 
@@ -654,9 +708,63 @@ export class AppointmentsService {
       updateData.cancellationReason = cancellationReason;
     }
 
+    if (actualStartTime !== undefined) {
+      updateData.actualStartTime = actualStartTime ? new Date(actualStartTime) : null;
+    }
+    if (actualEndTime !== undefined) {
+      updateData.actualEndTime = actualEndTime ? new Date(actualEndTime) : null;
+    }
+
+    // Auto-capture actual timestamps and actors on status transitions
+    if (status === 'IN_PROGRESS') {
+      if (!existing.actualStartTime && !updateData.actualStartTime) {
+        updateData.actualStartTime = new Date();
+      }
+      if (!existing.startedById) {
+        updateData.startedById = actor.id;
+      }
+    }
+    if (status === 'COMPLETED') {
+      if (!existing.actualStartTime && !updateData.actualStartTime) {
+        updateData.actualStartTime = new Date();
+      }
+      if (!existing.actualEndTime && !updateData.actualEndTime) {
+        updateData.actualEndTime = new Date();
+      }
+      if (!existing.startedById) {
+        updateData.startedById = actor.id;
+      }
+      updateData.endedById = actor.id;
+    }
+
     const updated = await this.prisma.appointment.update({
       where: { id },
       data: updateData,
+      include: {
+        patient: {
+          select: {
+            id: true,
+            recordNumber: true,
+            firstName: true,
+            fatherLastName: true,
+            motherLastName: true,
+            phoneNumber: true,
+            phoneCountryCode: true,
+          },
+        },
+        doctor: {
+          select: { id: true, name: true, email: true },
+        },
+        branch: {
+          select: { id: true, name: true },
+        },
+        startedBy: {
+          select: { id: true, name: true },
+        },
+        endedBy: {
+          select: { id: true, name: true },
+        },
+      },
     });
 
     this.logger.log(`🔄 Appointment ${existing.appointmentNumber} status → ${status} by ${actor.id}`);

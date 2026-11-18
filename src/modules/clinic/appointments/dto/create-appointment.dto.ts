@@ -51,6 +51,12 @@ export class CreateAppointmentDto {
   durationMinutes?: number = 30;
 
   @IsOptional()
+  actualStartTime?: string | Date;
+
+  @IsOptional()
+  actualEndTime?: string | Date;
+
+  @IsOptional()
   @IsString()
   type?: string = 'CONSULTATION';
 

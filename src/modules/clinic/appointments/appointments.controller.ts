@@ -74,9 +74,19 @@ export class AppointmentsController {
     @Param('id') id: string,
     @Body('status') status: string,
     @Body('cancellationReason') cancellationReason: string,
+    @Body('actualStartTime') actualStartTime: string | Date,
+    @Body('actualEndTime') actualEndTime: string | Date,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.appointmentsService.updateStatus(id, status, user.activeTenantId, user, cancellationReason);
+    return this.appointmentsService.updateStatus(
+      id,
+      status,
+      user.activeTenantId,
+      user,
+      cancellationReason,
+      actualStartTime,
+      actualEndTime,
+    );
   }
 
   @Delete(':id')

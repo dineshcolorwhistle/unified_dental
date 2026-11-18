@@ -66,6 +66,12 @@ interface AppointmentItem {
   startTime: string;
   endTime: string;
   durationMinutes: number;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  startedById?: string | null;
+  endedById?: string | null;
+  startedBy?: { id: string; name: string } | null;
+  endedBy?: { id: string; name: string } | null;
   type: string;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   reason?: string | null;
@@ -183,6 +189,34 @@ export const ClinicAppointmentsPage: React.FC = () => {
   // Tenant Admin ONLY can delete
   const canAddOrUpdate = Boolean(isClinicAdmin);
   const canDelete = Boolean(isTenantAdmin);
+
+  // Format helpers for actual times
+  const formatTimeOnly = (dateStr: string | Date | null | undefined): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  const formatDateOnly = (dateStr: string | Date | null | undefined): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const calculateActualDuration = (startStr?: string | null, endStr?: string | null): number => {
+    if (!startStr || !endStr) return 0;
+    const s = new Date(startStr).getTime();
+    const e = new Date(endStr).getTime();
+    if (isNaN(s) || isNaN(e)) return 0;
+    return Math.max(0, Math.round((e - s) / 60000));
+  };
 
   // View mode
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -695,7 +729,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
       if (newStatus === 'CANCELLED' && cancellationReason) {
         payload.cancellationReason = cancellationReason;
       }
-      await api.patch(`/clinic/appointments/${appointmentId}/status`, payload);
+      const res = await api.patch(`/clinic/appointments/${appointmentId}/status`, payload);
       const msg =
         newStatus === 'IN_PROGRESS'
           ? (isSpanish ? 'Cita iniciada exitosamente' : 'Appointment started successfully')
@@ -712,7 +746,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
         fetchCalendarAppointments();
       }
       if (viewingAppointment?.id === appointmentId) {
-        setViewingAppointment((prev) => (prev ? { ...prev, status: newStatus as any } : null));
+        setViewingAppointment((prev) => (prev ? { ...prev, ...(res.data || {}), status: newStatus as any } : null));
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to update status';
@@ -1228,10 +1262,10 @@ export const ClinicAppointmentsPage: React.FC = () => {
                       {isSpanish ? 'Doctor' : 'Doctor'}
                     </th>
                     <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      {isSpanish ? 'Fecha y Hora' : 'Date & Time'}
+                      {t('appointments.scheduledDateTime', isSpanish ? 'Fecha y Hora Programada' : 'Scheduled Date & Time')}
                     </th>
                     <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      {isSpanish ? 'Tipo' : 'Type'}
+                      {t('appointments.actualStartEndTime', isSpanish ? 'Hora de Inicio y Fin Real' : 'Actual Start & End Time')}
                     </th>
                     <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
                       {isSpanish ? 'Estado' : 'Status'}
@@ -1289,7 +1323,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                           Dr. {apt.doctor?.name || 'Assigned Doctor'}
                         </td>
 
-                        {/* Date & Time */}
+                        {/* Scheduled Date & Time */}
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-heading)' }}>
                             {dateFormatted}
@@ -1302,20 +1336,53 @@ export const ClinicAppointmentsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Type */}
+                        {/* Actual Start & End Time */}
                         <td style={{ padding: '14px 16px' }}>
-                          <span
-                            style={{
-                              fontSize: '11.5px',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(148, 163, 184, 0.14)',
-                              color: 'var(--text-body)',
-                              fontWeight: 500,
-                            }}
-                          >
-                            {getAppointmentTypeLabel(apt.type, isSpanish)}
-                          </span>
+                          {apt.actualStartTime && apt.actualEndTime ? (
+                            <>
+                              <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-heading)' }}>
+                                {formatDateOnly(apt.actualStartTime)}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Clock size={12} />
+                                <span>
+                                  {formatTimeOnly(apt.actualStartTime)} - {formatTimeOnly(apt.actualEndTime)} ({calculateActualDuration(apt.actualStartTime, apt.actualEndTime)}m)
+                                </span>
+                              </div>
+                              {(apt.startedBy?.name || apt.endedBy?.name) && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.2' }}>
+                                  {apt.startedBy?.name && apt.endedBy?.name && apt.startedBy.name === apt.endedBy.name ? (
+                                    <span>{t('appointments.by', isSpanish ? 'Por' : 'By')}: {apt.startedBy.name}</span>
+                                  ) : (
+                                    <span>
+                                      {apt.startedBy?.name && <span>{t('appointments.startedBy', isSpanish ? 'Inicio' : 'Start')}: {apt.startedBy.name}</span>}
+                                      {apt.startedBy?.name && apt.endedBy?.name && ' • '}
+                                      {apt.endedBy?.name && <span>{t('appointments.endedBy', isSpanish ? 'Fin' : 'End')}: {apt.endedBy.name}</span>}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          ) : apt.actualStartTime ? (
+                            <>
+                              <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-heading)' }}>
+                                {formatDateOnly(apt.actualStartTime)}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#d97706', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
+                                <Clock size={12} />
+                                <span>
+                                  {formatTimeOnly(apt.actualStartTime)} - {t('appointments.inProgress', isSpanish ? 'En curso' : 'In Progress')}
+                                </span>
+                              </div>
+                              {apt.startedBy?.name && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: '1.2' }}>
+                                  <span>{t('appointments.startedBy', isSpanish ? 'Iniciada por' : 'Started by')}: {apt.startedBy.name}</span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>—</span>
+                          )}
                         </td>
 
                         {/* Status */}
@@ -2445,75 +2512,136 @@ export const ClinicAppointmentsPage: React.FC = () => {
       {/* MODAL 2: VIEW DETAILS MODAL (All Roles + Delete Action for Tenant Admin) */}
       {viewingAppointment && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '520px', width: '95%' }}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Eye size={18} style={{ color: 'var(--primary-600)' }} />
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
-                  {isSpanish ? 'Detalle de Cita' : 'Appointment Details'} #{viewingAppointment.appointmentNumber}
-                </h3>
+          <div className="modal-content" style={{ maxWidth: '580px', width: '95%', borderRadius: '12px', overflow: 'hidden' }}>
+            {/* Modal Header */}
+            <div
+              className="modal-header"
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary-600)',
+                  }}
+                >
+                  <CalendarCheck size={18} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      #{viewingAppointment.appointmentNumber}
+                    </h3>
+                    {(() => {
+                      const st = STATUS_CONFIG[viewingAppointment.status] || STATUS_CONFIG.SCHEDULED;
+                      return (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: st.bg,
+                            color: st.color,
+                            border: `1px solid ${st.border}`,
+                          }}
+                        >
+                          {isSpanish ? st.labelEs : st.labelEn}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {getAppointmentTypeLabel(viewingAppointment.type, isSpanish)} • {viewingAppointment.date?.substring(0, 10)}
+                  </div>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingAppointment(null)}
                 className="btn-icon"
-                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px', color: 'var(--text-muted)' }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Status Header */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  backgroundColor: STATUS_CONFIG[viewingAppointment.status]?.bg || 'rgba(56, 189, 248, 0.12)',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                    {isSpanish ? 'ESTADO ACTUAL' : 'CURRENT STATUS'}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '15px',
-                      fontWeight: 700,
-                      color: STATUS_CONFIG[viewingAppointment.status]?.color || '#0284c7',
-                    }}
-                  >
-                    {isSpanish
-                      ? STATUS_CONFIG[viewingAppointment.status]?.labelEs
-                      : STATUS_CONFIG[viewingAppointment.status]?.labelEn}
-                  </div>
-                </div>
-
-                {/* Quick Status Buttons: Clinic Admin ONLY (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED) */}
-                {canAddOrUpdate && (
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: 'calc(85vh - 130px)', overflowY: 'auto' }}>
+              
+              {/* Quick Clinical Actions Toolbar */}
+              {canAddOrUpdate && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(148, 163, 184, 0.08)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    {isSpanish ? 'Acciones Clínicas:' : 'Clinical Actions:'}
+                  </span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {viewingAppointment.status === 'SCHEDULED' && (
                       <>
                         <button
                           type="button"
                           onClick={() => handleStatusChange(viewingAppointment.id, 'IN_PROGRESS')}
-                          className="btn btn-primary btn-sm"
-                          style={{ fontSize: '11.5px', padding: '6px 12px', backgroundColor: '#059669', borderColor: '#059669' }}
+                          className="btn btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            backgroundColor: '#059669',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
                         >
-                          <Play size={13} fill="#fff" style={{ marginRight: '4px' }} />
-                          {isSpanish ? 'Iniciar Cita' : 'Start Appointment'}
+                          <Play size={12} fill="#fff" />
+                          <span>{isSpanish ? 'Iniciar Cita' : 'Start Appointment'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handlePromptCancel(viewingAppointment)}
-                          className="btn btn-danger btn-sm"
-                          style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                          className="btn btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 10px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: '#dc2626',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
                         >
-                          <XCircle size={13} style={{ marginRight: '4px' }} />
-                          {isSpanish ? 'Cancelar Cita' : 'Cancel Appointment'}
+                          <XCircle size={12} />
+                          <span>{isSpanish ? 'Cancelar' : 'Cancel'}</span>
                         </button>
                       </>
                     )}
@@ -2522,20 +2650,44 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleStatusChange(viewingAppointment.id, 'COMPLETED')}
-                          className="btn btn-primary btn-sm"
-                          style={{ fontSize: '11.5px', padding: '6px 12px', backgroundColor: '#4f46e5', borderColor: '#4f46e5' }}
+                          className="btn btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            backgroundColor: '#4f46e5',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
                         >
-                          <CheckCircle2 size={13} style={{ marginRight: '4px' }} />
-                          {isSpanish ? 'Finalizar Cita' : 'End Appointment'}
+                          <CheckCircle2 size={12} />
+                          <span>{isSpanish ? 'Finalizar Cita' : 'End Appointment'}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handlePromptCancel(viewingAppointment)}
-                          className="btn btn-danger btn-sm"
-                          style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                          className="btn btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '5px 10px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: '#dc2626',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
                         >
-                          <XCircle size={13} style={{ marginRight: '4px' }} />
-                          {isSpanish ? 'Cancelar Cita' : 'Cancel Appointment'}
+                          <XCircle size={12} />
+                          <span>{isSpanish ? 'Cancelar' : 'Cancel'}</span>
                         </button>
                       </>
                     )}
@@ -2544,78 +2696,226 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         type="button"
                         onClick={() => handleStatusChange(viewingAppointment.id, 'SCHEDULED')}
                         className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                        style={{ fontSize: '12px', padding: '5px 12px' }}
                       >
                         {isSpanish ? 'Reabrir Cita' : 'Re-open Appointment'}
                       </button>
                     )}
-                  </div>
-                )}
-              </div>
-
-              {/* Patient info */}
-              <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '6px' }}>
-                  {isSpanish ? 'PACIENTE' : 'PATIENT'}
-                </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                  {viewingAppointment.patient?.firstName} {viewingAppointment.patient?.fatherLastName || ''}
-                </div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {isSpanish ? 'Expediente:' : 'Record #:'} {viewingAppointment.patient?.recordNumber || 'N/A'} • {viewingAppointment.patient?.phoneCountryCode || '+52'} {viewingAppointment.patient?.phoneNumber || 'No phone'}
-                </div>
-              </div>
-
-              {/* Doctor, Schedule & Type Info */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
-                <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    {isSpanish ? 'DOCTOR' : 'DOCTOR'}
-                  </div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', marginTop: '2px' }}>
-                    Dr. {viewingAppointment.doctor?.name}
-                  </div>
-                </div>
-
-                <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    {isSpanish ? 'FECHA Y HORA' : 'DATE & TIME'}
-                  </div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', marginTop: '2px' }}>
-                    {viewingAppointment.date?.substring(0, 10)} {viewingAppointment.startTime} - {viewingAppointment.endTime}
-                  </div>
-                </div>
-
-                <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    {isSpanish ? 'TIPO DE CITA' : 'APPOINTMENT TYPE'}
-                  </div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', marginTop: '2px' }}>
-                    {getAppointmentTypeLabel(viewingAppointment.type, isSpanish)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Reason & Notes */}
-              {viewingAppointment.reason && (
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    {isSpanish ? 'Motivo' : 'Reason'}
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-body)', marginTop: '2px' }}>
-                    {viewingAppointment.reason}
+                    {viewingAppointment.status === 'COMPLETED' && (
+                      <span style={{ fontSize: '12px', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
+                        <CheckCircle2 size={14} />
+                        {isSpanish ? 'Cita completada exitosamente' : 'Appointment completed successfully'}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
 
-              {viewingAppointment.notes && (
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    {isSpanish ? 'Notas' : 'Notes'}
+              {/* Patient & Doctor Banner (Single unified panel) */}
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(148, 163, 184, 0.05)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                {/* Patient Information */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                      color: '#4f46e5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {viewingAppointment.patient?.firstName?.[0] || 'P'}{viewingAppointment.patient?.fatherLastName?.[0] || ''}
                   </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-body)', marginTop: '2px' }}>
-                    {viewingAppointment.notes}
+                  <div>
+                    <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                      {viewingAppointment.patient?.firstName} {viewingAppointment.patient?.fatherLastName || ''}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '1px' }}>
+                      <span>Rec: {viewingAppointment.patient?.recordNumber || 'N/A'}</span>
+                      {viewingAppointment.patient?.phoneNumber && (
+                        <span>• {viewingAppointment.patient?.phoneCountryCode || '+52'} {viewingAppointment.patient?.phoneNumber}</span>
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                {/* Doctor Information */}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {isSpanish ? 'DOCTOR ASIGNADO' : 'ASSIGNED DOCTOR'}
+                  </div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', marginTop: '2px' }}>
+                    Dr. {viewingAppointment.doctor?.name || 'Assigned Doctor'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Timing & Execution Comparison Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                
+                {/* Scheduled Schedule Panel */}
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'rgba(148, 163, 184, 0.02)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <CalendarIcon size={14} style={{ color: 'var(--primary-600)' }} />
+                    <span>{t('appointments.scheduledSchedule', isSpanish ? 'Horario Programado' : 'Scheduled Schedule')}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{isSpanish ? 'Fecha' : 'Date'}:</span>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                        {viewingAppointment.date?.substring(0, 10)}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{isSpanish ? 'Hora y Duración' : 'Time & Duration'}:</span>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+                        <span>{viewingAppointment.startTime} - {viewingAppointment.endTime} ({viewingAppointment.durationMinutes}m)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actual Execution Panel */}
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: viewingAppointment.actualStartTime ? 'rgba(56, 189, 248, 0.02)' : 'rgba(148, 163, 184, 0.02)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Clock size={14} style={{ color: viewingAppointment.actualStartTime ? '#059669' : 'var(--text-muted)' }} />
+                      <span>{t('appointments.actualExecution', isSpanish ? 'Ejecución Real' : 'Actual Execution')}</span>
+                    </div>
+                    {viewingAppointment.actualStartTime && viewingAppointment.actualEndTime && (
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '2px 7px', borderRadius: '10px' }}>
+                        {calculateActualDuration(viewingAppointment.actualStartTime, viewingAppointment.actualEndTime)}m {isSpanish ? 'total' : 'total'}
+                      </span>
+                    )}
+                  </div>
+
+                  {viewingAppointment.actualStartTime ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* Start Event */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#059669', marginTop: '5px' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('appointments.startTime', isSpanish ? 'Hora de Inicio' : 'Start Time')}
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                            {formatTimeOnly(viewingAppointment.actualStartTime)}
+                            <span style={{ fontSize: '11.5px', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '6px' }}>
+                              ({formatDateOnly(viewingAppointment.actualStartTime)})
+                            </span>
+                          </div>
+                          {viewingAppointment.startedBy?.name && (
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                              {t('appointments.startedBy', isSpanish ? 'Iniciada por' : 'Started by')}: <strong style={{ color: 'var(--text-body)' }}>{viewingAppointment.startedBy.name}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* End Event */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: viewingAppointment.actualEndTime ? '#4f46e5' : '#d97706', marginTop: '5px' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {t('appointments.endTime', isSpanish ? 'Hora de Fin' : 'End Time')}
+                          </div>
+                          {viewingAppointment.actualEndTime ? (
+                            <>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                                {formatTimeOnly(viewingAppointment.actualEndTime)}
+                                <span style={{ fontSize: '11.5px', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '6px' }}>
+                                  ({formatDateOnly(viewingAppointment.actualEndTime)})
+                                </span>
+                              </div>
+                              {viewingAppointment.endedBy?.name && (
+                                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                  {t('appointments.endedBy', isSpanish ? 'Finalizada por' : 'Ended by')}: <strong style={{ color: 'var(--text-body)' }}>{viewingAppointment.endedBy.name}</strong>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>
+                              {t('appointments.inProgressDesc', isSpanish ? 'La cita se encuentra en curso.' : 'Appointment is currently in progress.')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                      {t('appointments.notStartedDesc', isSpanish ? 'La cita aún no ha iniciado.' : 'Appointment has not been started yet.')}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Reason & Notes (Clean typography without redundant card borders) */}
+              {(viewingAppointment.reason || viewingAppointment.notes || viewingAppointment.cancellationReason) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                  {viewingAppointment.cancellationReason && (
+                    <div style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '12.5px', color: '#dc2626' }}>
+                      <strong>{isSpanish ? 'Motivo de Cancelación' : 'Cancellation Reason'}:</strong> {viewingAppointment.cancellationReason}
+                    </div>
+                  )}
+                  {viewingAppointment.reason && (
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                        {isSpanish ? 'Motivo de la Cita' : 'Reason for Visit'}
+                      </span>
+                      <div style={{ fontSize: '13px', color: 'var(--text-heading)', marginTop: '2px' }}>
+                        {viewingAppointment.reason}
+                      </div>
+                    </div>
+                  )}
+                  {viewingAppointment.notes && (
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                        {isSpanish ? 'Notas Clínicas' : 'Clinical Notes'}
+                      </span>
+                      <div style={{ fontSize: '13px', color: 'var(--text-body)', marginTop: '2px', backgroundColor: 'rgba(148, 163, 184, 0.05)', padding: '8px 12px', borderRadius: '6px' }}>
+                        {viewingAppointment.notes}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
