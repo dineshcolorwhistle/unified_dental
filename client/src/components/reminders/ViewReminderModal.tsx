@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Calendar, Clock, Repeat, Users, Tag, AlertCircle, Send, XCircle } from 'lucide-react';
+import {
+  X,
+  Calendar,
+  Clock,
+  Repeat,
+  Users,
+  Tag,
+  Send,
+  XCircle,
+  CheckCircle,
+  Edit2,
+  Eye,
+} from 'lucide-react';
 import { ReminderItem } from './CreateReminderModal';
 import { formatDate } from '../../core/utils/dateUtils';
+import { generateOccurrenceSchedule } from '../../utils/reminderOccurrences';
 
 interface ViewReminderModalProps {
   isOpen: boolean;
@@ -10,6 +23,8 @@ interface ViewReminderModalProps {
   reminder: ReminderItem | null;
   onCancelReminder?: (reminder: ReminderItem) => void;
   canCancel?: boolean;
+  canEdit?: boolean;
+  onEditReminder?: (reminder: ReminderItem) => void;
 }
 
 export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
@@ -18,8 +33,23 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
   reminder,
   onCancelReminder,
   canCancel = false,
+  canEdit = false,
+  onEditReminder,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const scheduleResult = useMemo(() => {
+    if (!reminder) return { occurrences: [], completedCount: 0, totalCount: 0 };
+    return generateOccurrenceSchedule(reminder, i18n.language || 'en-US');
+  }, [reminder, i18n.language]);
+
+  const lastNotifiedText = useMemo(() => {
+    if (reminder?.notificationLogs && reminder.notificationLogs.length > 0) {
+      const latest = reminder.notificationLogs[0];
+      return formatDate(latest.notifiedAt);
+    }
+    return t('reminders.notNotifiedYet', 'Not notified yet');
+  }, [reminder?.notificationLogs, t]);
 
   if (!isOpen || !reminder) return null;
 
@@ -114,6 +144,7 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
     return `${sent} ${t('reminders.sent', 'sent')}`;
   };
 
+
   return (
     <div
       style={{
@@ -131,7 +162,7 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
         className="card"
         style={{
           width: '100%',
-          maxWidth: '560px',
+          maxWidth: '580px',
           padding: 0,
           overflow: 'hidden',
           borderRadius: '16px',
@@ -152,61 +183,80 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
             alignItems: 'flex-start',
             justifyContent: 'space-between',
             flexShrink: 0,
+            gap: '12px',
           }}
         >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
-                {reminder.title}
-              </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--badge-primary-bg, #eff6ff)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary-600, #2563eb)',
+                flexShrink: 0,
+              }}
+            >
+              <Eye size={18} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                  {reminder.title}
+                </h2>
 
-              {/* Status Badge */}
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '9999px',
-                  backgroundColor: statusBadge.bg,
-                  color: statusBadge.text,
-                  border: `1px solid ${statusBadge.border}`,
-                  textTransform: 'uppercase',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
+                {/* Status Badge */}
                 <span
                   style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: statusBadge.text,
-                    display: 'inline-block',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    backgroundColor: statusBadge.bg,
+                    color: statusBadge.text,
+                    border: `1px solid ${statusBadge.border}`,
+                    textTransform: 'uppercase',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                   }}
-                />
-                {statusBadge.label}
-              </span>
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: statusBadge.text,
+                      display: 'inline-block',
+                    }}
+                  />
+                  {statusBadge.label}
+                </span>
 
-              {/* Priority Badge */}
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '9999px',
-                  backgroundColor: badgeStyle.bg,
-                  color: badgeStyle.text,
-                  textTransform: 'uppercase',
-                }}
-              >
-                {t(`reminders.priorities.${reminder.priority.toLowerCase()}`, reminder.priority)}
-              </span>
+                {/* Priority Badge */}
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    backgroundColor: badgeStyle.bg,
+                    color: badgeStyle.text,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {t(`reminders.priorities.${reminder.priority.toLowerCase()}`, reminder.priority)}
+                </span>
+              </div>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                {t('reminders.viewReminderSubtitle', 'Overview of scheduled alert, recurrence rule, and assigned recipients.')}
+              </p>
             </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-              {t('reminders.viewReminderSubtitle', 'Overview of scheduled alert, recurrence rule, and assigned recipients.')}
-            </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -218,9 +268,33 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '24px', overflowY: 'auto' }}>
+        <div style={{ padding: '20px 24px', overflowY: 'auto' }}>
+          {/* Top Quick Status Row (Last Notified) */}
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--bg-surface, #f8fafc)',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '18px',
+            }}
+          >
+            <Clock size={16} style={{ color: 'var(--primary-600, #2563eb)', flexShrink: 0 }} />
+            <div>
+              <span style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                {t('reminders.lastNotified', 'Last Notified')}
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                {lastNotifiedText}
+              </span>
+            </div>
+          </div>
+
           {/* Details Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '18px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
               <Calendar size={18} style={{ color: 'var(--primary-600)', marginTop: '2px', flexShrink: 0 }} />
               <div>
@@ -288,12 +362,12 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
           {reminder.recurrence !== 'ONE_TIME' && reminder.endType && (
             <div
               style={{
-                padding: '12px 14px',
+                padding: '10px 14px',
                 borderRadius: '8px',
                 backgroundColor: 'var(--bg-surface, #f8fafc)',
                 border: '1px solid var(--border-color)',
-                marginBottom: '20px',
-                fontSize: '13px',
+                marginBottom: '18px',
+                fontSize: '12.5px',
               }}
             >
               <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
@@ -309,72 +383,16 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
             </div>
           )}
 
-          {/* Assignees Section */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <Users size={16} style={{ color: 'var(--primary-600)' }} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                {t('reminders.assignedTo', 'Assigned To')} ({reminder.assignees.length})
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {reminder.assignees.map((a) => (
-                <div
-                  key={a.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-surface, #f8fafc)',
-                    border: '1px solid var(--border-color)',
-                    fontSize: '12.5px',
-                  }}
-                >
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{a.name}</span>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '1px 6px',
-                      borderRadius: '4px',
-                      backgroundColor:
-                        a.profession === 'Doctor'
-                          ? 'var(--badge-primary-bg, #f0fdfa)'
-                          : a.profession === 'Tenant Admin'
-                          ? 'var(--badge-warning-bg, #fef3c7)'
-                          : a.profession === 'Lab Admin'
-                          ? 'var(--badge-success-bg, #dcfce7)'
-                          : 'var(--badge-gray-bg, #f1f5f9)',
-                      color:
-                        a.profession === 'Doctor'
-                          ? 'var(--primary-700, #0f766e)'
-                          : a.profession === 'Tenant Admin'
-                          ? 'var(--amber-700, #b45309)'
-                          : a.profession === 'Lab Admin'
-                          ? 'var(--emerald-700, #15803d)'
-                          : 'var(--text-muted, #64748b)',
-                    }}
-                  >
-                    {a.profession}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Description */}
           {reminder.description && (
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '18px' }}>
               <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
                 {t('reminders.description', 'Description')}
               </span>
               <div
                 style={{
-                  padding: '12px',
-                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
                   backgroundColor: 'var(--bg-surface, #f8fafc)',
                   border: '1px solid var(--border-color)',
                   fontSize: '13px',
@@ -388,81 +406,289 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
             </div>
           )}
 
-          {/* Notification Delivery History Log */}
-          <div style={{ marginBottom: '20px' }}>
+          {/* Assigned Team Members Section */}
+          <div style={{ marginBottom: '18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <Send size={16} style={{ color: 'var(--primary-600)' }} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                {t('reminders.deliveryHistory', 'Notification Delivery History')}
+              <Users size={16} style={{ color: 'var(--primary-600)' }} />
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                {t('reminders.assignedTo', 'Assigned Team Members')} ({reminder.assignees.length})
               </span>
             </div>
 
-            {reminder.notificationLogs && reminder.notificationLogs.length > 0 ? (
-              <div
-                style={{
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  overflow: 'hidden',
-                  fontSize: '12.5px',
-                }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: 'var(--bg-surface, #f8fafc)', borderBottom: '1px solid var(--border-color)' }}>
-                      <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                        {t('reminders.dispatchedAt', 'Dispatched At')}
-                      </th>
-                      <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                        {t('reminders.recipientsNotified', 'Recipients')}
-                      </th>
-                      <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
-                        {t('reminders.executionStatus', 'Status')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reminder.notificationLogs.map((log) => (
-                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '8px 12px', color: 'var(--text-main)' }}>
-                          {formatDate(log.notifiedAt)}
-                        </td>
-                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
-                          {log.recipientCount} {t('reminders.assignedTo', 'recipients')}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                          <span
-                            style={{
-                              fontSize: '10.5px',
-                              fontWeight: 700,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              backgroundColor: 'var(--badge-success-bg, #dcfce7)',
-                              color: 'var(--emerald-700, #15803d)',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            {log.status || 'SENT'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {reminder.assignees.map((a) => {
+                const initial = (a.name || 'U').charAt(0).toUpperCase();
+                return (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: 'var(--bg-surface, #f8fafc)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        backgroundColor: '#3b82f6',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '15px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {initial}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13.5px' }}>
+                        {a.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {a.email && <span>{a.email}</span>}
+                        {a.email && <span>•</span>}
+                        <span
+                          style={{
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            backgroundColor:
+                              a.profession === 'Doctor'
+                                ? 'var(--badge-primary-bg, #f0fdfa)'
+                                : a.profession === 'Tenant Admin'
+                                ? 'var(--badge-warning-bg, #fef3c7)'
+                                : a.profession === 'Lab Admin'
+                                ? 'var(--badge-success-bg, #dcfce7)'
+                                : 'var(--badge-gray-bg, #f1f5f9)',
+                            color:
+                              a.profession === 'Doctor'
+                                ? 'var(--primary-700, #0f766e)'
+                                : a.profession === 'Tenant Admin'
+                                ? 'var(--amber-700, #b45309)'
+                                : a.profession === 'Lab Admin'
+                                ? 'var(--emerald-700, #15803d)'
+                                : 'var(--text-muted, #64748b)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {a.profession}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Occurrence Schedule & Breakdown */}
+          <div style={{ marginBottom: '18px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '10px',
+                flexWrap: 'wrap',
+                gap: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calendar size={16} style={{ color: 'var(--primary-600)' }} />
+                <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  {t('reminders.scheduleBreakdown', 'Occurrence Schedule & Breakdown')}
+                </span>
               </div>
-            ) : (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--bg-surface, #f8fafc)',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '12.5px',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {t('reminders.noHistory', 'No notifications have been dispatched yet.')}
-              </div>
-            )}
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                {t('reminders.breakdownCompleted', '{{completed}} of {{total}} completed', {
+                  completed: scheduleResult.completedCount,
+                  total: scheduleResult.totalCount,
+                })}
+              </span>
+            </div>
+
+            <div
+              style={{
+                maxHeight: '260px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                paddingRight: '4px',
+              }}
+            >
+              {scheduleResult.occurrences.map((occ) => {
+                const isCompleted = occ.status === 'COMPLETED';
+                const isCurrentDue = occ.status === 'CURRENT_DUE';
+                const isCancelled = occ.status === 'CANCELLED';
+
+                let cardBg = 'var(--bg-card, #ffffff)';
+                let cardBorder = 'var(--border-color, #e2e8f0)';
+                if (isCompleted) {
+                  cardBg = 'rgba(220, 252, 231, 0.3)';
+                  cardBorder = 'rgba(34, 197, 94, 0.35)';
+                } else if (isCurrentDue) {
+                  cardBg = 'rgba(219, 234, 254, 0.35)';
+                  cardBorder = 'rgba(59, 130, 246, 0.45)';
+                } else if (isCancelled) {
+                  cardBg = 'rgba(254, 226, 226, 0.3)';
+                  cardBorder = 'rgba(239, 68, 68, 0.35)';
+                }
+
+                let badgeBg = 'var(--bg-surface, #f1f5f9)';
+                let badgeText = 'var(--text-muted, #64748b)';
+                if (isCompleted) {
+                  badgeBg = 'var(--emerald-600, #10b981)';
+                  badgeText = '#ffffff';
+                } else if (isCurrentDue) {
+                  badgeBg = 'var(--blue-600, #2563eb)';
+                  badgeText = '#ffffff';
+                } else if (isCancelled) {
+                  badgeBg = 'var(--rose-600, #e11d48)';
+                  badgeText = '#ffffff';
+                }
+
+                return (
+                  <div
+                    key={occ.index}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: cardBg,
+                      border: `1px solid ${cardBorder}`,
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: '28px',
+                          height: '24px',
+                          padding: '0 6px',
+                          borderRadius: '6px',
+                          backgroundColor: badgeBg,
+                          color: badgeText,
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        #{occ.index}
+                      </span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                        {occ.dateFormatted}
+                      </span>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '12px',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        <Clock size={12} style={{ color: 'var(--amber-600, #d97706)' }} />
+                        <span>{occ.time}</span>
+                      </span>
+                    </div>
+
+                    <div>
+                      {isCompleted ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 10px',
+                            borderRadius: '9999px',
+                            backgroundColor: '#dcfce7',
+                            color: '#15803d',
+                            border: '1px solid #bbf7d0',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <CheckCircle size={12} />
+                          <span>{t('reminders.status.completedBadge', 'Completed')}</span>
+                        </span>
+                      ) : isCurrentDue ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 10px',
+                            borderRadius: '9999px',
+                            backgroundColor: '#dbeafe',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Clock size={12} />
+                          <span>{t('reminders.status.currentDue', 'Current Due')}</span>
+                        </span>
+                      ) : isCancelled ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 10px',
+                            borderRadius: '9999px',
+                            backgroundColor: '#fee2e2',
+                            color: '#b91c1c',
+                            border: '1px solid #fecdd3',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <XCircle size={12} />
+                          <span>{t('reminders.status.cancelled', 'Cancelled')}</span>
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 10px',
+                            borderRadius: '9999px',
+                            backgroundColor: '#f1f5f9',
+                            color: '#64748b',
+                            border: '1px solid #e2e8f0',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Calendar size={12} />
+                          <span>{t('reminders.status.upcoming', 'Upcoming')}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* 2-Hour Notification banner notice */}
@@ -518,9 +744,26 @@ export const ViewReminderModal: React.FC<ViewReminderModalProps> = ({
               </button>
             )}
           </div>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            {t('common.close', 'Close')}
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              {t('common.close', 'Close')}
+            </button>
+            {canEdit && onEditReminder && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  onClose();
+                  onEditReminder(reminder);
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Edit2 size={15} />
+                <span>{t('reminders.actions.edit', 'Edit')}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

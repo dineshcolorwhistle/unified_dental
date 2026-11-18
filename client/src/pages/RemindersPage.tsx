@@ -14,6 +14,8 @@ import {
   X,
   XCircle,
   Send,
+  Repeat,
+  User,
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../core/context/AuthContext';
@@ -29,9 +31,10 @@ import {
   ReminderItem,
 } from '../components/reminders/CreateReminderModal';
 import { ViewReminderModal } from '../components/reminders/ViewReminderModal';
+import { generateOccurrenceSchedule } from '../utils/reminderOccurrences';
 
 export const RemindersPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isTenantAdmin, isLabAdmin, isClinicAdmin, user } = useAuth();
   const { activeModuleMode, enabledModules } = useModule();
   const toast = useToast();
@@ -50,13 +53,8 @@ export const RemindersPage: React.FC = () => {
     return enabledModules[0] || 'CLINIC';
   }, [activeModuleMode, isTenantAdmin, user?.allowedModules, enabledModules]);
 
-  const canCreate = currentModuleKey === 'CLINIC'
-    ? (isTenantAdmin || isClinicAdmin)
-    : isLabAdmin;
-
-  const canEdit = currentModuleKey === 'CLINIC'
-    ? (isTenantAdmin || isClinicAdmin)
-    : isLabAdmin;
+  const canCreate = !isTenantAdmin && (currentModuleKey === 'CLINIC' ? isClinicAdmin : isLabAdmin);
+  const canEdit = !isTenantAdmin && (currentModuleKey === 'CLINIC' ? isClinicAdmin : isLabAdmin);
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -444,7 +442,7 @@ export const RemindersPage: React.FC = () => {
                   {t('reminders.table.priority', 'Priority')}
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  {t('reminders.table.recurrence', 'Recurrence & Dispatches')}
+                  {t('reminders.table.recurrence', 'Recurrence')}
                 </th>
                 <th style={{ padding: '12px 16px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   {t('reminders.table.scheduledTime', 'Scheduled / Start Date & Time')}
@@ -576,30 +574,52 @@ export const RemindersPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Recurrence & Dispatches */}
+                      {/* Recurrence & Progress */}
                       <td style={{ padding: '12px 16px', verticalAlign: 'middle', fontSize: '13px', color: 'var(--text-main)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '5px',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--bg-surface, #f8fafc)',
-                              border: '1px solid var(--border-color)',
-                              fontSize: '12px',
-                              fontWeight: 500,
-                              width: 'fit-content',
+                              gap: '6px',
+                              fontWeight: 600,
+                              color: 'var(--text-heading)',
+                              fontSize: '13px',
                             }}
                           >
-                            <Clock size={12} style={{ color: 'var(--primary-600)' }} />
-                            {formatRecurrenceSummary(item)}
+                            <Repeat size={13} style={{ color: 'var(--text-muted)' }} />
+                            <span>
+                              {item.recurrence === 'ONE_TIME'
+                                ? t('reminders.oneTime', 'One time')
+                                : t(`reminders.${item.recurrence.toLowerCase()}`, item.recurrence.charAt(0) + item.recurrence.slice(1).toLowerCase())}
+                            </span>
                           </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                            <Send size={11} style={{ flexShrink: 0 }} />
-                            <span>{formatDispatchesSummary(item)}</span>
-                          </div>
+
+                          {item.recurrence !== 'ONE_TIME' && (() => {
+                            const schedule = generateOccurrenceSchedule(item, i18n.language || 'en-US');
+                            const done = schedule.completedCount;
+                            const total = schedule.totalCount;
+                            const isAllDone = done >= total && total > 0;
+
+                            return (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '2px 10px',
+                                  borderRadius: '9999px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 600,
+                                  width: 'fit-content',
+                                  backgroundColor: isAllDone ? '#dcfce7' : '#dbeafe',
+                                  color: isAllDone ? '#16a34a' : '#2563eb',
+                                  border: `1px solid ${isAllDone ? 'rgba(22, 163, 74, 0.25)' : 'rgba(37, 99, 235, 0.25)'}`,
+                                }}
+                              >
+                                {t('reminders.doneBadge', '{{done}}/{{total}} done', { done, total })}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </td>
 
@@ -616,46 +636,34 @@ export const RemindersPage: React.FC = () => {
 
                       {/* Assigned To */}
                       <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '280px' }}>
-                          {item.assignees && item.assignees.length > 0 ? (
-                            item.assignees.slice(0, 3).map((a) => (
-                              <Tooltip key={a.id} content={`${a.name} (${a.profession})`}>
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    backgroundColor:
-                                      a.profession === 'Doctor'
-                                        ? 'var(--badge-primary-bg)'
-                                        : a.profession === 'Tenant Admin'
-                                        ? 'var(--badge-warning-bg)'
-                                        : 'var(--badge-gray-bg, #f1f5f9)',
-                                    color:
-                                      a.profession === 'Doctor'
-                                        ? 'var(--primary-700)'
-                                        : a.profession === 'Tenant Admin'
-                                        ? 'var(--amber-700)'
-                                        : 'var(--text-main)',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {a.name}
-                                </span>
-                              </Tooltip>
-                            ))
-                          ) : (
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>
-                          )}
-                          {item.assignees && item.assignees.length > 3 && (
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                              +{item.assignees.length - 3}
+                        {item.assignees && item.assignees.length > 0 ? (
+                          <Tooltip
+                            content={item.assignees.map((a) => `${a.name} (${a.profession})`).join(', ')}
+                          >
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '4px 12px',
+                                borderRadius: '9999px',
+                                backgroundColor: '#eff6ff',
+                                color: '#2563eb',
+                                border: '1px solid #bfdbfe',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'default',
+                              }}
+                            >
+                              <User size={13} />
+                              <span>
+                                {item.assignees.length} {t('reminders.assigned', 'Assigned')}
+                              </span>
                             </span>
-                          )}
-                        </div>
+                          </Tooltip>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -816,6 +824,12 @@ export const RemindersPage: React.FC = () => {
           setReminderToCancel(r);
         }}
         canCancel={canEdit}
+        canEdit={canEdit}
+        onEditReminder={(r) => {
+          setReminderToView(null);
+          setReminderToEdit(r);
+          setIsCreateOpen(true);
+        }}
       />
 
       {/* Delete Confirmation Modal (Tenant Admin ONLY) */}

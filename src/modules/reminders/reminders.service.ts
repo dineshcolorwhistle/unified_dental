@@ -506,17 +506,25 @@ export class RemindersService {
 
     const targetModule = (dto.moduleKey || 'LAB').toUpperCase();
 
-    // Lab Module boundary: Lab Admin ONLY (Tenant Admin is prohibited)
-    if (targetModule === 'LAB' && isTenantAdminUser && !isLabAdminUser) {
+    // Strict Boundary: Tenant Admin is prohibited from creating operational reminders.
+    // Creation is reserved for Lab Administrators (LAB) or Clinic Administrators (CLINIC).
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
       throw new ForbiddenException(
-        'Tenant Administrators cannot create operational reminders for the Lab module. Creation is reserved for Lab Administrators.',
+        'Tenant Administrators cannot create reminders. Creation is reserved for module administrators.',
       );
     }
 
-    // Clinic Module boundary: Clinic Admin or Tenant Admin allowed
-    if (targetModule === 'CLINIC' && !isTenantAdminUser && !isClinicAdminUser) {
+    // Lab Module boundary: Lab Admin ONLY
+    if (targetModule === 'LAB' && !isLabAdminUser) {
       throw new ForbiddenException(
-        'You do not have permission to create operational reminders for the Clinic module.',
+        'Creation is reserved for Lab Administrators.',
+      );
+    }
+
+    // Clinic Module boundary: Clinic Admin ONLY
+    if (targetModule === 'CLINIC' && !isClinicAdminUser) {
+      throw new ForbiddenException(
+        'Creation is reserved for Clinic Administrators.',
       );
     }
 
@@ -588,17 +596,24 @@ export class RemindersService {
     const existing = await this.findOne(id, tenantId, actor);
     const targetModule = (existing.moduleKey || 'LAB').toUpperCase();
 
-    // Lab Module boundary: Lab Admin ONLY
-    if (targetModule === 'LAB' && isTenantAdminUser && !isLabAdminUser) {
+    // Strict Boundary: Tenant Admin is prohibited from updating operational reminders.
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
       throw new ForbiddenException(
-        'Tenant Administrators cannot update operational reminders for the Lab module. Updates are reserved for Lab Administrators.',
+        'Tenant Administrators cannot update reminders. Updates are reserved for module administrators.',
       );
     }
 
-    // Clinic Module boundary: Clinic Admin or Tenant Admin allowed
-    if (targetModule === 'CLINIC' && !isTenantAdminUser && !isClinicAdminUser) {
+    // Lab Module boundary: Lab Admin ONLY
+    if (targetModule === 'LAB' && !isLabAdminUser) {
       throw new ForbiddenException(
-        'You do not have permission to update operational reminders for the Clinic module.',
+        'Updates are reserved for Lab Administrators.',
+      );
+    }
+
+    // Clinic Module boundary: Clinic Admin ONLY
+    if (targetModule === 'CLINIC' && !isClinicAdminUser) {
+      throw new ForbiddenException(
+        'Updates are reserved for Clinic Administrators.',
       );
     }
 
@@ -672,17 +687,24 @@ export class RemindersService {
     const existing = await this.findOne(id, tenantId, actor);
     const targetModule = (existing.moduleKey || 'LAB').toUpperCase();
 
-    // Lab Module boundary: Lab Admin ONLY
-    if (targetModule === 'LAB' && isTenantAdminUser && !isLabAdminUser) {
+    // Strict Boundary: Tenant Admin is prohibited from cancelling operational reminders.
+    if (isTenantAdminUser && !actor.isSuperAdmin) {
       throw new ForbiddenException(
-        'Tenant Administrators cannot cancel operational reminders for the Lab module. Action is reserved for Lab Administrators.',
+        'Tenant Administrators cannot cancel reminders. Cancellation is reserved for module administrators.',
       );
     }
 
-    // Clinic Module boundary: Clinic Admin or Tenant Admin allowed
-    if (targetModule === 'CLINIC' && !isTenantAdminUser && !isClinicAdminUser) {
+    // Lab Module boundary: Lab Admin ONLY
+    if (targetModule === 'LAB' && !isLabAdminUser) {
       throw new ForbiddenException(
-        'You do not have permission to cancel operational reminders for the Clinic module.',
+        'Cancellation is reserved for Lab Administrators.',
+      );
+    }
+
+    // Clinic Module boundary: Clinic Admin ONLY
+    if (targetModule === 'CLINIC' && !isClinicAdminUser) {
+      throw new ForbiddenException(
+        'Cancellation is reserved for Clinic Administrators.',
       );
     }
 

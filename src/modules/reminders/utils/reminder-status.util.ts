@@ -139,6 +139,23 @@ export function computeReminderStatus(
       };
     }
 
+    if (todayDateKey === endDateKey) {
+      const [y, m, d] = endDateKey.split('-').map((v) => parseInt(v, 10));
+      const [hourStr, minStr] = (reminder.reminderTime || '09:00').split(':');
+      const hour = parseInt(hourStr, 10) || 0;
+      const minute = parseInt(minStr, 10) || 0;
+      const endAtUtc = createUtcDateFromTzParts(y, m, d, hour, minute, tz);
+      if (now.getTime() >= endAtUtc.getTime()) {
+        return {
+          computedStatus: 'COMPLETED',
+          sentCount,
+          canCancel: false,
+          isStarted: true,
+          targetOccurrences: null,
+        };
+      }
+    }
+
     return {
       computedStatus: 'ACTIVE',
       sentCount,
