@@ -282,13 +282,26 @@ export class AppointmentsService {
       ];
     }
 
+    // Recent appointments listed first by default (createdAt: 'desc')
+    let orderBy: Prisma.AppointmentOrderByWithRelationInput[] = [{ createdAt: 'desc' }];
+    if (query.sortBy === 'date') {
+      const dir = query.sortOrder === 'asc' ? 'asc' : 'desc';
+      orderBy = [{ date: dir }, { startTime: dir }, { createdAt: 'desc' }];
+    } else if (query.sortBy === 'createdAt') {
+      const dir = query.sortOrder === 'asc' ? 'asc' : 'desc';
+      orderBy = [{ createdAt: dir }];
+    } else if (query.sortBy) {
+      const dir = query.sortOrder === 'asc' ? 'asc' : 'desc';
+      orderBy = [{ [query.sortBy]: dir } as any];
+    }
+
     const [total, appointments] = await Promise.all([
       this.prisma.appointment.count({ where }),
       this.prisma.appointment.findMany({
         where,
         skip,
         take: limit,
-        orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+        orderBy,
         include: {
           patient: {
             select: {
@@ -1148,20 +1161,23 @@ export class AppointmentsService {
       end: this.timeToMinutes(a.endTime),
     }));
 
-    const slotInterval = durationMinutes > 0 ? durationMinutes : 30; // Generate discrete non-overlapping slots
+    // Fixed 15-min display interval — each slot checks if full durationMinutes fits
+    const displayInterval = 15;
+    const effectiveDuration = durationMinutes > 0 ? durationMinutes : 30;
     const slots: { startTime: string; endTime: string; available: boolean }[] = [];
 
-    for (let slotStart = workStart; slotStart + durationMinutes <= workEnd; slotStart += slotInterval) {
-      const slotEnd = slotStart + durationMinutes;
+    for (let slotStart = workStart; slotStart + effectiveDuration <= workEnd; slotStart += displayInterval) {
+      const slotEnd = slotStart + effectiveDuration;
 
-      // Check lunch overlap
+      // Skip slots that overlap with lunch break
       if (lunchStart !== null && lunchEnd !== null) {
         if (slotStart < lunchEnd && slotEnd > lunchStart) {
-          continue; // Skip slots that overlap with lunch
+          continue;
         }
       }
 
-      // Check booking conflicts
+      // Check booking conflicts — slot is unavailable if the full duration block
+      // overlaps with any existing (non-cancelled) appointment
       const hasConflict = bookedSlots.some(
         (b) => slotStart < b.end && slotEnd > b.start,
       );

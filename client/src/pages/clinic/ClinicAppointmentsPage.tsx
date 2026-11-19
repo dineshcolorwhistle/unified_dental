@@ -96,6 +96,7 @@ interface AppointmentItem {
     id: string;
     name: string;
   } | null;
+  createdAt?: string;
 }
 
 interface AppointmentStats {
@@ -454,6 +455,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
       params.append('startDate', startDateStr);
       params.append('endDate', endDateStr);
       params.append('limit', '500');
+      params.append('sortBy', 'date');
+      params.append('sortOrder', 'asc');
       if (doctorFilter !== 'ALL') params.append('doctorId', doctorFilter);
 
       const res = await api.get(`/clinic/appointments?${params.toString()}`);
@@ -501,7 +504,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
       const parsedSlots: SlotItem[] = Array.isArray(raw)
         ? raw.map((s: any) =>
             typeof s === 'string'
-              ? { startTime: s, endTime: calculateEndTimeString(s, 30), available: true }
+              ? { startTime: s, endTime: calculateEndTimeString(s, duration), available: true }
               : { startTime: s.startTime, endTime: s.endTime, available: s.available !== false },
           )
         : [];
@@ -556,8 +559,22 @@ export const ClinicAppointmentsPage: React.FC = () => {
       ...prev,
       startTime: slot.startTime,
       endTime: slot.endTime,
-      durationMinutes: 30,
     }));
+  };
+
+  // Handle duration change — re-fetch slots and recalculate endTime if a slot is selected
+  const handleDurationChange = (newDuration: number) => {
+    const dur = newDuration || 30;
+    setFormData((prev) => {
+      const updated = { ...prev, durationMinutes: dur };
+      if (prev.startTime) {
+        updated.endTime = calculateEndTimeString(prev.startTime, dur);
+      }
+      return updated;
+    });
+    if (formData.doctorId && formData.date) {
+      fetchAvailableSlots(formData.doctorId, formData.date, dur);
+    }
   };
 
   // Open Create Modal
@@ -568,8 +585,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
       patientId: '',
       doctorId: '', // Doctor is NOT preselected
       date: dateVal,
-      startTime: prefillTime || '',
-      endTime: prefillTime ? calculateEndTimeString(prefillTime, 30) : '',
+      startTime: '',
+      endTime: '',
       durationMinutes: 30,
       type: 'CONSULTATION',
       reason: '',
@@ -2111,7 +2128,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                     options={doctorFormOptions}
                     value={formData.doctorId}
                     onChange={(val) => {
-                      setFormData({ ...formData, doctorId: val });
+                      setFormData({ ...formData, doctorId: val, startTime: '', endTime: '' });
                       if (val && formData.date) {
                         fetchAvailableSlots(val, formData.date, formData.durationMinutes || 30);
                       } else {
@@ -2170,7 +2187,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                       if (newDate && newDate < getTodayString()) {
                         return;
                       }
-                      setFormData({ ...formData, date: newDate });
+                      setFormData({ ...formData, date: newDate, startTime: '', endTime: '' });
                       if (formData.doctorId && newDate) {
                         fetchAvailableSlots(formData.doctorId, newDate, formData.durationMinutes || 30);
                       }
@@ -2187,26 +2204,49 @@ export const ClinicAppointmentsPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Start Time & End Time Row */}
+                {/* Duration Selector */}
+                {!isSlotLocked && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
+                      {isSpanish ? 'Duración de la Cita *' : 'Appointment Duration *'}
+                    </label>
+                    <SearchableSelect
+                      options={durationOptions}
+                      value={String(formData.durationMinutes || 30)}
+                      onChange={(val) => handleDurationChange(Number(val))}
+                      placeholder={isSpanish ? 'Seleccionar duración...' : 'Select duration...'}
+                      icon={<Clock size={14} />}
+                    />
+                  </div>
+                )}
+
+                {/* Start Time & End Time Row (Read-Only — auto-populated from slot selection) */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
                       {isSpanish ? 'Hora de Inicio *' : 'Start Time *'}
+                      {!isSlotLocked && (
+                        <span style={{ marginLeft: '6px', fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 400 }}>
+                          ({isSpanish ? 'Auto' : 'Auto'})
+                        </span>
+                      )}
                     </label>
                     <input
                       type="time"
                       className="input"
                       value={formData.startTime}
-                      disabled={isSlotLocked}
-                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      readOnly
+                      tabIndex={-1}
                       required
                       style={{
                         width: '100%',
                         height: '40px',
                         padding: '8px 10px',
                         fontSize: '13px',
-                        cursor: isSlotLocked ? 'not-allowed' : 'auto',
-                        opacity: isSlotLocked ? 0.75 : 1,
+                        cursor: 'default',
+                        backgroundColor: 'var(--bg-secondary)',
+                        opacity: isSlotLocked ? 0.75 : 0.9,
+                        pointerEvents: 'none',
                       }}
                     />
                   </div>
@@ -2214,21 +2254,28 @@ export const ClinicAppointmentsPage: React.FC = () => {
                   <div>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
                       {isSpanish ? 'Hora de Fin *' : 'End Time *'}
+                      {!isSlotLocked && (
+                        <span style={{ marginLeft: '6px', fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 400 }}>
+                          ({isSpanish ? 'Auto' : 'Auto'})
+                        </span>
+                      )}
                     </label>
                     <input
                       type="time"
                       className="input"
                       value={formData.endTime}
-                      disabled={isSlotLocked}
-                      onChange={(e) => handleEndTimeChange(e.target.value)}
+                      readOnly
+                      tabIndex={-1}
                       required
                       style={{
                         width: '100%',
                         height: '40px',
                         padding: '8px 10px',
                         fontSize: '13px',
-                        cursor: isSlotLocked ? 'not-allowed' : 'auto',
-                        opacity: isSlotLocked ? 0.75 : 1,
+                        cursor: 'default',
+                        backgroundColor: 'var(--bg-secondary)',
+                        opacity: isSlotLocked ? 0.75 : 0.9,
+                        pointerEvents: 'none',
                       }}
                     />
                   </div>
@@ -2277,7 +2324,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#047857', margin: 0 }}>
                         <Clock size={15} style={{ color: '#059669' }} />
-                        <span>{isSpanish ? 'Horarios Disponibles (30 min)' : 'Open slots (30 min)'}</span>
+                        <span>{isSpanish ? `Horarios Disponibles (${formData.durationMinutes} min)` : `Available Slots (${formData.durationMinutes} min)`}</span>
                         {availableSlots.length > 0 && (
                           <span
                             style={{
@@ -2367,19 +2414,20 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
+                                gap: '5px',
                                 padding: '8px 12px',
                                 borderRadius: '9999px',
                                 border: '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-secondary)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.04)',
                                 color: 'var(--text-muted)',
                                 fontSize: '12px',
                                 fontWeight: 500,
-                                textDecoration: 'line-through',
-                                opacity: 0.6,
+                                opacity: 0.45,
                                 cursor: 'not-allowed',
                                 userSelect: 'none',
                               }}
                             >
+                              <Lock size={11} style={{ flexShrink: 0 }} />
                               {label}
                             </div>
                           );
