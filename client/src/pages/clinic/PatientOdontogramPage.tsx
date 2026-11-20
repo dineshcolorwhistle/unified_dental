@@ -738,7 +738,7 @@ export const PatientOdontogramPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Right: Actions Aligned to the Right (View Treatment Plan + Save Odontogram) */}
+          {/* Right: Actions Aligned to the Right (Treatment Plan + Save Odontogram) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             {hasSavedTreatmentPlan && (
               <button
@@ -762,7 +762,7 @@ export const PatientOdontogramPage: React.FC = () => {
                 }}
               >
                 <FileSpreadsheet size={16} />
-                <span>{t('patientOdontogram.viewTreatmentPlan', 'View Treatment Plan')}</span>
+                <span>{t('patientOdontogram.viewTreatmentPlan', 'Treatment Plan')}</span>
               </button>
             )}
 
@@ -2337,7 +2337,7 @@ export const PatientOdontogramPage: React.FC = () => {
               }}
             >
               <FileSpreadsheet size={16} />
-              <span>{t('patientOdontogram.viewTreatmentPlan', 'View Treatment Plan')}</span>
+              <span>{t('patientOdontogram.viewTreatmentPlan', 'Treatment Plan')}</span>
             </button>
           )}
 

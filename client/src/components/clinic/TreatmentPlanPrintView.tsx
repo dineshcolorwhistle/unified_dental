@@ -218,16 +218,19 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
       className="treatment-plan-print-page"
       style={{
         width: '100%',
-        minHeight: '100vh',
-        backgroundColor: 'var(--bg-main, #f8fafc)',
-        padding: '24px 20px 48px',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
+        gap: '20px',
+        boxSizing: 'border-box',
       }}
     >
       {/* ─── Embedded Clean Print Stylesheet ─── */}
       <style>{`
+        @media screen and (max-width: 768px) {
+          #printable-treatment-plan-document {
+            padding: 20px 16px !important;
+          }
+        }
         @media print {
           body * {
             visibility: hidden !important;
@@ -239,6 +242,7 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
             padding: 0 !important;
             margin: 0 !important;
             display: block !important;
+            width: 100% !important;
           }
           #printable-treatment-plan-document,
           #printable-treatment-plan-document * {
@@ -249,6 +253,7 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
@@ -280,21 +285,20 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
 
       {/* ─── Full-Page Print Navigation Header Toolbar ─── */}
       <div
-        className="no-print-toolbar"
+        className="card no-print-toolbar"
         style={{
           width: '100%',
-          maxWidth: '1000px',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card, #ffffff)',
           borderRadius: '12px',
-          border: '1.5px solid var(--border-color, #cbd5e1)',
-          padding: '12px 20px',
-          marginBottom: '24px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+          border: '1px solid var(--border-color, #e2e8f0)',
+          padding: '14px 20px',
+          boxShadow: 'var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
+          boxSizing: 'border-box',
         }}
       >
         <button
@@ -356,19 +360,20 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
       {/* ─── Printable Document Paper Container ─── */}
       <div
         id="printable-treatment-plan-document"
+        className="card"
         style={{
           width: '100%',
-          maxWidth: '1000px',
           backgroundColor: '#ffffff',
           borderRadius: '14px',
-          border: '1px solid #cbd5e1',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06)',
-          padding: '36px 40px',
+          border: '1px solid var(--border-color, #cbd5e1)',
+          boxShadow: 'var(--shadow-sm, 0 1px 3px 0 rgb(0 0 0 / 0.08))',
+          padding: '32px 36px',
           display: 'flex',
           flexDirection: 'column',
           gap: '26px',
           fontFamily: 'inherit',
           color: '#1e293b',
+          boxSizing: 'border-box',
         }}
       >
         {/* 1. Clinic Branding & Document Header Card */}
