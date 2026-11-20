@@ -23,6 +23,11 @@ import {
   FileText,
   Clock,
   Printer,
+  AlertTriangle,
+  Pill,
+  ShieldAlert,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../core/context/AuthContext';
@@ -44,13 +49,78 @@ import {
   ToothQuadrant,
 } from '../../components/clinic/PatientTeethChart';
 
+export type TreatmentPlanStatus =
+  | 'CREATED'
+  | 'PRESENTED'
+  | 'ACCEPTED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REJECTED';
+
+export const STATUS_CONFIG: Record<
+  TreatmentPlanStatus,
+  { labelKey: string; defaultLabel: string; bg: string; color: string; border: string }
+> = {
+  CREATED: {
+    labelKey: 'statusCreated',
+    defaultLabel: 'Created',
+    bg: 'rgba(59, 130, 246, 0.1)',
+    color: '#1d4ed8',
+    border: 'rgba(59, 130, 246, 0.3)',
+  },
+  PRESENTED: {
+    labelKey: 'statusPresented',
+    defaultLabel: 'Presented',
+    bg: 'rgba(99, 102, 241, 0.1)',
+    color: '#4338ca',
+    border: 'rgba(99, 102, 241, 0.3)',
+  },
+  ACCEPTED: {
+    labelKey: 'statusAccepted',
+    defaultLabel: 'Accepted',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    color: '#047857',
+    border: 'rgba(16, 185, 129, 0.35)',
+  },
+  IN_PROGRESS: {
+    labelKey: 'statusInProgress',
+    defaultLabel: 'In Progress',
+    bg: 'rgba(245, 158, 11, 0.12)',
+    color: '#b45309',
+    border: 'rgba(245, 158, 11, 0.35)',
+  },
+  COMPLETED: {
+    labelKey: 'statusCompleted',
+    defaultLabel: 'Completed',
+    bg: 'rgba(13, 148, 136, 0.12)',
+    color: '#0f766e',
+    border: 'rgba(13, 148, 136, 0.35)',
+  },
+  CANCELLED: {
+    labelKey: 'statusCancelled',
+    defaultLabel: 'Cancelled',
+    bg: 'rgba(100, 116, 139, 0.12)',
+    color: '#475569',
+    border: 'rgba(100, 116, 139, 0.3)',
+  },
+  REJECTED: {
+    labelKey: 'statusRejected',
+    defaultLabel: 'Rejected',
+    bg: 'rgba(239, 68, 68, 0.12)',
+    color: '#b91c1c',
+    border: 'rgba(239, 68, 68, 0.35)',
+  },
+};
+
 export interface ProposedItem {
   id: string;
   treatmentName: string;
+  otTeethNumber?: string;
   color?: string;
-  zone: ToothZone;
-  quadrant: ToothQuadrant;
-  zoneText: string;
+  zone?: ToothZone;
+  quadrant?: ToothQuadrant;
+  zoneText?: string;
   toothNumbers: number[];
   quantity: number;
   doctorId: string;
@@ -63,6 +133,7 @@ export interface ProposedItem {
 export interface ProposedGroup {
   id: string;
   name: string;
+  status: TreatmentPlanStatus;
   confirmed: boolean;
   items: ProposedItem[];
 }
@@ -78,6 +149,20 @@ export interface DoctorWithServices {
     customPrice?: number;
     basePrice?: number;
   }>;
+}
+
+export interface DoctorApptSchedule {
+  doctorId: string;
+  doctorName: string;
+  services: ProposedItem[];
+  selected: boolean;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  type: string;
+  reason: string;
+  notes: string;
 }
 
 export const PatientTreatmentPlanPage: React.FC = () => {
@@ -102,8 +187,10 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   const [planGroups, setPlanGroups] = useState<ProposedGroup[]>([]);
   const [savingPlan, setSavingPlan] = useState<boolean>(false);
 
-  // Drag and Drop state (Supports single and multi-row drag)
+  // Drag and Drop state (Supports single, multi-row, and within-plan reorder)
   const [draggedItems, setDraggedItems] = useState<{ itemIds: string[]; sourceGroupId: string } | null>(null);
+  const [draggedRow, setDraggedRow] = useState<{ groupId: string; itemId: string; index: number } | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{ groupId: string; index: number } | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
   // Add Note Modal state (Opens existing notes & clinical note creator)
@@ -131,6 +218,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     reason: '',
     notes: '',
   });
+
+  // Multi-doctor Appointment Schedule state
+  const [multiDoctorAppts, setMultiDoctorAppts] = useState<DoctorApptSchedule[]>([]);
+  const [isMultiDoctorModal, setIsMultiDoctorModal] = useState<boolean>(false);
+
+  // Delete Plan Confirmation state
+  const [planToDelete, setPlanToDelete] = useState<ProposedGroup | null>(null);
 
   // Collapsible Summary Section (Collapsed by default per user specification)
   const [summaryExpanded, setSummaryExpanded] = useState<boolean>(false);
@@ -214,17 +308,36 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
     const savedPlan = (data.odontogram as any)?.proposedPlan;
     if (savedPlan && Array.isArray(savedPlan.groups) && savedPlan.groups.length > 0) {
-      setPlanGroups(savedPlan.groups);
+      setPlanGroups(
+        savedPlan.groups.map((g: any, gIdx: number) => ({
+          ...g,
+          id: g.id || `group-${gIdx + 1}`,
+          name: g.name ? g.name.replace(/^Visit\s*/i, 'Plan ') : `Plan ${gIdx + 1}`,
+          status: (g.status as TreatmentPlanStatus) || (g.confirmed ? 'ACCEPTED' : 'CREATED'),
+          items: Array.isArray(g.items)
+            ? g.items.map((it: any) => ({
+                ...it,
+                otTeethNumber:
+                  it.otTeethNumber !== undefined
+                    ? it.otTeethNumber
+                    : it.toothNumbers?.length
+                    ? it.toothNumbers.join(', ')
+                    : '',
+              }))
+            : [],
+        }))
+      );
       return;
     }
 
-    // Initial grouping: "One treatment assignement same quadrent of multiple teeth we will consider one row add quantity"
+    // Initial grouping from odontogram treatments
     const rawTreatments = data.treatments || [];
     if (!rawTreatments.length) {
       setPlanGroups([
         {
           id: 'group-1',
-          name: 'Visit 1',
+          name: 'Plan 1',
+          status: 'CREATED',
           confirmed: false,
           items: [],
         },
@@ -244,6 +357,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         if (!item.toothNumbers.includes(tr.toothNumber)) {
           item.toothNumbers.push(tr.toothNumber);
           item.quantity += 1;
+          item.otTeethNumber = item.toothNumbers.join(', ');
           item.subtotal = item.quantity * item.unitPrice;
         }
       } else {
@@ -251,6 +365,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         aggregatedMap.set(groupKey, {
           id: `item-${Date.now()}-${idx}`,
           treatmentName: name,
+          otTeethNumber: String(tr.toothNumber),
           color: tr.color || tr.treatment?.color,
           zone,
           quadrant,
@@ -261,7 +376,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           serviceId: '',
           unitPrice: 0,
           subtotal: 0,
-          isSelected: true,
+          isSelected: false,
         });
       }
     });
@@ -269,7 +384,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     setPlanGroups([
       {
         id: 'group-1',
-        name: 'Visit 1',
+        name: 'Plan 1',
+        status: 'CREATED',
         confirmed: false,
         items: Array.from(aggregatedMap.values()),
       },
@@ -277,13 +393,14 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   }, [data]);
 
   // Group Management Handlers
-  const handleAddGroup = () => {
+  const handleAddPlanGroup = () => {
     const nextNum = planGroups.length + 1;
     setPlanGroups((prev) => [
       ...prev,
       {
         id: `group-${Date.now()}`,
-        name: `Visit ${nextNum}`,
+        name: `Plan ${nextNum}`,
+        status: 'CREATED',
         confirmed: false,
         items: [],
       },
@@ -291,26 +408,29 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleDeleteGroup = (groupId: string) => {
-    if (planGroups.length <= 1) {
-      error(t('patientTreatmentPlan.cannotDeleteLastGroup', 'Cannot delete the only visit group.'));
-      return;
-    }
     const groupToDelete = planGroups.find((g) => g.id === groupId);
     if (!groupToDelete) return;
+    setPlanToDelete(groupToDelete);
+  };
 
-    if (groupToDelete.items.length > 0) {
-      // Move items to the first remaining group
-      const targetGroup = planGroups.find((g) => g.id !== groupId)!;
-      setPlanGroups((prev) =>
-        prev
-          .filter((g) => g.id !== groupId)
-          .map((g) =>
-            g.id === targetGroup.id ? { ...g, items: [...g.items, ...groupToDelete.items] } : g
-          )
-      );
+  const confirmDeleteGroup = () => {
+    if (!planToDelete) return;
+    if (planGroups.length <= 1) {
+      // If deleting the only plan group, reset it to an empty plan
+      setPlanGroups([
+        {
+          id: `group-${Date.now()}`,
+          name: 'Plan 1',
+          status: 'CREATED',
+          confirmed: false,
+          items: [],
+        },
+      ]);
     } else {
-      setPlanGroups((prev) => prev.filter((g) => g.id !== groupId));
+      setPlanGroups((prev) => prev.filter((g) => g.id !== planToDelete.id));
     }
+    setPlanToDelete(null);
+    success(t('common.deletedSuccess', 'Treatment plan removed successfully.'));
   };
 
   const handleGroupNameChange = (groupId: string, newName: string) => {
@@ -319,13 +439,223 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     );
   };
 
+  const handlePlanStatusChange = (groupId: string, newStatus: TreatmentPlanStatus) => {
+    setPlanGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, status: newStatus } : g))
+    );
+  };
+
   const handleGroupConfirmedToggle = (groupId: string) => {
     setPlanGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, confirmed: !g.confirmed } : g))
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const nextConfirmed = !g.confirmed;
+        return {
+          ...g,
+          confirmed: nextConfirmed,
+          status: nextConfirmed && g.status === 'CREATED' ? 'ACCEPTED' : g.status,
+        };
+      })
+    );
+  };
+
+  // Add Service directly to a Group (Services dropdown starts empty until doctor chosen)
+  const handleAddServiceToGroup = (groupId: string) => {
+    const newItem: ProposedItem = {
+      id: `custom-srv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      treatmentName: '',
+      otTeethNumber: '',
+      toothNumbers: [],
+      quantity: 1,
+      doctorId: '',
+      serviceId: '',
+      unitPrice: 0,
+      subtotal: 0,
+      isSelected: false,
+    };
+    setPlanGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, items: [...g.items, newItem] } : g))
+    );
+  };
+
+  // Remove individual Service from a Group
+  const handleRemoveServiceFromGroup = (groupId: string, itemId: string) => {
+    setPlanGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          items: g.items.filter((it) => it.id !== itemId),
+        };
+      })
+    );
+  };
+
+  // Status select options for SearchableSelect (Clean text with color dot, no duplicate badge)
+  const statusSelectOptions: SearchableSelectOption[] = useMemo(() => {
+    return (Object.keys(STATUS_CONFIG) as TreatmentPlanStatus[]).map((st) => {
+      const cfg = STATUS_CONFIG[st];
+      return {
+        value: st,
+        label: t(`patientTreatmentPlan.${cfg.labelKey}`, cfg.defaultLabel),
+        icon: (
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: cfg.color,
+              display: 'inline-block',
+              flexShrink: 0,
+            }}
+          />
+        ),
+      };
+    });
+  }, [t]);
+
+  // Flat list of all items across all groups for duplicate detection
+  const allPlanItems = useMemo(() => {
+    return planGroups.flatMap((g) => g.items);
+  }, [planGroups]);
+
+  // Treatment options for SearchableSelect: display teeth number along with name in dropdown ex: Corona #32, and only treatment name once selected
+  const getTreatmentOptionsForItem = useCallback(
+    (currentItemId: string, currentTreatmentName: string) => {
+      const available: SearchableSelectOption[] = [];
+      const alreadyAdded: SearchableSelectOption[] = [];
+
+      treatments.forEach((tr) => {
+        const rawName = tr.treatmentName || tr.treatment?.name || 'Treatment';
+        const name = rawName.replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim();
+        const toothNum = tr.toothNumber;
+        const cleanTooth = String(toothNum).replace(/#/g, '').trim();
+        const val = cleanTooth ? `${name}__${cleanTooth}` : name;
+        const optionLabel = cleanTooth ? `${name} #${cleanTooth}` : name;
+        const selectedTriggerLabel = name;
+
+        const isUsedElsewhere = allPlanItems.some(
+          (it) => it.id !== currentItemId && it.treatmentName === name && it.toothNumbers.includes(toothNum)
+        );
+
+        if (isUsedElsewhere) {
+          alreadyAdded.push({
+            value: val,
+            label: optionLabel,
+            selectedLabel: selectedTriggerLabel,
+            badge: t('patientTreatmentPlan.alreadySelected', 'Already selected'),
+            badgeBg: 'rgba(239, 68, 68, 0.08)',
+            badgeColor: '#dc2626',
+            disabled: true,
+          });
+        } else {
+          available.push({
+            value: val,
+            label: optionLabel,
+            selectedLabel: selectedTriggerLabel,
+          });
+        }
+      });
+
+      // Custom treatment name if not matching odontogram list
+      const cleanCurrentName = currentTreatmentName.replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim();
+      const currentAlreadyRepresented =
+        available.some((o) => o.value === cleanCurrentName || o.value.startsWith(`${cleanCurrentName}__`)) ||
+        alreadyAdded.some((o) => o.value === cleanCurrentName || o.value.startsWith(`${cleanCurrentName}__`));
+
+      if (cleanCurrentName && !currentAlreadyRepresented) {
+        available.unshift({
+          value: cleanCurrentName,
+          label: cleanCurrentName,
+          selectedLabel: cleanCurrentName,
+        });
+      }
+
+      return [...available, ...alreadyAdded];
+    },
+    [treatments, allPlanItems, t]
+  );
+
+  const handleItemTreatmentSelect = (groupId: string, itemId: string, val: string) => {
+    const parts = val.includes('__') ? val.split('__') : val.split('__#');
+    const tName = parts[0].replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim();
+    const toothNum = parts[1] ? parseInt(parts[1].replace(/#/g, ''), 10) : undefined;
+
+    const matchedTr = treatments.find(
+      (tr) =>
+        (tr.treatmentName || tr.treatment?.name || '').replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim() === tName &&
+        (toothNum ? tr.toothNumber === toothNum : true)
+    );
+
+    const matchedClinicSrv = clinicServices.find(
+      (s) => s.name.trim().toLowerCase() === tName.toLowerCase()
+    );
+
+    setPlanGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          items: g.items.map((it) => {
+            if (it.id !== itemId) return it;
+            const toothNumbers = toothNum ? [toothNum] : it.toothNumbers;
+            const otTeethNumber = toothNum ? String(toothNum) : (it.otTeethNumber || '').replace(/#/g, '');
+            const serviceId = it.serviceId || matchedClinicSrv?.id || '';
+            const unitPrice = it.unitPrice || (matchedClinicSrv ? Number(matchedClinicSrv.price) : 0);
+            return {
+              ...it,
+              treatmentName: tName,
+              otTeethNumber,
+              toothNumbers,
+              serviceId,
+              unitPrice,
+              subtotal: it.quantity * unitPrice,
+              color: matchedTr?.color || it.color,
+            };
+          }),
+        };
+      })
     );
   };
 
   // Treatment Item Field Handlers
+  const handleItemTreatmentNameChange = (groupId: string, itemId: string, name: string) => {
+    setPlanGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          items: g.items.map((it) => (it.id === itemId ? { ...it, treatmentName: name } : it)),
+        };
+      })
+    );
+  };
+
+  const handleItemOtTeethChange = (groupId: string, itemId: string, otVal: string) => {
+    const parsed = otVal
+      .split(/[\s,]+/)
+      .map((s) => parseInt(s.replace(/#/g, ''), 10))
+      .filter((n) => !isNaN(n) && n >= 11 && n <= 85);
+
+    setPlanGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          items: g.items.map((it) =>
+            it.id === itemId
+              ? {
+                  ...it,
+                  otTeethNumber: otVal,
+                  toothNumbers: parsed.length > 0 ? parsed : it.toothNumbers,
+                }
+              : it
+          ),
+        };
+      })
+    );
+  };
+
   const handleItemDoctorChange = (groupId: string, itemId: string, doctorId: string) => {
     setPlanGroups((prev) =>
       prev.map((g) => {
@@ -359,9 +689,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             const docSrv = doc?.services?.find((s) => s.serviceId === serviceId);
             const baseSrv = clinicServices.find((s) => s.id === serviceId);
             const price = Number(docSrv?.customPrice ?? docSrv?.basePrice ?? baseSrv?.price ?? 0);
+            const srvName = baseSrv?.name || docSrv?.serviceName || '';
             return {
               ...it,
               serviceId,
+              treatmentName: it.treatmentName ? it.treatmentName : srvName,
               unitPrice: price,
               subtotal: it.quantity * price,
             };
@@ -483,7 +815,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         groups: planGroups,
         grandTotal,
       });
-      success(t('patientTreatmentPlan.planSavedSuccess', 'Proposed treatment plan saved successfully.'));
+      success(t('patientTreatmentPlan.planSavedSuccess', 'Treatment plans saved successfully.'));
     } catch (err: any) {
       console.error('Failed to save proposed plan:', err);
       error(
@@ -495,27 +827,86 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     }
   };
 
-  // Open Appointment Modal for a Group
+  // Open Appointment Modal for a Group (Auto-divides across multiple doctors)
   const handleOpenApptModalForGroup = (group: ProposedGroup) => {
-    const firstDoctor = group.items.find((it) => it.doctorId)?.doctorId || doctors[0]?.id || '';
-    const procedureSummary = group.items.map((it) => `${it.treatmentName} (${it.quantity})`).join(', ');
-    setApptForm({
-      doctorId: firstDoctor,
-      date: new Date().toISOString().split('T')[0],
-      startTime: '09:00',
-      endTime: '09:30',
-      durationMinutes: 30,
-      type: 'PROCEDURE',
-      reason: `${group.name}: ${procedureSummary || t('patientTreatmentPlan.procedures', 'procedures')}`,
-      notes: `${group.name} - ${procedureSummary}`,
+    if (!group.items.length) {
+      error(t('patientTreatmentPlan.noServicesForAppt', 'This treatment plan has no services to schedule.'));
+      return;
+    }
+
+    // Group items by doctorId
+    const doctorMap = new Map<string, ProposedItem[]>();
+    group.items.forEach((it) => {
+      const docId = it.doctorId || doctors[0]?.id || 'unassigned';
+      if (!doctorMap.has(docId)) {
+        doctorMap.set(docId, []);
+      }
+      doctorMap.get(docId)!.push(it);
     });
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const schedules: DoctorApptSchedule[] = [];
+
+    doctorMap.forEach((services, docId) => {
+      const doc = doctors.find((d) => d.id === docId);
+      const docName = doc ? doc.name : t('common.unassignedDoctor', 'Doctor');
+      const procedureSummary = services
+        .map(
+          (it) =>
+            `${it.treatmentName || it.serviceId || 'Procedure'}${
+              it.otTeethNumber
+                ? ` (OT: ${it.otTeethNumber})`
+                : it.toothNumbers.length
+                ? ` (#${it.toothNumbers.join(', #')})`
+                : ''
+            } x${it.quantity}`
+        )
+        .join(', ');
+
+      schedules.push({
+        doctorId: docId === 'unassigned' ? doctors[0]?.id || '' : docId,
+        doctorName: docName,
+        services,
+        selected: true,
+        date: todayStr,
+        startTime: '09:00',
+        endTime: '09:30',
+        durationMinutes: 30,
+        type: 'PROCEDURE',
+        reason: `${group.name}: ${procedureSummary}`,
+        notes: `${group.name} - ${docName} - ${procedureSummary}`,
+      });
+    });
+
+    setMultiDoctorAppts(schedules);
+    setIsMultiDoctorModal(schedules.length > 1);
+
+    if (schedules.length === 1) {
+      setApptForm({
+        doctorId: schedules[0].doctorId,
+        date: schedules[0].date,
+        startTime: schedules[0].startTime,
+        endTime: schedules[0].endTime,
+        durationMinutes: schedules[0].durationMinutes,
+        type: schedules[0].type,
+        reason: schedules[0].reason,
+        notes: schedules[0].notes,
+      });
+    }
+
     setIsApptModalOpen(true);
   };
 
-  // Open Appointment Modal for an Item
+  // Open Appointment Modal for a single Item
   const handleOpenApptModalForItem = (item: ProposedItem, group: ProposedGroup) => {
     const docId = item.doctorId || doctors[0]?.id || '';
-    const teethStr = item.toothNumbers.length > 0 ? `#${item.toothNumbers.join(', #')}` : '';
+    const otStr = item.otTeethNumber
+      ? `OT: ${item.otTeethNumber}`
+      : item.toothNumbers.length
+      ? `OT: #${item.toothNumbers.join(', #')}`
+      : '';
+    setIsMultiDoctorModal(false);
+    setMultiDoctorAppts([]);
     setApptForm({
       doctorId: docId,
       date: new Date().toISOString().split('T')[0],
@@ -523,16 +914,82 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       endTime: '09:30',
       durationMinutes: 30,
       type: 'PROCEDURE',
-      reason: `${item.treatmentName} ${teethStr} (${item.zoneText}) - Qty: ${item.quantity}`,
-      notes: `${group.name} - ${item.treatmentName}`,
+      reason: `${item.treatmentName || 'Treatment'}${otStr ? ` - ${otStr}` : ''} (${
+        item.quantity > 1 ? `Qty: ${item.quantity}` : ''
+      }`.trim(),
+      notes: `${group.name} - ${item.treatmentName || 'Treatment'}`,
     });
     setIsApptModalOpen(true);
   };
 
-  // Submit Appointment
+  // Update a specific schedule draft in multi-doctor mode
+  const handleUpdateDoctorApptSchedule = (
+    index: number,
+    field: keyof DoctorApptSchedule,
+    value: any
+  ) => {
+    setMultiDoctorAppts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  // Submit Appointment(s)
   const handleSubmitAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId) return;
+
+    if (isMultiDoctorModal) {
+      const activeSchedules = multiDoctorAppts.filter((s) => s.selected);
+      if (!activeSchedules.length) {
+        error(t('patientTreatmentPlan.selectAtLeastOneAppt', 'Please select at least one doctor appointment to schedule.'));
+        return;
+      }
+
+      for (const s of activeSchedules) {
+        if (!s.doctorId) {
+          error(t('patientTreatmentPlan.selectDoctor', 'Please ensure all scheduled appointments have an assigned doctor.'));
+          return;
+        }
+        if (!s.date || !s.startTime || !s.endTime) {
+          error(t('clinicAppointments.fillRequired', 'Please fill in all required date and time fields.'));
+          return;
+        }
+      }
+
+      setApptSubmitting(true);
+      try {
+        await Promise.all(
+          activeSchedules.map((s) =>
+            api.post('/clinic/appointments', {
+              patientId,
+              doctorId: s.doctorId,
+              date: s.date,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              durationMinutes: s.durationMinutes,
+              type: s.type,
+              reason: s.reason,
+              notes: s.notes,
+            })
+          )
+        );
+        success(t('clinicAppointments.createSuccess', 'Appointments scheduled successfully.'));
+        setIsApptModalOpen(false);
+      } catch (err: any) {
+        console.error('Failed to create appointments:', err);
+        error(
+          err.response?.data?.message ||
+            t('clinicAppointments.createFailed', 'Failed to schedule appointment.')
+        );
+      } finally {
+        setApptSubmitting(false);
+      }
+      return;
+    }
+
+    // Single appointment creation
     if (!apptForm.doctorId) {
       error(t('patientTreatmentPlan.selectDoctor', 'Please select a doctor.'));
       return;
@@ -775,12 +1232,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   return (
     <div
       style={{
-        maxWidth: '1280px',
-        margin: '0 auto',
-        padding: '24px 20px 80px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: '24px',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* ─── Top Header & Navigation Bar ─── */}
@@ -918,14 +1374,14 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Patient Basic Details (Only Name & Contact Info) ─── */}
+      {/* ─── Patient Header: Name, Contact & Essential Medical Alerts ─── */}
       <div
         className="card"
         style={{
           backgroundColor: 'var(--bg-card, #ffffff)',
           borderRadius: '14px',
           border: '1px solid var(--border-color, #e2e8f0)',
-          padding: '18px 24px',
+          padding: '16px 22px',
           boxShadow: 'var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))',
         }}
       >
@@ -935,17 +1391,17 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '20px',
+            gap: '16px',
           }}
         >
-          {/* Patient Name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '220px' }}>
+          {/* Patient Name & Record Number */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '220px' }}>
             <div
               style={{
-                width: '46px',
-                height: '46px',
+                width: '44px',
+                height: '44px',
                 borderRadius: '12px',
-                backgroundColor: 'var(--badge-primary-bg, rgba(13, 148, 136, 0.12))',
+                backgroundColor: 'rgba(13, 148, 136, 0.12)',
                 color: 'var(--primary-600, #0d9488)',
                 display: 'flex',
                 alignItems: 'center',
@@ -956,23 +1412,41 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               <User size={22} />
             </div>
             <div>
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--text-muted, #64748b)',
-                }}
-              >
-                {t('patientTreatmentPlan.name', 'Patient Name')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--text-muted, #64748b)',
+                  }}
+                >
+                  {t('patientTreatmentPlan.name', 'Patient Name')}
+                </span>
+                {patient?.recordNumber && (
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      fontFamily: 'monospace',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
+                      border: '1px solid var(--border-color, #cbd5e1)',
+                      color: 'var(--primary-700, #0f766e)',
+                    }}
+                  >
+                    #{patient.recordNumber}
+                  </span>
+                )}
               </div>
               <div
                 style={{
-                  fontSize: '18px',
+                  fontSize: '17px',
                   fontWeight: 800,
                   color: 'var(--text-heading, #0f172a)',
-                  marginTop: '2px',
+                  marginTop: '1px',
                 }}
               >
                 {patientFullName || t('common.unnamed', 'Unnamed Patient')}
@@ -985,16 +1459,16 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '24px',
+              gap: '20px',
               flexWrap: 'wrap',
             }}
           >
             {/* Phone */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '8px',
                   backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
                   border: '1px solid var(--border-color, #e2e8f0)',
@@ -1004,12 +1478,12 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                   justifyContent: 'center',
                 }}
               >
-                <Phone size={16} />
+                <Phone size={15} />
               </div>
               <div>
                 <div
                   style={{
-                    fontSize: '11px',
+                    fontSize: '10.5px',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     color: 'var(--text-muted, #94a3b8)',
@@ -1019,12 +1493,12 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                 </div>
                 <div
                   style={{
-                    fontSize: '13px',
+                    fontSize: '12.5px',
                     fontWeight: 600,
                     color: 'var(--text-main, #1e293b)',
                   }}
                 >
-                  {patient.phoneNumber
+                  {patient?.phoneNumber
                     ? `${patient.phoneCountryCode || '+52'} ${patient.phoneNumber}`
                     : '—'}
                 </div>
@@ -1032,11 +1506,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             </div>
 
             {/* Email */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '8px',
                   backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
                   border: '1px solid var(--border-color, #e2e8f0)',
@@ -1046,12 +1520,12 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                   justifyContent: 'center',
                 }}
               >
-                <Mail size={16} />
+                <Mail size={15} />
               </div>
               <div>
                 <div
                   style={{
-                    fontSize: '11px',
+                    fontSize: '10.5px',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     color: 'var(--text-muted, #94a3b8)',
@@ -1061,15 +1535,93 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                 </div>
                 <div
                   style={{
-                    fontSize: '13px',
+                    fontSize: '12.5px',
                     fontWeight: 600,
                     color: 'var(--text-main, #1e293b)',
                   }}
                 >
-                  {patient.email || '—'}
+                  {patient?.email || '—'}
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Important Medical Information (Allergies & Medications) */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {/* Allergies Pill */}
+            {patient?.allergies ? (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#b91c1c',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                }}
+                title={patient.allergies}
+              >
+                <AlertTriangle size={14} style={{ color: '#ef4444', flexShrink: 0 }} />
+                <span>
+                  <strong>{t('patientTreatmentPlan.allergies', 'Allergies')}:</strong>{' '}
+                  {patient.allergies}
+                </span>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#15803d',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                }}
+              >
+                <ShieldCheck size={13} style={{ color: '#16a34a', flexShrink: 0 }} />
+                <span>{t('patientTreatmentPlan.noKnownAllergies', 'No known allergies')}</span>
+              </div>
+            )}
+
+            {/* Medications Pill */}
+            {patient?.medications ? (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  color: '#b45309',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                }}
+                title={patient.medications}
+              >
+                <Pill size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                <span>
+                  <strong>{t('patientTreatmentPlan.medications', 'Medications')}:</strong>{' '}
+                  {patient.medications}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -2325,7 +2877,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         borderRadius: '14px',
         border: '1px solid var(--border-color, #e2e8f0)',
         boxShadow: 'var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))',
-        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         gap: '0',
@@ -2370,7 +2921,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                 letterSpacing: '-0.01em',
               }}
             >
-              {t('patientTreatmentPlan.proposedPlanTitle', 'Proposed Treatment Plan')}
+              {t('patientTreatmentPlan.proposedPlanTitle', 'Treatment Plans')}
             </h2>
             <div
               style={{
@@ -2381,40 +2932,40 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             >
               {t(
                 'patientTreatmentPlan.proposedPlanSubtitle',
-                'Group the proposed treatments into visits to discuss them with the patient. Each group shows its own subtotal.'
+                'Group treatments into plans to discuss them with the patient. Each plan organizes services and appointments.'
               )}
             </div>
           </div>
         </div>
 
-        {/* Add Group Action Button */}
+        {/* Add Treatment Plan Action Button */}
         <button
           type="button"
-          onClick={handleAddGroup}
-          className="btn btn-secondary"
+          onClick={handleAddPlanGroup}
+          className="btn btn-primary"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '9px 16px',
+            padding: '9px 18px',
             borderRadius: '10px',
             fontWeight: 700,
             fontSize: '13px',
-            color: 'var(--primary-700, #0f766e)',
-            border: '1px solid var(--primary-500, #0d9488)',
-            backgroundColor: 'rgba(13, 148, 136, 0.08)',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            color: '#ffffff',
+            backgroundColor: '#0d9488',
+            border: 'none',
+            boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)',
             minHeight: '40px',
             cursor: 'pointer',
           }}
         >
-          <Layers size={16} />
-          <span>{t('patientTreatmentPlan.addGroup', 'Add group')}</span>
+          <Plus size={16} />
+          <span>{t('patientTreatmentPlan.addTreatmentPlan', 'New Treatment Plan')}</span>
         </button>
       </div>
 
       <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* ─── Groups List (Requirement 1 & 2: Visits, Drag-and-Drop) ─── */}
+        {/* ─── Groups List (Treatment Plans) ─── */}
         {planGroups.length === 0 ? (
           <div
             style={{
@@ -2426,15 +2977,36 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             }}
           >
             <FileSpreadsheet size={36} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-            <div style={{ fontSize: '13px', fontWeight: 500 }}>
+            <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '12px' }}>
               {t(
                 'patientTreatmentPlan.noTreatmentsInPlan',
-                'No planned treatments to organize yet. Mark treatments on the Odontogram first.'
+                'No planned treatments to organize yet. Mark treatments on the Odontogram or click "+ New Treatment Plan" below.'
               )}
             </div>
+            <button
+              type="button"
+              onClick={handleAddPlanGroup}
+              className="btn btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                backgroundColor: '#0d9488',
+                color: '#ffffff',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={15} />
+              <span>{t('patientTreatmentPlan.addTreatmentPlan', 'New Treatment Plan')}</span>
+            </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {planGroups.map((group) => {
               const groupSubtotal = group.items.reduce(
                 (sum, it) => sum + (it.subtotal || 0),
@@ -2442,6 +3014,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               );
               const isDragOver = dragOverGroupId === group.id;
               const selectedCount = group.items.filter((it) => it.isSelected).length;
+              const currentStatus = group.status || 'CREATED';
+              const statusCfg = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.CREATED;
 
               return (
                 <div
@@ -2469,17 +3043,18 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                     backgroundColor: isDragOver
                       ? 'rgba(13, 148, 136, 0.05)'
                       : 'var(--bg-card, #ffffff)',
-                    overflow: 'hidden',
                     transition: 'all 0.2s ease',
                     boxShadow: 'var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))',
                   }}
                 >
-                  {/* Group Header Bar (Visit Name, Items Count, Subtotal, Confirmed, Actions) */}
+                  {/* Group Header Bar (Plan Name, Status, Count, Actions) */}
                   <div
                     style={{
                       padding: '12px 18px',
                       backgroundColor: 'var(--bg-surface-muted, #f0f7ff)',
                       borderBottom: '1px solid var(--border-color, #e2e8f0)',
+                      borderTopLeftRadius: '11px',
+                      borderTopRightRadius: '11px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -2487,146 +3062,103 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                       gap: '12px',
                     }}
                   >
-                    {/* Left: Layers Icon + Editable Group Title + Count + Subtotal + Confirmed */}
+                    {/* Left: Selected Service Count (replaces treatment plan icon) + Clean Border Plan Title + Status SearchableSelect */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                       <div
                         style={{
                           width: '32px',
                           height: '32px',
                           borderRadius: '8px',
-                          backgroundColor: 'var(--bg-card, #ffffff)',
-                          border: '1px solid var(--border-color, #e2e8f0)',
+                          backgroundColor: group.items.length > 0 ? 'var(--primary-600, #0d9488)' : 'var(--bg-card, #ffffff)',
+                          border: group.items.length > 0 ? '1px solid var(--primary-600, #0d9488)' : '1px solid var(--border-color, #cbd5e1)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: 'var(--primary-700, #0f766e)',
+                          color: group.items.length > 0 ? '#ffffff' : 'var(--text-muted, #64748b)',
+                          fontSize: '13px',
+                          fontWeight: 700,
                           flexShrink: 0,
+                          boxShadow: group.items.length > 0 ? '0 1px 3px rgba(13, 148, 136, 0.3)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          transition: 'all 0.15s ease',
                         }}
+                        title={
+                          t('patientTreatmentPlan.serviceCountTooltip', '{{count}} services in this plan', { count: group.items.length })
+                        }
                       >
-                        <Layers size={16} />
+                        {group.items.length}
                       </div>
 
-                      {/* Editable Group Title Input */}
+                      {/* Editable Group Title Input (Fixed border issue, no black border) */}
                       <input
                         type="text"
                         value={group.name}
                         onChange={(e) => handleGroupNameChange(group.id, e.target.value)}
-                        placeholder="Visit 1"
+                        placeholder="Plan 1"
                         style={{
                           fontSize: '14px',
                           fontWeight: 700,
                           padding: '6px 12px',
                           borderRadius: '8px',
                           border: '1px solid var(--border-color, #cbd5e1)',
+                          outline: 'none',
                           backgroundColor: 'var(--bg-card, #ffffff)',
                           color: 'var(--text-heading, #0f172a)',
-                          width: '160px',
+                          boxShadow: 'none',
+                          width: '180px',
                         }}
+                        onFocus={(e) => (e.target.style.borderColor = '#0d9488')}
+                        onBlur={(e) => (e.target.style.borderColor = 'var(--border-color, #cbd5e1)')}
                       />
 
-                      {/* Items Count Pill */}
-                      <span
-                        style={{
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          padding: '3px 10px',
-                          borderRadius: '12px',
-                          backgroundColor: 'var(--bg-card, #ffffff)',
-                          border: '1px solid var(--border-color, #cbd5e1)',
-                          color: 'var(--text-muted, #64748b)',
-                        }}
-                      >
-                        {group.items.length}{' '}
-                        {group.items.length === 1
-                          ? t('patientTreatmentPlan.itemCount', 'item')
-                          : t('patientTreatmentPlan.itemsCount', 'items')}
-                      </span>
-
-                      {/* Group Subtotal Display */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--text-muted, #64748b)' }}>
-                          {t('patientTreatmentPlan.groupSubtotal', 'Group subtotal')}:
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '13.5px',
-                            fontWeight: 800,
-                            color:
-                              groupSubtotal > 0
-                                ? 'var(--primary-700, #0f766e)'
-                                : 'var(--text-heading, #0f172a)',
-                          }}
-                        >
-                          {groupSubtotal.toFixed(2)} MXN
-                        </span>
-                      </div>
-
-                      {/* Confirmed Checkbox */}
-                      <label
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '12.5px',
-                          fontWeight: 600,
-                          color: 'var(--text-main, #334155)',
-                          cursor: 'pointer',
-                          marginLeft: '8px',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={group.confirmed}
-                          onChange={() => handleGroupConfirmedToggle(group.id)}
-                          style={{
-                            width: '16px',
-                            height: '16px',
-                            cursor: 'pointer',
-                            accentColor: 'var(--primary-600, #0d9488)',
-                          }}
+                      {/* Treatment Plan Status Dropdown Selector (Converted to SearchableSelect) */}
+                      <div style={{ width: '135px' }}>
+                        <SearchableSelect
+                          options={statusSelectOptions}
+                          value={currentStatus}
+                          onChange={(newSt) =>
+                            handlePlanStatusChange(group.id, newSt as TreatmentPlanStatus)
+                          }
+                          placeholder={t('patientTreatmentPlan.planStatus', 'Plan Status')}
                         />
-                        <span>{t('patientTreatmentPlan.confirmed', 'Confirmed')}</span>
-                      </label>
+                      </div>
                     </div>
 
-                    {/* Right: Batch Move (if selected) + Create Appointment Button + Delete Group Button */}
+                    {/* Right: Move To (when items selected) + Add Service + Create Appointment + Delete Plan */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       {selectedCount > 0 && planGroups.length > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-700, #0f766e)', whiteSpace: 'nowrap' }}>
-                            {selectedCount} {t('patientTreatmentPlan.selected', 'selected')}
-                          </span>
-                          <div style={{ width: '150px' }}>
-                            <SearchableSelect
-                              options={planGroups
-                                .filter((g) => g.id !== group.id)
-                                .map((targetG) => ({
-                                  value: targetG.id,
-                                  label: targetG.name,
-                                }))}
-                              value=""
-                              onChange={(targetGId) => {
-                                if (targetGId) {
-                                  const selectedIds = group.items.filter((it) => it.isSelected).map((it) => it.id);
-                                  handleMoveItems(selectedIds, group.id, targetGId);
-                                }
-                              }}
-                              placeholder={t('patientTreatmentPlan.moveToVisit', 'Move to...')}
-                              searchPlaceholder={t('patientTreatmentPlan.searchVisit', 'Search visit...')}
-                            />
-                          </div>
+                        <div style={{ width: '150px' }}>
+                          <SearchableSelect
+                            options={planGroups
+                              .filter((g) => g.id !== group.id)
+                              .map((targetG) => ({
+                                value: targetG.id,
+                                label: targetG.name,
+                              }))}
+                            value=""
+                            onChange={(targetGId) => {
+                              if (targetGId) {
+                                const selectedIds = group.items
+                                  .filter((it) => it.isSelected)
+                                  .map((it) => it.id);
+                                handleMoveItems(selectedIds, group.id, targetGId);
+                              }
+                            }}
+                            placeholder={t('patientTreatmentPlan.moveToVisit', 'Move to...')}
+                            searchPlaceholder={t('patientTreatmentPlan.searchVisit', 'Search plan...')}
+                          />
                         </div>
                       )}
 
+                      {/* Add Service Button */}
                       <button
                         type="button"
-                        onClick={() => handleOpenApptModalForGroup(group)}
+                        onClick={() => handleAddServiceToGroup(group.id)}
                         className="btn btn-secondary"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          padding: '7px 14px',
+                          padding: '7px 12px',
                           borderRadius: '8px',
                           fontSize: '12px',
                           fontWeight: 700,
@@ -2635,82 +3167,139 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                           border: '1px solid var(--primary-500, #0d9488)',
                           boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
                           cursor: 'pointer',
-                          minHeight: '38px',
+                          minHeight: '36px',
                         }}
+                      >
+                        <Plus size={14} />
+                        <span>{t('patientTreatmentPlan.addService', 'Add Service')}</span>
+                      </button>
+
+                      {/* Create Appointment Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenApptModalForGroup(group)}
+                        className="btn btn-secondary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '7px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: 'var(--indigo-700, #4338ca)',
+                          backgroundColor: 'var(--bg-card, #ffffff)',
+                          border: '1px solid var(--indigo-400, #818cf8)',
+                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          cursor: 'pointer',
+                          minHeight: '36px',
+                        }}
+                        title={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
                       >
                         <Calendar size={14} />
                         <span>{t('patientTreatmentPlan.createAppointment', 'Create appointment')}</span>
                       </button>
 
-                      {planGroups.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteGroup(group.id)}
-                          style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: '1px solid #f87171',
-                            backgroundColor: '#fee2e2',
-                            color: '#b91c1c',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                          }}
-                          title={t('patientTreatmentPlan.deleteGroup', 'Delete group')}
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
+                      {/* Delete Plan Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGroup(group.id)}
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid #fecaca',
+                          backgroundColor: '#fee2e2',
+                          color: '#b91c1c',
+                          cursor: 'pointer',
+                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                        }}
+                        title={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   </div>
 
-                  {/* ─── Group Treatment Items Table (Requirement 2 & 3) ─── */}
+                  {/* ─── Group Treatment Items Table ─── */}
                   {group.items.length === 0 ? (
                     <div
                       style={{
-                        padding: '28px 20px',
+                        padding: '32px 20px',
                         textAlign: 'center',
                         color: 'var(--text-muted, #94a3b8)',
                         backgroundColor: 'var(--bg-card, #ffffff)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
                       }}
                     >
-                      <Layers size={24} style={{ margin: '0 auto 6px', opacity: 0.4 }} />
-                      <div style={{ fontSize: '12.5px', fontWeight: 500 }}>
-                        {t(
-                          'patientTreatmentPlan.dropHere',
-                          'Drop treatment here to move to this visit'
-                        )}
+                      <Layers size={26} style={{ opacity: 0.35 }} />
+                      <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                        {t('patientTreatmentPlan.dropHere', 'Drop treatments here or click "+ Add Service" to add procedures')}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAddServiceToGroup(group.id)}
+                        className="btn btn-secondary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#0f766e',
+                          border: '1px solid #0d9488',
+                          backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Plus size={14} />
+                        <span>{t('patientTreatmentPlan.addService', 'Add Service')}</span>
+                      </button>
                     </div>
                   ) : (
                     <div
                       style={{
                         width: '100%',
-                        overflowX: 'hidden',
-                        minHeight: '260px',
                       }}
                     >
                       <table
                         className="table"
                         style={{
                           width: '100%',
-                          tableLayout: 'auto',
+                          tableLayout: 'fixed',
                           borderCollapse: 'collapse',
                           textAlign: 'left',
-                          fontSize: '13px',
+                          fontSize: '12.5px',
                         }}
                       >
+                        <colgroup>
+                          <col style={{ width: '4%' }} />
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '5%' }} />
+                          <col style={{ width: '19%' }} />
+                          <col style={{ width: '19%' }} />
+                          <col style={{ width: '5%' }} />
+                          <col style={{ width: '9%' }} />
+                          <col style={{ width: '10%' }} />
+                          <col style={{ width: '9%' }} />
+                        </colgroup>
                         <thead>
                           <tr
                             style={{
                               backgroundColor: 'var(--table-th-bg, #f8fafc)',
-                              borderBottom: '1px solid var(--border-color, #e2e8f0)',
+                              borderBottom: '2px solid var(--border-color, #e2e8f0)',
                             }}
                           >
-                            <th style={{ width: '38px', padding: '10px 4px', textAlign: 'center' }}>
+                            <th style={{ padding: '10px 4px', textAlign: 'center' }}>
                               <input
                                 type="checkbox"
                                 checked={group.items.length > 0 && group.items.every((it) => it.isSelected)}
@@ -2724,37 +3313,61 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 }}
                               />
                             </th>
-                            <th style={{ padding: '10px 8px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px' }}>
+                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                               {t('patientTreatmentPlan.treatmentColumn', 'Treatment')}
                             </th>
-                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '13%' }}>
-                              {t('patientTreatmentPlan.zoneQuadrantColumn', 'Zone / Quadrant')}
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              OT
                             </th>
-                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '17%' }}>
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                               {t('patientTreatmentPlan.doctorColumn', 'Doctor *')}
                             </th>
-                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '21%' }}>
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                               {t('patientTreatmentPlan.serviceColumn', 'Service *')}
                             </th>
-                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '56px', textAlign: 'center' }}>
+                            <th style={{ padding: '10px 2px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                               {t('patientTreatmentPlan.qtyColumn', 'Qty')}
                             </th>
-                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '95px' }}>
-                              {t('patientTreatmentPlan.unitPriceMxnColumn', 'Unit Price (MXN)')}
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              <span>Price</span>{' '}
+                              <span style={{ fontSize: '9px', fontWeight: 500, color: 'var(--text-muted, #94a3b8)', textTransform: 'none' }}>
+                                (MXN)
+                              </span>
                             </th>
-                            <th style={{ padding: '10px 6px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '95px' }}>
-                              {t('patientTreatmentPlan.subtotalColumn', 'Subtotal')}
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              <span>Subtotal</span>{' '}
+                              <span style={{ fontSize: '9px', fontWeight: 500, color: 'var(--text-muted, #94a3b8)', textTransform: 'none' }}>
+                                (MXN)
+                              </span>
                             </th>
-                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '12px', width: '44px', textAlign: 'center' }}>
-                              {t('patientTreatmentPlan.appointmentColumn', 'Appointment')}
+                            <th style={{ padding: '10px 4px', fontWeight: 600, color: 'var(--text-muted, #64748b)', fontSize: '11px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              {t('patientTreatmentPlan.appointmentColumn', 'Actions')}
                             </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {group.items.map((item) => {
-                            const isBeingDragged = Boolean(draggedItems?.itemIds.includes(item.id));
+                          {group.items.map((item, itemIdx) => {
+                            const isBeingDragged =
+                              Boolean(draggedItems?.itemIds.includes(item.id)) ||
+                              draggedRow?.itemId === item.id;
+                            const isDragTarget =
+                              dragOverTarget?.groupId === group.id && dragOverTarget?.index === itemIdx;
                             const selectedDoctor = doctors.find((d) => d.id === item.doctorId);
                             const doctorServices = selectedDoctor?.services || [];
+                            const treatmentOpts = getTreatmentOptionsForItem(
+                              item.id,
+                              item.treatmentName
+                            );
+                            const cleanTreatmentName = item.treatmentName
+                              .replace(/\s*\([#\d\s,]+\)/g, '')
+                              .replace(/#\d+/g, '')
+                              .trim();
+                            const cleanToothStr = (item.otTeethNumber || (item.toothNumbers?.[0] ? String(item.toothNumbers[0]) : ''))
+                              .replace(/#/g, '')
+                              .trim();
+                            const currentTreatmentVal = cleanToothStr
+                              ? `${cleanTreatmentName}__${cleanToothStr}`
+                              : cleanTreatmentName;
 
                             return (
                               <tr
@@ -2764,31 +3377,95 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   const selectedIds = group.items.filter((it) => it.isSelected).map((it) => it.id);
                                   const itemIdsToDrag =
                                     item.isSelected && selectedIds.length > 1 ? selectedIds : [item.id];
-                                  e.dataTransfer.setData('text/plain', JSON.stringify(itemIdsToDrag));
+                                  e.dataTransfer.setData('text/plain', JSON.stringify({ groupId: group.id, itemId: item.id, index: itemIdx }));
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  setDraggedRow({ groupId: group.id, itemId: item.id, index: itemIdx });
                                   setDraggedItems({ itemIds: itemIdsToDrag, sourceGroupId: group.id });
                                 }}
                                 onDragEnd={() => {
+                                  setDraggedRow(null);
                                   setDraggedItems(null);
+                                  setDragOverTarget(null);
+                                  setDragOverGroupId(null);
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  e.dataTransfer.dropEffect = 'move';
+                                  if (!dragOverTarget || dragOverTarget.groupId !== group.id || dragOverTarget.index !== itemIdx) {
+                                    setDragOverTarget({ groupId: group.id, index: itemIdx });
+                                  }
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!draggedRow) return;
+
+                                  const srcGroupId = draggedRow.groupId;
+                                  const srcIndex = draggedRow.index;
+                                  const targetGroupId = group.id;
+                                  const targetIndex = itemIdx;
+
+                                  if (srcGroupId === targetGroupId) {
+                                    if (srcIndex !== targetIndex) {
+                                      setPlanGroups((prev) =>
+                                        prev.map((g) => {
+                                          if (g.id !== srcGroupId) return g;
+                                          const newItems = [...g.items];
+                                          const [moved] = newItems.splice(srcIndex, 1);
+                                          newItems.splice(targetIndex, 0, moved);
+                                          return { ...g, items: newItems };
+                                        })
+                                      );
+                                    }
+                                  } else {
+                                    setPlanGroups((prev) => {
+                                      let movedItem: ProposedItem | null = null;
+                                      const updated = prev.map((g) => {
+                                        if (g.id === srcGroupId) {
+                                          const newItems = [...g.items];
+                                          const [extracted] = newItems.splice(srcIndex, 1);
+                                          movedItem = extracted;
+                                          return { ...g, items: newItems };
+                                        }
+                                        return g;
+                                      });
+                                      if (!movedItem) return prev;
+                                      return updated.map((g) => {
+                                        if (g.id === targetGroupId) {
+                                          const newItems = [...g.items];
+                                          newItems.splice(targetIndex, 0, movedItem!);
+                                          return { ...g, items: newItems };
+                                        }
+                                        return g;
+                                      });
+                                    });
+                                  }
+
+                                  setDraggedRow(null);
+                                  setDraggedItems(null);
+                                  setDragOverTarget(null);
                                   setDragOverGroupId(null);
                                 }}
                                 style={{
-                                  borderBottom: '1px solid var(--border-subtle, #f1f5f9)',
+                                  borderBottom: '1px solid var(--border-color, #e2e8f0)',
                                   backgroundColor: isBeingDragged
                                     ? 'rgba(13, 148, 136, 0.08)'
                                     : item.isSelected
                                     ? 'rgba(13, 148, 136, 0.03)'
                                     : 'var(--bg-card, #ffffff)',
-                                  opacity: isBeingDragged ? 0.6 : 1,
+                                  boxShadow: isDragTarget ? '0 -2px 0 0 #0d9488' : undefined,
+                                  opacity: isBeingDragged ? 0.45 : 1,
                                   cursor: 'grab',
-                                  transition: 'background-color 0.15s ease',
+                                  transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
                                 }}
                               >
                                 {/* Drag Handle & Selection Checkbox */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    <span title={t('patientTreatmentPlan.dragToMove', 'Drag to move between visits')} style={{ display: 'inline-flex', cursor: 'grab' }}>
+                                <td style={{ padding: '8px 4px', verticalAlign: 'middle' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                                    <span title={t('patientTreatmentPlan.dragToMove', 'Drag to move or reorder')} style={{ display: 'inline-flex', cursor: 'grab' }}>
                                       <GripVertical
-                                        size={15}
+                                        size={13}
                                         style={{ color: 'var(--text-muted, #94a3b8)' }}
                                       />
                                     </span>
@@ -2797,8 +3474,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                       checked={Boolean(item.isSelected)}
                                       onChange={() => handleItemSelectionToggle(group.id, item.id)}
                                       style={{
-                                        width: '15px',
-                                        height: '15px',
+                                        width: '14px',
+                                        height: '14px',
                                         cursor: 'pointer',
                                         accentColor: 'var(--primary-600, #0d9488)',
                                       }}
@@ -2806,50 +3483,49 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   </div>
                                 </td>
 
-                                {/* Treatment Name + Tooth Pills */}
-                                <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    {item.color && (
-                                      <span
-                                        style={{
-                                          width: '10px',
-                                          height: '10px',
-                                          borderRadius: '50%',
-                                          backgroundColor: item.color,
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                    )}
-                                    <span style={{ fontWeight: 700, color: 'var(--text-heading, #0f172a)' }}>
-                                      {item.treatmentName}
-                                    </span>
-                                    {item.toothNumbers.length > 0 && (
-                                      <span
-                                        style={{
-                                          fontSize: '11px',
-                                          fontWeight: 700,
-                                          fontFamily: 'monospace',
-                                          padding: '1px 6px',
-                                          borderRadius: '4px',
-                                          backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
-                                          border: '1px solid var(--border-color, #e2e8f0)',
-                                          color: 'var(--text-muted, #64748b)',
-                                        }}
-                                      >
-                                        #{item.toothNumbers.join(', #')}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* Zone / Quadrant */}
-                                <td style={{ padding: '8px 6px', verticalAlign: 'middle', color: 'var(--text-muted, #64748b)', fontSize: '11.5px', lineHeight: 1.3 }}>
-                                  {item.zoneText}
-                                </td>
-
-                                {/* Doctor * Dropdown */}
-                                <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                                {/* Treatment: Compact SearchableSelect */}
+                                <td style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
+                                    compact={true}
+                                    options={treatmentOpts}
+                                    value={
+                                      treatmentOpts.some((o) => o.value === currentTreatmentVal)
+                                        ? currentTreatmentVal
+                                        : cleanTreatmentName
+                                    }
+                                    onChange={(val) => handleItemTreatmentSelect(group.id, item.id, val)}
+                                    placeholder={t('patientTreatmentPlan.treatmentPlaceholder', 'Select treatment...')}
+                                    searchPlaceholder={t('patientTreatmentPlan.treatmentPlaceholder', 'Search treatment...')}
+                                  />
+                                </td>
+
+                                {/* OT (teeth number): Clean read-only text display, no # */}
+                                <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                  {cleanToothStr ? (
+                                    <span
+                                      style={{
+                                        display: 'inline-block',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        fontFamily: 'monospace',
+                                        color: '#0f766e',
+                                        backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                                        border: '1px solid rgba(13, 148, 136, 0.25)',
+                                        padding: '2px 5px',
+                                        borderRadius: '6px',
+                                      }}
+                                    >
+                                      {cleanToothStr}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '11px' }}>—</span>
+                                  )}
+                                </td>
+
+                                {/* Doctor * Dropdown: Compact SearchableSelect */}
+                                <td style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
+                                  <SearchableSelect
+                                    compact={true}
                                     options={doctorOptions}
                                     value={item.doctorId}
                                     onChange={(val) => handleItemDoctorChange(group.id, item.id, val)}
@@ -2858,29 +3534,41 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   />
                                 </td>
 
-                                {/* Service * Dropdown (Only service name, truncated with ellipsis, NO amount badge) */}
-                                <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                                {/* Service * Dropdown: Compact SearchableSelect */}
+                                <td style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
-                                    options={doctorServices.map((srv) => ({
-                                      value: srv.serviceId,
-                                      label: srv.serviceName || srv.serviceId,
-                                    }))}
+                                    compact={true}
+                                    options={
+                                      !item.doctorId
+                                        ? []
+                                        : doctorServices.length > 0
+                                        ? doctorServices.map((srv) => ({
+                                            value: srv.serviceId,
+                                            label: srv.serviceName || srv.serviceId,
+                                            sublabel:
+                                              srv.customPrice !== undefined ? `${srv.customPrice} MXN` : undefined,
+                                          }))
+                                        : clinicServices.map((srv) => ({
+                                            value: srv.id,
+                                            label: srv.name,
+                                            sublabel: `${srv.price} MXN`,
+                                          }))
+                                    }
                                     value={item.serviceId}
                                     onChange={(val) => handleItemServiceChange(group.id, item.id, val)}
-                                    disabled={!item.doctorId}
                                     placeholder={
                                       !item.doctorId
                                         ? t('patientTreatmentPlan.selectDoctorFirst', 'Select doctor first...')
-                                        : doctorServices.length === 0
-                                        ? t('patientTreatmentPlan.noServicesForDoctor', 'No services for doctor')
+                                        : doctorServices.length === 0 && clinicServices.length === 0
+                                        ? t('patientTreatmentPlan.noServicesForDoctor', 'No services available')
                                         : t('patientTreatmentPlan.selectService', 'Select Service...')
                                     }
                                     searchPlaceholder={t('patientTreatmentPlan.searchService', 'Search service...')}
                                   />
                                 </td>
 
-                                {/* Qty Input (Moved BEFORE Unit Price) */}
-                                <td style={{ padding: '8px 4px', verticalAlign: 'middle', textAlign: 'center', width: '56px' }}>
+                                {/* Qty Input */}
+                                <td style={{ padding: '6px 2px', verticalAlign: 'middle', textAlign: 'center' }}>
                                   <input
                                     type="number"
                                     min={1}
@@ -2888,66 +3576,100 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                     onChange={(e) => handleItemQtyChange(group.id, item.id, e.target.value)}
                                     className="form-control"
                                     style={{
-                                      width: '46px',
-                                      padding: '5px 2px',
-                                      fontSize: '13px',
+                                      width: '100%',
+                                      maxWidth: '42px',
+                                      padding: '4px 2px',
+                                      fontSize: '12px',
                                       textAlign: 'center',
                                       fontWeight: 700,
                                       borderRadius: '6px',
                                       border: '1px solid var(--border-color, #cbd5e1)',
                                       margin: '0 auto',
                                       display: 'block',
+                                      backgroundColor: 'var(--bg-card, #ffffff)',
+                                      color: 'var(--text-heading, #0f172a)',
                                     }}
                                   />
                                 </td>
 
-                                {/* Unit Price Input (MXN shown in header only, only numeric amount here) */}
-                                <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '95px' }}>
+                                {/* Price (MXN): Editable input field */}
+                                <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'right' }}>
                                   <input
                                     type="number"
                                     min={0}
                                     step="0.01"
-                                    value={item.unitPrice}
+                                    value={item.unitPrice === 0 ? '' : item.unitPrice}
                                     onChange={(e) => handleItemUnitPriceChange(group.id, item.id, e.target.value)}
+                                    placeholder="0.00"
                                     className="form-control"
                                     style={{
-                                      padding: '5px 8px',
-                                      fontSize: '12.5px',
+                                      width: '100%',
+                                      padding: '4px 4px',
+                                      fontSize: '12px',
+                                      textAlign: 'right',
+                                      fontWeight: 600,
                                       borderRadius: '6px',
                                       border: '1px solid var(--border-color, #cbd5e1)',
-                                      width: '100%',
-                                      fontWeight: 600,
+                                      margin: '0 0 0 auto',
+                                      display: 'block',
+                                      backgroundColor: 'var(--bg-card, #ffffff)',
+                                      color: 'var(--text-heading, #0f172a)',
+                                      boxSizing: 'border-box',
                                     }}
                                   />
                                 </td>
 
                                 {/* Subtotal Display */}
-                                <td style={{ padding: '8px 6px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading, #0f172a)', whiteSpace: 'nowrap', fontSize: '13px' }}>
-                                  {item.subtotal.toFixed(2)} MXN
+                                <td style={{ padding: '6px 6px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading, #0f172a)', whiteSpace: 'nowrap', fontSize: '12px', textAlign: 'right' }}>
+                                  {item.subtotal.toFixed(2)}
                                 </td>
 
-                                {/* Appointment Calendar Button */}
-                                <td style={{ padding: '8px 4px', verticalAlign: 'middle', textAlign: 'center', width: '44px' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenApptModalForItem(item, group)}
-                                    style={{
-                                      width: '34px',
-                                      height: '34px',
-                                      borderRadius: '8px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      border: '1px solid var(--primary-500, #0d9488)',
-                                      backgroundColor: 'rgba(13, 148, 136, 0.08)',
-                                      color: 'var(--primary-700, #0f766e)',
-                                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                                      cursor: 'pointer',
-                                    }}
-                                    title={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
-                                  >
-                                    <Calendar size={15} />
-                                  </button>
+                                {/* Appointment & Delete Actions */}
+                                <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenApptModalForItem(item, group)}
+                                      style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '6px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: '1px solid var(--primary-500, #0d9488)',
+                                        backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                                        color: 'var(--primary-700, #0f766e)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                        padding: 0,
+                                      }}
+                                      title={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
+                                    >
+                                      <Calendar size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveServiceFromGroup(group.id, item.id)}
+                                      style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '6px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: '1px solid #fecaca',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                        padding: 0,
+                                      }}
+                                      title={t('patientTreatmentPlan.deleteService', 'Delete Service')}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -3057,7 +3779,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       </div>
     </div>
 
-    {/* ─── Schedule Appointment Modal (Option A) ─── */}
+    {/* ─── Schedule Appointment Modal (Single Doctor or Multi-Doctor Auto-Division) ─── */}
     {isApptModalOpen && (
       <div
         style={{
@@ -3079,8 +3801,9 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           style={{
             backgroundColor: 'var(--bg-card, #ffffff)',
             borderRadius: '16px',
-            maxWidth: '520px',
+            maxWidth: isMultiDoctorModal ? '680px' : '520px',
             width: '100%',
+            maxHeight: '90vh',
             boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
             overflow: 'hidden',
             display: 'flex',
@@ -3101,7 +3824,9 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Calendar size={18} style={{ color: 'var(--primary-600, #0d9488)' }} />
               <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-heading, #0f172a)' }}>
-                {t('patientTreatmentPlan.scheduleAppointmentModal', 'Schedule Appointment')}
+                {isMultiDoctorModal
+                  ? t('patientTreatmentPlan.scheduleAllDoctorAppointments', 'Schedule Doctor Appointments')
+                  : t('patientTreatmentPlan.scheduleAppointmentModal', 'Schedule Appointment')}
               </h3>
             </div>
             <button
@@ -3125,135 +3850,316 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           </div>
 
           {/* Modal Form Body */}
-          <form onSubmit={handleSubmitAppointment}>
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Patient Name Display */}
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                  {t('patientTreatmentPlan.name', 'Patient Name')}
-                </label>
-                <div
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
-                    fontSize: '13.5px',
-                    fontWeight: 700,
-                    color: 'var(--text-heading, #0f172a)',
-                  }}
-                >
-                  {patientFullName || t('common.unnamed', 'Unnamed Patient')}
-                </div>
-              </div>
-
-              {/* Doctor Select */}
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                  {t('patientTreatmentPlan.doctorColumn', 'Doctor *')}
-                </label>
-                <SearchableSelect
-                  options={doctorOptions}
-                  value={apptForm.doctorId}
-                  onChange={(val) => setApptForm((prev) => ({ ...prev, doctorId: val }))}
-                  placeholder={t('patientTreatmentPlan.selectDoctor', 'Select Doctor...')}
-                  searchPlaceholder={t('patientTreatmentPlan.searchDoctor', 'Search doctor...')}
-                />
-              </div>
-
-              {/* Date & Time Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <form onSubmit={handleSubmitAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div
+              style={{
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                overflowY: 'auto',
+                flex: 1,
+              }}
+            >
+              {/* Patient Name Banner */}
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                }}
+              >
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                    {t('patientTreatmentPlan.appointmentDate', 'Date *')}
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={apptForm.date}
-                    onChange={(e) => setApptForm((prev) => ({ ...prev, date: e.target.value }))}
-                    className="form-control"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color, #cbd5e1)',
-                      fontSize: '13px',
-                    }}
-                  />
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted, #64748b)' }}>
+                    {t('patientTreatmentPlan.name', 'Patient')}:
+                  </span>
+                  <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-heading, #0f172a)', marginLeft: '8px' }}>
+                    {patientFullName || t('common.unnamed', 'Unnamed Patient')}
+                  </span>
                 </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                    {t('patientTreatmentPlan.appointmentTime', 'Start Time *')}
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={apptForm.startTime}
-                    onChange={(e) => {
-                      const st = e.target.value;
-                      // auto calculate 30 min end time
-                      const [h, m] = st.split(':').map(Number);
-                      if (!isNaN(h) && !isNaN(m)) {
-                        const totalM = h * 60 + m + apptForm.durationMinutes;
-                        const endH = String(Math.floor(totalM / 60) % 24).padStart(2, '0');
-                        const endM = String(totalM % 60).padStart(2, '0');
-                        setApptForm((prev) => ({ ...prev, startTime: st, endTime: `${endH}:${endM}` }));
-                      } else {
-                        setApptForm((prev) => ({ ...prev, startTime: st }));
-                      }
-                    }}
-                    className="form-control"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color, #cbd5e1)',
-                      fontSize: '13px',
-                    }}
-                  />
-                </div>
+                {patient?.recordNumber && (
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-700, #0f766e)', fontFamily: 'monospace' }}>
+                    #{patient.recordNumber}
+                  </span>
+                )}
               </div>
 
-              {/* Reason / Treatment */}
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                  {t('patientTreatmentPlan.appointmentReason', 'Reason / Treatment')}
-                </label>
-                <input
-                  type="text"
-                  value={apptForm.reason}
-                  onChange={(e) => setApptForm((prev) => ({ ...prev, reason: e.target.value }))}
-                  placeholder="e.g. Visit 1: Corona, Ionomero"
-                  className="form-control"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    fontSize: '13px',
-                  }}
-                />
-              </div>
+              {/* Multi-Doctor Division Mode */}
+              {isMultiDoctorModal ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      fontSize: '12.5px',
+                      color: 'var(--indigo-700, #4338ca)',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {t(
+                      'patientTreatmentPlan.doctorAppointmentsNotice',
+                      'This treatment plan contains services assigned to multiple doctors. An appointment will be scheduled for each doctor.'
+                    )}
+                  </div>
 
-              {/* Notes */}
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                  {t('patientTreatmentPlan.appointmentNotes', 'Appointment Notes')}
-                </label>
-                <textarea
-                  value={apptForm.notes}
-                  onChange={(e) => setApptForm((prev) => ({ ...prev, notes: e.target.value }))}
-                  rows={2}
-                  className="form-control"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    fontSize: '13px',
-                  }}
-                />
-              </div>
+                  {multiDoctorAppts.map((sched, idx) => (
+                    <div
+                      key={sched.doctorId || idx}
+                      style={{
+                        borderRadius: '10px',
+                        border: sched.selected
+                          ? '1.5px solid var(--primary-500, #0d9488)'
+                          : '1px solid var(--border-color, #e2e8f0)',
+                        backgroundColor: sched.selected ? 'var(--bg-card, #ffffff)' : 'var(--bg-surface-muted, #f8fafc)',
+                        padding: '14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {/* Doctor Select Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={sched.selected}
+                            onChange={(e) => handleUpdateDoctorApptSchedule(idx, 'selected', e.target.checked)}
+                            style={{ width: '16px', height: '16px', accentColor: 'var(--primary-600, #0d9488)' }}
+                          />
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-heading, #0f172a)' }}>
+                            {sched.doctorName}
+                          </span>
+                        </label>
+                        <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)' }}>
+                          {sched.services.length}{' '}
+                          {sched.services.length === 1
+                            ? t('patientTreatmentPlan.procedure', 'procedure')
+                            : t('patientTreatmentPlan.procedures', 'procedures')}
+                        </span>
+                      </div>
+
+                      {sched.selected && (
+                        <>
+                          {/* Assigned Services Pills */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {sched.services.map((srv) => (
+                              <span
+                                key={srv.id}
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                                  border: '1px solid rgba(13, 148, 136, 0.25)',
+                                  color: 'var(--primary-700, #0f766e)',
+                                }}
+                              >
+                                {srv.treatmentName || 'Treatment'}{' '}
+                                {srv.otTeethNumber ? `(OT: ${srv.otTeethNumber})` : srv.toothNumbers?.length ? `(#${srv.toothNumbers.join(', #')})` : ''}{' '}
+                                x{srv.quantity}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Date & Start Time */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div>
+                              <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '3px' }}>
+                                {t('patientTreatmentPlan.appointmentDate', 'Date *')}
+                              </label>
+                              <input
+                                type="date"
+                                required
+                                value={sched.date}
+                                onChange={(e) => handleUpdateDoctorApptSchedule(idx, 'date', e.target.value)}
+                                className="form-control"
+                                style={{
+                                  width: '100%',
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color, #cbd5e1)',
+                                  fontSize: '12.5px',
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '3px' }}>
+                                {t('patientTreatmentPlan.appointmentTime', 'Start Time *')}
+                              </label>
+                              <input
+                                type="time"
+                                required
+                                value={sched.startTime}
+                                onChange={(e) => {
+                                  const st = e.target.value;
+                                  const [h, m] = st.split(':').map(Number);
+                                  if (!isNaN(h) && !isNaN(m)) {
+                                    const totalM = h * 60 + m + sched.durationMinutes;
+                                    const endH = String(Math.floor(totalM / 60) % 24).padStart(2, '0');
+                                    const endM = String(totalM % 60).padStart(2, '0');
+                                    handleUpdateDoctorApptSchedule(idx, 'startTime', st);
+                                    handleUpdateDoctorApptSchedule(idx, 'endTime', `${endH}:${endM}`);
+                                  } else {
+                                    handleUpdateDoctorApptSchedule(idx, 'startTime', st);
+                                  }
+                                }}
+                                className="form-control"
+                                style={{
+                                  width: '100%',
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color, #cbd5e1)',
+                                  fontSize: '12.5px',
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Reason */}
+                          <div>
+                            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '3px' }}>
+                              {t('patientTreatmentPlan.appointmentReason', 'Reason / Treatment')}
+                            </label>
+                            <input
+                              type="text"
+                              value={sched.reason}
+                              onChange={(e) => handleUpdateDoctorApptSchedule(idx, 'reason', e.target.value)}
+                              className="form-control"
+                              style={{
+                                width: '100%',
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-color, #cbd5e1)',
+                                fontSize: '12px',
+                              }}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Single Doctor Mode */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Doctor Select */}
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
+                      {t('patientTreatmentPlan.doctorColumn', 'Doctor *')}
+                    </label>
+                    <SearchableSelect
+                      options={doctorOptions}
+                      value={apptForm.doctorId}
+                      onChange={(val) => setApptForm((prev) => ({ ...prev, doctorId: val }))}
+                      placeholder={t('patientTreatmentPlan.selectDoctor', 'Select Doctor...')}
+                      searchPlaceholder={t('patientTreatmentPlan.searchDoctor', 'Search doctor...')}
+                    />
+                  </div>
+
+                  {/* Date & Time Row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
+                        {t('patientTreatmentPlan.appointmentDate', 'Date *')}
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={apptForm.date}
+                        onChange={(e) => setApptForm((prev) => ({ ...prev, date: e.target.value }))}
+                        className="form-control"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color, #cbd5e1)',
+                          fontSize: '13px',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
+                        {t('patientTreatmentPlan.appointmentTime', 'Start Time *')}
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={apptForm.startTime}
+                        onChange={(e) => {
+                          const st = e.target.value;
+                          const [h, m] = st.split(':').map(Number);
+                          if (!isNaN(h) && !isNaN(m)) {
+                            const totalM = h * 60 + m + apptForm.durationMinutes;
+                            const endH = String(Math.floor(totalM / 60) % 24).padStart(2, '0');
+                            const endM = String(totalM % 60).padStart(2, '0');
+                            setApptForm((prev) => ({ ...prev, startTime: st, endTime: `${endH}:${endM}` }));
+                          } else {
+                            setApptForm((prev) => ({ ...prev, startTime: st }));
+                          }
+                        }}
+                        className="form-control"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color, #cbd5e1)',
+                          fontSize: '13px',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reason / Treatment */}
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
+                      {t('patientTreatmentPlan.appointmentReason', 'Reason / Treatment')}
+                    </label>
+                    <input
+                      type="text"
+                      value={apptForm.reason}
+                      onChange={(e) => setApptForm((prev) => ({ ...prev, reason: e.target.value }))}
+                      placeholder="e.g. Treatment Plan 1: Corona, Resina"
+                      className="form-control"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color, #cbd5e1)',
+                        fontSize: '13px',
+                      }}
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
+                      {t('patientTreatmentPlan.appointmentNotes', 'Appointment Notes')}
+                    </label>
+                    <textarea
+                      value={apptForm.notes}
+                      onChange={(e) => setApptForm((prev) => ({ ...prev, notes: e.target.value }))}
+                      rows={2}
+                      className="form-control"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color, #cbd5e1)',
+                        fontSize: '13px',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -3299,10 +4205,97 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                 }}
               >
                 {apptSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Calendar size={15} />}
-                <span>{t('patientTreatmentPlan.schedule', 'Schedule')}</span>
+                <span>
+                  {isMultiDoctorModal
+                    ? t('patientTreatmentPlan.scheduleAllDoctorAppointments', 'Schedule All Appointments')
+                    : t('patientTreatmentPlan.schedule', 'Schedule')}
+                </span>
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    )}
+
+    {/* ─── Delete Treatment Plan Confirmation Modal ─── */}
+    {planToDelete && (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: 'var(--bg-card, #ffffff)',
+            borderRadius: '14px',
+            padding: '24px',
+            maxWidth: '440px',
+            width: '100%',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                backgroundColor: '#fee2e2',
+                color: '#b91c1c',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Trash2 size={18} />
+            </div>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--text-heading, #0f172a)' }}>
+              {t('patientTreatmentPlan.deletePlan', 'Delete Plan')}
+            </h3>
+          </div>
+          <p style={{ fontSize: '13.5px', color: 'var(--text-muted, #64748b)', margin: '0 0 20px', lineHeight: 1.5 }}>
+            {t(
+              'patientTreatmentPlan.deletePlanConfirm',
+              'Are you sure you want to delete this treatment plan and all its services?'
+            )}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setPlanToDelete(null)}
+              style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}
+            >
+              {t('common.cancel', 'Cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={confirmDeleteGroup}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+              }}
+            >
+              {t('common.delete', 'Delete')}
+            </button>
+          </div>
         </div>
       </div>
     )}

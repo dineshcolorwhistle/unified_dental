@@ -5,12 +5,14 @@ import { useTranslation } from 'react-i18next';
 export interface SearchableSelectOption {
   value: string;
   label: string;
+  selectedLabel?: string;
   sublabel?: string;
   group?: string;
   badge?: string;
   badgeBg?: string;
   badgeColor?: string;
   icon?: React.ReactNode;
+  disabled?: boolean;
 }
 
 export interface SearchableSelectProps {
@@ -20,6 +22,8 @@ export interface SearchableSelectProps {
   placeholder?: string;
   searchPlaceholder?: string;
   disabled?: boolean;
+  compact?: boolean;
+  triggerStyle?: React.CSSProperties;
   icon?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
@@ -32,6 +36,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   placeholder,
   searchPlaceholder,
   disabled = false,
+  compact = false,
+  triggerStyle,
   icon,
   className = '',
   style,
@@ -157,16 +163,32 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
       {/* Select Trigger */}
       <button
         type="button"
-        className={`searchable-select-trigger ${isOpen ? 'open' : ''}`}
+        className={`searchable-select-trigger ${isOpen ? 'open' : ''} ${compact ? 'compact' : ''}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
+        style={{
+          width: '100%',
+          minWidth: 0,
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          ...(compact
+            ? {
+                padding: '4px 8px',
+                minHeight: '32px',
+                height: '32px',
+                fontSize: '12px',
+                borderRadius: '6px',
+              }
+            : {}),
+          ...triggerStyle,
+        }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
           {icon && <span style={{ color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}>{icon}</span>}
           {selectedOption ? (
             <div
               style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}
-              title={selectedOption.label}
+              title={selectedOption.selectedLabel || selectedOption.label}
             >
               {selectedOption.icon && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
@@ -185,7 +207,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   flex: 1,
                 }}
               >
-                {selectedOption.label}
+                {selectedOption.selectedLabel || selectedOption.label}
               </span>
               {selectedOption.badge && (
                 <span
@@ -220,7 +242,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           )}
         </div>
         <ChevronDown
-          size={16}
+          size={compact ? 13 : 16}
           style={{
             color: 'var(--text-muted)',
             transition: 'transform 0.18s ease',
@@ -281,15 +303,20 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   <div className="searchable-select-group-header">{groupName}</div>
                   {items.map((opt) => {
                     const isSelected = opt.value === value;
+                    const isDisabled = !!opt.disabled;
                     return (
                       <div
                         key={opt.value}
-                        className={`searchable-select-item ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleSelect(opt.value)}
+                        className={`searchable-select-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                        onClick={() => !isDisabled && handleSelect(opt.value)}
+                        style={{
+                          opacity: isDisabled ? 0.45 : 1,
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                           {opt.icon}
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                             {opt.label}
                           </span>
                           {opt.badge && (
@@ -319,15 +346,20 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
             ) : (
               filteredOptions.map((opt) => {
                 const isSelected = opt.value === value;
+                const isDisabled = !!opt.disabled;
                 return (
                   <div
                     key={opt.value}
-                    className={`searchable-select-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => handleSelect(opt.value)}
+                    className={`searchable-select-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                    onClick={() => !isDisabled && handleSelect(opt.value)}
+                    style={{
+                      opacity: isDisabled ? 0.45 : 1,
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                       {opt.icon}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                         {opt.label}
                       </span>
                       {opt.badge && (
@@ -337,10 +369,12 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                             padding: '1px 5px',
                             borderRadius: '4px',
                             backgroundColor: isSelected
-                              ? 'rgba(13, 148, 136, 0.2)'
-                              : 'var(--bg-surface-muted)',
-                            color: isSelected ? 'var(--primary-600)' : 'var(--text-subtle)',
+                              ? (opt.badgeBg || 'rgba(13, 148, 136, 0.2)')
+                              : (opt.badgeBg || 'var(--bg-surface-muted)'),
+                            color: opt.badgeColor || (isSelected ? 'var(--primary-600)' : 'var(--text-subtle)'),
+                            border: opt.badgeColor ? `1px solid ${opt.badgeColor}33` : undefined,
                             fontWeight: 700,
+                            flexShrink: 0,
                           }}
                         >
                           {opt.badge}

@@ -960,7 +960,7 @@ export const ClinicPatientsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Clinical Actions: Odontogram, Add Note, Clinical History */}
+                        {/* Clinical Actions: Odontogram, Treatment Plans, Add Note, Clinical History */}
                         <td style={{ padding: '14px 18px', textAlign: 'center' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             {/* 1. Odontogram */}
@@ -971,15 +971,13 @@ export const ClinicPatientsPage: React.FC = () => {
                               title={t('clinicPatients.table.odontogram', 'Odontogram')}
                               style={{
                                 padding: '6px',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 color: 'var(--primary-600, #0d9488)',
                                 backgroundColor: 'rgba(20, 184, 166, 0.08)',
                                 border: '1px solid rgba(20, 184, 166, 0.25)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                minWidth: '34px',
-                                minHeight: '34px',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease',
                               }}
@@ -992,10 +990,40 @@ export const ClinicPatientsPage: React.FC = () => {
                                 e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
                               }}
                             >
-                              <ToothIcon size={18} />
+                              <ToothIcon size={15} />
                             </button>
 
-                            {/* 2. Add Note */}
+                            {/* 2. Treatment Plans */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => navigate(`/clinic/patients/${p.id}/treatment-plan`)}
+                              title={t('clinicPatients.table.treatmentPlan', 'Treatment Plans')}
+                              style={{
+                                padding: '6px',
+                                borderRadius: '6px',
+                                color: 'var(--emerald-600, #059669)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.18)';
+                                e.currentTarget.style.borderColor = 'var(--emerald-500, #10b981)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                              }}
+                            >
+                              <ClipboardList size={15} />
+                            </button>
+
+                            {/* 3. Add Note */}
                             <button
                               type="button"
                               className="btn btn-ghost"
@@ -1003,15 +1031,13 @@ export const ClinicPatientsPage: React.FC = () => {
                               title={t('clinicPatients.table.addNote', 'Add Note')}
                               style={{
                                 padding: '6px',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 color: 'var(--primary-600, #0284c7)',
                                 backgroundColor: 'rgba(14, 165, 233, 0.08)',
                                 border: '1px solid rgba(14, 165, 233, 0.25)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                minWidth: '34px',
-                                minHeight: '34px',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease',
                               }}
@@ -1024,10 +1050,10 @@ export const ClinicPatientsPage: React.FC = () => {
                                 e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.25)';
                               }}
                             >
-                              <FilePlus size={17} />
+                              <FilePlus size={15} />
                             </button>
 
-                            {/* 3. Clinical History */}
+                            {/* 4. Clinical History */}
                             <button
                               type="button"
                               className="btn btn-ghost"
@@ -1035,15 +1061,13 @@ export const ClinicPatientsPage: React.FC = () => {
                               title={t('clinicPatients.table.clinicalHistory', 'Clinical History')}
                               style={{
                                 padding: '6px',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 color: 'var(--indigo-600, #6366f1)',
                                 backgroundColor: 'rgba(99, 102, 241, 0.08)',
                                 border: '1px solid rgba(99, 102, 241, 0.25)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                minWidth: '34px',
-                                minHeight: '34px',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease',
                               }}
@@ -1056,7 +1080,7 @@ export const ClinicPatientsPage: React.FC = () => {
                                 e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
                               }}
                             >
-                              <History size={17} />
+                              <History size={15} />
                             </button>
                           </div>
                         </td>
@@ -2153,6 +2177,26 @@ export const ClinicPatientsPage: React.FC = () => {
               >
                 <History size={14} />
                 {t('clinicPatients.table.clinicalHistory', 'Clinical History')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const id = viewingPatient.id;
+                  setViewingPatient(null);
+                  navigate(`/clinic/patients/${id}/treatment-plan`);
+                }}
+                style={{
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--emerald-600, #059669)',
+                  borderColor: 'rgba(16, 185, 129, 0.3)',
+                }}
+              >
+                <ClipboardList size={14} />
+                {t('clinicPatients.table.treatmentPlan', 'Treatment Plans')}
               </button>
               <button
                 type="button"

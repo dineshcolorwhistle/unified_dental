@@ -1503,6 +1503,8 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -1514,6 +1516,14 @@ button {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   outline: none;
   text-align: left;
+}
+
+.searchable-select-trigger.compact {
+  padding: 4px 8px;
+  min-height: 32px;
+  height: 32px;
+  font-size: 12px;
+  border-radius: 6px;
 }
 
 .searchable-select-trigger:hover:not(:disabled) {

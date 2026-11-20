@@ -669,7 +669,7 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                               />
                               <strong style={{ color: '#0f172a', whiteSpace: 'nowrap' }}>{proc.treatmentName}</strong>
                               <span style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                                (#{proc.toothNumbers.join(', #')})
+                                ({proc.toothNumbers.join(', ')})
                               </span>
                             </div>
                           ))}
@@ -713,7 +713,7 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                               />
                               <strong style={{ color: '#0f172a', whiteSpace: 'nowrap' }}>{proc.treatmentName}</strong>
                               <span style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                                (#{proc.toothNumbers.join(', #')})
+                                ({proc.toothNumbers.join(', ')})
                               </span>
                             </div>
                           ))}
@@ -841,6 +841,23 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                               #
                             </span>
                             <span>{group.name}</span>
+                            {group.status && (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  backgroundColor: '#f1f5f9',
+                                  border: '1px solid #cbd5e1',
+                                  color: '#334155',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {group.status}
+                              </span>
+                            )}
                             {group.confirmed && (
                               <span
                                 style={{
@@ -905,7 +922,7 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                               {item.treatmentName}
                             </td>
                             <td style={{ padding: '8px 12px', color: '#475569' }}>
-                              {item.zoneText}
+                              {item.otTeethNumber ? item.otTeethNumber.replace(/#/g, '').trim() : item.zoneText || '—'}
                             </td>
                             <td style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>
                               {item.quantity}
