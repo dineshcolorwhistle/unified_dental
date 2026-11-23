@@ -149,8 +149,13 @@ export class IncomeController {
   getAudit(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.incomeService.getAudit(id, user.activeTenantId);
+    return this.incomeService.getAudit(id, user.activeTenantId, {
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Patch(':id/finalize')

@@ -122,6 +122,14 @@ export interface IncomeAuditItem {
   user?: { id: string; name: string; email: string };
 }
 
+export interface PaginatedIncomeAuditResponse {
+  records: IncomeAuditItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface IncomeVarianceData {
   expectedAmount: number;
   actualCompletedTotal: number;
@@ -262,8 +270,20 @@ export const incomeService = {
     return res.data;
   },
 
-  getAudit: async (id: string): Promise<IncomeAuditItem[]> => {
-    const res = await api.get(`/clinic/income/${id}/audit`);
+  getAudit: async (
+    id: string,
+    params?: { page?: number; limit?: number },
+  ): Promise<PaginatedIncomeAuditResponse> => {
+    const res = await api.get(`/clinic/income/${id}/audit`, { params });
+    if (Array.isArray(res.data)) {
+      return {
+        records: res.data,
+        total: res.data.length,
+        page: 1,
+        limit: res.data.length || 10,
+        totalPages: 1,
+      };
+    }
     return res.data;
   },
 

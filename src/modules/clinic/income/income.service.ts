@@ -1219,16 +1219,39 @@ export class IncomeService {
   }
 
   /**
-   * Get audit trail
+   * Get audit trail with pagination
    */
-  async getAudit(incomeRecordId: string, tenantId: string) {
-    return this.prisma.incomeAudit.findMany({
-      where: { incomeRecordId, tenantId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
-    });
+  async getAudit(
+    incomeRecordId: string,
+    tenantId: string,
+    query?: { page?: number; limit?: number },
+  ) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query?.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const where = { incomeRecordId, tenantId };
+
+    const [total, records] = await Promise.all([
+      this.prisma.incomeAudit.count({ where }),
+      this.prisma.incomeAudit.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+    ]);
+
+    return {
+      records,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   /**

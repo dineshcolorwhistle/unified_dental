@@ -19,6 +19,7 @@ import {
   PatientAdvancePaymentItem,
 } from '../../services/clinicAdvancePaymentService';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
+import { Pagination } from '../../components/common/Pagination';
 import {
   ArrowLeft,
   Calendar,
@@ -53,6 +54,11 @@ export const AppointmentIncomePage: React.FC = () => {
   const [record, setRecord] = useState<IncomeRecordDetail | null>(null);
   const [variance, setVariance] = useState<IncomeVarianceData | null>(null);
   const [auditLogs, setAuditLogs] = useState<IncomeAuditItem[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditLimit, setAuditLimit] = useState(10);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'income' | 'audit'>('income');
   const [patientAdvanceBalance, setPatientAdvanceBalance] = useState<number>(0);
@@ -127,6 +133,25 @@ export const AppointmentIncomePage: React.FC = () => {
     notes: '',
   });
 
+  // Load paginated audit logs
+  const fetchAuditLogs = useCallback(
+    async (incomeRecordId: string, page = 1, limit = auditLimit) => {
+      try {
+        setAuditLoading(true);
+        const res = await incomeService.getAudit(incomeRecordId, { page, limit });
+        setAuditLogs(res.records || []);
+        setAuditTotal(res.total || 0);
+        setAuditTotalPages(res.totalPages || 1);
+        setAuditPage(page);
+      } catch (err) {
+        console.error('Failed to load audit logs', err);
+      } finally {
+        setAuditLoading(false);
+      }
+    },
+    [auditLimit]
+  );
+
   // Load Record & Associated Metadata
   const loadIncomeDetails = useCallback(async () => {
     if (!appointmentId) return;
@@ -138,10 +163,16 @@ export const AppointmentIncomePage: React.FC = () => {
       if (detail?.id) {
         const [varData, auditData] = await Promise.allSettled([
           incomeService.getVariance(detail.id),
-          incomeService.getAudit(detail.id),
+          incomeService.getAudit(detail.id, { page: 1, limit: auditLimit }),
         ]);
         if (varData.status === 'fulfilled') setVariance(varData.value);
-        if (auditData.status === 'fulfilled') setAuditLogs(auditData.value);
+        if (auditData.status === 'fulfilled') {
+          const res = auditData.value;
+          setAuditLogs(res.records || []);
+          setAuditTotal(res.total || 0);
+          setAuditTotalPages(res.totalPages || 1);
+          setAuditPage(1);
+        }
       }
 
       // Fetch patient available advance balance
@@ -166,7 +197,7 @@ export const AppointmentIncomePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [appointmentId, isSpanish, toastError]);
+  }, [appointmentId, isSpanish, toastError, auditLimit]);
 
   useEffect(() => {
     loadIncomeDetails();
@@ -241,7 +272,7 @@ export const AppointmentIncomePage: React.FC = () => {
       }
       setAdvancePayments(advances);
 
-      const balDue = Math.max(0, Number(record.balanceDue || 0));
+      const balDue = totalPendingAmount > 0 ? totalPendingAmount : Math.max(0, Number(record.balanceDue || 0));
       setPaymentForm({
         paymentDate: new Date().toISOString().split('T')[0],
         paymentMethodId: validMethods[0]?.id || '',
@@ -536,6 +567,17 @@ export const AppointmentIncomePage: React.FC = () => {
       .reduce((sum, line) => sum + Number(line.lineTotal || 0), 0);
   }, [record]);
 
+  const completedProductsAmount = useMemo(() => {
+    if (!record?.productLines) return 0;
+    return record.productLines
+      .filter((line) => line.paymentStatus === 'PAID')
+      .reduce((sum, line) => sum + Number(line.lineTotal || 0), 0);
+  }, [record]);
+
+  const totalPendingAmount = useMemo(() => {
+    return pendingServicesAmount + pendingProductsAmount;
+  }, [pendingServicesAmount, pendingProductsAmount]);
+
   const selectedAdvanceBalance = useMemo(() => {
     if (!paymentForm.advancePaymentId) return 0;
     const found = advancePayments.find((a) => a.id === paymentForm.advancePaymentId);
@@ -703,7 +745,13 @@ export const AppointmentIncomePage: React.FC = () => {
           )}
           <button
             type="button"
-            onClick={() => setActiveTab(activeTab === 'income' ? 'audit' : 'income')}
+            onClick={() => {
+              const nextTab = activeTab === 'income' ? 'audit' : 'income';
+              setActiveTab(nextTab);
+              if (nextTab === 'audit' && record?.id) {
+                fetchAuditLogs(record.id, auditPage, auditLimit);
+              }
+            }}
             className={`btn btn-sm ${activeTab === 'audit' ? 'btn-primary' : 'btn-secondary'}`}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
@@ -969,11 +1017,18 @@ export const AppointmentIncomePage: React.FC = () => {
               <span>{t('income.auditSection', 'Audit History')}</span>
             </h2>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {auditLogs.length} {isSpanish ? 'registros' : 'records'}
+              {auditTotal} {isSpanish ? 'registros' : 'records'}
             </span>
           </div>
 
-          {auditLogs.length === 0 ? (
+          {auditLoading ? (
+            <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+              <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 8px' }} />
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                {isSpanish ? 'Cargando registros...' : 'Loading audit entries...'}
+              </p>
+            </div>
+          ) : auditLogs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)', fontSize: '14px' }}>
               {isSpanish ? 'No hay registros de auditoría aún.' : 'No audit entries recorded yet.'}
             </div>
@@ -1018,6 +1073,30 @@ export const AppointmentIncomePage: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Mandatory Table/List Pagination Standard (Rule 11) */}
+          {auditTotal > 0 && (
+            <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+              <Pagination
+                currentPage={auditPage}
+                totalPages={auditTotalPages}
+                totalItems={auditTotal}
+                pageSize={auditLimit}
+                pageSizeOptions={[10, 25, 50, 100]}
+                onPageChange={(p) => {
+                  if (record?.id) {
+                    fetchAuditLogs(record.id, p, auditLimit);
+                  }
+                }}
+                onPageSizeChange={(sz) => {
+                  setAuditLimit(sz);
+                  if (record?.id) {
+                    fetchAuditLogs(record.id, 1, sz);
+                  }
+                }}
+              />
             </div>
           )}
         </div>
@@ -1606,7 +1685,7 @@ export const AppointmentIncomePage: React.FC = () => {
                 {isSpanish ? 'Resumen Financiero' : 'Financial Summary'}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                {/* Pending Services */}
+                {/* 1. Pending Services */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>{t('income.pendingServicesTotal', 'Pending Services')}</span>
                   <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-heading)' }}>
@@ -1614,7 +1693,7 @@ export const AppointmentIncomePage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Pending Products */}
+                {/* 2. Pending Products */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>{t('income.pendingProductsTotal', 'Pending Products')}</span>
                   <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-heading)' }}>
@@ -1622,19 +1701,12 @@ export const AppointmentIncomePage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Total Discount */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-                  <span>{t('income.totalDiscount', 'Total Discount')}</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--rose-500)' }}>
-                    -${Number(record.totalDiscount || 0).toFixed(2)}
-                  </span>
-                </div>
+                {/* Separator line below these two fields */}
+                <div style={{ borderTop: '1px solid var(--border-color)', margin: '2px 0' }} />
 
-                {/* Grand Total */}
+                {/* 3. Total (Combined Pending Amount) */}
                 <div
                   style={{
-                    paddingTop: '8px',
-                    borderTop: '1px solid var(--border-color)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     fontWeight: 700,
@@ -1642,76 +1714,62 @@ export const AppointmentIncomePage: React.FC = () => {
                     color: 'var(--text-heading)',
                   }}
                 >
-                  <span>{t('income.grandTotal', 'Grand Total')}</span>
-                  <span style={{ fontFamily: 'monospace' }}>${Number(record.grandTotal || 0).toFixed(2)}</span>
+                  <span>{t('income.totalPendingCombined', 'Total')}</span>
+                  <span style={{ fontFamily: 'monospace' }}>${totalPendingAmount.toFixed(2)}</span>
                 </div>
 
-                {/* Total Paid */}
+                {/* Separator line below the Total */}
+                <div style={{ borderTop: '1px solid var(--border-color)', margin: '2px 0' }} />
+
+                {/* 4. Completed Service Amount (Same font size and styling as settled services text) */}
                 <div
                   style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    color: 'var(--emerald-600)',
-                    fontWeight: 600,
                   }}
                 >
-                  <span>{t('income.totalPaid', 'Total Paid')}</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>${Number(record.totalPaid || 0).toFixed(2)}</span>
+                  <span>{t('income.completedServiceAmount', 'Completed Service Amount')}</span>
+                  <span style={{ fontFamily: 'monospace' }}>${settledServicesAmount.toFixed(2)}</span>
                 </div>
 
-                {/* Balance Due */}
+                {/* 5. Completed Product Amount (Same font size and styling as settled services text) */}
                 <div
                   style={{
-                    paddingTop: '8px',
-                    borderTop: '1px solid var(--border-color)',
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    fontWeight: 800,
-                    fontSize: '17px',
                   }}
                 >
-                  <span style={{ color: 'var(--text-heading)' }}>{t('income.balanceDue', 'Balance Due')}</span>
-                  <span
-                    style={{
-                      fontFamily: 'monospace',
-                      color: Number(record.balanceDue) > 0 ? 'var(--rose-500)' : 'var(--emerald-600)',
-                    }}
-                  >
-                    ${Number(record.balanceDue || 0).toFixed(2)}
-                  </span>
+                  <span>{t('income.completedProductAmount', 'Completed Product Amount')}</span>
+                  <span style={{ fontFamily: 'monospace' }}>${completedProductsAmount.toFixed(2)}</span>
                 </div>
-
-                {/* Informative Settled Services Note if any */}
-                {settledServicesAmount > 0 && (
-                  <div
-                    style={{
-                      paddingTop: '6px',
-                      fontSize: '11px',
-                      color: 'var(--text-muted)',
-                      borderTop: '1px dashed var(--border-color)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <span>{t('income.settledServicesNote', 'Settled / Completed Services')}</span>
-                    <span style={{ fontFamily: 'monospace' }}>${settledServicesAmount.toFixed(2)}</span>
-                  </div>
-                )}
               </div>
 
               <button
                 type="button"
                 onClick={handleOpenPayment}
-                disabled={Number(record.balanceDue) <= 0}
+                disabled={totalPendingAmount <= 0 && Number(record.balanceDue) <= 0}
                 className="btn btn-primary"
                 style={{
                   width: '100%',
                   justifyContent: 'center',
                   padding: '10px 16px',
                   gap: '8px',
-                  backgroundColor: Number(record.balanceDue) <= 0 ? 'var(--bg-secondary)' : 'var(--emerald-600)',
-                  color: Number(record.balanceDue) <= 0 ? 'var(--text-muted)' : '#ffffff',
-                  cursor: Number(record.balanceDue) <= 0 ? 'not-allowed' : 'pointer',
+                  backgroundColor:
+                    totalPendingAmount <= 0 && Number(record.balanceDue) <= 0
+                      ? 'var(--bg-secondary)'
+                      : 'var(--emerald-600)',
+                  color:
+                    totalPendingAmount <= 0 && Number(record.balanceDue) <= 0
+                      ? 'var(--text-muted)'
+                      : '#ffffff',
+                  cursor:
+                    totalPendingAmount <= 0 && Number(record.balanceDue) <= 0
+                      ? 'not-allowed'
+                      : 'pointer',
                 }}
               >
                 <CreditCard size={16} />
