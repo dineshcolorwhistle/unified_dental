@@ -32,6 +32,15 @@ export class ClinicServicesController {
     return this.clinicServicesService.findAll(user.activeTenantId, user, query);
   }
 
+  @Get('by-doctor/:doctorId')
+  @ApiOperation({ summary: 'Get services assigned to or available for a specific doctor' })
+  findByDoctor(
+    @Param('doctorId') doctorId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.clinicServicesService.findByDoctor(user.activeTenantId, doctorId, user);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get single clinic service by ID' })
   findOne(

@@ -51,6 +51,7 @@ import { ClinicPatientsPage } from './pages/clinic/ClinicPatientsPage';
 import { ClinicAppointmentsPage } from './pages/clinic/ClinicAppointmentsPage';
 import { ClinicWorkingHoursPage } from './pages/clinic/ClinicWorkingHoursPage';
 import { ClinicIncomePage } from './pages/clinic/ClinicIncomePage';
+import { AppointmentIncomePage } from './pages/clinic/AppointmentIncomePage';
 import { ClinicTreatmentsPage } from './pages/clinic/ClinicTreatmentsPage';
 import { ClinicPrescriptionsPage } from './pages/clinic/ClinicPrescriptionsPage';
 import { ClinicBillingPage } from './pages/clinic/ClinicBillingPage';
@@ -241,6 +242,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/patients/:patientId/odontogram" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><PatientOdontogramPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/patients/:patientId/treatment-plan" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><PatientTreatmentPlanPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicAppointmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/appointments/:appointmentId/income" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><AppointmentIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments/working-hours" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicWorkingHoursPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/income" element={<ProtectedRoute><FeatureProtectedRoute feature="income"><ClinicIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/treatments" element={<ProtectedRoute><FeatureProtectedRoute feature="treatments"><ClinicTreatmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />

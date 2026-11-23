@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api';
 import { useAuth } from '../../core/context/AuthContext';
@@ -6,6 +7,7 @@ import { useToast } from '../../core/context/ToastContext';
 import { Pagination } from '../../components/common/Pagination';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { DateRangePicker, DateRange } from '../../components/common/DateRangePicker';
+import { clinicServiceService, ClinicServiceItem } from '../../services/clinicServiceService';
 import {
   CalendarCheck,
   Calendar as CalendarIcon,
@@ -35,6 +37,7 @@ import {
   Lock,
   XCircle,
   RotateCcw,
+  DollarSign,
 } from 'lucide-react';
 
 interface PatientOption {
@@ -95,6 +98,21 @@ interface AppointmentItem {
   branch?: {
     id: string;
     name: string;
+  } | null;
+  expectedAmount?: number | string | null;
+  appointmentServices?: Array<{
+    id: string;
+    serviceId: string;
+    serviceName: string;
+    unitPrice: number | string;
+    quantity: number;
+  }>;
+  incomeRecord?: {
+    id: string;
+    status: string;
+    grandTotal: number | string;
+    totalPaid: number | string;
+    balanceDue: number | string;
   } | null;
   createdAt?: string;
 }
@@ -179,6 +197,7 @@ const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
 ];
 
 export const ClinicAppointmentsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { isClinicAdmin, isTenantAdmin, isClinicDoctor, user } = useAuth();
   const { success, error } = useToast();
@@ -281,7 +300,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
     endTime: '',
     durationMinutes: 30,
     type: 'CONSULTATION',
-    reason: '',
+    serviceIds: [] as string[],
+    expectedAmount: 0,
     notes: '',
   };
   interface SlotItem {
@@ -290,6 +310,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
     available: boolean;
   }
   const [formData, setFormData] = useState(initialFormState);
+  const [doctorServices, setDoctorServices] = useState<ClinicServiceItem[]>([]);
+  const [loadingDoctorServices, setLoadingDoctorServices] = useState<boolean>(false);
   const [availableSlots, setAvailableSlots] = useState<SlotItem[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
 
@@ -577,6 +599,24 @@ export const ClinicAppointmentsPage: React.FC = () => {
     }
   };
 
+  // Fetch services by doctor
+  const fetchDoctorServices = useCallback(async (doctorId: string) => {
+    if (!doctorId) {
+      setDoctorServices([]);
+      return;
+    }
+    try {
+      setLoadingDoctorServices(true);
+      const svcs = await clinicServiceService.getByDoctor(doctorId);
+      setDoctorServices(svcs);
+    } catch (err) {
+      console.error('Failed to load services for doctor', err);
+      setDoctorServices([]);
+    } finally {
+      setLoadingDoctorServices(false);
+    }
+  }, []);
+
   // Open Create Modal
   const openCreateModal = (prefillDate?: string, prefillTime?: string) => {
     if (!canAddOrUpdate) return;
@@ -589,9 +629,11 @@ export const ClinicAppointmentsPage: React.FC = () => {
       endTime: '',
       durationMinutes: 30,
       type: 'CONSULTATION',
-      reason: '',
+      serviceIds: [],
+      expectedAmount: 0,
       notes: '',
     });
+    setDoctorServices([]);
     setAvailableSlots([]);
     setFormMode('create');
     setEditingId(null);
@@ -603,6 +645,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
   const openEditModal = (apt: AppointmentItem) => {
     if (!canAddOrUpdate) return;
     const dStr = apt.date ? apt.date.substring(0, 10) : getTodayString();
+    const initialServiceIds = (apt.appointmentServices || []).map((s) => s.serviceId);
     setFormData({
       patientId: apt.patientId,
       doctorId: apt.doctorId,
@@ -611,9 +654,15 @@ export const ClinicAppointmentsPage: React.FC = () => {
       endTime: apt.endTime,
       durationMinutes: apt.durationMinutes || 30,
       type: apt.type || 'CONSULTATION',
-      reason: apt.reason || '',
+      serviceIds: initialServiceIds,
+      expectedAmount: Number(apt.expectedAmount || 0),
       notes: apt.notes || '',
     });
+    if (apt.doctorId) {
+      fetchDoctorServices(apt.doctorId);
+    } else {
+      setDoctorServices([]);
+    }
     setFormMode('edit');
     setEditingId(apt.id);
     setEditingAppointment(apt);
@@ -703,6 +752,10 @@ export const ClinicAppointmentsPage: React.FC = () => {
       error(isSpanish ? 'La hora de fin debe ser posterior a la de inicio' : 'End time must be after start time');
       return;
     }
+    if (!formData.serviceIds || formData.serviceIds.length === 0) {
+      error(isSpanish ? 'Por favor selecciona al menos un servicio' : 'Please select at least one service');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -716,7 +769,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
               patientId: formData.patientId,
               doctorId: formData.doctorId,
               type: formData.type,
-              reason: formData.reason,
+              serviceIds: formData.serviceIds,
+              expectedAmount: formData.expectedAmount,
               notes: formData.notes,
             }
           : formData;
@@ -764,6 +818,10 @@ export const ClinicAppointmentsPage: React.FC = () => {
       }
       if (viewingAppointment?.id === appointmentId) {
         setViewingAppointment((prev) => (prev ? { ...prev, ...(res.data || {}), status: newStatus as any } : null));
+      }
+      // If appointment was started, auto-redirect to dedicated Income page
+      if (newStatus === 'IN_PROGRESS') {
+        navigate(`/clinic/appointments/${appointmentId}/income`);
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to update status';
@@ -1499,29 +1557,6 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                 <CheckCircle2 size={12} />
                                 <span>{isSpanish ? 'Finalizar' : 'End'}</span>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handlePromptCancel(apt)}
-                                className="btn btn-sm"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '4px 8px',
-                                  fontSize: '11.5px',
-                                  fontWeight: 500,
-                                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                                  color: '#dc2626',
-                                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease',
-                                }}
-                                title={isSpanish ? 'Cancelar cita' : 'Cancel appointment'}
-                              >
-                                <XCircle size={12} />
-                                <span>{isSpanish ? 'Cancelar' : 'Cancel'}</span>
-                              </button>
                             </div>
                           )}
 
@@ -1537,6 +1572,24 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         {/* Actions */}
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {/* Income Page (non-cancelled appointments) */}
+                            {canAddOrUpdate && apt.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/clinic/appointments/${apt.id}/income`)}
+                                className="btn btn-secondary btn-sm"
+                                style={{
+                                  padding: '5px 8px',
+                                  color: '#059669',
+                                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                  borderColor: 'rgba(16, 185, 129, 0.25)',
+                                }}
+                                title={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}
+                              >
+                                <DollarSign size={14} />
+                              </button>
+                            )}
+
                             {/* View Details (All roles) */}
                             <button
                               type="button"
@@ -2128,10 +2181,21 @@ export const ClinicAppointmentsPage: React.FC = () => {
                     options={doctorFormOptions}
                     value={formData.doctorId}
                     onChange={(val) => {
-                      setFormData({ ...formData, doctorId: val, startTime: '', endTime: '' });
-                      if (val && formData.date) {
-                        fetchAvailableSlots(val, formData.date, formData.durationMinutes || 30);
+                      setFormData({
+                        ...formData,
+                        doctorId: val,
+                        startTime: '',
+                        endTime: '',
+                        serviceIds: [],
+                        expectedAmount: 0,
+                      });
+                      if (val) {
+                        fetchDoctorServices(val);
+                        if (formData.date) {
+                          fetchAvailableSlots(val, formData.date, formData.durationMinutes || 30);
+                        }
                       } else {
+                        setDoctorServices([]);
                         setAvailableSlots([]);
                       }
                     }}
@@ -2202,6 +2266,142 @@ export const ClinicAppointmentsPage: React.FC = () => {
                       opacity: isSlotLocked ? 0.75 : 1,
                     }}
                   />
+                </div>
+
+                {/* Services Multi-Select — Placed immediately after Date field */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                      {isSpanish ? 'Servicios *' : 'Services *'}
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {isSpanish ? 'Total Estimado:' : 'Total Amount:'}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color: '#059669',
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                        }}
+                      >
+                        ${Number(formData.expectedAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!formData.doctorId ? (
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px dashed var(--border-color)',
+                        color: 'var(--text-muted)',
+                        fontSize: '12.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <Info size={15} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+                      <span>{isSpanish ? 'Selecciona un doctor para cargar los servicios disponibles.' : 'Select a doctor to view available services.'}</span>
+                    </div>
+                  ) : loadingDoctorServices ? (
+                    <div style={{ padding: '10px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                      {isSpanish ? 'Cargando servicios...' : 'Loading services...'}
+                    </div>
+                  ) : doctorServices.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        color: '#b45309',
+                        fontSize: '12.5px',
+                      }}
+                    >
+                      {isSpanish ? 'No hay servicios activos registrados para este doctor o clínica.' : 'No active services found for this doctor or clinic.'}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--bg-input, #ffffff)',
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        padding: '6px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      {doctorServices.map((svc) => {
+                        const isSelected = formData.serviceIds.includes(svc.id);
+                        const priceNum = Number(svc.price);
+                        return (
+                          <label
+                            key={svc.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                              border: isSelected ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              userSelect: 'none',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  const newIds = checked
+                                    ? [...formData.serviceIds, svc.id]
+                                    : formData.serviceIds.filter((id) => id !== svc.id);
+
+                                  // Recalculate total
+                                  const newTotal = doctorServices
+                                    .filter((s) => newIds.includes(s.id))
+                                    .reduce((acc, s) => acc + Number(s.price), 0);
+
+                                  setFormData({
+                                    ...formData,
+                                    serviceIds: newIds,
+                                    expectedAmount: newTotal,
+                                  });
+                                }}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--primary-600, #4f46e5)' }}
+                              />
+                              <span style={{ fontSize: '13px', fontWeight: isSelected ? 600 : 400, color: 'var(--text-heading)' }}>
+                                {svc.name}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '12.5px', fontWeight: 600, color: isSelected ? '#059669' : 'var(--text-muted)' }}>
+                              ${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Duration Selector */}
@@ -2484,26 +2684,6 @@ export const ClinicAppointmentsPage: React.FC = () => {
                     onChange={(val) => setFormData({ ...formData, type: val })}
                     placeholder={isSpanish ? 'Seleccionar tipo...' : 'Select type...'}
                     icon={<FileText size={14} />}
-                  />
-                </div>
-
-                {/* Reason (Textarea) */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
-                    {isSpanish ? 'Motivo de Consulta' : 'Reason for Visit'}
-                  </label>
-                  <textarea
-                    rows={2}
-                    className="input"
-                    value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    placeholder={isSpanish ? 'Ej. Consulta general, revisión de rutina, etc.' : 'e.g. General consultation, routine checkup, etc.'}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      fontSize: '13px',
-                      resize: 'vertical',
-                    }}
                   />
                 </div>
 
@@ -2936,15 +3116,50 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Reason & Notes (Clean typography without redundant card borders) */}
-              {(viewingAppointment.reason || viewingAppointment.notes || viewingAppointment.cancellationReason) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+              {/* Services & Notes */}
+              {(viewingAppointment.appointmentServices?.length || viewingAppointment.reason || viewingAppointment.notes || viewingAppointment.cancellationReason) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
                   {viewingAppointment.cancellationReason && (
                     <div style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '12.5px', color: '#dc2626' }}>
                       <strong>{isSpanish ? 'Motivo de Cancelación' : 'Cancellation Reason'}:</strong> {viewingAppointment.cancellationReason}
                     </div>
                   )}
-                  {viewingAppointment.reason && (
+
+                  {/* Assigned Services with Prices */}
+                  {viewingAppointment.appointmentServices && viewingAppointment.appointmentServices.length > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                          {isSpanish ? 'Servicios Asignados' : 'Assigned Services'}
+                        </span>
+                        {viewingAppointment.expectedAmount !== undefined && viewingAppointment.expectedAmount !== null && (
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#059669' }}>
+                            {isSpanish ? 'Total: ' : 'Total: '}${Number(viewingAppointment.expectedAmount).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {viewingAppointment.appointmentServices.map((as) => (
+                          <span
+                            key={as.id}
+                            style={{
+                              fontSize: '12px',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                              border: '1px solid rgba(99, 102, 241, 0.25)',
+                              color: '#4f46e5',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {as.serviceName} (${Number(as.unitPrice).toFixed(2)})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewingAppointment.reason && !viewingAppointment.appointmentServices?.length && (
                     <div>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
                         {isSpanish ? 'Motivo de la Cita' : 'Reason for Visit'}

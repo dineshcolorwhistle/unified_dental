@@ -11,6 +11,7 @@ import { ClinicDoctorsController } from './users/clinic-doctors.controller';
 import { ClinicTypesModule } from './types/clinic-types.module';
 import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { IncomeModule } from './income/income.module';
 import { ClinicPaymentMethodsController } from './payment-methods/clinic-payment-methods.controller';
 import { ClinicPaymentMethodsService } from './payment-methods/clinic-payment-methods.service';
 import { SpecializationsController } from './specializations/specializations.controller';
@@ -32,6 +33,7 @@ import { ClinicOdontogramService } from './odontogram/clinic-odontogram.service'
     ClinicTypesModule,
     PatientsModule,
     AppointmentsModule,
+    IncomeModule,
   ],
   controllers: [
     ClinicAdminController,
@@ -61,6 +63,7 @@ import { ClinicOdontogramService } from './odontogram/clinic-odontogram.service'
     ClinicTypesModule,
     PatientsModule,
     AppointmentsModule,
+    IncomeModule,
   ],
 })
 export class ClinicModule {}

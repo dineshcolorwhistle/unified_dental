@@ -16,6 +16,7 @@ import {
   UpdateDoctorWorkingHoursDto,
 } from './dto/working-hours.dto';
 import { Prisma } from '@prisma/client';
+import { IncomeService } from '../income/income.service';
 
 const VALID_STATUSES = [
   'SCHEDULED',
@@ -37,7 +38,10 @@ const VALID_TYPES = [
 export class AppointmentsService {
   private readonly logger = new Logger(AppointmentsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly incomeService: IncomeService,
+  ) {}
 
   // ============================================================================
   // ROLE HELPERS
@@ -349,6 +353,24 @@ export class AppointmentsService {
               name: true,
             },
           },
+          incomeRecord: {
+            select: {
+              id: true,
+              status: true,
+              grandTotal: true,
+              totalPaid: true,
+              balanceDue: true,
+            },
+          },
+          appointmentServices: {
+            select: {
+              id: true,
+              serviceId: true,
+              serviceName: true,
+              unitPrice: true,
+              quantity: true,
+            },
+          },
         },
       }),
     ]);
@@ -405,6 +427,24 @@ export class AppointmentsService {
         },
         endedBy: {
           select: { id: true, name: true, email: true },
+        },
+        incomeRecord: {
+          select: {
+            id: true,
+            status: true,
+            grandTotal: true,
+            totalPaid: true,
+            balanceDue: true,
+          },
+        },
+        appointmentServices: {
+          select: {
+            id: true,
+            serviceId: true,
+            serviceName: true,
+            unitPrice: true,
+            quantity: true,
+          },
         },
       },
     });
@@ -491,6 +531,33 @@ export class AppointmentsService {
 
     const appointmentNumber = await this.generateAppointmentNumber(tenantId);
 
+    // Resolve services and calculate expected amount if serviceIds provided
+    let expectedAmount: number | null = null;
+    const resolvedServices: { serviceId: string; serviceName: string; unitPrice: number; quantity: number }[] = [];
+
+    if (dto.serviceIds && dto.serviceIds.length > 0) {
+      let sum = 0;
+      for (const sId of dto.serviceIds) {
+        const s = await this.prisma.service.findFirst({
+          where: { id: sId, tenantId },
+        });
+        if (s) {
+          const ds = await this.prisma.doctorService.findFirst({
+            where: { tenantId, doctorId: dto.doctorId, serviceId: sId },
+          });
+          const unitPrice = ds ? Number(ds.customPrice) : Number(s.price);
+          sum += unitPrice;
+          resolvedServices.push({
+            serviceId: s.id,
+            serviceName: s.name,
+            unitPrice,
+            quantity: 1,
+          });
+        }
+      }
+      expectedAmount = sum;
+    }
+
     const appointment = await this.prisma.appointment.create({
       data: {
         tenantId,
@@ -508,7 +575,17 @@ export class AppointmentsService {
         status: 'SCHEDULED',
         reason: dto.reason || null,
         notes: dto.notes || null,
+        expectedAmount: expectedAmount !== null ? new Prisma.Decimal(expectedAmount.toFixed(2)) : null,
         createdById: actor.id,
+        appointmentServices: {
+          create: resolvedServices.map((rs) => ({
+            tenantId,
+            serviceId: rs.serviceId,
+            serviceName: rs.serviceName,
+            unitPrice: new Prisma.Decimal(rs.unitPrice.toFixed(2)),
+            quantity: rs.quantity,
+          })),
+        },
       },
       include: {
         patient: {
@@ -525,8 +602,16 @@ export class AppointmentsService {
         branch: {
           select: { id: true, name: true },
         },
+        appointmentServices: true,
       },
     });
+
+    // Auto-create associated IncomeRecord in DRAFT status so it appears immediately in the Income listing
+    try {
+      await this.incomeService.getOrCreateByAppointment(appointment.id, tenantId, actor);
+    } catch (err: any) {
+      this.logger.error(`Failed to auto-create IncomeRecord for ${appointmentNumber}: ${err.message}`);
+    }
 
     this.logger.log(
       `📅 Appointment ${appointmentNumber} created by ${actor.id} for patient ${dto.patientId} with Dr. ${doctorUser.name}`,
@@ -657,6 +742,51 @@ export class AppointmentsService {
       updateData.durationMinutes = newDuration;
     }
 
+    if (dto.serviceIds !== undefined) {
+      await this.prisma.appointmentService.deleteMany({
+        where: { appointmentId: id },
+      });
+
+      let sum = 0;
+      const targetDoctorId = dto.doctorId || existing.doctorId;
+      const resolvedServices: { serviceId: string; serviceName: string; unitPrice: number; quantity: number }[] = [];
+
+      for (const sId of dto.serviceIds) {
+        const s = await this.prisma.service.findFirst({
+          where: { id: sId, tenantId },
+        });
+        if (s) {
+          const ds = await this.prisma.doctorService.findFirst({
+            where: { tenantId, doctorId: targetDoctorId, serviceId: sId },
+          });
+          const unitPrice = ds ? Number(ds.customPrice) : Number(s.price);
+          sum += unitPrice;
+          resolvedServices.push({
+            serviceId: s.id,
+            serviceName: s.name,
+            unitPrice,
+            quantity: 1,
+          });
+        }
+      }
+
+      if (resolvedServices.length > 0) {
+        await this.prisma.appointmentService.createMany({
+          data: resolvedServices.map((rs) => ({
+            tenantId,
+            appointmentId: id,
+            serviceId: rs.serviceId,
+            serviceName: rs.serviceName,
+            unitPrice: new Prisma.Decimal(rs.unitPrice.toFixed(2)),
+            quantity: rs.quantity,
+          })),
+        });
+        updateData.expectedAmount = new Prisma.Decimal(sum.toFixed(2));
+      } else {
+        updateData.expectedAmount = null;
+      }
+    }
+
     const updated = await this.prisma.appointment.update({
       where: { id },
       data: updateData,
@@ -714,6 +844,11 @@ export class AppointmentsService {
     });
     if (!existing) {
       throw new NotFoundException(`Appointment with ID '${id}' not found`);
+    }
+
+    // Disallow cancelling an appointment that is already in progress
+    if (status === 'CANCELLED' && existing.status === 'IN_PROGRESS') {
+      throw new BadRequestException('Cannot cancel an appointment that is already in progress.');
     }
 
     const updateData: any = { status };
@@ -780,8 +915,18 @@ export class AppointmentsService {
       },
     });
 
+    let incomeRecordId: string | null = null;
+    if (status === 'IN_PROGRESS' || status === 'COMPLETED') {
+      try {
+        const inc = await this.incomeService.getOrCreateByAppointment(id, tenantId, actor);
+        incomeRecordId = inc.id;
+      } catch (err: any) {
+        this.logger.error(`Failed to ensure income record for appointment ${id}: ${err.message}`);
+      }
+    }
+
     this.logger.log(`🔄 Appointment ${existing.appointmentNumber} status → ${status} by ${actor.id}`);
-    return updated;
+    return { ...updated, incomeRecordId };
   }
 
   /**

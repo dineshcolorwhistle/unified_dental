@@ -134,6 +134,12 @@ model Tenant {
   patientOdontogramTreatments PatientOdontogramTreatment[]
   patientNotes         PatientNote[]
   patientAdvancePayments PatientAdvancePayment[]
+  appointmentServices         AppointmentService[]
+  incomeRecords               IncomeRecord[]
+  incomeServiceLines          IncomeServiceLine[]
+  incomeProductLines          IncomeProductLine[]
+  incomePayments              IncomePayment[]
+  incomeAudits                IncomeAudit[]
 
   @@map("tenants")
 }
@@ -247,6 +253,7 @@ model Branch {
   patientOdontogramDiagnostics PatientOdontogramDiagnostic[]
   patientOdontogramTreatments PatientOdontogramTreatment[]
   patientAdvancePayments      PatientAdvancePayment[]
+  incomeRecords               IncomeRecord[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -305,6 +312,12 @@ model User {
   patientNotes               PatientNote[] @relation("PatientNoteCreatedBy")
   advancePaymentsAsDoctor    PatientAdvancePayment[] @relation("AdvancePaymentDoctor")
   createdAdvancePayments     PatientAdvancePayment[] @relation("AdvancePaymentCreatedBy")
+  doctorIncomeRecords         IncomeRecord[] @relation("IncomeRecordDoctor")
+  createdIncomeRecords        IncomeRecord[] @relation("IncomeRecordCreatedBy")
+  doctorIncomeServiceLines    IncomeServiceLine[] @relation("IncomeServiceLineDoctor")
+  completedIncomeServiceLines IncomeServiceLine[] @relation("IncomeServiceLineCompletedBy")
+  createdIncomePayments       IncomePayment[] @relation("IncomePaymentCreatedBy")
+  incomeAudits                IncomeAudit[] @relation("IncomeAuditUser")
 
   @@map("users")
 }
@@ -704,6 +717,7 @@ model PaymentMethod {
 
   tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  incomePayments IncomePayment[]
 
   @@unique([tenantId, branchId, name])
   @@index([tenantId])
@@ -1030,6 +1044,7 @@ model InventoryItem {
   createdBy   User?             @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   activities  InventoryActivity[]
+  incomeProductLines IncomeProductLine[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -1271,6 +1286,7 @@ model Patient {
   odontogramTreatments        PatientOdontogramTreatment[]
   clinicalNotes               PatientNote[]
   advancePayments             PatientAdvancePayment[]
+  incomeRecords               IncomeRecord[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1330,6 +1346,7 @@ model PatientAdvancePayment {
   patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor    User?    @relation("AdvancePaymentDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
   createdBy User     @relation("AdvancePaymentCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  incomePayments IncomePayment[]
 
   @@index([tenantId, patientId])
   @@index([patientId, paymentDate])
@@ -1405,6 +1422,7 @@ model Appointment {
   reason             String?
   notes              String?  @db.Text
   cancellationReason String?  @map("cancellation_reason")
+  expectedAmount     Decimal? @db.Decimal(10, 2) @map("expected_amount")
   startedById        String?  @map("started_by_id")
   endedById          String?  @map("ended_by_id")
   createdById        String?  @map("created_by_id")
@@ -1418,6 +1436,8 @@ model Appointment {
   createdBy User?    @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   startedBy User?    @relation("AppointmentStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
   endedBy   User?    @relation("AppointmentEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  appointmentServices AppointmentService[]
+  incomeRecord        IncomeRecord?
 
   @@index([tenantId])
   @@index([tenantId, branchId])
@@ -1463,6 +1483,8 @@ model Service {
   tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   doctorServices DoctorService[]
+  appointmentServices AppointmentService[]
+  incomeServiceLines  IncomeServiceLine[]
 
   @@unique([tenantId, branchId, name])
   @@index([tenantId])
@@ -1654,4 +1676,164 @@ model PatientOdontogramTreatment {
   @@index([toothNumber])
   @@index([status])
   @@map("patient_odontogram_treatments")
+}
+
+// ─── Dental Clinic: Appointment Services & Income Module ───
+
+model AppointmentService {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  appointmentId String   @map("appointment_id")
+  serviceId     String   @map("service_id")
+  serviceName   String   @map("service_name")
+  unitPrice     Decimal  @db.Decimal(10, 2) @map("unit_price")
+  quantity      Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, serviceId])
+  @@index([tenantId, appointmentId])
+  @@map("appointment_services")
+}
+
+model IncomeRecord {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  branchId        String?  @map("branch_id")
+  appointmentId   String   @unique @map("appointment_id")
+  patientId       String   @map("patient_id")
+  doctorId        String   @map("doctor_id")
+  status          String   @default("DRAFT") // DRAFT, FINALIZED, CANCELLED
+  totalServices   Decimal  @default(0) @db.Decimal(10, 2) @map("total_services")
+  totalProducts   Decimal  @default(0) @db.Decimal(10, 2) @map("total_products")
+  totalDiscount   Decimal  @default(0) @db.Decimal(10, 2) @map("total_discount")
+  grandTotal      Decimal  @default(0) @db.Decimal(10, 2) @map("grand_total")
+  totalPaid       Decimal  @default(0) @db.Decimal(10, 2) @map("total_paid")
+  balanceDue      Decimal  @default(0) @db.Decimal(10, 2) @map("balance_due")
+  createdById     String   @map("created_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      User        @relation("IncomeRecordDoctor", fields: [doctorId], references: [id], onDelete: Cascade)
+  createdBy   User        @relation("IncomeRecordCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  serviceLines  IncomeServiceLine[]
+  productLines  IncomeProductLine[]
+  payments      IncomePayment[]
+  auditEntries  IncomeAudit[]
+
+  @@index([tenantId])
+  @@index([tenantId, appointmentId])
+  @@index([tenantId, patientId])
+  @@index([tenantId, doctorId])
+  @@index([tenantId, status])
+  @@map("income_records")
+}
+
+model IncomeServiceLine {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  incomeRecordId String    @map("income_record_id")
+  doctorId       String    @map("doctor_id")
+  serviceId      String    @map("service_id")
+  serviceName    String    @map("service_name")
+  quantity       Int       @default(1)
+  unitPrice      Decimal   @db.Decimal(10, 2) @map("unit_price")
+  discountType   String    @default("PERCENTAGE") @map("discount_type") // PERCENTAGE, FIXED
+  discountValue  Decimal   @default(0) @db.Decimal(10, 2) @map("discount_value")
+  discountAmount Decimal   @default(0) @db.Decimal(10, 2) @map("discount_amount")
+  lineTotal      Decimal   @db.Decimal(10, 2) @map("line_total")
+  isFromAppointment Boolean @default(false) @map("is_from_appointment")
+  isCompleted    Boolean   @default(false) @map("is_completed")
+  completedAt    DateTime? @map("completed_at")
+  completedById  String?   @map("completed_by_id")
+  paymentStatus  String    @default("PENDING") @map("payment_status") // PENDING, PAID
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incomeRecord IncomeRecord @relation(fields: [incomeRecordId], references: [id], onDelete: Cascade)
+  doctor       User         @relation("IncomeServiceLineDoctor", fields: [doctorId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  completedBy  User?        @relation("IncomeServiceLineCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, incomeRecordId])
+  @@index([incomeRecordId, isCompleted])
+  @@map("income_service_lines")
+}
+
+model IncomeProductLine {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  incomeRecordId  String   @map("income_record_id")
+  inventoryItemId String   @map("inventory_item_id")
+  productName     String   @map("product_name")
+  quantity        Int      @default(1)
+  unitPrice       Decimal  @db.Decimal(10, 2) @map("unit_price")
+  lineTotal       Decimal  @db.Decimal(10, 2) @map("line_total")
+  paymentStatus   String   @default("PENDING") @map("payment_status") // PENDING, PAID
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incomeRecord  IncomeRecord  @relation(fields: [incomeRecordId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, incomeRecordId])
+  @@map("income_product_lines")
+}
+
+model IncomePayment {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  incomeRecordId    String   @map("income_record_id")
+  paymentDate       DateTime @map("payment_date")
+  paymentMethodId   String   @map("payment_method_id")
+  paymentMethodName String   @map("payment_method_name")
+  amount            Decimal  @db.Decimal(10, 2)
+  advanceUsed       Decimal  @default(0) @db.Decimal(10, 2) @map("advance_used")
+  advancePaymentId  String?  @map("advance_payment_id")
+  allocation        String   @default("BOTH") // SERVICES, PRODUCTS, BOTH
+  notes             String?  @db.Text
+  createdById       String   @map("created_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incomeRecord   IncomeRecord           @relation(fields: [incomeRecordId], references: [id], onDelete: Cascade)
+  paymentMethod  PaymentMethod          @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  advancePayment PatientAdvancePayment? @relation(fields: [advancePaymentId], references: [id], onDelete: SetNull)
+  createdBy      User                   @relation("IncomePaymentCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, incomeRecordId])
+  @@map("income_payments")
+}
+
+model IncomeAudit {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  incomeRecordId String   @map("income_record_id")
+  userId         String   @map("user_id")
+  action         String
+  resourceType   String   @map("resource_type")
+  resourceId     String?  @map("resource_id")
+  oldValues      Json?    @map("old_values")
+  newValues      Json?    @map("new_values")
+  description    String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incomeRecord IncomeRecord @relation(fields: [incomeRecordId], references: [id], onDelete: Cascade)
+  user         User         @relation("IncomeAuditUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, incomeRecordId])
+  @@index([createdAt])
+  @@map("income_audits")
 }

@@ -47,6 +47,11 @@ export const clinicServiceService = {
     return Array.isArray(res.data) ? res.data : res.data?.data || [];
   },
 
+  getByDoctor: async (doctorId: string): Promise<ClinicServiceItem[]> => {
+    const res = await api.get(`/clinic/services/by-doctor/${doctorId}`);
+    return Array.isArray(res.data) ? res.data : res.data?.data || [];
+  },
+
   getById: async (id: string): Promise<ClinicServiceItem> => {
     const res = await api.get(`/clinic/services/${id}`);
     return res.data;
