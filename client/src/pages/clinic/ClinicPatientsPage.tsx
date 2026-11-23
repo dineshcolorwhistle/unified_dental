@@ -31,9 +31,11 @@ import {
   FilePlus,
   History,
   ClipboardList,
+  Wallet,
 } from 'lucide-react';
 import { AddPatientNoteModal } from '../../components/clinic/AddPatientNoteModal';
 import { PatientClinicalHistoryModal } from '../../components/clinic/PatientClinicalHistoryModal';
+import { PatientAdvancePaymentModal } from '../../components/clinic/PatientAdvancePaymentModal';
 
 interface PatientRecord {
   id: string;
@@ -134,6 +136,10 @@ export const ClinicPatientsPage: React.FC = () => {
   // Add Note Modal State
   const [isAddNoteOpen, setIsAddNoteOpen] = useState<boolean>(false);
   const [addNoteInitialPatientId, setAddNoteInitialPatientId] = useState<string | null>(null);
+
+  // Advance Payment Modal State
+  const [isAdvancePaymentOpen, setIsAdvancePaymentOpen] = useState<boolean>(false);
+  const [advancePaymentPatient, setAdvancePaymentPatient] = useState<PatientRecord | null>(null);
 
   // Clinical History Modal State
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
@@ -467,6 +473,11 @@ export const ClinicPatientsPage: React.FC = () => {
   const handleOpenAddNote = (patient?: PatientRecord | null) => {
     setAddNoteInitialPatientId(patient ? patient.id : null);
     setIsAddNoteOpen(true);
+  };
+
+  const handleOpenAdvancePayment = (patient?: PatientRecord | null) => {
+    setAdvancePaymentPatient(patient || null);
+    setIsAdvancePaymentOpen(true);
   };
 
   const handleOpenClinicalHistory = (patient: PatientRecord) => {
@@ -1053,7 +1064,37 @@ export const ClinicPatientsPage: React.FC = () => {
                               <FilePlus size={15} />
                             </button>
 
-                            {/* 4. Clinical History */}
+                            {/* 4. Advance Payment */}
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => handleOpenAdvancePayment(p)}
+                              title={t('clinicPatients.table.advancePayment', 'Advance Payment')}
+                              style={{
+                                padding: '6px',
+                                borderRadius: '6px',
+                                color: 'var(--emerald-600, #059669)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.18)';
+                                e.currentTarget.style.borderColor = 'var(--emerald-500, #10b981)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                              }}
+                            >
+                              <Wallet size={15} />
+                            </button>
+
+                            {/* 5. Clinical History */}
                             <button
                               type="button"
                               className="btn btn-ghost"
@@ -2164,6 +2205,27 @@ export const ClinicPatientsPage: React.FC = () => {
                 onClick={() => {
                   const p = viewingPatient;
                   setViewingPatient(null);
+                  handleOpenAdvancePayment(p);
+                }}
+                style={{
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: 'var(--emerald-700, #047857)',
+                  borderColor: 'rgba(16, 185, 129, 0.3)',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                }}
+              >
+                <Wallet size={14} />
+                {t('clinicPatients.table.advancePayment', 'Advance Payment')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const p = viewingPatient;
+                  setViewingPatient(null);
                   handleOpenClinicalHistory(p);
                 }}
                 style={{
@@ -2345,6 +2407,20 @@ export const ClinicPatientsPage: React.FC = () => {
           setAddNoteInitialPatientId(pid);
           setIsAddNoteOpen(true);
         }}
+      />
+
+      {/* ──────────────── PATIENT ADVANCE PAYMENT MODAL ──────────────── */}
+      <PatientAdvancePaymentModal
+        isOpen={isAdvancePaymentOpen}
+        onClose={() => {
+          setIsAdvancePaymentOpen(false);
+          setAdvancePaymentPatient(null);
+        }}
+        onSuccess={() => {
+          // Advance payment recorded
+        }}
+        initialPatientId={advancePaymentPatient?.id || null}
+        patientsList={patients}
       />
     </div>
   );

@@ -12,7 +12,9 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 import { QueryPatientDto } from './dto/query-patient.dto';
 import { CreatePatientNoteDto } from './dto/create-patient-note.dto';
 import { QueryPatientNoteDto } from './dto/query-patient-note.dto';
-import { PatientStatus, Prisma } from '@prisma/client';
+import { CreatePatientAdvancePaymentDto } from './dto/create-patient-advance-payment.dto';
+import { QueryPatientAdvancePaymentDto } from './dto/query-patient-advance-payment.dto';
+import { PatientStatus, Prisma, AdvancePaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class PatientsService {
@@ -668,5 +670,340 @@ export class PatientsService {
     });
 
     return { success: true, message: 'Clinical note deleted successfully' };
+  }
+
+  /**
+   * Generate an automated advance payment receipt number (e.g. ADV-2026-0001)
+   */
+  private async generateAdvancePaymentReceiptNumber(tenantId: string): Promise<string> {
+    const currentYear = new Date().getFullYear();
+    const prefix = `ADV-${currentYear}-`;
+
+    const lastPayment = await this.prisma.patientAdvancePayment.findFirst({
+      where: {
+        tenantId,
+        receiptNumber: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        receiptNumber: 'desc',
+      },
+      select: {
+        receiptNumber: true,
+      },
+    });
+
+    let sequence = 1;
+    if (lastPayment?.receiptNumber) {
+      const match = lastPayment.receiptNumber.match(/ADV-\d{4}-(\d+)/);
+      if (match && match[1]) {
+        sequence = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `${prefix}${sequence.toString().padStart(4, '0')}`;
+  }
+
+  /**
+   * Resolve treatment plan doctor context for a patient
+   */
+  async getTreatmentPlanDoctorContext(tenantId: string, patientId: string) {
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const [odontogram, patient] = await Promise.all([
+      this.prisma.patientOdontogram.findUnique({
+        where: { patientId },
+        select: {
+          id: true,
+          proposedPlan: true,
+        },
+      }),
+      this.prisma.patient.findFirst({
+        where: { id: patientId, tenantId },
+        select: { id: true, branchId: true },
+      }),
+    ]);
+
+    const proposedPlan = odontogram?.proposedPlan as any;
+    const groups = Array.isArray(proposedPlan?.groups) ? proposedPlan.groups : [];
+
+    const doctorIdsSet = new Set<string>();
+    groups.forEach((g: any) => {
+      if (Array.isArray(g.items)) {
+        g.items.forEach((it: any) => {
+          if (it.doctorId && typeof it.doctorId === 'string' && it.doctorId !== 'unassigned') {
+            doctorIdsSet.add(it.doctorId);
+          }
+        });
+      }
+    });
+
+    const doctorIds = Array.from(doctorIdsSet);
+    let doctors: Array<{ id: string; name: string; specialization?: string; email?: string }> = [];
+
+    if (doctorIds.length > 0) {
+      const dbDoctors = await this.prisma.user.findMany({
+        where: {
+          id: { in: doctorIds },
+          memberships: {
+            some: { tenantId },
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          userRoles: {
+            where: { tenantId },
+            select: {
+              role: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      doctors = dbDoctors.map((doc) => ({
+        id: doc.id,
+        name: doc.name,
+        email: doc.email,
+        specialization: doc.userRoles?.map((ur) => ur.role?.name).filter(Boolean).join(', ') || undefined,
+      }));
+    }
+
+    const hasTreatmentPlan = groups.length > 0;
+
+    return {
+      hasTreatmentPlan,
+      treatmentPlanCount: groups.length,
+      doctors,
+      branchId: patient?.branchId || null,
+    };
+  }
+
+  /**
+   * Create an advance payment record with audit tracking
+   */
+  async createAdvancePayment(
+    tenantId: string,
+    actor: AuthenticatedUser,
+    dto: CreatePatientAdvancePaymentDto,
+    patientIdParam?: string,
+    reqMetadata?: { ip?: string; userAgent?: string },
+  ) {
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const patientId = patientIdParam || dto.patientId;
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, tenantId },
+      include: { branch: true },
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID ${patientId} not found`);
+    }
+
+    const amountNum = Number(dto.amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      throw new BadRequestException('Advance payment amount must be greater than zero');
+    }
+
+    // Doctor validation (optional: only if doctorId is provided)
+    let doctorId: string | null = null;
+    let doctorName: string | null = null;
+    if (dto.doctorId && dto.doctorId.trim()) {
+      const doc = await this.prisma.user.findFirst({
+        where: {
+          id: dto.doctorId.trim(),
+          memberships: { some: { tenantId } },
+        },
+        select: { id: true, name: true },
+      });
+      if (!doc) {
+        throw new BadRequestException('Selected doctor does not exist or belong to this tenant');
+      }
+      doctorId = doc.id;
+      doctorName = doc.name;
+    }
+
+    const receiptNumber = await this.generateAdvancePaymentReceiptNumber(tenantId);
+    const paymentDate = dto.paymentDate ? new Date(dto.paymentDate) : new Date();
+
+    const advancePayment = await this.prisma.patientAdvancePayment.create({
+      data: {
+        tenantId,
+        branchId: actor.activeBranchId || patient.branchId,
+        patientId: patient.id,
+        doctorId,
+        receiptNumber,
+        amount: new Prisma.Decimal(amountNum),
+        balanceRemaining: new Prisma.Decimal(amountNum),
+        paymentMethod: dto.paymentMethod?.trim() || 'CASH',
+        paymentDate,
+        status: AdvancePaymentStatus.AVAILABLE,
+        notes: dto.notes?.trim() || null,
+        createdById: actor.id,
+      },
+      include: {
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Audit Tracking (Requirement 5)
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          tenantId,
+          branchId: advancePayment.branchId,
+          moduleKey: 'CLINIC',
+          userId: actor.id,
+          action: 'CREATE_ADVANCE_PAYMENT',
+          resourceType: 'PATIENT_ADVANCE_PAYMENT',
+          resourceId: advancePayment.id,
+          newValues: {
+            receiptNumber,
+            patientId: patient.id,
+            patientName: `${patient.firstName} ${patient.fatherLastName || ''}`.trim(),
+            doctorId,
+            doctorName,
+            amount: amountNum,
+            balanceRemaining: amountNum,
+            paymentMethod: advancePayment.paymentMethod,
+            paymentDate: advancePayment.paymentDate,
+            status: advancePayment.status,
+            notes: advancePayment.notes,
+            createdByName: actor.name,
+            createdByEmail: actor.email,
+          },
+          ipAddress: reqMetadata?.ip || null,
+          userAgent: reqMetadata?.userAgent || null,
+        },
+      });
+    } catch (auditErr) {
+      this.logger.warn('Failed to record audit log for advance payment creation', auditErr);
+    }
+
+    return advancePayment;
+  }
+
+  /**
+   * List advance payments for a patient with pagination and search
+   */
+  async findPatientAdvancePayments(
+    tenantId: string,
+    patientId: string,
+    query?: QueryPatientAdvancePaymentDto,
+  ) {
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, tenantId },
+      select: {
+        id: true,
+        recordNumber: true,
+        firstName: true,
+        fatherLastName: true,
+        motherLastName: true,
+      },
+    });
+
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID ${patientId} not found`);
+    }
+
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query?.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.PatientAdvancePaymentWhereInput = {
+      tenantId,
+      patientId,
+    };
+
+    if (query?.doctorId) {
+      where.doctorId = query.doctorId;
+    }
+
+    if (query?.status) {
+      where.status = query.status as any;
+    }
+
+    if (query?.search && query.search.trim()) {
+      const keyword = query.search.trim();
+      where.OR = [
+        { receiptNumber: { contains: keyword, mode: 'insensitive' } },
+        { notes: { contains: keyword, mode: 'insensitive' } },
+        { paymentMethod: { contains: keyword, mode: 'insensitive' } },
+        { doctor: { name: { contains: keyword, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, payments, totalsAggregate] = await Promise.all([
+      this.prisma.patientAdvancePayment.count({ where }),
+      this.prisma.patientAdvancePayment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { paymentDate: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        include: {
+          doctor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      this.prisma.patientAdvancePayment.aggregate({
+        where: { tenantId, patientId },
+        _sum: {
+          amount: true,
+          balanceRemaining: true,
+        },
+      }),
+    ]);
+
+    return {
+      payments,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      totalAdvancesAmount: Number(totalsAggregate._sum.amount || 0),
+      totalAvailableBalance: Number(totalsAggregate._sum.balanceRemaining || 0),
+      patient,
+    };
   }
 }

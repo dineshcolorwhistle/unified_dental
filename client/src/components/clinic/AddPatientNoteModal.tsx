@@ -31,6 +31,7 @@ export interface PatientOptionItem {
   motherLastName?: string | null;
   phoneCountryCode?: string | null;
   phoneNumber?: string | null;
+  branchId?: string | null;
 }
 
 export interface PatientNoteItem {

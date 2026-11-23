@@ -133,6 +133,7 @@ model Tenant {
   patientOdontogramDiagnostics PatientOdontogramDiagnostic[]
   patientOdontogramTreatments PatientOdontogramTreatment[]
   patientNotes         PatientNote[]
+  patientAdvancePayments PatientAdvancePayment[]
 
   @@map("tenants")
 }
@@ -245,6 +246,7 @@ model Branch {
   patientOdontograms          PatientOdontogram[]
   patientOdontogramDiagnostics PatientOdontogramDiagnostic[]
   patientOdontogramTreatments PatientOdontogramTreatment[]
+  patientAdvancePayments      PatientAdvancePayment[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -301,6 +303,8 @@ model User {
   diagnosedOdontograms       PatientOdontogramDiagnostic[]
   createdOdontogramTreatments PatientOdontogramTreatment[]
   patientNotes               PatientNote[] @relation("PatientNoteCreatedBy")
+  advancePaymentsAsDoctor    PatientAdvancePayment[] @relation("AdvancePaymentDoctor")
+  createdAdvancePayments     PatientAdvancePayment[] @relation("AdvancePaymentCreatedBy")
 
   @@map("users")
 }
@@ -1266,6 +1270,7 @@ model Patient {
   odontogramDiagnostics       PatientOdontogramDiagnostic[]
   odontogramTreatments        PatientOdontogramTreatment[]
   clinicalNotes               PatientNote[]
+  advancePayments             PatientAdvancePayment[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1293,6 +1298,45 @@ model PatientNote {
   @@index([patientId, noteDate])
   @@index([createdById])
   @@map("patient_notes")
+}
+
+enum AdvancePaymentStatus {
+  AVAILABLE
+  PARTIALLY_USED
+  CONSUMED
+  REFUNDED
+  CANCELLED
+}
+
+model PatientAdvancePayment {
+  id               String               @id @default(uuid())
+  tenantId         String               @map("tenant_id")
+  branchId         String?              @map("branch_id")
+  patientId        String               @map("patient_id")
+  doctorId         String?              @map("doctor_id")
+  receiptNumber    String               @map("receipt_number")
+  amount           Decimal              @db.Decimal(10, 2)
+  balanceRemaining Decimal              @db.Decimal(10, 2) @map("balance_remaining")
+  paymentMethod    String?              @map("payment_method")
+  paymentDate      DateTime             @default(now()) @map("payment_date")
+  status           AdvancePaymentStatus @default(AVAILABLE)
+  notes            String?              @db.Text
+  createdById      String               @map("created_by_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor    User?    @relation("AdvancePaymentDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
+  createdBy User     @relation("AdvancePaymentCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, patientId])
+  @@index([patientId, paymentDate])
+  @@index([tenantId, doctorId])
+  @@index([tenantId, status])
+  @@index([receiptNumber])
+  @@map("patient_advance_payments")
 }
 
 model ClinicWorkingHour {

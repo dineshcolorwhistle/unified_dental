@@ -54,13 +54,15 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
-    type: PaymentMethodType;
+    isIncome: boolean;
+    isExpense: boolean;
     branchId: string;
     isActive: boolean;
   }>({
     name: '',
     description: '',
-    type: 'BOTH',
+    isIncome: true,
+    isExpense: true,
     branchId: '',
     isActive: true,
   });
@@ -134,7 +136,8 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
     setFormData({
       name: '',
       description: '',
-      type: 'BOTH',
+      isIncome: true,
+      isExpense: true,
       branchId: selectedBranchFilter || user?.activeBranchId || branches[0]?.id || '',
       isActive: true,
     });
@@ -145,14 +148,23 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
   // Open Edit Modal
   const handleOpenEditModal = (item: PaymentMethodItem) => {
     setEditingMethod(item);
+    const itemType = item.type || 'BOTH';
     setFormData({
       name: item.name,
       description: item.description || '',
-      type: item.type || 'BOTH',
+      isIncome: itemType === 'INCOME' || itemType === 'BOTH',
+      isExpense: itemType === 'EXPENSE' || itemType === 'BOTH',
       branchId: item.branchId || '',
       isActive: item.isActive,
     });
     setFormErrors({});
+  };
+
+  // Helper to determine PaymentMethodType from checkboxes
+  const resolvePaymentMethodType = (): PaymentMethodType => {
+    if (formData.isIncome && formData.isExpense) return 'BOTH';
+    if (formData.isIncome) return 'INCOME';
+    return 'EXPENSE';
   };
 
   // Validate form
@@ -160,6 +172,9 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
     const errors: { [key: string]: string } = {};
     if (!formData.name.trim()) {
       errors.name = t('clinicPaymentMethods.errors.nameRequired', 'Payment method name is required');
+    }
+    if (!formData.isIncome && !formData.isExpense) {
+      errors.type = t('clinicPaymentMethods.errors.typeRequired', 'Please select at least one type (Income or Expense)');
     }
     if (isTenantAdmin && !formData.branchId) {
       errors.branchId = t('clinicPaymentMethods.errors.branchRequired', 'Clinic branch is required');
@@ -178,7 +193,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        type: formData.type || 'BOTH',
+        type: resolvePaymentMethodType(),
         isActive: formData.isActive,
       };
 
@@ -212,7 +227,7 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        type: formData.type || 'BOTH',
+        type: resolvePaymentMethodType(),
         isActive: formData.isActive,
       };
 
@@ -1016,36 +1031,53 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                 <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block' }}>
                   {t('clinicPaymentMethods.form.typeLabel', 'Type')} *
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                  {[
-                    { value: 'BOTH' as const, label: t('clinicPaymentMethods.types.both', 'Both (Income & Expense)'), color: '#0284c7', bg: 'rgba(56, 189, 248, 0.12)' },
-                    { value: 'INCOME' as const, label: t('clinicPaymentMethods.types.income', 'Income'), color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
-                    { value: 'EXPENSE' as const, label: t('clinicPaymentMethods.types.expense', 'Expense'), color: '#d97706', bg: 'rgba(245, 158, 11, 0.12)' },
-                  ].map((opt) => {
-                    const isSelected = formData.type === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setFormData((p) => ({ ...p, type: opt.value }))}
-                        style={{
-                          padding: '10px 6px',
-                          borderRadius: '8px',
-                          border: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border-color)',
-                          backgroundColor: isSelected ? opt.bg : 'var(--bg-surface)',
-                          color: isSelected ? opt.color : 'var(--text-main)',
-                          fontWeight: isSelected ? 700 : 500,
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '6px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    <input
+                      type="checkbox"
+                      id="clinic-pm-income"
+                      checked={formData.isIncome}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData((p) => ({ ...p, isIncome: checked }));
+                        if (checked && formErrors.type) {
+                          setFormErrors((p) => {
+                            const updated = { ...p };
+                            delete updated.type;
+                            return updated;
+                          });
+                        }
+                      }}
+                      style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
+                    />
+                    <span>{t('clinicPaymentMethods.types.income', 'Income')}</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    <input
+                      type="checkbox"
+                      id="clinic-pm-expense"
+                      checked={formData.isExpense}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData((p) => ({ ...p, isExpense: checked }));
+                        if (checked && formErrors.type) {
+                          setFormErrors((p) => {
+                            const updated = { ...p };
+                            delete updated.type;
+                            return updated;
+                          });
+                        }
+                      }}
+                      style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
+                    />
+                    <span>{t('clinicPaymentMethods.types.expense', 'Expense')}</span>
+                  </label>
                 </div>
+                {formErrors.type && (
+                  <span style={{ fontSize: '11px', color: 'var(--rose-500)', marginTop: '4px', display: 'block' }}>
+                    {formErrors.type}
+                  </span>
+                )}
               </div>
 
               {/* Description */}
@@ -1176,36 +1208,53 @@ export const ClinicPaymentMethodsPage: React.FC = () => {
                 <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block' }}>
                   {t('clinicPaymentMethods.form.typeLabel', 'Type')} *
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                  {[
-                    { value: 'BOTH' as const, label: t('clinicPaymentMethods.types.both', 'Both (Income & Expense)'), color: '#0284c7', bg: 'rgba(56, 189, 248, 0.12)' },
-                    { value: 'INCOME' as const, label: t('clinicPaymentMethods.types.income', 'Income'), color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
-                    { value: 'EXPENSE' as const, label: t('clinicPaymentMethods.types.expense', 'Expense'), color: '#d97706', bg: 'rgba(245, 158, 11, 0.12)' },
-                  ].map((opt) => {
-                    const isSelected = formData.type === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setFormData((p) => ({ ...p, type: opt.value }))}
-                        style={{
-                          padding: '10px 6px',
-                          borderRadius: '8px',
-                          border: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border-color)',
-                          backgroundColor: isSelected ? opt.bg : 'var(--bg-surface)',
-                          color: isSelected ? opt.color : 'var(--text-main)',
-                          fontWeight: isSelected ? 700 : 500,
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '6px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    <input
+                      type="checkbox"
+                      id="clinic-pm-edit-income"
+                      checked={formData.isIncome}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData((p) => ({ ...p, isIncome: checked }));
+                        if (checked && formErrors.type) {
+                          setFormErrors((p) => {
+                            const updated = { ...p };
+                            delete updated.type;
+                            return updated;
+                          });
+                        }
+                      }}
+                      style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
+                    />
+                    <span>{t('clinicPaymentMethods.types.income', 'Income')}</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    <input
+                      type="checkbox"
+                      id="clinic-pm-edit-expense"
+                      checked={formData.isExpense}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData((p) => ({ ...p, isExpense: checked }));
+                        if (checked && formErrors.type) {
+                          setFormErrors((p) => {
+                            const updated = { ...p };
+                            delete updated.type;
+                            return updated;
+                          });
+                        }
+                      }}
+                      style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
+                    />
+                    <span>{t('clinicPaymentMethods.types.expense', 'Expense')}</span>
+                  </label>
                 </div>
+                {formErrors.type && (
+                  <span style={{ fontSize: '11px', color: 'var(--rose-500)', marginTop: '4px', display: 'block' }}>
+                    {formErrors.type}
+                  </span>
+                )}
               </div>
 
               {/* Description */}

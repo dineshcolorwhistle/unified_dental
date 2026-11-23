@@ -304,20 +304,17 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
         <button
           type="button"
           onClick={onBack}
+          className="btn btn-secondary"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '9px 18px',
-            borderRadius: '10px',
-            fontWeight: 700,
+            height: '38px',
+            padding: '0 14px',
+            borderRadius: '8px',
             fontSize: '13px',
-            minHeight: '40px',
-            border: '1.5px solid #0d9488',
-            backgroundColor: 'rgba(13, 148, 136, 0.06)',
-            color: '#0f766e',
+            fontWeight: 600,
             cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(13, 148, 136, 0.12)',
             transition: 'all 0.15s ease',
           }}
         >
@@ -335,20 +332,17 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
         <button
           type="button"
           onClick={handlePrint}
+          className="btn btn-primary"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '9px 22px',
-            borderRadius: '10px',
-            fontWeight: 700,
+            height: '38px',
+            padding: '0 18px',
+            borderRadius: '8px',
             fontSize: '13px',
-            minHeight: '40px',
-            backgroundColor: '#0d9488',
-            color: '#ffffff',
-            border: '1.5px solid #0f766e',
+            fontWeight: 600,
             cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(13, 148, 136, 0.35)',
             transition: 'all 0.15s ease',
           }}
         >

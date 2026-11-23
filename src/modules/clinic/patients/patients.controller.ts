@@ -7,7 +7,9 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -15,6 +17,8 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 import { QueryPatientDto } from './dto/query-patient.dto';
 import { CreatePatientNoteDto } from './dto/create-patient-note.dto';
 import { QueryPatientNoteDto } from './dto/query-patient-note.dto';
+import { CreatePatientAdvancePaymentDto } from './dto/create-patient-advance-payment.dto';
+import { QueryPatientAdvancePaymentDto } from './dto/query-patient-advance-payment.dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 
 @ApiTags('Dental Clinic — Patients')
@@ -115,5 +119,49 @@ export class PatientsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.patientsService.deletePatientNote(user.activeTenantId, patientId, noteId, user);
+  }
+
+  @Get(':id/advance-payments/context')
+  @ApiOperation({ summary: 'Get treatment plan doctor context for patient advance payment' })
+  getAdvancePaymentContext(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.patientsService.getTreatmentPlanDoctorContext(user.activeTenantId, id);
+  }
+
+  @Post(':id/advance-payments')
+  @ApiOperation({ summary: 'Record an advance payment for a specific patient' })
+  createAdvancePaymentForPatient(
+    @Param('id') id: string,
+    @Body() dto: CreatePatientAdvancePaymentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || undefined;
+    const userAgent = req.headers['user-agent'] || undefined;
+    return this.patientsService.createAdvancePayment(user.activeTenantId, user, dto, id, { ip, userAgent });
+  }
+
+  @Post('advance-payments')
+  @ApiOperation({ summary: 'Record an advance payment with patientId in body' })
+  createAdvancePayment(
+    @Body() dto: CreatePatientAdvancePaymentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || undefined;
+    const userAgent = req.headers['user-agent'] || undefined;
+    return this.patientsService.createAdvancePayment(user.activeTenantId, user, dto, undefined, { ip, userAgent });
+  }
+
+  @Get(':id/advance-payments')
+  @ApiOperation({ summary: 'List advance payments for a patient with pagination and search' })
+  findPatientAdvancePayments(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryPatientAdvancePaymentDto,
+  ) {
+    return this.patientsService.findPatientAdvancePayments(user.activeTenantId, id, query);
   }
 }
