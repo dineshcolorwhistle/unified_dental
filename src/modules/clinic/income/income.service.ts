@@ -24,18 +24,54 @@ export class IncomeService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Helper to ensure appointment has not ended before mutating service/product lines
+   * Helper to ensure appointment is in progress (active) before mutating service/product lines.
+   * - If appointment is SCHEDULED (not started yet): cannot manage services, products, or record payments.
+   * - If appointment is SCHEDULED (not started yet): cannot manage services, products, or record payments.
+   * - If appointment is COMPLETED / CANCELLED: cannot manage services or products.
    */
-  private async assertAppointmentNotEnded(incomeRecordId: string, tenantId: string) {
+  private async assertAppointmentActive(incomeRecordId: string, tenantId: string) {
     const record = await this.prisma.incomeRecord.findFirst({
       where: { id: incomeRecordId, tenantId },
       include: { appointment: { select: { status: true } } },
     });
     if (!record) throw new NotFoundException('Income record not found');
-    if (record.appointment?.status === 'COMPLETED' || record.status === 'FINALIZED') {
+    const aptStatus = record.appointment?.status;
+
+    if (aptStatus === 'SCHEDULED') {
+      throw new ForbiddenException(
+        'The appointment has not started yet. Services and products cannot be managed until the appointment is In Progress.',
+      );
+    }
+    if (aptStatus === 'CANCELLED') {
+      throw new ForbiddenException('Cannot modify services or products for a cancelled appointment.');
+    }
+    if (aptStatus === 'COMPLETED') {
       throw new ForbiddenException(
         'Cannot add, modify, or delete services or products after the appointment has ended. Only payment settlements are permitted.',
       );
+    }
+    return record;
+  }
+
+  /**
+   * Helper to ensure appointment is at least started before processing payments.
+   * Payments are only allowed when appointment is IN_PROGRESS or COMPLETED (not SCHEDULED or CANCELLED).
+   */
+  private async assertPaymentAllowed(incomeRecordId: string, tenantId: string) {
+    const record = await this.prisma.incomeRecord.findFirst({
+      where: { id: incomeRecordId, tenantId },
+      include: { appointment: { select: { status: true } } },
+    });
+    if (!record) throw new NotFoundException('Income record not found');
+    const aptStatus = record.appointment?.status;
+
+    if (aptStatus === 'SCHEDULED') {
+      throw new ForbiddenException(
+        'The appointment has not started yet. Payments cannot be recorded until the appointment is In Progress or Completed.',
+      );
+    }
+    if (aptStatus === 'CANCELLED') {
+      throw new ForbiddenException('Cannot record payments for a cancelled appointment.');
     }
     return record;
   }
@@ -272,7 +308,22 @@ export class IncomeService {
     }
 
     if (query.status && query.status !== 'ALL') {
-      where.status = query.status;
+      if (query.status === 'NOT_STARTED') {
+        where.appointment = { ...where.appointment, status: 'SCHEDULED' };
+      } else if (query.status === 'PAID') {
+        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        where.balanceDue = { lte: 0 };
+      } else if (query.status === 'PARTIAL') {
+        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        where.totalPaid = { gt: 0 };
+        where.balanceDue = { gt: 0 };
+      } else if (query.status === 'PENDING') {
+        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        where.totalPaid = { equals: 0 };
+        where.balanceDue = { gt: 0 };
+      } else {
+        where.status = query.status;
+      }
     }
 
     if (query.startDate || query.endDate) {
@@ -615,7 +666,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const record = await this.prisma.incomeRecord.findFirst({
       where: { id: incomeRecordId, tenantId },
@@ -695,7 +746,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const line = await this.prisma.incomeServiceLine.findFirst({
       where: { id: lineId, incomeRecordId, tenantId },
@@ -757,7 +808,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const line = await this.prisma.incomeServiceLine.findFirst({
       where: { id: lineId, incomeRecordId, tenantId },
@@ -804,7 +855,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const line = await this.prisma.incomeServiceLine.findFirst({
       where: { id: lineId, incomeRecordId, tenantId },
@@ -843,7 +894,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const record = await this.prisma.incomeRecord.findFirst({
       where: { id: incomeRecordId, tenantId },
@@ -932,7 +983,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const line = await this.prisma.incomeProductLine.findFirst({
       where: { id: lineId, incomeRecordId, tenantId },
@@ -1035,7 +1086,7 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
-    await this.assertAppointmentNotEnded(incomeRecordId, tenantId);
+    await this.assertAppointmentActive(incomeRecordId, tenantId);
 
     const line = await this.prisma.incomeProductLine.findFirst({
       where: { id: lineId, incomeRecordId, tenantId },
@@ -1106,6 +1157,8 @@ export class IncomeService {
     tenantId: string,
     actor: AuthenticatedUser,
   ) {
+    await this.assertPaymentAllowed(incomeRecordId, tenantId);
+
     const record = await this.prisma.incomeRecord.findFirst({
       where: { id: incomeRecordId, tenantId },
       include: { patient: true },

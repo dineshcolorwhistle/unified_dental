@@ -38,6 +38,8 @@ import {
   XCircle,
   RotateCcw,
   DollarSign,
+  Loader2,
+  Flag,
 } from 'lucide-react';
 
 interface PatientOption {
@@ -113,6 +115,8 @@ interface AppointmentItem {
     grandTotal: number | string;
     totalPaid: number | string;
     balanceDue: number | string;
+    totalServices?: number | string;
+    totalProducts?: number | string;
   } | null;
   createdAt?: string;
 }
@@ -290,6 +294,20 @@ export const ClinicAppointmentsPage: React.FC = () => {
   const [cancellationReasonInput, setCancellationReasonInput] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Responsive mobile tracking for appointment modal (< 768px)
+  const [isMobileScreen, setIsMobileScreen] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
+  const [activeApptMobileTab, setActiveApptMobileTab] = useState<'form' | 'slots'>('form');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Form State
   const initialFormState = {
@@ -582,6 +600,9 @@ export const ClinicAppointmentsPage: React.FC = () => {
       startTime: slot.startTime,
       endTime: slot.endTime,
     }));
+    if (isMobileScreen) {
+      setActiveApptMobileTab('form');
+    }
   };
 
   // Handle duration change — re-fetch slots and recalculate endTime if a slot is selected
@@ -638,6 +659,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
     setFormMode('create');
     setEditingId(null);
     setEditingAppointment(null);
+    setActiveApptMobileTab('form');
     setIsFormModalOpen(true);
   };
 
@@ -666,6 +688,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
     setFormMode('edit');
     setEditingId(apt.id);
     setEditingAppointment(apt);
+    setActiveApptMobileTab('form');
     setIsFormModalOpen(true);
     // Only fetch slots if appointment has not started yet
     if (apt.doctorId && dStr && apt.status === 'SCHEDULED') {
@@ -1345,6 +1368,9 @@ export const ClinicAppointmentsPage: React.FC = () => {
                     <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
                       {isSpanish ? 'Estado' : 'Status'}
                     </th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      {isSpanish ? 'Estado de Cobro' : 'Income Status'}
+                    </th>
                     <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
                       {isSpanish ? 'Acción Clínica' : 'Clinical Action'}
                     </th>
@@ -1391,33 +1417,6 @@ export const ClinicAppointmentsPage: React.FC = () => {
                               <span>• {apt.patient?.phoneCountryCode || '+52'} {apt.patient?.phoneNumber}</span>
                             )}
                           </div>
-                          {apt.appointmentServices && apt.appointmentServices.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
-                              {apt.appointmentServices.map((as) => (
-                                <span
-                                  key={as.id}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                                    color: '#4f46e5',
-                                    fontWeight: 500,
-                                  }}
-                                  title={`${as.serviceName} - $${Number(as.unitPrice).toFixed(2)}${as.quantity > 1 ? ` x${as.quantity}` : ''}`}
-                                >
-                                  {as.serviceName}
-                                  {as.quantity > 1 ? ` (x${as.quantity})` : ''}
-                                </span>
-                              ))}
-                              {apt.expectedAmount !== undefined && apt.expectedAmount !== null && Number(apt.expectedAmount) > 0 && (
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', marginLeft: '2px' }}>
-                                  ${Number(apt.expectedAmount).toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </td>
 
                         {/* Doctor info */}
@@ -1503,6 +1502,60 @@ export const ClinicAppointmentsPage: React.FC = () => {
                           >
                             {isSpanish ? st.labelEs : st.labelEn}
                           </span>
+                        </td>
+
+                        {/* Income Status */}
+                        <td style={{ padding: '14px 16px' }}>
+                          {(() => {
+                            if (!apt.incomeRecord) {
+                              return (
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                                  {isSpanish ? 'Sin cobro' : 'No income'}
+                                </span>
+                              );
+                            }
+
+                            const isScheduled = apt.status === 'SCHEDULED';
+                            const inc = apt.incomeRecord;
+                            const balDue = Number(inc.balanceDue || 0);
+                            const totPaid = Number(inc.totalPaid || 0);
+                            const grTotal = Number(inc.grandTotal || 0);
+
+                            const isPaid = balDue <= 0 && (totPaid > 0 || grTotal === 0);
+                            const isPartial = totPaid > 0 && balDue > 0;
+
+                            const badgeStyle = isScheduled
+                              ? { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1', label: isSpanish ? 'No iniciada' : 'Not Started' }
+                              : isPaid
+                              ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', label: isSpanish ? 'Pagado' : 'Paid' }
+                              : isPartial
+                              ? { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: isSpanish ? 'Pago Parcial' : 'Partially Paid' }
+                              : { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: isSpanish ? 'Pendiente' : 'Pending' };
+
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                <span
+                                  style={{
+                                    fontSize: '11.5px',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    backgroundColor: badgeStyle.bg,
+                                    color: badgeStyle.color,
+                                    border: `1px solid ${badgeStyle.border}`,
+                                    fontWeight: 600,
+                                    display: 'inline-block',
+                                  }}
+                                >
+                                  {badgeStyle.label}
+                                </span>
+                                {balDue > 0 && (
+                                  <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 600, paddingLeft: '2px' }}>
+                                    {isSpanish ? 'Pend:' : 'Due:'} ${balDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Clinical Action */}
@@ -1599,8 +1652,45 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         {/* Actions */}
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            {/* Income Page (non-cancelled appointments) */}
-                            {canAddOrUpdate && apt.status !== 'CANCELLED' && (
+                            {/* Variance Flag: Display only when Ended (COMPLETED) and actual paid/completed differs from expected */}
+                            {(() => {
+                              if (apt.status !== 'COMPLETED') return null;
+
+                              const expectedAmt = Number(apt.expectedAmount || 0);
+                              const paidAmt = Number(apt.incomeRecord?.totalPaid ?? apt.incomeRecord?.totalServices ?? 0);
+                              const hasDifference = Math.abs(expectedAmt - paidAmt) > 0.01;
+
+                              if (!hasDifference) return null;
+
+                              const diffVal = paidAmt - expectedAmt;
+                              const tooltipText = isSpanish
+                                ? `Variación en monto: Inicial $${expectedAmt.toFixed(2)} vs Pagado $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`
+                                : `Amount variance: Expected $${expectedAmt.toFixed(2)} vs Paid $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`;
+
+                              return (
+                                <span
+                                  title={tooltipText}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                    color: '#d97706',
+                                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                                    cursor: 'help',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Flag size={14} fill="#d97706" />
+                                </span>
+                              );
+                            })()}
+
+                            {/* Income Page Action: accessible only when appointment has started (IN_PROGRESS or COMPLETED) */}
+                            {canAddOrUpdate && (apt.status === 'IN_PROGRESS' || apt.status === 'COMPLETED') && (
                               <button
                                 type="button"
                                 onClick={() => navigate(`/clinic/appointments/${apt.id}/income`)}
@@ -2137,29 +2227,242 @@ export const ClinicAppointmentsPage: React.FC = () => {
 
       {/* MODAL 1: ADD / EDIT APPOINTMENT (Clinic Admin ONLY) */}
       {isFormModalOpen && canAddOrUpdate && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '580px', width: '95%' }}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarCheck size={18} style={{ color: 'var(--primary-600)' }} />
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
-                  {formMode === 'create'
-                    ? (isSpanish ? 'Nueva Cita Médica' : 'Schedule New Appointment')
-                    : (isSpanish ? 'Editar Cita' : 'Edit Appointment')}
-                </h3>
+        <div
+          className="modal-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1060,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: isMobileScreen ? '10px' : '16px',
+          }}
+          onClick={() => setIsFormModalOpen(false)}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '1040px',
+              width: isMobileScreen ? '100%' : '95%',
+              height: isMobileScreen ? 'calc(100vh - 28px)' : '84vh',
+              maxHeight: isMobileScreen ? 'none' : '760px',
+              backgroundColor: 'var(--card-bg, #ffffff)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 22px',
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg, #ffffff)',
+                flexShrink: 0,
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary-600, #0d9488)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <CalendarCheck size={20} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h2
+                    style={{
+                      fontSize: '17px',
+                      fontWeight: 800,
+                      margin: 0,
+                      color: 'var(--text-heading, #0f172a)',
+                      lineHeight: '1.2',
+                    }}
+                  >
+                    {formMode === 'create'
+                      ? (isSpanish ? 'Nueva Cita Médica' : 'Schedule New Appointment')
+                      : (isSpanish ? 'Editar Cita' : 'Edit Appointment')}
+                  </h2>
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-muted, #64748b)',
+                      display: 'block',
+                      marginTop: '2px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {isSpanish
+                      ? 'Completa los detalles de la cita a la izquierda y selecciona un horario a la derecha.'
+                      : 'Fill in appointment details on the left and select an available time slot on the right.'}
+                  </span>
+                </div>
               </div>
+
               <button
                 type="button"
+                className="btn btn-ghost"
                 onClick={() => setIsFormModalOpen(false)}
-                className="btn-icon"
-                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  padding: 0,
+                  borderRadius: '8px',
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-muted, #64748b)',
+                  cursor: 'pointer',
+                }}
+                title={isSpanish ? 'Cerrar' : 'Close'}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '72vh', overflowY: 'auto', padding: '16px 20px' }}>
+            {/* Mobile Segmented Switcher (< 768px) */}
+            {isMobileScreen && (
+              <div
+                style={{
+                  display: 'flex',
+                  borderBottom: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-muted, #f8fafc)',
+                  padding: '6px 10px',
+                  gap: '8px',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveApptMobileTab('form')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeApptMobileTab === 'form' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeApptMobileTab === 'form' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeApptMobileTab === 'form' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <FileText size={15} />
+                  <span>{isSpanish ? 'Detalles y Notas' : 'Details & Notes'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveApptMobileTab('slots')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeApptMobileTab === 'slots' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeApptMobileTab === 'slots' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeApptMobileTab === 'slots' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Clock size={15} />
+                  <span>{isSpanish ? 'Horarios Disponibles' : 'Available Slots'}</span>
+                  {availableSlots.filter((s) => s.available).length > 0 && (
+                    <span
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: '999px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(13, 148, 136, 0.15)',
+                        color: 'var(--primary-700, #0f766e)',
+                      }}
+                    >
+                      {availableSlots.filter((s) => s.available).length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Split Content Area */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: isMobileScreen ? 'column' : 'row',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              {/* ════════════ LEFT PANE: APPOINTMENT CONFIGURATION & DETAILS ════════════ */}
+              {(!isMobileScreen || activeApptMobileTab === 'form') && (
+                <div
+                  style={{
+                    width: isMobileScreen ? '100%' : '52%',
+                    borderRight: isMobileScreen ? 'none' : '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                  }}
+                >
+                  <form
+                    onSubmit={handleFormSubmit}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flex: 1,
+                      minHeight: 0,
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '20px 24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '14px',
+                        overflowY: 'auto',
+                        flex: 1,
+                      }}
+                    >
                 {/* Patient Selector (SearchableSelect) + New Patient Button */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -2258,48 +2561,66 @@ export const ClinicAppointmentsPage: React.FC = () => {
                   </div>
                 )}
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
-                    {isSpanish ? 'Fecha *' : 'Date *'}
-                    {isSlotLocked && (
-                      <span style={{ marginLeft: '6px', fontSize: '11px', color: '#b45309', fontWeight: 500 }}>
-                        ({isSpanish ? 'Bloqueada' : 'Locked'})
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="date"
-                    className="input"
-                    min={getTodayString()}
-                    value={formData.date}
-                    disabled={isSlotLocked}
-                    onChange={(e) => {
-                      const newDate = e.target.value;
-                      if (newDate && newDate < getTodayString()) {
-                        return;
-                      }
-                      setFormData({ ...formData, date: newDate, startTime: '', endTime: '' });
-                      if (formData.doctorId && newDate) {
-                        fetchAvailableSlots(formData.doctorId, newDate, formData.durationMinutes || 30);
-                      }
-                    }}
-                    required
-                    style={{
-                      width: '100%',
-                      height: '40px',
-                      padding: '8px 10px',
-                      fontSize: '13px',
-                      cursor: isSlotLocked ? 'not-allowed' : 'auto',
-                      opacity: isSlotLocked ? 0.75 : 1,
-                    }}
-                  />
+                {/* Date & Duration Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: isSlotLocked ? '1fr' : '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
+                      {isSpanish ? 'Fecha *' : 'Date *'}
+                      {isSlotLocked && (
+                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#b45309', fontWeight: 500 }}>
+                          ({isSpanish ? 'Bloqueada' : 'Locked'})
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="date"
+                      className="input"
+                      min={getTodayString()}
+                      value={formData.date}
+                      disabled={isSlotLocked}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        if (newDate && newDate < getTodayString()) {
+                          return;
+                        }
+                        setFormData({ ...formData, date: newDate, startTime: '', endTime: '' });
+                        if (formData.doctorId && newDate) {
+                          fetchAvailableSlots(formData.doctorId, newDate, formData.durationMinutes || 30);
+                        }
+                      }}
+                      required
+                      style={{
+                        width: '100%',
+                        height: '40px',
+                        padding: '8px 10px',
+                        fontSize: '13px',
+                        cursor: isSlotLocked ? 'not-allowed' : 'auto',
+                        opacity: isSlotLocked ? 0.75 : 1,
+                      }}
+                    />
+                  </div>
+
+                  {!isSlotLocked && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
+                        {isSpanish ? 'Duración *' : 'Duration *'}
+                      </label>
+                      <SearchableSelect
+                        options={durationOptions}
+                        value={String(formData.durationMinutes || 30)}
+                        onChange={(val) => handleDurationChange(Number(val))}
+                        placeholder={isSpanish ? 'Seleccionar duración...' : 'Select duration...'}
+                        icon={<Clock size={14} />}
+                      />
+                    </div>
+                  )}
                 </div>
 
-                {/* Services Multi-Select — Placed immediately after Date field */}
+                {/* Services Multi-Select — Doctor services with checkboxes */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                      {isSpanish ? 'Servicios *' : 'Services *'}
+                      {isSpanish ? 'Servicios' : 'Services'}
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -2361,7 +2682,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         border: '1px solid var(--border-color)',
                         borderRadius: '8px',
                         backgroundColor: 'var(--bg-input, #ffffff)',
-                        maxHeight: '180px',
+                        maxHeight: '150px',
                         overflowY: 'auto',
                         padding: '6px',
                         display: 'flex',
@@ -2404,7 +2725,6 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                     ? [...formData.serviceIds, svc.id]
                                     : formData.serviceIds.filter((id) => id !== svc.id);
 
-                                  // Recalculate total
                                   const newTotal = doctorServices
                                     .filter((s) => newIds.includes(s.id))
                                     .reduce((acc, s) => acc + Number(s.price), 0);
@@ -2431,30 +2751,14 @@ export const ClinicAppointmentsPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Duration Selector */}
-                {!isSlotLocked && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
-                      {isSpanish ? 'Duración de la Cita *' : 'Appointment Duration *'}
-                    </label>
-                    <SearchableSelect
-                      options={durationOptions}
-                      value={String(formData.durationMinutes || 30)}
-                      onChange={(val) => handleDurationChange(Number(val))}
-                      placeholder={isSpanish ? 'Seleccionar duración...' : 'Select duration...'}
-                      icon={<Clock size={14} />}
-                    />
-                  </div>
-                )}
-
-                {/* Start Time & End Time Row (Read-Only — auto-populated from slot selection) */}
+                {/* Selected Time Row (Populated from Right Pane slots) */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
                       {isSpanish ? 'Hora de Inicio *' : 'Start Time *'}
                       {!isSlotLocked && (
                         <span style={{ marginLeft: '6px', fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 400 }}>
-                          ({isSpanish ? 'Auto' : 'Auto'})
+                          ({isSpanish ? 'Seleccionar a la derecha' : 'Select on right'})
                         </span>
                       )}
                     </label>
@@ -2472,8 +2776,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         fontSize: '13px',
                         cursor: 'default',
                         backgroundColor: 'var(--bg-secondary)',
-                        opacity: isSlotLocked ? 0.75 : 0.9,
-                        pointerEvents: 'none',
+                        opacity: isSlotLocked ? 0.75 : 0.95,
+                        borderColor: formData.startTime ? 'var(--primary-500, #0d9488)' : undefined,
                       }}
                     />
                   </div>
@@ -2483,7 +2787,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                       {isSpanish ? 'Hora de Fin *' : 'End Time *'}
                       {!isSlotLocked && (
                         <span style={{ marginLeft: '6px', fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 400 }}>
-                          ({isSpanish ? 'Auto' : 'Auto'})
+                          ({isSpanish ? 'Calculada auto' : 'Auto computed'})
                         </span>
                       )}
                     </label>
@@ -2501,244 +2805,91 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         fontSize: '13px',
                         cursor: 'default',
                         backgroundColor: 'var(--bg-secondary)',
-                        opacity: isSlotLocked ? 0.75 : 0.9,
-                        pointerEvents: 'none',
+                        opacity: isSlotLocked ? 0.75 : 0.95,
+                        borderColor: formData.endTime ? 'var(--primary-500, #0d9488)' : undefined,
                       }}
                     />
                   </div>
                 </div>
 
-                {/* Available Slots Picker (or Locked badge if already started) */}
-                {isSlotLocked ? (
-                  <div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#b45309', marginBottom: '8px' }}>
-                      <Lock size={15} style={{ color: '#d97706' }} />
-                      <span>{isSpanish ? 'Horario de Cita Asignado (En Curso)' : 'Assigned Active Slot'}</span>
-                    </label>
-                    <div
-                      style={{
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Clock size={16} style={{ color: '#d97706' }} />
-                        <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                          {formData.startTime} – {formData.endTime} ({formData.durationMinutes} min)
-                        </span>
-                      </div>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                          color: '#b45309',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {isSpanish ? 'Fijo / No modificable' : 'Fixed / Non-editable'}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#047857', margin: 0 }}>
-                        <Clock size={15} style={{ color: '#059669' }} />
-                        <span>{isSpanish ? `Horarios Disponibles (${formData.durationMinutes} min)` : `Available Slots (${formData.durationMinutes} min)`}</span>
-                        {availableSlots.length > 0 && (
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              padding: '1px 8px',
-                              borderRadius: '12px',
-                              backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                              color: '#047857',
-                            }}
-                          >
-                            {availableSlots.filter((s) => s.available).length} {isSpanish ? 'libres' : 'free'}
-                          </span>
-                        )}
-                      </label>
-
-                      {/* Booked Indicator Badge */}
-                      {availableSlots.some((s) => !s.available) && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', color: '#dc2626', fontWeight: 600 }}>
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
-                          <span>{isSpanish ? 'Ocupado' : 'Booked'}</span>
-                        </div>
-                      )}
-                    </div>
-
-                  {!formData.doctorId ? (
-                    <div
-                      style={{
-                        fontSize: '12.5px',
-                        color: 'var(--text-muted)',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px dashed var(--border-color)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                      }}
-                    >
-                      <Info size={15} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
-                      <span>
-                        {isSpanish
-                          ? 'Selecciona un doctor para consultar los horarios disponibles.'
-                          : 'Please select a doctor to view available time slots.'}
-                      </span>
-                    </div>
-                  ) : loadingSlots ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '8px 0' }}>
-                      {isSpanish ? 'Calculando horarios...' : 'Checking availability...'}
-                    </div>
-                  ) : availableSlots.length === 0 ? (
-                    <div
-                      style={{
-                        fontSize: '12.5px',
-                        color: 'var(--amber-500)',
-                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                      }}
-                    >
-                      {isSpanish
-                        ? 'No hay horarios disponibles en esta fecha o el doctor no labora hoy.'
-                        : 'No available slots for this doctor on the selected date.'}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))',
-                        gap: '8px',
-                        maxHeight: '190px',
-                        overflowY: 'auto',
-                        padding: '4px',
-                      }}
-                    >
-                      {availableSlots.map((slot) => {
-                        const isSelected = formData.startTime === slot.startTime;
-                        const isBooked = !slot.available;
-                        const label = `${slot.startTime}–${slot.endTime}`;
-
-                        if (isBooked) {
-                          return (
-                            <div
-                              key={slot.startTime}
-                              title={isSpanish ? 'Horario ya ocupado' : 'Slot already booked'}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '5px',
-                                padding: '8px 12px',
-                                borderRadius: '9999px',
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: 'rgba(239, 68, 68, 0.04)',
-                                color: 'var(--text-muted)',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                opacity: 0.45,
-                                cursor: 'not-allowed',
-                                userSelect: 'none',
-                              }}
-                            >
-                              <Lock size={11} style={{ flexShrink: 0 }} />
-                              {label}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={slot.startTime}
-                            type="button"
-                            onClick={() => handleSelectSlot(slot)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '8px 12px',
-                              borderRadius: '9999px',
-                              border: isSelected ? '1.5px solid #059669' : '1px solid #10b981',
-                              backgroundColor: isSelected ? '#059669' : 'transparent',
-                              color: isSelected ? '#ffffff' : '#047857',
-                              fontSize: '12px',
-                              fontWeight: isSelected ? 700 : 600,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                              boxShadow: isSelected ? '0 2px 4px rgba(5, 150, 105, 0.25)' : 'none',
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isSelected) {
-                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.12)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!isSelected) {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                              }
-                            }}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-                {/* Appointment Type (SearchableSelect) */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
-                    {isSpanish ? 'Tipo de Cita' : 'Appointment Type'}
-                  </label>
-                  <SearchableSelect
-                    options={typeOptions}
-                    value={formData.type}
-                    onChange={(val) => setFormData({ ...formData, type: val })}
-                    placeholder={isSpanish ? 'Seleccionar tipo...' : 'Select type...'}
-                    icon={<FileText size={14} />}
-                  />
-                </div>
-
-                {/* Notes */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '4px' }}>
-                    {isSpanish ? 'Notas Internas' : 'Internal Notes'}
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder={isSpanish ? 'Comentarios adicionales...' : 'Additional notes...'}
+                {/* Mobile helper message if slot not selected yet */}
+                {isMobileScreen && !formData.startTime && !isSlotLocked && (
+                  <div
+                    onClick={() => setActiveApptMobileTab('slots')}
                     style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: 'var(--bg-input)',
-                      color: 'var(--text-heading)',
-                      fontSize: '13px',
-                      resize: 'vertical',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                      border: '1px solid rgba(13, 148, 136, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
                     }}
-                  />
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Clock size={15} style={{ color: 'var(--primary-600, #0d9488)' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-700, #0f766e)' }}>
+                        {isSpanish ? 'Elige un horario disponible en la pestaña Horarios' : 'Choose an available slot in the Slots tab'}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-600, #0d9488)' }}>→</span>
+                  </div>
+                )}
+
+                {/* Appointment Type & Internal Notes (Two-Column Layout to minimize vertical scrolling) */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobileScreen ? '1fr' : '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
+                      {isSpanish ? 'Tipo de Cita' : 'Appointment Type'}
+                    </label>
+                    <SearchableSelect
+                      options={typeOptions}
+                      value={formData.type}
+                      onChange={(val) => setFormData({ ...formData, type: val })}
+                      placeholder={isSpanish ? 'Seleccionar tipo...' : 'Select type...'}
+                      icon={<FileText size={14} />}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
+                      {isSpanish ? 'Notas Internas' : 'Internal Notes'}
+                    </label>
+                    <textarea
+                      rows={1}
+                      className="input"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder={isSpanish ? 'Comentarios adicionales...' : 'Additional notes...'}
+                      style={{
+                        width: '100%',
+                        height: '40px',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        resize: 'none',
+                        lineHeight: '1.4',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="modal-footer" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              {/* Left Pane Sticky Footer */}
+              <div
+                className="modal-footer"
+                style={{
+                  padding: '14px 24px',
+                  borderTop: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--card-bg, #ffffff)',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexShrink: 0,
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setIsFormModalOpen(false)}
@@ -2761,8 +2912,373 @@ export const ClinicAppointmentsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ════════════ RIGHT PANE: AVAILABLE SLOTS PICKER ════════════ */}
+        {(!isMobileScreen || activeApptMobileTab === 'slots') && (
+          <div
+            style={{
+              width: isMobileScreen ? '100%' : '48%',
+              backgroundColor: 'var(--bg-muted, #f8fafc)',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Right Pane Header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg, #ffffff)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={16} style={{ color: 'var(--primary-600, #0d9488)' }} />
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-heading, #0f172a)' }}>
+                    {isSpanish
+                      ? `Horarios Disponibles (${formData.durationMinutes || 30} min)`
+                      : `Available Slots (${formData.durationMinutes || 30} min)`}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {availableSlots.length > 0 && (
+                    <span
+                      style={{
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        color: '#047857',
+                      }}
+                    >
+                      {availableSlots.filter((s) => s.available).length} {isSpanish ? 'libres' : 'free'}
+                    </span>
+                  )}
+                  {availableSlots.some((s) => !s.available) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#dc2626', fontWeight: 600 }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
+                      <span>{isSpanish ? 'Ocupado' : 'Booked'}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Selected Slot Status Banner */}
+              {formData.startTime && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                    border: '1px solid rgba(13, 148, 136, 0.25)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CalendarCheck size={14} style={{ color: 'var(--primary-600, #0d9488)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-700, #0f766e)' }}>
+                      {isSpanish ? 'Horario Seleccionado:' : 'Selected Slot:'}{' '}
+                      <strong style={{ color: 'var(--primary-800, #115e59)' }}>
+                        {formData.startTime} – {formData.endTime}
+                      </strong>
+                    </span>
+                  </div>
+                  {isMobileScreen && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveApptMobileTab('form')}
+                      style={{
+                        border: 'none',
+                        background: 'none',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        color: 'var(--primary-700, #0f766e)',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      {isSpanish ? 'Volver al Formulario →' : 'Back to Form →'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right Pane Body (Scrollable Slot Grid) */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '16px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              {isSlotLocked ? (
+                <div
+                  style={{
+                    padding: '20px',
+                    textAlign: 'center',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#d97706',
+                    }}
+                  >
+                    <Lock size={22} />
+                  </div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: '#b45309' }}>
+                    {isSpanish ? 'Horario Bloqueado' : 'Locked Slot'}
+                  </h4>
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0, maxWidth: '280px' }}>
+                    {isSpanish
+                      ? 'Esta cita ya ha comenzado. El horario seleccionado está fijado y no puede modificarse.'
+                      : 'This appointment has already started. The scheduled slot is fixed and cannot be changed.'}
+                  </p>
+                  <div
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-secondary)',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: 'var(--text-heading)',
+                    }}
+                  >
+                    {formData.startTime} – {formData.endTime} ({formData.durationMinutes} min)
+                  </div>
+                </div>
+              ) : !formData.doctorId ? (
+                <div
+                  style={{
+                    padding: '28px 20px',
+                    textAlign: 'center',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                    border: '1px dashed var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary-600, #0d9488)',
+                    }}
+                  >
+                    <UserRound size={22} />
+                  </div>
+                  <h4 style={{ fontSize: '13.5px', fontWeight: 700, margin: 0, color: 'var(--text-heading)' }}>
+                    {isSpanish ? 'Selecciona Doctor y Fecha' : 'Select Doctor & Date'}
+                  </h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, maxWidth: '260px' }}>
+                    {isSpanish
+                      ? 'Elige un doctor y una fecha en el panel izquierdo para consultar los horarios disponibles.'
+                      : 'Choose a doctor and date on the left pane to check live slot availability.'}
+                  </p>
+                </div>
+              ) : loadingSlots ? (
+                <div
+                  style={{
+                    padding: '40px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <Loader2 size={26} className="animate-spin" style={{ color: 'var(--primary-600, #0d9488)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                    {isSpanish ? 'Consultando disponibilidad...' : 'Checking doctor schedule...'}
+                  </span>
+                </div>
+              ) : availableSlots.length === 0 ? (
+                <div
+                  style={{
+                    padding: '24px 18px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <Info size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <h4 style={{ fontSize: '13.5px', fontWeight: 700, margin: 0, color: '#b45309' }}>
+                        {isSpanish ? 'No Hay Turnos Disponibles' : 'No Available Slots'}
+                      </h4>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                        {isSpanish
+                          ? 'El doctor no tiene disponibilidad en esta fecha o todos los horarios están ocupados. Puedes seleccionar un horario manualmente abajo:'
+                          : 'The doctor has no open slots on this date. You may specify a manual time below:'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '4px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                        {isSpanish ? 'Hora Inicio' : 'Manual Start'}
+                      </label>
+                      <input
+                        type="time"
+                        className="input"
+                        value={formData.startTime}
+                        onChange={(e) => {
+                          const st = e.target.value;
+                          const dur = formData.durationMinutes || 30;
+                          const computedEnd = st ? calculateEndTimeString(st, dur) : '';
+                          setFormData({ ...formData, startTime: st, endTime: computedEnd });
+                        }}
+                        style={{ width: '100%', height: '38px', fontSize: '13px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                        {isSpanish ? 'Hora Fin' : 'Manual End'}
+                      </label>
+                      <input
+                        type="time"
+                        className="input"
+                        value={formData.endTime}
+                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                        style={{ width: '100%', height: '38px', fontSize: '13px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobileScreen ? 'repeat(auto-fill, minmax(130px, 1fr))' : 'repeat(auto-fill, minmax(124px, 1fr))',
+                      gap: '8px',
+                    }}
+                  >
+                    {availableSlots.map((slot) => {
+                      const isSelected = formData.startTime === slot.startTime;
+                      const isBooked = !slot.available;
+                      const label = `${slot.startTime} – ${slot.endTime}`;
+
+                      if (isBooked) {
+                        return (
+                          <div
+                            key={slot.startTime}
+                            title={isSpanish ? 'Horario ya ocupado' : 'Slot already booked'}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              padding: '9px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border-color)',
+                              backgroundColor: 'rgba(239, 68, 68, 0.04)',
+                              color: 'var(--text-muted)',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              opacity: 0.5,
+                              cursor: 'not-allowed',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <Lock size={11} style={{ flexShrink: 0 }} />
+                            <span>{label}</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={slot.startTime}
+                          type="button"
+                          onClick={() => handleSelectSlot(slot)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            padding: '9px 10px',
+                            borderRadius: '8px',
+                            border: isSelected ? '1.5px solid var(--primary-600, #0d9488)' : '1px solid rgba(13, 148, 136, 0.3)',
+                            backgroundColor: isSelected ? 'var(--primary-600, #0d9488)' : 'var(--card-bg, #ffffff)',
+                            color: isSelected ? '#ffffff' : 'var(--primary-700, #0f766e)',
+                            fontSize: '12px',
+                            fontWeight: isSelected ? 700 : 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            boxShadow: isSelected ? '0 2px 6px rgba(13, 148, 136, 0.3)' : '0 1px 2px rgba(0,0,0,0.03)',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.backgroundColor = 'rgba(13, 148, 136, 0.1)';
+                              e.currentTarget.style.borderColor = 'var(--primary-600, #0d9488)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.backgroundColor = 'var(--card-bg, #ffffff)';
+                              e.currentTarget.style.borderColor = 'rgba(13, 148, 136, 0.3)';
+                            }
+                          }}
+                        >
+                          {isSelected && <Check size={12} style={{ strokeWidth: 3 }} />}
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
       {/* MODAL 2: VIEW DETAILS MODAL (All Roles + Delete Action for Tenant Admin) */}
       {viewingAppointment && (

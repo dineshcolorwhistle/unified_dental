@@ -31,6 +31,7 @@ import {
   Briefcase,
   Lock,
   Download,
+  User,
 } from 'lucide-react';
 import {
   specializationService,
@@ -285,33 +286,33 @@ const DoctorServicesPricingSection: React.FC<{
   return (
     <div
       style={{
-        gridColumn: '1 / -1',
-        marginTop: '6px',
-        padding: '12px 14px',
-        borderRadius: '10px',
-        backgroundColor: 'var(--bg-secondary)',
-        border: '1px solid var(--border-color)',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        padding: '16px 20px',
       }}
     >
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
-          marginBottom: '10px',
+          gap: '6px',
+          marginBottom: '12px',
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Briefcase size={14} style={{ color: 'var(--primary-600)' }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <Briefcase size={15} style={{ color: 'var(--primary-600)' }} />
+            <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
               {t('clinicDoctors.services.title', 'Services & Custom Pricing')}
             </span>
             <span
               style={{
                 fontSize: '11px',
                 fontWeight: 600,
-                padding: '1px 7px',
+                padding: '2px 8px',
                 borderRadius: '10px',
                 backgroundColor: assignedCount > 0 ? 'var(--badge-primary-bg)' : 'var(--bg-card)',
                 color: assignedCount > 0 ? 'var(--primary-600)' : 'var(--text-muted)',
@@ -322,40 +323,38 @@ const DoctorServicesPricingSection: React.FC<{
             </span>
           </div>
 
-          {services.length > 3 && (
-            <div style={{ position: 'relative', width: '180px' }}>
-              <Search
-                size={12}
-                style={{
-                  position: 'absolute',
-                  left: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-              <input
-                type="text"
-                placeholder={t('common.search', 'Search services...')}
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: '26px',
-                  paddingLeft: '24px',
-                  paddingRight: '6px',
-                  fontSize: '11.5px',
-                  borderRadius: '5px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: 'var(--bg-card)',
-                  color: 'var(--text-heading)',
-                }}
-              />
-            </div>
-          )}
+          <div style={{ position: 'relative', width: '180px' }}>
+            <Search
+              size={12}
+              style={{
+                position: 'absolute',
+                left: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+              }}
+            />
+            <input
+              type="text"
+              className="input"
+              placeholder={t('common.search', 'Search services...')}
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              style={{
+                width: '100%',
+                height: '28px',
+                paddingLeft: '26px',
+                paddingRight: '6px',
+                fontSize: '11.5px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-card)',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
         </div>
 
-        <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+        <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
           {t(
             'clinicDoctors.services.subtitle',
             'Assign services and specify custom doctor rates. The service base price is shown for reference only and cannot be modified here.',
@@ -364,42 +363,42 @@ const DoctorServicesPricingSection: React.FC<{
       </div>
 
       {loading ? (
-        <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+        <div style={{ padding: '24px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
           {t('common.loading', 'Loading services...')}
         </div>
       ) : services.length === 0 ? (
         <div
           style={{
-            padding: '16px',
+            padding: '24px',
             textAlign: 'center',
             fontSize: '12px',
             color: 'var(--text-muted)',
             backgroundColor: 'var(--bg-card)',
-            borderRadius: '6px',
+            borderRadius: '8px',
             border: '1px dashed var(--border-color)',
           }}
         >
           {t('clinicDoctors.services.noServices', 'No services available. Configure services in Clinic Settings first.')}
         </div>
       ) : filteredServices.length === 0 ? (
-        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+        <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
           {t('common.noMatches', 'No matching services found')}
         </div>
       ) : (
         <div
           style={{
-            maxHeight: '190px',
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
-            borderRadius: '6px',
+            borderRadius: '8px',
             border: '1px solid var(--border-color)',
             backgroundColor: 'var(--bg-card)',
           }}
         >
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--bg-secondary)' }}>
               <tr
                 style={{
-                  backgroundColor: 'var(--bg-secondary)',
                   borderBottom: '1px solid var(--border-color)',
                   color: 'var(--text-muted)',
                   fontSize: '11px',
@@ -407,17 +406,17 @@ const DoctorServicesPricingSection: React.FC<{
                   textAlign: 'left',
                 }}
               >
-                <th style={{ padding: '6px 10px', width: '40px', textAlign: 'center' }}>
+                <th style={{ padding: '8px 10px', width: '40px', textAlign: 'center' }}>
                   {t('common.assign', 'Assign')}
                 </th>
-                <th style={{ padding: '6px 10px' }}>{t('clinicDoctors.services.service', 'Service')}</th>
-                <th style={{ padding: '6px 10px', width: '130px' }}>
+                <th style={{ padding: '8px 10px' }}>{t('clinicDoctors.services.service', 'Service')}</th>
+                <th style={{ padding: '8px 10px', width: '120px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Lock size={10} style={{ color: 'var(--text-muted)' }} />
                     <span>{t('clinicDoctors.services.basePrice', 'Base Price (Ref)')}</span>
                   </div>
                 </th>
-                <th style={{ padding: '6px 10px', width: '140px' }}>
+                <th style={{ padding: '8px 10px', width: '135px' }}>
                   {t('clinicDoctors.services.customPrice', 'Doctor Custom Price')}
                 </th>
               </tr>
@@ -517,6 +516,15 @@ const DoctorServicesPricingSection: React.FC<{
                             color: isAssigned ? 'var(--text-heading)' : 'var(--text-muted)',
                             opacity: isAssigned ? 1 : 0.6,
                             cursor: isAssigned ? 'text' : 'not-allowed',
+                            outline: 'none',
+                          }}
+                          onFocus={(e) => {
+                            if (isAssigned) {
+                              e.currentTarget.style.boxShadow = '0 0 0 2px var(--ring-primary)';
+                            }
+                          }}
+                          onBlur={(e) => {
+                            e.currentTarget.style.boxShadow = 'none';
                           }}
                         />
                       </div>
@@ -573,6 +581,20 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
   const [editingDoctor, setEditingDoctor] = useState<ClinicDoctorRecord | null>(null);
   const [deletingDoctor, setDeletingDoctor] = useState<ClinicDoctorRecord | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+
+  // Responsive mobile tracking for doctor modal (< 768px)
+  const [isMobileScreen, setIsMobileScreen] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
+  const [activeDoctorMobileTab, setActiveDoctorMobileTab] = useState<'details' | 'services'>('details');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Services State
   const [availableServices, setAvailableServices] = useState<ClinicServiceItem[]>([]);
@@ -832,6 +854,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
       };
     }
     setCreateServices(initServices);
+    setActiveDoctorMobileTab('details');
     setShowCreateModal(true);
   };
 
@@ -901,6 +924,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
     const { code, number } = parsePhone(doc.phone);
 
     setEditingDoctor(doc);
+    setActiveDoctorMobileTab('details');
     setEditFormData({
       name: doc.name || '',
       phoneCountryCode: code,
@@ -1521,28 +1545,31 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1050,
-            padding: '16px',
+            padding: isMobileScreen ? '10px' : '16px',
           }}
+          onClick={() => setShowCreateModal(false)}
         >
           <div
             className="modal-content"
+            onClick={(e) => e.stopPropagation()}
             style={{
-              width: '100%',
-              maxWidth: '680px',
-              maxHeight: 'min(92vh, 680px)',
+              width: isMobileScreen ? '100%' : '95%',
+              maxWidth: '1040px',
+              height: isMobileScreen ? 'calc(100vh - 28px)' : '84vh',
+              maxHeight: isMobileScreen ? 'none' : '640px',
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: 'var(--bg-card)',
-              borderRadius: '14px',
+              borderRadius: '16px',
               border: '1px solid var(--border-color)',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               overflow: 'hidden',
             }}
           >
             {/* Modal Header */}
             <div
               style={{
-                padding: '13px 20px',
+                padding: '14px 22px',
                 borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
@@ -1553,8 +1580,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div
                   style={{
-                    width: '32px',
-                    height: '32px',
+                    width: '34px',
+                    height: '34px',
                     borderRadius: '8px',
                     background: 'var(--badge-primary-bg)',
                     color: 'var(--primary-600)',
@@ -1563,13 +1590,13 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     justifyContent: 'center',
                   }}
                 >
-                  <Stethoscope size={16} />
+                  <Stethoscope size={18} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)' }}>
                     {t('clinicDoctors.createModal.title', 'Invite Clinic Doctor')}
                   </h3>
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                     {t('clinicDoctors.createModal.subtitle', 'Add a dental practitioner and send an invite link')}
                   </div>
                 </div>
@@ -1582,16 +1609,79 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                   border: 'none',
                   cursor: 'pointer',
                   color: 'var(--text-muted)',
-                  padding: '4px',
+                  padding: '6px',
                   borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <X size={17} />
+                <X size={18} />
               </button>
             </div>
+
+            {/* Mobile Segmented Switcher (< 768px) */}
+            {isMobileScreen && (
+              <div
+                style={{
+                  display: 'flex',
+                  borderBottom: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-muted, #f8fafc)',
+                  padding: '6px 10px',
+                  gap: '8px',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveDoctorMobileTab('details')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeDoctorMobileTab === 'details' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeDoctorMobileTab === 'details' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeDoctorMobileTab === 'details' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <User size={15} />
+                  <span>{t('clinicDoctors.modal.tabDetails', isSpanish ? 'Detalles del Doctor' : 'Doctor Details')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDoctorMobileTab('services')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeDoctorMobileTab === 'services' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeDoctorMobileTab === 'services' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeDoctorMobileTab === 'services' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Briefcase size={15} />
+                  <span>{t('clinicDoctors.modal.tabServices', isSpanish ? 'Servicios y Tarifas' : 'Services & Pricing')}</span>
+                </button>
+              </div>
+            )}
 
             <form
               onSubmit={handleCreateDoctor}
@@ -1603,148 +1693,185 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                 overflow: 'hidden',
               }}
             >
+              {/* Split Content Area */}
               <div
                 style={{
-                  padding: '14px 20px',
-                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: isMobileScreen ? 'column' : 'row',
                   flex: 1,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                  gap: '10px 14px',
+                  minHeight: 0,
+                  overflow: 'hidden',
                 }}
               >
-                {/* 1. Doctor Name */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. Dr. Alejandro Morales"
-                    value={createFormData.name}
-                    onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
-                    required
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
+                {/* ════════════ LEFT PANE: DOCTOR BASIC DETAILS ════════════ */}
+                {(!isMobileScreen || activeDoctorMobileTab === 'details') && (
+                  <div
+                    style={{
+                      width: isMobileScreen ? '100%' : '48%',
+                      borderRight: isMobileScreen ? 'none' : '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      padding: '16px 20px',
+                      overflowY: 'auto',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobileScreen ? '1fr' : 'repeat(2, 1fr)',
+                        gap: '12px 14px',
+                      }}
+                    >
+                      {/* 1. Doctor Name */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. Dr. Alejandro Morales"
+                          value={createFormData.name}
+                          onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
+                          required
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
 
-                {/* 2. Email Address */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.email', 'Email Address')} <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="email"
-                    className="input"
-                    placeholder="dr.morales@clinic.com"
-                    value={createFormData.email}
-                    onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
-                    required
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
+                      {/* 2. Email Address */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.email', 'Email Address')} <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <input
+                          type="email"
+                          className="input"
+                          placeholder="dr.morales@clinic.com"
+                          value={createFormData.email}
+                          onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
+                          required
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
 
-                {/* 3. Phone Number */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.phone', 'Phone Number')}
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ width: '90px', flexShrink: 0 }}>
-                      <SearchableSelect
-                        options={COUNTRY_DIALING_CODES}
-                        value={createFormData.phoneCountryCode}
-                        onChange={(val) => setCreateFormData({ ...createFormData, phoneCountryCode: val })}
-                      />
+                      {/* 3. Phone Number */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.phone', 'Phone Number')}
+                        </label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <div style={{ width: '90px', flexShrink: 0 }}>
+                            <SearchableSelect
+                              options={COUNTRY_DIALING_CODES}
+                              value={createFormData.phoneCountryCode}
+                              onChange={(val) => setCreateFormData({ ...createFormData, phoneCountryCode: val })}
+                            />
+                          </div>
+                          <input
+                            type="tel"
+                            className="input"
+                            placeholder="55 1234 5678"
+                            value={createFormData.phoneNumber}
+                            onChange={(e) => setCreateFormData({ ...createFormData, phoneNumber: e.target.value })}
+                            style={{ flex: 1, width: '100%', height: '36px', fontSize: '13px' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Specialization */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.specialization', 'Specialization')}
+                        </label>
+                        <SearchableSelect
+                          options={createSpecializationOptions}
+                          value={createFormData.specialization}
+                          onChange={(val) => setCreateFormData({ ...createFormData, specialization: val })}
+                          placeholder={t('clinicDoctors.modal.selectSpecialization', 'Select specialization...')}
+                          searchPlaceholder={t('common.search', 'Search...')}
+                        />
+                        {availableSpecializations.length === 0 && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                            {t('clinicDoctors.modal.noSpecializationsConfigured', 'No active specializations configured in Clinic settings.')}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 5. Qualification */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.qualification', 'Qualification')}
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder={t('clinicDoctors.modal.qualificationPlaceholder', 'e.g. DDS, DMD, Master in Orthodontics...')}
+                          value={createFormData.qualification}
+                          onChange={(e) => setCreateFormData({ ...createFormData, qualification: e.target.value })}
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      {/* 6. Address */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.address', 'Address')}
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. Av. Insurgentes Sur 123, Col. Roma, CDMX"
+                          value={createFormData.address}
+                          onChange={(e) => setCreateFormData({ ...createFormData, address: e.target.value })}
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      {/* 7. Doctor Calendar Color (Full Width across 2 columns) */}
+                      <div style={{ gridColumn: isMobileScreen ? '1' : '1 / -1', paddingTop: '2px' }}>
+                        <DoctorColorPicker
+                          value={createFormData.colorCode}
+                          onChange={(hex) => setCreateFormData({ ...createFormData, colorCode: hex })}
+                          existingDoctors={doctorsList}
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="tel"
-                      className="input"
-                      placeholder="55 1234 5678"
-                      value={createFormData.phoneNumber}
-                      onChange={(e) => setCreateFormData({ ...createFormData, phoneNumber: e.target.value })}
-                      style={{ flex: 1, width: '100%', height: '36px', fontSize: '13px' }}
+                  </div>
+                )}
+
+                {/* ════════════ RIGHT PANE: DOCTOR SERVICES & CUSTOM PRICING ════════════ */}
+                {(!isMobileScreen || activeDoctorMobileTab === 'services') && (
+                  <div
+                    style={{
+                      width: isMobileScreen ? '100%' : '52%',
+                      backgroundColor: 'var(--bg-muted, #f8fafc)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <DoctorServicesPricingSection
+                      services={availableServices}
+                      loading={loadingServices}
+                      value={createServices}
+                      onChange={setCreateServices}
                     />
                   </div>
-                </div>
-
-                {/* 4. Specialization */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.specialization', 'Specialization')}
-                  </label>
-                  <SearchableSelect
-                    options={createSpecializationOptions}
-                    value={createFormData.specialization}
-                    onChange={(val) => setCreateFormData({ ...createFormData, specialization: val })}
-                    placeholder={t('clinicDoctors.modal.selectSpecialization', 'Select specialization...')}
-                    searchPlaceholder={t('common.search', 'Search...')}
-                  />
-                  {availableSpecializations.length === 0 && (
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                      {t('clinicDoctors.modal.noSpecializationsConfigured', 'No active specializations configured in Clinic settings.')}
-                    </div>
-                  )}
-                </div>
-
-                {/* 5. Qualification */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.qualification', 'Qualification')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder={t('clinicDoctors.modal.qualificationPlaceholder', 'e.g. DDS, DMD, Master in Orthodontics...')}
-                    value={createFormData.qualification}
-                    onChange={(e) => setCreateFormData({ ...createFormData, qualification: e.target.value })}
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* 6. Address */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.address', 'Address')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. Av. Insurgentes Sur 123, Col. Roma, CDMX"
-                    value={createFormData.address}
-                    onChange={(e) => setCreateFormData({ ...createFormData, address: e.target.value })}
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* 7. Doctor Calendar Color (Full Width across 2 columns) */}
-                <div style={{ gridColumn: '1 / -1', paddingTop: '2px' }}>
-                  <DoctorColorPicker
-                    value={createFormData.colorCode}
-                    onChange={(hex) => setCreateFormData({ ...createFormData, colorCode: hex })}
-                    existingDoctors={doctorsList}
-                  />
-                </div>
-
-                {/* 8. Doctor Services & Custom Pricing */}
-                <DoctorServicesPricingSection
-                  services={availableServices}
-                  loading={loadingServices}
-                  value={createServices}
-                  onChange={setCreateServices}
-                />
+                )}
               </div>
 
               {/* Modal Footer */}
               <div
                 style={{
-                  padding: '10px 20px',
+                  padding: '12px 22px',
                   borderTop: '1px solid var(--border-color)',
                   display: 'flex',
                   justifyContent: 'flex-end',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '10px',
                   backgroundColor: 'var(--bg-secondary)',
                   flexShrink: 0,
                 }}
@@ -1754,7 +1881,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                   className="btn btn-secondary btn-sm"
                   onClick={() => setShowCreateModal(false)}
                   disabled={submitting}
-                  style={{ height: '34px', padding: '0 14px', fontSize: '13px', borderRadius: '7px' }}
+                  style={{ height: '36px', padding: '0 16px', fontSize: '13px', borderRadius: '8px' }}
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
@@ -1763,10 +1890,10 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                   className="btn btn-primary btn-sm"
                   disabled={submitting || Boolean(createDuplicateDoctor)}
                   style={{
-                    height: '34px',
-                    padding: '0 16px',
+                    height: '36px',
+                    padding: '0 18px',
                     fontSize: '13px',
-                    borderRadius: '7px',
+                    borderRadius: '8px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '7px',
@@ -1803,28 +1930,31 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1050,
-            padding: '16px',
+            padding: isMobileScreen ? '10px' : '16px',
           }}
+          onClick={() => setEditingDoctor(null)}
         >
           <div
             className="modal-content"
+            onClick={(e) => e.stopPropagation()}
             style={{
-              width: '100%',
-              maxWidth: '680px',
-              maxHeight: 'min(92vh, 680px)',
+              width: isMobileScreen ? '100%' : '95%',
+              maxWidth: '1040px',
+              height: isMobileScreen ? 'calc(100vh - 28px)' : '84vh',
+              maxHeight: isMobileScreen ? 'none' : '640px',
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: 'var(--bg-card)',
-              borderRadius: '14px',
+              borderRadius: '16px',
               border: '1px solid var(--border-color)',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               overflow: 'hidden',
             }}
           >
             {/* Modal Header */}
             <div
               style={{
-                padding: '13px 20px',
+                padding: '14px 22px',
                 borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
@@ -1835,8 +1965,8 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div
                   style={{
-                    width: '32px',
-                    height: '32px',
+                    width: '34px',
+                    height: '34px',
                     borderRadius: '8px',
                     background: 'var(--badge-primary-bg)',
                     color: 'var(--primary-600)',
@@ -1845,13 +1975,13 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                     justifyContent: 'center',
                   }}
                 >
-                  <Edit2 size={16} />
+                  <Edit2 size={18} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)' }}>
                     {t('clinicDoctors.editModal.title', 'Edit Doctor Profile')}
                   </h3>
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                     {t('clinicDoctors.editModal.subtitle', 'Update practitioner information and appointment calendar color')}
                   </div>
                 </div>
@@ -1864,16 +1994,79 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                   border: 'none',
                   cursor: 'pointer',
                   color: 'var(--text-muted)',
-                  padding: '4px',
+                  padding: '6px',
                   borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <X size={17} />
+                <X size={18} />
               </button>
             </div>
+
+            {/* Mobile Segmented Switcher (< 768px) */}
+            {isMobileScreen && (
+              <div
+                style={{
+                  display: 'flex',
+                  borderBottom: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-muted, #f8fafc)',
+                  padding: '6px 10px',
+                  gap: '8px',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveDoctorMobileTab('details')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeDoctorMobileTab === 'details' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeDoctorMobileTab === 'details' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeDoctorMobileTab === 'details' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <User size={15} />
+                  <span>{t('clinicDoctors.modal.tabDetails', isSpanish ? 'Detalles del Doctor' : 'Doctor Details')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDoctorMobileTab('services')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeDoctorMobileTab === 'services' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeDoctorMobileTab === 'services' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeDoctorMobileTab === 'services' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Briefcase size={15} />
+                  <span>{t('clinicDoctors.modal.tabServices', isSpanish ? 'Servicios y Tarifas' : 'Services & Pricing')}</span>
+                </button>
+              </div>
+            )}
 
             <form
               onSubmit={handleUpdateDoctor}
@@ -1885,141 +2078,178 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                 overflow: 'hidden',
               }}
             >
+              {/* Split Content Area */}
               <div
                 style={{
-                  padding: '14px 20px',
-                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: isMobileScreen ? 'column' : 'row',
                   flex: 1,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                  gap: '10px 14px',
+                  minHeight: 0,
+                  overflow: 'hidden',
                 }}
               >
-                {/* 1. Doctor Name */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={editFormData.name}
-                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                    required
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* 2. Status */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.status', 'Status')}
-                  </label>
-                  <select
-                    className="input"
-                    value={editFormData.status}
-                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                {/* ════════════ LEFT PANE: DOCTOR BASIC DETAILS ════════════ */}
+                {(!isMobileScreen || activeDoctorMobileTab === 'details') && (
+                  <div
+                    style={{
+                      width: isMobileScreen ? '100%' : '48%',
+                      borderRight: isMobileScreen ? 'none' : '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      padding: '16px 20px',
+                      overflowY: 'auto',
+                    }}
                   >
-                    <option value="ACTIVE">{t('common.active', 'Active')}</option>
-                    <option value="INACTIVE">{t('common.inactive', 'Inactive')}</option>
-                  </select>
-                </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobileScreen ? '1fr' : 'repeat(2, 1fr)',
+                        gap: '12px 14px',
+                      }}
+                    >
+                      {/* 1. Doctor Name */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.name', 'Doctor Name')} <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          value={editFormData.name}
+                          onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                          required
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
 
-                {/* 3. Phone Number */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.phone', 'Phone Number')}
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ width: '90px', flexShrink: 0 }}>
-                      <SearchableSelect
-                        options={COUNTRY_DIALING_CODES}
-                        value={editFormData.phoneCountryCode}
-                        onChange={(val) => setEditFormData({ ...editFormData, phoneCountryCode: val })}
-                      />
+                      {/* 2. Status */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.status', 'Status')}
+                        </label>
+                        <select
+                          className="input"
+                          value={editFormData.status}
+                          onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        >
+                          <option value="ACTIVE">{t('common.active', 'Active')}</option>
+                          <option value="INACTIVE">{t('common.inactive', 'Inactive')}</option>
+                        </select>
+                      </div>
+
+                      {/* 3. Phone Number */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.phone', 'Phone Number')}
+                        </label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <div style={{ width: '90px', flexShrink: 0 }}>
+                            <SearchableSelect
+                              options={COUNTRY_DIALING_CODES}
+                              value={editFormData.phoneCountryCode}
+                              onChange={(val) => setEditFormData({ ...editFormData, phoneCountryCode: val })}
+                            />
+                          </div>
+                          <input
+                            type="tel"
+                            className="input"
+                            value={editFormData.phoneNumber}
+                            onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
+                            style={{ flex: 1, width: '100%', height: '36px', fontSize: '13px' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Specialization */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.specialization', 'Specialization')}
+                        </label>
+                        <SearchableSelect
+                          options={editSpecializationOptions}
+                          value={editFormData.specialization}
+                          onChange={(val) => setEditFormData({ ...editFormData, specialization: val })}
+                          placeholder={t('clinicDoctors.modal.selectSpecialization', 'Select specialization...')}
+                          searchPlaceholder={t('common.search', 'Search...')}
+                        />
+                      </div>
+
+                      {/* 5. Qualification */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.qualification', 'Qualification')}
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder={t('clinicDoctors.modal.qualificationPlaceholder', 'e.g. DDS, DMD, Master in Orthodontics...')}
+                          value={editFormData.qualification}
+                          onChange={(e) => setEditFormData({ ...editFormData, qualification: e.target.value })}
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      {/* 6. Address */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                          {t('clinicDoctors.modal.address', 'Address')}
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          value={editFormData.address}
+                          onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                          style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                        />
+                      </div>
+
+                      {/* 7. Doctor Calendar Color (Full Width across 2 columns) */}
+                      <div style={{ gridColumn: isMobileScreen ? '1' : '1 / -1', paddingTop: '2px' }}>
+                        <DoctorColorPicker
+                          value={editFormData.colorCode}
+                          onChange={(hex) => setEditFormData({ ...editFormData, colorCode: hex })}
+                          existingDoctors={doctorsList}
+                          currentDoctorId={editingDoctor.id}
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="tel"
-                      className="input"
-                      value={editFormData.phoneNumber}
-                      onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
-                      style={{ flex: 1, width: '100%', height: '36px', fontSize: '13px' }}
+                  </div>
+                )}
+
+                {/* ════════════ RIGHT PANE: DOCTOR SERVICES & CUSTOM PRICING ════════════ */}
+                {(!isMobileScreen || activeDoctorMobileTab === 'services') && (
+                  <div
+                    style={{
+                      width: isMobileScreen ? '100%' : '52%',
+                      backgroundColor: 'var(--bg-muted, #f8fafc)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <DoctorServicesPricingSection
+                      services={availableServices}
+                      loading={loadingServices}
+                      value={editServices}
+                      onChange={setEditServices}
                     />
                   </div>
-                </div>
-
-                {/* 4. Specialization */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.specialization', 'Specialization')}
-                  </label>
-                  <SearchableSelect
-                    options={editSpecializationOptions}
-                    value={editFormData.specialization}
-                    onChange={(val) => setEditFormData({ ...editFormData, specialization: val })}
-                    placeholder={t('clinicDoctors.modal.selectSpecialization', 'Select specialization...')}
-                    searchPlaceholder={t('common.search', 'Search...')}
-                  />
-                </div>
-
-                {/* 5. Qualification */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.qualification', 'Qualification')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder={t('clinicDoctors.modal.qualificationPlaceholder', 'e.g. DDS, DMD, Master in Orthodontics...')}
-                    value={editFormData.qualification}
-                    onChange={(e) => setEditFormData({ ...editFormData, qualification: e.target.value })}
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* 6. Address */}
-                <div>
-                  <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
-                    {t('clinicDoctors.modal.address', 'Address')}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={editFormData.address}
-                    onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
-                    style={{ width: '100%', height: '36px', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* 7. Doctor Calendar Color (Full Width across 2 columns) */}
-                <div style={{ gridColumn: '1 / -1', paddingTop: '2px' }}>
-                  <DoctorColorPicker
-                    value={editFormData.colorCode}
-                    onChange={(hex) => setEditFormData({ ...editFormData, colorCode: hex })}
-                    existingDoctors={doctorsList}
-                    currentDoctorId={editingDoctor.id}
-                  />
-                </div>
-
-                {/* 8. Doctor Services & Custom Pricing */}
-                <DoctorServicesPricingSection
-                  services={availableServices}
-                  loading={loadingServices}
-                  value={editServices}
-                  onChange={setEditServices}
-                />
+                )}
               </div>
 
               {/* Modal Footer */}
               <div
                 style={{
-                  padding: '10px 20px',
+                  padding: '12px 22px',
                   borderTop: '1px solid var(--border-color)',
                   display: 'flex',
                   justifyContent: 'flex-end',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '10px',
                   backgroundColor: 'var(--bg-secondary)',
                   flexShrink: 0,
                 }}
@@ -2029,7 +2259,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                   className="btn btn-secondary btn-sm"
                   onClick={() => setEditingDoctor(null)}
                   disabled={submitting}
-                  style={{ height: '34px', padding: '0 14px', fontSize: '13px', borderRadius: '7px' }}
+                  style={{ height: '36px', padding: '0 16px', fontSize: '13px', borderRadius: '8px' }}
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
@@ -2037,7 +2267,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
                   type="submit"
                   className="btn btn-primary btn-sm"
                   disabled={submitting || Boolean(editDuplicateDoctor)}
-                  style={{ height: '34px', padding: '0 16px', fontSize: '13px', borderRadius: '7px' }}
+                  style={{ height: '36px', padding: '0 18px', fontSize: '13px', borderRadius: '8px' }}
                 >
                   {submitting ? t('common.saving', 'Saving...') : t('common.saveChanges', 'Save Changes')}
                 </button>

@@ -360,6 +360,8 @@ export class AppointmentsService {
               grandTotal: true,
               totalPaid: true,
               balanceDue: true,
+              totalServices: true,
+              totalProducts: true,
             },
           },
           appointmentServices: {
@@ -435,6 +437,8 @@ export class AppointmentsService {
             grandTotal: true,
             totalPaid: true,
             balanceDue: true,
+            totalServices: true,
+            totalProducts: true,
           },
         },
         appointmentServices: {

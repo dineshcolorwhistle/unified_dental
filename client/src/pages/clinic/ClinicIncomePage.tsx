@@ -33,26 +33,33 @@ const INCOME_STATUS_CONFIG: Record<
   string,
   { labelEn: string; labelEs: string; bg: string; color: string; border: string }
 > = {
-  DRAFT: {
-    labelEn: 'Draft',
-    labelEs: 'Borrador',
-    bg: 'rgba(56, 189, 248, 0.12)',
-    color: '#0284c7',
-    border: 'rgba(56, 189, 248, 0.3)',
+  NOT_STARTED: {
+    labelEn: 'Not Started',
+    labelEs: 'No iniciada',
+    bg: 'rgba(148, 163, 184, 0.12)',
+    color: '#64748b',
+    border: 'rgba(148, 163, 184, 0.3)',
   },
-  FINALIZED: {
-    labelEn: 'Finalized',
-    labelEs: 'Finalizado',
+  PENDING: {
+    labelEn: 'Pending',
+    labelEs: 'Pendiente',
+    bg: 'rgba(245, 158, 11, 0.12)',
+    color: '#d97706',
+    border: 'rgba(245, 158, 11, 0.35)',
+  },
+  PARTIAL: {
+    labelEn: 'Partially Paid',
+    labelEs: 'Pago Parcial',
+    bg: 'rgba(14, 165, 233, 0.12)',
+    color: '#0284c7',
+    border: 'rgba(14, 165, 233, 0.3)',
+  },
+  PAID: {
+    labelEn: 'Paid',
+    labelEs: 'Pagado',
     bg: 'rgba(16, 185, 129, 0.12)',
     color: '#059669',
     border: 'rgba(16, 185, 129, 0.3)',
-  },
-  CANCELLED: {
-    labelEn: 'Cancelled',
-    labelEs: 'Cancelado',
-    bg: 'rgba(239, 68, 68, 0.12)',
-    color: '#dc2626',
-    border: 'rgba(239, 68, 68, 0.3)',
   },
 };
 
@@ -158,9 +165,10 @@ export const ClinicIncomePage: React.FC = () => {
   const statusOptions: SearchableSelectOption[] = useMemo(
     () => [
       { value: 'ALL', label: isSpanish ? 'Todos los Estados' : 'All Statuses' },
-      { value: 'DRAFT', label: isSpanish ? 'Borrador' : 'Draft' },
-      { value: 'FINALIZED', label: isSpanish ? 'Finalizado' : 'Finalized' },
-      { value: 'CANCELLED', label: isSpanish ? 'Cancelado' : 'Cancelled' },
+      { value: 'NOT_STARTED', label: isSpanish ? 'No iniciada' : 'Not Started' },
+      { value: 'PENDING', label: isSpanish ? 'Pendiente' : 'Pending' },
+      { value: 'PARTIAL', label: isSpanish ? 'Pago Parcial' : 'Partially Paid' },
+      { value: 'PAID', label: isSpanish ? 'Pagado' : 'Paid' },
     ],
     [isSpanish],
   );
@@ -377,6 +385,7 @@ export const ClinicIncomePage: React.FC = () => {
                   const docName = rec.doctor?.name || '—';
                   const docColor = rec.doctor?.colorCode || '#6366f1';
                   
+                  const isScheduled = rec.appointment?.status === 'SCHEDULED';
                   const balDue = Number(rec.balanceDue || 0);
                   const paid = Number(rec.totalPaid || 0);
                   const grandTotal = Number(rec.grandTotal || 0);
@@ -384,8 +393,8 @@ export const ClinicIncomePage: React.FC = () => {
                   const isPartial = paid > 0 && balDue > 0;
 
                   const statusLabel =
-                    rec.status === 'FINALIZED'
-                      ? t('income.statusFinalized', isSpanish ? 'Finalizado' : 'Finalized')
+                    isScheduled
+                      ? t('income.statusNotStarted', isSpanish ? 'No iniciada' : 'Not Started')
                       : isPaid
                       ? t('income.statusPaid', isSpanish ? 'Pagado' : 'Paid')
                       : isPartial
@@ -393,7 +402,7 @@ export const ClinicIncomePage: React.FC = () => {
                       : t('income.statusUnpaid', isSpanish ? 'Pendiente' : 'Pending');
 
                   const statusBadgeClass =
-                    rec.status === 'FINALIZED'
+                    isScheduled
                       ? 'badge-secondary'
                       : isPaid
                       ? 'badge-success'
@@ -491,23 +500,49 @@ export const ClinicIncomePage: React.FC = () => {
 
                       {/* 8. Actions */}
                       <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/clinic/appointments/${rec.appointmentId}/income`)}
-                          className="btn btn-primary btn-sm"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 12px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                          }}
-                          title={isSpanish ? 'Gestionar Ingreso' : 'Manage Income'}
-                        >
-                          <DollarSign size={13} />
-                          <span>{isSpanish ? 'Gestionar' : 'Manage'}</span>
-                        </button>
+                        {rec.appointment?.status === 'SCHEDULED' ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              opacity: 0.5,
+                              cursor: 'not-allowed',
+                            }}
+                            title={
+                              isSpanish
+                                ? 'La cita no ha comenzado. El cobro estará disponible cuando inicie la cita.'
+                                : 'Appointment has not started yet. Billing is available once started.'
+                            }
+                          >
+                            <DollarSign size={13} />
+                            <span>{isSpanish ? 'No iniciada' : 'Not Started'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/clinic/appointments/${rec.appointmentId}/income`)}
+                            className="btn btn-primary btn-sm"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                            }}
+                            title={isSpanish ? 'Gestionar Ingreso' : 'Manage Income'}
+                          >
+                            <DollarSign size={13} />
+                            <span>{isSpanish ? 'Gestionar' : 'Manage'}</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

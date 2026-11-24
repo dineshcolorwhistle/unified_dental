@@ -205,7 +205,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Load Doctor Services when Service Modal opens
   const handleOpenAddService = async () => {
-    if (!record) return;
+    if (!record || !canManageServicesAndProducts) return;
     try {
       const docId = record.doctor.id;
       const res = await clinicServiceService.getByDoctor(docId);
@@ -229,6 +229,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Load Inventory Products when Product Modal opens
   const handleOpenAddProduct = async () => {
+    if (!record || !canManageServicesAndProducts) return;
     try {
       const res = await api.get('/inventory/items', { params: { limit: 100 } });
       const items = res.data?.items || [];
@@ -250,7 +251,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Load Payment Methods and Advances when Payment Modal opens
   const handleOpenPayment = async () => {
-    if (!record) return;
+    if (!record || !canRecordPayments) return;
     try {
       const methods = await paymentMethodService.getAll({
         moduleKey: 'CLINIC',
@@ -636,15 +637,23 @@ export const AppointmentIncomePage: React.FC = () => {
     .filter(Boolean)
     .join(' ');
 
+  const isAppointmentScheduled = record.appointment.status === 'SCHEDULED';
   const isAppointmentInProgress = record.appointment.status === 'IN_PROGRESS';
-  const isAppointmentEnded = record.appointment.status === 'COMPLETED' || record.status === 'FINALIZED';
+  const isAppointmentEnded = record.appointment.status === 'COMPLETED';
+  const isAppointmentCancelled = record.appointment.status === 'CANCELLED';
+
+  // Can manage services and products ONLY when appointment is IN_PROGRESS
+  const canManageServicesAndProducts = isAppointmentInProgress && !isAppointmentEnded && !isAppointmentCancelled;
+
+  // Can record payments when appointment is IN_PROGRESS or COMPLETED (not SCHEDULED or CANCELLED)
+  const canRecordPayments = (isAppointmentInProgress || isAppointmentEnded) && !isAppointmentCancelled;
 
   // Compute Income Financial Status
   const isIncomePaid = Number(record.balanceDue || 0) <= 0 && (Number(record.totalPaid || 0) > 0 || Number(record.grandTotal || 0) === 0);
   const isIncomePartiallyPaid = Number(record.totalPaid || 0) > 0 && Number(record.balanceDue || 0) > 0;
 
   const incomeStatusBadgeClass =
-    record.status === 'FINALIZED'
+    isAppointmentScheduled
       ? 'badge-secondary'
       : isIncomePaid
       ? 'badge-success'
@@ -653,8 +662,8 @@ export const AppointmentIncomePage: React.FC = () => {
       : 'badge-warning';
 
   const incomeStatusLabel =
-    record.status === 'FINALIZED'
-      ? t('income.statusFinalized', 'Finalized')
+    isAppointmentScheduled
+      ? t('income.statusNotStarted', 'Not Started')
       : isIncomePaid
       ? t('income.statusPaid', 'Paid')
       : isIncomePartiallyPaid
@@ -767,30 +776,65 @@ export const AppointmentIncomePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Appointment Scheduled (Not Started) Warning Banner */}
+      {isAppointmentScheduled && (
+        <div
+          style={{
+            padding: '14px 18px',
+            borderRadius: '10px',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '13.5px',
+            color: '#b45309',
+            fontWeight: 500,
+          }}
+        >
+          <AlertTriangle size={20} style={{ color: '#d97706', flexShrink: 0 }} />
+          <div>
+            <strong style={{ display: 'block', marginBottom: '2px', color: '#92400e' }}>
+              {isSpanish ? 'Cita No Iniciada' : 'Appointment Not Started'}
+            </strong>
+            <span>
+              {isSpanish
+                ? 'Esta cita está en estado Programada. No se permite agregar, editar ni completar servicios o productos, ni registrar pagos hasta que la cita sea iniciada desde la lista de citas.'
+                : 'This appointment has not started yet. Managing services, products, and recording payments is disabled until the appointment is started from the appointment list.'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Appointment Ended Lock Notice */}
       {isAppointmentEnded && (
         <div
           style={{
-            padding: '12px 16px',
-            borderRadius: '8px',
+            padding: '14px 18px',
+            borderRadius: '10px',
             backgroundColor: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            fontSize: '13px',
+            gap: '12px',
+            fontSize: '13.5px',
             color: 'var(--text-heading)',
           }}
         >
-          <ShieldAlert size={18} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
-          <span>
-            {t(
-              'income.appointmentEndedLocked',
-              isSpanish
-                ? 'Cita finalizada. No se pueden agregar, editar ni eliminar servicios o productos. Solo se permite liquidar el saldo pendiente.'
-                : 'Appointment ended. Services and products cannot be added, edited, or deleted. Only pending balance settlement is permitted.'
-            )}
-          </span>
+          <ShieldAlert size={20} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+          <div>
+            <strong style={{ display: 'block', marginBottom: '2px' }}>
+              {isSpanish ? 'Cita Finalizada' : 'Appointment Completed'}
+            </strong>
+            <span>
+              {t(
+                'income.appointmentEndedLocked',
+                isSpanish
+                  ? 'La cita ha finalizado. No se pueden agregar, editar ni eliminar servicios o productos. Solo se permite liquidar el saldo pendiente.'
+                  : 'Appointment ended. Services and products cannot be added, edited, or deleted. Only pending balance settlement is permitted.'
+              )}
+            </span>
+          </div>
         </div>
       )}
 
@@ -1246,7 +1290,7 @@ export const AppointmentIncomePage: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                {!isAppointmentEnded && (
+                {canManageServicesAndProducts && (
                   <button
                     type="button"
                     onClick={handleOpenAddService}
@@ -1302,8 +1346,8 @@ export const AppointmentIncomePage: React.FC = () => {
                     </tr>
                   ) : (
                     record.serviceLines.map((line) => {
-                      const canDelete = !line.isCompleted && line.paymentStatus !== 'PAID' && !isAppointmentEnded;
-                      const canEdit = !line.isCompleted && line.paymentStatus !== 'PAID' && !isAppointmentEnded;
+                      const canDelete = !line.isCompleted && line.paymentStatus !== 'PAID' && canManageServicesAndProducts;
+                      const canEdit = !line.isCompleted && line.paymentStatus !== 'PAID' && canManageServicesAndProducts;
 
                       return (
                         <tr
@@ -1333,7 +1377,7 @@ export const AppointmentIncomePage: React.FC = () => {
                               >
                                 <Check size={14} strokeWidth={3} />
                               </div>
-                            ) : isAppointmentEnded ? (
+                            ) : !canManageServicesAndProducts ? (
                               <div
                                 style={{
                                   display: 'inline-flex',
@@ -1348,7 +1392,11 @@ export const AppointmentIncomePage: React.FC = () => {
                                   opacity: 0.4,
                                   cursor: 'not-allowed',
                                 }}
-                                title={t('income.appointmentEndedBadge', 'Appointment Ended')}
+                                title={
+                                  isAppointmentScheduled
+                                    ? isSpanish ? 'Cita no iniciada' : 'Appointment not started'
+                                    : t('income.appointmentEndedBadge', 'Appointment Ended')
+                                }
                               />
                             ) : (
                               <button
@@ -1538,7 +1586,7 @@ export const AppointmentIncomePage: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                {!isAppointmentEnded && (
+                {canManageServicesAndProducts && (
                   <button
                     type="button"
                     onClick={handleOpenAddProduct}
@@ -1585,8 +1633,8 @@ export const AppointmentIncomePage: React.FC = () => {
                     </tr>
                   ) : (
                     record.productLines.map((prod) => {
-                      const canDelete = prod.paymentStatus !== 'PAID' && !isAppointmentEnded;
-                      const canEdit = prod.paymentStatus !== 'PAID' && !isAppointmentEnded;
+                      const canDelete = prod.paymentStatus !== 'PAID' && canManageServicesAndProducts;
+                      const canEdit = prod.paymentStatus !== 'PAID' && canManageServicesAndProducts;
 
                       return (
                         <tr key={prod.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
@@ -1751,7 +1799,7 @@ export const AppointmentIncomePage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleOpenPayment}
-                disabled={totalPendingAmount <= 0 && Number(record.balanceDue) <= 0}
+                disabled={!canRecordPayments || (totalPendingAmount <= 0 && Number(record.balanceDue) <= 0)}
                 className="btn btn-primary"
                 style={{
                   width: '100%',
@@ -1759,15 +1807,15 @@ export const AppointmentIncomePage: React.FC = () => {
                   padding: '10px 16px',
                   gap: '8px',
                   backgroundColor:
-                    totalPendingAmount <= 0 && Number(record.balanceDue) <= 0
+                    !canRecordPayments || (totalPendingAmount <= 0 && Number(record.balanceDue) <= 0)
                       ? 'var(--bg-secondary)'
                       : 'var(--emerald-600)',
                   color:
-                    totalPendingAmount <= 0 && Number(record.balanceDue) <= 0
+                    !canRecordPayments || (totalPendingAmount <= 0 && Number(record.balanceDue) <= 0)
                       ? 'var(--text-muted)'
                       : '#ffffff',
                   cursor:
-                    totalPendingAmount <= 0 && Number(record.balanceDue) <= 0
+                    !canRecordPayments || (totalPendingAmount <= 0 && Number(record.balanceDue) <= 0)
                       ? 'not-allowed'
                       : 'pointer',
                 }}

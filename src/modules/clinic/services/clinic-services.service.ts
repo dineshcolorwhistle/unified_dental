@@ -198,12 +198,12 @@ export class ClinicServicesService {
   }
 
   /**
-   * Get services available for a doctor (with doctor custom price if set, otherwise standard service price).
+   * Get services available for a doctor (only services specifically assigned to the doctor, with custom price if set or standard price).
    */
   async findByDoctor(tenantId: string, doctorId: string, actor: AuthenticatedUser) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
 
-    // 1. Get doctor's custom priced services
+    // 1. Get doctor's assigned services with active service status
     const doctorServices = await this.prisma.doctorService.findMany({
       where: { tenantId, doctorId, service: { status: 'ACTIVE' } },
       include: {
@@ -214,41 +214,17 @@ export class ClinicServicesService {
       orderBy: { service: { name: 'asc' } },
     });
 
-    const customServiceIds = new Set(doctorServices.map((ds) => ds.serviceId));
-
-    // 2. Also get active base services in the tenant not already customized
-    const baseServices = await this.prisma.service.findMany({
-      where: {
-        tenantId,
-        status: 'ACTIVE',
-        id: { notIn: Array.from(customServiceIds) },
-      },
-      orderBy: { name: 'asc' },
-    });
-
-    // Combine them: custom priced first or sorted alphabetically
-    const results = [
-      ...doctorServices.map((ds) => ({
-        id: ds.service.id,
-        serviceId: ds.service.id,
-        name: ds.service.name,
-        description: ds.service.description,
-        price: Number(ds.customPrice),
-        status: 'ACTIVE',
-        isCustomPrice: true,
-        branchId: ds.service.branchId,
-      })),
-      ...baseServices.map((s) => ({
-        id: s.id,
-        serviceId: s.id,
-        name: s.name,
-        description: s.description,
-        price: Number(s.price),
-        status: 'ACTIVE',
-        isCustomPrice: false,
-        branchId: s.branchId,
-      })),
-    ];
+    // Return ONLY services associated with this doctor
+    const results = doctorServices.map((ds) => ({
+      id: ds.service.id,
+      serviceId: ds.service.id,
+      name: ds.service.name,
+      description: ds.service.description,
+      price: Number(ds.customPrice ?? ds.service.price),
+      status: 'ACTIVE',
+      isCustomPrice: ds.customPrice !== null && ds.customPrice !== undefined,
+      branchId: ds.service.branchId,
+    }));
 
     results.sort((a, b) => a.name.localeCompare(b.name));
     return results;

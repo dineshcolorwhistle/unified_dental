@@ -3,7 +3,7 @@ import api from './api';
 export interface IncomeRecordSummary {
   id: string;
   appointmentId: string;
-  status: 'DRAFT' | 'FINALIZED' | 'CANCELLED';
+  status: string;
   grandTotal: number | string;
   totalServices: number | string;
   totalProducts: number | string;
