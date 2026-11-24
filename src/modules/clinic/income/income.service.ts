@@ -403,6 +403,36 @@ export class IncomeService {
     });
 
     if (record) {
+      // Self-heal: If record is in DRAFT and has no service lines, but the appointment has appointmentServices, populate them now
+      if (
+        record.status === 'DRAFT' &&
+        (!record.serviceLines || record.serviceLines.length === 0) &&
+        record.appointment?.appointmentServices &&
+        record.appointment.appointmentServices.length > 0
+      ) {
+        for (const aptSvc of record.appointment.appointmentServices) {
+          const lineTotal = Number(aptSvc.unitPrice) * (aptSvc.quantity || 1);
+          await this.prisma.incomeServiceLine.create({
+            data: {
+              tenantId,
+              incomeRecordId: record.id,
+              doctorId: record.doctorId,
+              serviceId: aptSvc.serviceId,
+              serviceName: aptSvc.serviceName,
+              quantity: aptSvc.quantity || 1,
+              unitPrice: aptSvc.unitPrice,
+              discountType: 'PERCENTAGE',
+              discountValue: 0,
+              discountAmount: 0,
+              lineTotal: new Prisma.Decimal(lineTotal.toFixed(2)),
+              isFromAppointment: true,
+              isCompleted: false,
+            },
+          });
+        }
+        await this.recalculateTotals(record.id);
+        return this.findOne(record.id, tenantId);
+      }
       return record;
     }
 

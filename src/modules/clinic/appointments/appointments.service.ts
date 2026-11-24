@@ -547,15 +547,24 @@ export class AppointmentsService {
           });
           const unitPrice = ds ? Number(ds.customPrice) : Number(s.price);
           sum += unitPrice;
-          resolvedServices.push({
-            serviceId: s.id,
-            serviceName: s.name,
-            unitPrice,
-            quantity: 1,
-          });
+          const existingIdx = resolvedServices.findIndex((rs) => rs.serviceId === s.id);
+          if (existingIdx >= 0) {
+            resolvedServices[existingIdx].quantity += 1;
+          } else {
+            resolvedServices.push({
+              serviceId: s.id,
+              serviceName: s.name,
+              unitPrice,
+              quantity: 1,
+            });
+          }
         }
       }
-      expectedAmount = sum;
+      expectedAmount = dto.expectedAmount !== undefined && dto.expectedAmount !== null
+        ? Number(dto.expectedAmount)
+        : sum;
+    } else if (dto.expectedAmount !== undefined && dto.expectedAmount !== null) {
+      expectedAmount = Number(dto.expectedAmount);
     }
 
     const appointment = await this.prisma.appointment.create({
@@ -761,12 +770,17 @@ export class AppointmentsService {
           });
           const unitPrice = ds ? Number(ds.customPrice) : Number(s.price);
           sum += unitPrice;
-          resolvedServices.push({
-            serviceId: s.id,
-            serviceName: s.name,
-            unitPrice,
-            quantity: 1,
-          });
+          const existingIdx = resolvedServices.findIndex((rs) => rs.serviceId === s.id);
+          if (existingIdx >= 0) {
+            resolvedServices[existingIdx].quantity += 1;
+          } else {
+            resolvedServices.push({
+              serviceId: s.id,
+              serviceName: s.name,
+              unitPrice,
+              quantity: 1,
+            });
+          }
         }
       }
 

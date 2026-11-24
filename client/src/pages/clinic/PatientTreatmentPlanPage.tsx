@@ -28,6 +28,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   CheckCircle2,
+  Lock,
+  Info,
+  Stethoscope,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../core/context/AuthContext';
@@ -163,6 +166,11 @@ export interface DoctorApptSchedule {
   type: string;
   reason: string;
   notes: string;
+  availableSlots: Array<{ startTime: string; endTime: string; available: boolean }>;
+  loadingSlots: boolean;
+  status: 'idle' | 'saving' | 'success' | 'error';
+  errorMessage?: string;
+  appointmentId?: string;
 }
 
 export const PatientTreatmentPlanPage: React.FC = () => {
@@ -211,8 +219,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   }>({
     doctorId: '',
     date: new Date().toISOString().split('T')[0],
-    startTime: '09:00',
-    endTime: '09:30',
+    startTime: '',
+    endTime: '',
     durationMinutes: 30,
     type: 'PROCEDURE',
     reason: '',
@@ -222,6 +230,25 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   // Multi-doctor Appointment Schedule state
   const [multiDoctorAppts, setMultiDoctorAppts] = useState<DoctorApptSchedule[]>([]);
   const [isMultiDoctorModal, setIsMultiDoctorModal] = useState<boolean>(false);
+  const [activeDocTabIdx, setActiveDocTabIdx] = useState<number>(0);
+  const [unassignedCount, setUnassignedCount] = useState<number>(0);
+  // Single-mode slot state
+  const [singleSlots, setSingleSlots] = useState<Array<{ startTime: string; endTime: string; available: boolean }>>([]);
+  const [singleSlotsLoading, setSingleSlotsLoading] = useState<boolean>(false);
+
+  // Responsive mobile tracking for appointment modal (< 768px)
+  const [isMobileScreen, setIsMobileScreen] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
+  const [activeApptMobileTab, setActiveApptMobileTab] = useState<'form' | 'slots'>('form');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Delete Plan Confirmation state
   const [planToDelete, setPlanToDelete] = useState<ProposedGroup | null>(null);
@@ -827,6 +854,74 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     }
   };
 
+  // Helper: Format services as numbered list for appointment notes
+  const formatServicesForNotes = (services: ProposedItem[]): string => {
+    return services
+      .map((it, idx) => {
+        const name = it.treatmentName || 'Treatment';
+        const teeth = it.otTeethNumber
+          ? ` (OT: ${it.otTeethNumber})`
+          : it.toothNumbers && it.toothNumbers.length > 0
+          ? ` (#${it.toothNumbers.join(', #')})`
+          : '';
+        return `${idx + 1}. ${name}${teeth}`;
+      })
+      .join('\n');
+  };
+
+  // Helper: Calculate end time from start + duration
+  const calculateEndTime = (start: string, durationMins: number): string => {
+    if (!start) return '';
+    const [h, m] = start.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return '';
+    const total = h * 60 + m + durationMins;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  };
+
+  // Helper: Fetch available slots for a doctor/date/duration
+  const fetchAvailableSlots = async (docId: string, dateStr: string, duration: number) => {
+    if (!docId || !dateStr) return [];
+    try {
+      const res = await api.get(
+        `/clinic/appointments/working-hours/available-slots?doctorId=${docId}&date=${dateStr}&durationMinutes=${duration}`
+      );
+      const raw = res.data?.slots || [];
+      return Array.isArray(raw)
+        ? raw.map((s: any) =>
+            typeof s === 'string'
+              ? { startTime: s, endTime: calculateEndTime(s, duration), available: true }
+              : { startTime: s.startTime, endTime: s.endTime, available: s.available !== false }
+          )
+        : [];
+    } catch (err) {
+      console.error('Failed to fetch available slots:', err);
+      return [];
+    }
+  };
+
+  // Load slots for single-mode
+  const loadSingleSlots = async (docId: string, dateStr: string, duration: number) => {
+    setSingleSlotsLoading(true);
+    const slots = await fetchAvailableSlots(docId, dateStr, duration);
+    setSingleSlots(slots);
+    setSingleSlotsLoading(false);
+  };
+
+  // Load slots for a multi-doctor tab
+  const loadMultiSlots = async (index: number, docId: string, dateStr: string, duration: number) => {
+    setMultiDoctorAppts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], loadingSlots: true };
+      return copy;
+    });
+    const slots = await fetchAvailableSlots(docId, dateStr, duration);
+    setMultiDoctorAppts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], availableSlots: slots, loadingSlots: false };
+      return copy;
+    });
+  };
+
   // Open Appointment Modal for a Group (Auto-divides across multiple doctors)
   const handleOpenApptModalForGroup = (group: ProposedGroup) => {
     if (!group.items.length) {
@@ -834,15 +929,46 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       return;
     }
 
-    // Group items by doctorId
+    // Respect selected services if checked; otherwise use all services in group
+    const selectedItems = group.items.filter((it) => it.isSelected);
+    const targetItems = selectedItems.length > 0 ? selectedItems : group.items;
+
+    // Group items by doctorId — IGNORE services without an assigned doctor
     const doctorMap = new Map<string, ProposedItem[]>();
-    group.items.forEach((it) => {
-      const docId = it.doctorId || doctors[0]?.id || 'unassigned';
-      if (!doctorMap.has(docId)) {
-        doctorMap.set(docId, []);
+    let ignoredCount = 0;
+    targetItems.forEach((it) => {
+      if (!it.doctorId) {
+        ignoredCount++;
+        return;
       }
-      doctorMap.get(docId)!.push(it);
+      // Auto-resolve missing serviceId by matching treatmentName against clinicServices
+      let itemToUse = it;
+      if (!it.serviceId && it.treatmentName) {
+        const matched = clinicServices.find(
+          (cs) => cs.name?.toLowerCase().trim() === it.treatmentName?.toLowerCase().trim()
+        );
+        if (matched) {
+          itemToUse = { ...it, serviceId: matched.id };
+        }
+      }
+      if (!doctorMap.has(itemToUse.doctorId)) {
+        doctorMap.set(itemToUse.doctorId, []);
+      }
+      doctorMap.get(itemToUse.doctorId)!.push(itemToUse);
     });
+
+    setUnassignedCount(ignoredCount);
+
+    // If NO services have an assigned doctor, show error
+    if (doctorMap.size === 0) {
+      error(
+        t(
+          'patientTreatmentPlan.noDoctorsAssignedToPlan',
+          'None of the services in this plan have an assigned doctor. Please assign a doctor to schedule appointments.'
+        )
+      );
+      return;
+    }
 
     const todayStr = new Date().toISOString().split('T')[0];
     const schedules: DoctorApptSchedule[] = [];
@@ -850,75 +976,116 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     doctorMap.forEach((services, docId) => {
       const doc = doctors.find((d) => d.id === docId);
       const docName = doc ? doc.name : t('common.unassignedDoctor', 'Doctor');
-      const procedureSummary = services
-        .map(
-          (it) =>
-            `${it.treatmentName || it.serviceId || 'Procedure'}${
-              it.otTeethNumber
-                ? ` (OT: ${it.otTeethNumber})`
-                : it.toothNumbers.length
-                ? ` (#${it.toothNumbers.join(', #')})`
-                : ''
-            } x${it.quantity}`
-        )
-        .join(', ');
+      const appointmentNotes = formatServicesForNotes(services);
 
       schedules.push({
-        doctorId: docId === 'unassigned' ? doctors[0]?.id || '' : docId,
+        doctorId: docId,
         doctorName: docName,
         services,
         selected: true,
         date: todayStr,
-        startTime: '09:00',
-        endTime: '09:30',
+        startTime: '',
+        endTime: '',
         durationMinutes: 30,
         type: 'PROCEDURE',
-        reason: `${group.name}: ${procedureSummary}`,
-        notes: `${group.name} - ${docName} - ${procedureSummary}`,
+        reason: '',
+        notes: appointmentNotes,
+        availableSlots: [],
+        loadingSlots: false,
+        status: 'idle',
+        errorMessage: undefined,
+        appointmentId: undefined,
       });
     });
 
     setMultiDoctorAppts(schedules);
-    setIsMultiDoctorModal(schedules.length > 1);
+    setActiveDocTabIdx(0);
 
     if (schedules.length === 1) {
+      // Single doctor — use single-mode form
+      setIsMultiDoctorModal(false);
+      const s = schedules[0];
       setApptForm({
-        doctorId: schedules[0].doctorId,
-        date: schedules[0].date,
-        startTime: schedules[0].startTime,
-        endTime: schedules[0].endTime,
-        durationMinutes: schedules[0].durationMinutes,
-        type: schedules[0].type,
-        reason: schedules[0].reason,
-        notes: schedules[0].notes,
+        doctorId: s.doctorId,
+        date: s.date,
+        startTime: '',
+        endTime: '',
+        durationMinutes: 30,
+        type: 'PROCEDURE',
+        reason: '',
+        notes: s.notes,
+      });
+      setSingleSlots([]);
+      loadSingleSlots(s.doctorId, s.date, 30);
+    } else {
+      setIsMultiDoctorModal(true);
+      // Load slots for all doctors in parallel
+      schedules.forEach((s, idx) => {
+        loadMultiSlots(idx, s.doctorId, s.date, s.durationMinutes);
       });
     }
 
+    setActiveApptMobileTab('form');
     setIsApptModalOpen(true);
   };
 
   // Open Appointment Modal for a single Item
   const handleOpenApptModalForItem = (item: ProposedItem, group: ProposedGroup) => {
-    const docId = item.doctorId || doctors[0]?.id || '';
-    const otStr = item.otTeethNumber
-      ? `OT: ${item.otTeethNumber}`
-      : item.toothNumbers.length
-      ? `OT: #${item.toothNumbers.join(', #')}`
-      : '';
+    const docId = item.doctorId || '';
+    if (!docId) {
+      error(
+        t(
+          'patientTreatmentPlan.assignDoctorFirst',
+          'Please assign a doctor to this service before scheduling an appointment.'
+        )
+      );
+      return;
+    }
+    // Auto-resolve missing serviceId if empty
+    let itemToUse = item;
+    if (!item.serviceId && item.treatmentName) {
+      const matched = clinicServices.find(
+        (cs) => cs.name?.toLowerCase().trim() === item.treatmentName?.toLowerCase().trim()
+      );
+      if (matched) {
+        itemToUse = { ...item, serviceId: matched.id };
+      }
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const appointmentNotes = formatServicesForNotes([itemToUse]);
+    const docName = doctors.find((d) => d.id === docId)?.name || t('common.unassignedDoctor', 'Doctor');
+
     setIsMultiDoctorModal(false);
-    setMultiDoctorAppts([]);
-    setApptForm({
+    setMultiDoctorAppts([{
       doctorId: docId,
-      date: new Date().toISOString().split('T')[0],
-      startTime: '09:00',
-      endTime: '09:30',
+      doctorName: docName,
+      services: [itemToUse],
+      selected: true,
+      date: todayStr,
+      startTime: '',
+      endTime: '',
       durationMinutes: 30,
       type: 'PROCEDURE',
-      reason: `${item.treatmentName || 'Treatment'}${otStr ? ` - ${otStr}` : ''} (${
-        item.quantity > 1 ? `Qty: ${item.quantity}` : ''
-      }`.trim(),
-      notes: `${group.name} - ${item.treatmentName || 'Treatment'}`,
+      reason: '',
+      notes: appointmentNotes,
+      availableSlots: [],
+      loadingSlots: false,
+      status: 'idle',
+    }]);
+    setUnassignedCount(0);
+    setApptForm({
+      doctorId: docId,
+      date: todayStr,
+      startTime: '',
+      endTime: '',
+      durationMinutes: 30,
+      type: 'PROCEDURE',
+      reason: '',
+      notes: appointmentNotes,
     });
+    setSingleSlots([]);
+    loadSingleSlots(docId, todayStr, 30);
+    setActiveApptMobileTab('form');
     setIsApptModalOpen(true);
   };
 
@@ -935,15 +1102,22 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     });
   };
 
-  // Submit Appointment(s)
+  // Submit Appointment(s) — with Promise.allSettled for resilience
   const handleSubmitAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId) return;
 
     if (isMultiDoctorModal) {
-      const activeSchedules = multiDoctorAppts.filter((s) => s.selected);
+      const activeSchedules = multiDoctorAppts.filter(
+        (s) => s.selected && s.status !== 'success'
+      );
       if (!activeSchedules.length) {
-        error(t('patientTreatmentPlan.selectAtLeastOneAppt', 'Please select at least one doctor appointment to schedule.'));
+        error(
+          t(
+            'patientTreatmentPlan.selectAtLeastOneAppt',
+            'Please select at least one doctor appointment to schedule.'
+          )
+        );
         return;
       }
 
@@ -952,39 +1126,101 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           error(t('patientTreatmentPlan.selectDoctor', 'Please ensure all scheduled appointments have an assigned doctor.'));
           return;
         }
-        if (!s.date || !s.startTime || !s.endTime) {
-          error(t('clinicAppointments.fillRequired', 'Please fill in all required date and time fields.'));
+        if (!s.date || !s.startTime) {
+          error(
+            t('patientTreatmentPlan.selectSlotForDoctor', 'Please select an available time slot for {{doctorName}}.', {
+              doctorName: s.doctorName,
+            })
+          );
+          // Focus that tab
+          const tabIdx = multiDoctorAppts.findIndex((x) => x.doctorId === s.doctorId);
+          if (tabIdx >= 0) setActiveDocTabIdx(tabIdx);
           return;
         }
       }
 
+      // Mark active ones as saving
+      setMultiDoctorAppts((prev) =>
+        prev.map((s) =>
+          s.selected && s.status !== 'success'
+            ? { ...s, status: 'saving' as const, errorMessage: undefined }
+            : s
+        )
+      );
       setApptSubmitting(true);
-      try {
-        await Promise.all(
-          activeSchedules.map((s) =>
-            api.post('/clinic/appointments', {
-              patientId,
-              doctorId: s.doctorId,
-              date: s.date,
-              startTime: s.startTime,
-              endTime: s.endTime,
-              durationMinutes: s.durationMinutes,
-              type: s.type,
-              reason: s.reason,
-              notes: s.notes,
-            })
-          )
-        );
+
+      const results = await Promise.allSettled(
+        activeSchedules.map((s) => {
+          const serviceIds = (s.services || []).map((srv) => srv.serviceId).filter(Boolean);
+          const expectedAmount = (s.services || []).reduce(
+            (sum, srv) => sum + Number(srv.unitPrice || 0) * (srv.quantity || 1),
+            0
+          );
+          return api.post('/clinic/appointments', {
+            patientId,
+            doctorId: s.doctorId,
+            date: s.date,
+            startTime: s.startTime,
+            endTime: s.endTime || calculateEndTime(s.startTime, s.durationMinutes),
+            durationMinutes: s.durationMinutes,
+            type: s.type,
+            reason: s.reason,
+            notes: s.notes,
+            serviceIds,
+            expectedAmount: expectedAmount > 0 ? expectedAmount : undefined,
+          });
+        })
+      );
+
+      let successCount = 0;
+      let failCount = 0;
+
+      setMultiDoctorAppts((prev) => {
+        const copy = [...prev];
+        activeSchedules.forEach((s, i) => {
+          const idx = copy.findIndex((x) => x.doctorId === s.doctorId && x.status === 'saving');
+          if (idx === -1) return;
+          if (results[i].status === 'fulfilled') {
+            copy[idx] = {
+              ...copy[idx],
+              status: 'success',
+              appointmentId: (results[i] as any).value?.data?.id,
+              errorMessage: undefined,
+            };
+            successCount++;
+          } else {
+            const reason = (results[i] as any).reason;
+            copy[idx] = {
+              ...copy[idx],
+              status: 'error',
+              errorMessage:
+                reason?.response?.data?.message || reason?.message || 'Unknown error',
+            };
+            failCount++;
+          }
+        });
+        return copy;
+      });
+
+      setApptSubmitting(false);
+
+      if (failCount === 0) {
         success(t('clinicAppointments.createSuccess', 'Appointments scheduled successfully.'));
         setIsApptModalOpen(false);
-      } catch (err: any) {
-        console.error('Failed to create appointments:', err);
+      } else if (successCount > 0) {
         error(
-          err.response?.data?.message ||
-            t('clinicAppointments.createFailed', 'Failed to schedule appointment.')
+          t(
+            'patientTreatmentPlan.partialSuccess',
+            'Some appointments were scheduled. Please resolve errors below and retry.'
+          )
         );
-      } finally {
-        setApptSubmitting(false);
+        // Focus the first errored tab
+        const firstErrIdx = multiDoctorAppts.findIndex(
+          (s) => s.selected && s.status !== 'success'
+        );
+        if (firstErrIdx >= 0) setActiveDocTabIdx(firstErrIdx);
+      } else {
+        error(t('clinicAppointments.createFailed', 'Failed to schedule appointment.'));
       }
       return;
     }
@@ -994,10 +1230,17 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       error(t('patientTreatmentPlan.selectDoctor', 'Please select a doctor.'));
       return;
     }
-    if (!apptForm.date || !apptForm.startTime || !apptForm.endTime) {
+    if (!apptForm.date || !apptForm.startTime) {
       error(t('clinicAppointments.fillRequired', 'Please fill in all required date and time fields.'));
       return;
     }
+
+    const singleServices = multiDoctorAppts[0]?.services || [];
+    const serviceIds = singleServices.map((srv) => srv.serviceId).filter(Boolean);
+    const expectedAmount = singleServices.reduce(
+      (sum, srv) => sum + Number(srv.unitPrice || 0) * (srv.quantity || 1),
+      0
+    );
 
     setApptSubmitting(true);
     try {
@@ -1006,11 +1249,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         doctorId: apptForm.doctorId,
         date: apptForm.date,
         startTime: apptForm.startTime,
-        endTime: apptForm.endTime,
+        endTime: apptForm.endTime || calculateEndTime(apptForm.startTime, apptForm.durationMinutes),
         durationMinutes: apptForm.durationMinutes,
         type: apptForm.type,
         reason: apptForm.reason,
         notes: apptForm.notes,
+        serviceIds,
+        expectedAmount: expectedAmount > 0 ? expectedAmount : undefined,
       });
       success(t('clinicAppointments.createSuccess', 'Appointment scheduled successfully.'));
       setIsApptModalOpen(false);
@@ -3770,442 +4015,1038 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     </div>
 
     {/* ─── Schedule Appointment Modal (Single Doctor or Multi-Doctor Auto-Division) ─── */}
-    {isApptModalOpen && (
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
-        }}
-      >
+    {isApptModalOpen && (() => {
+      const currentSched = multiDoctorAppts[activeDocTabIdx] || multiDoctorAppts[0];
+      const pendingMultiCount = multiDoctorAppts.filter((s) => s.selected && s.status !== 'success').length;
+      const anyMultiError = multiDoctorAppts.some((s) => s.selected && s.status === 'error');
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Determine active doctor schedule, duration, and slots depending on mode
+      const activeSched = isMultiDoctorModal ? (multiDoctorAppts[activeDocTabIdx] || multiDoctorAppts[0]) : multiDoctorAppts[0];
+      const activeDoctorName = isMultiDoctorModal
+        ? activeSched?.doctorName || t('common.unassignedDoctor', 'Doctor')
+        : multiDoctorAppts[0]?.doctorName || doctors.find((d) => d.id === apptForm.doctorId)?.name || t('common.unassignedDoctor', 'Doctor');
+
+      const activeServices = isMultiDoctorModal
+        ? activeSched?.services || []
+        : multiDoctorAppts[0]?.services || [];
+
+      const activeDuration = isMultiDoctorModal
+        ? activeSched?.durationMinutes || 30
+        : apptForm.durationMinutes || 30;
+
+      const activeSlots = isMultiDoctorModal
+        ? activeSched?.availableSlots || []
+        : singleSlots;
+
+      const activeSlotsLoading = isMultiDoctorModal
+        ? activeSched?.loadingSlots
+        : singleSlotsLoading;
+
+      const activeStartTime = isMultiDoctorModal
+        ? activeSched?.startTime
+        : apptForm.startTime;
+
+      const activeEndTime = isMultiDoctorModal
+        ? activeSched?.endTime
+        : apptForm.endTime;
+
+      const freeSlotsCount = activeSlots.filter((s) => s.available).length;
+
+      return (
         <div
-          className="card"
+          className="modal-backdrop"
           style={{
-            backgroundColor: 'var(--bg-card, #ffffff)',
-            borderRadius: '16px',
-            maxWidth: isMultiDoctorModal ? '680px' : '520px',
-            width: '100%',
-            maxHeight: '90vh',
-            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-            overflow: 'hidden',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1060,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: isMobileScreen ? '10px' : '16px',
           }}
+          onClick={() => setIsApptModalOpen(false)}
         >
-          {/* Modal Header */}
           <div
+            className="add-note-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
             style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid var(--border-color, #e2e8f0)',
+              maxWidth: isMultiDoctorModal ? '1120px' : '1040px',
+              height: isMobileScreen ? 'calc(100vh - 28px)' : '84vh',
+              maxHeight: isMobileScreen ? 'none' : '760px',
+              backgroundColor: 'var(--card-bg, #ffffff)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+              flexDirection: 'column',
+              overflow: 'hidden',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Calendar size={18} style={{ color: 'var(--primary-600, #0d9488)' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-heading, #0f172a)' }}>
-                {isMultiDoctorModal
-                  ? t('patientTreatmentPlan.scheduleAllDoctorAppointments', 'Schedule Doctor Appointments')
-                  : t('patientTreatmentPlan.scheduleAppointmentModal', 'Schedule Appointment')}
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsApptModalOpen(false)}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: 'var(--text-muted, #64748b)',
-                cursor: 'pointer',
-              }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Modal Form Body */}
-          <form onSubmit={handleSubmitAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            {/* Modal Header */}
             <div
               style={{
-                padding: '20px',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                overflowY: 'auto',
-                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 22px',
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg, #ffffff)',
+                flexShrink: 0,
+                gap: '12px',
               }}
             >
-              {/* Patient Name Banner */}
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted, #64748b)' }}>
-                    {t('patientTreatmentPlan.name', 'Patient')}:
-                  </span>
-                  <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-heading, #0f172a)', marginLeft: '8px' }}>
-                    {patientFullName || t('common.unnamed', 'Unnamed Patient')}
-                  </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary-600, #0d9488)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Calendar size={20} />
                 </div>
-                {patient?.recordNumber && (
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-700, #0f766e)', fontFamily: 'monospace' }}>
-                    #{patient.recordNumber}
-                  </span>
-                )}
-              </div>
-
-              {/* Multi-Doctor Division Mode */}
-              {isMultiDoctorModal ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h2
+                      style={{
+                        fontSize: '17px',
+                        fontWeight: 800,
+                        margin: 0,
+                        color: 'var(--text-heading, #0f172a)',
+                        lineHeight: '1.2',
+                      }}
+                    >
+                      {isMultiDoctorModal
+                        ? t('patientTreatmentPlan.scheduleAllDoctorAppointments', 'Schedule Doctor Appointments')
+                        : t('patientTreatmentPlan.scheduleAppointmentModal', 'Schedule Appointment')}
+                    </h2>
+                  </div>
+                  <span
                     style={{
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                      border: '1px solid rgba(99, 102, 241, 0.25)',
-                      fontSize: '12.5px',
-                      color: 'var(--indigo-700, #4338ca)',
-                      lineHeight: 1.4,
+                      fontSize: '12px',
+                      color: 'var(--text-muted, #64748b)',
+                      display: 'block',
+                      marginTop: '2px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
                     {t(
-                      'patientTreatmentPlan.doctorAppointmentsNotice',
-                      'This treatment plan contains services assigned to multiple doctors. An appointment will be scheduled for each doctor.'
+                      'patientTreatmentPlan.scheduleSubtitle',
+                      'Select date, duration, and time slot to schedule procedure appointments.'
                     )}
-                  </div>
+                  </span>
+                </div>
+              </div>
 
-                  {multiDoctorAppts.map((sched, idx) => (
-                    <div
-                      key={sched.doctorId || idx}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setIsApptModalOpen(false)}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  padding: 0,
+                  borderRadius: '8px',
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-muted, #64748b)',
+                  cursor: 'pointer',
+                }}
+                title={t('common.close', 'Close')}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Mobile Segmented Switcher (< 768px) */}
+            {isMobileScreen && (
+              <div
+                style={{
+                  display: 'flex',
+                  borderBottom: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-muted, #f8fafc)',
+                  padding: '6px 10px',
+                  gap: '8px',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveApptMobileTab('form')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeApptMobileTab === 'form' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeApptMobileTab === 'form' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeApptMobileTab === 'form' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <FileText size={15} />
+                  <span>{t('patientTreatmentPlan.tabDetails', 'Details & Notes')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveApptMobileTab('slots')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    backgroundColor: activeApptMobileTab === 'slots' ? 'var(--card-bg, #ffffff)' : 'transparent',
+                    color: activeApptMobileTab === 'slots' ? 'var(--primary-600, #0d9488)' : 'var(--text-muted, #64748b)',
+                    boxShadow: activeApptMobileTab === 'slots' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Clock size={15} />
+                  <span>{t('patientTreatmentPlan.tabSlots', 'Available Slots')}</span>
+                  {freeSlotsCount > 0 && (
+                    <span
                       style={{
-                        borderRadius: '10px',
-                        border: sched.selected
-                          ? '1.5px solid var(--primary-500, #0d9488)'
-                          : '1px solid var(--border-color, #e2e8f0)',
-                        backgroundColor: sched.selected ? 'var(--bg-card, #ffffff)' : 'var(--bg-surface-muted, #f8fafc)',
-                        padding: '14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        transition: 'all 0.15s ease',
+                        padding: '1px 6px',
+                        borderRadius: '999px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(13, 148, 136, 0.15)',
+                        color: 'var(--primary-700, #0f766e)',
                       }}
                     >
-                      {/* Doctor Select Header */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={sched.selected}
-                            onChange={(e) => handleUpdateDoctorApptSchedule(idx, 'selected', e.target.checked)}
-                            style={{ width: '16px', height: '16px', accentColor: 'var(--primary-600, #0d9488)' }}
-                          />
-                          <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-heading, #0f172a)' }}>
-                            {sched.doctorName}
-                          </span>
-                        </label>
-                        <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)' }}>
-                          {sched.services.length}{' '}
-                          {sched.services.length === 1
-                            ? t('patientTreatmentPlan.procedure', 'procedure')
-                            : t('patientTreatmentPlan.procedures', 'procedures')}
-                        </span>
-                      </div>
+                      {freeSlotsCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
 
-                      {sched.selected && (
-                        <>
-                          {/* Assigned Services Pills */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {sched.services.map((srv) => (
-                              <span
-                                key={srv.id}
+            {/* Modal Main Split Body */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              {/* ════════════ LEFT PANE: APPOINTMENT DETAILS & NOTES FORM ════════════ */}
+              {(!isMobileScreen || activeApptMobileTab === 'form') && (
+                <div
+                  style={{
+                    width: isMobileScreen ? '100%' : '52%',
+                    borderRight: isMobileScreen ? 'none' : '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    backgroundColor: 'var(--card-bg, #ffffff)',
+                  }}
+                >
+                  <form
+                    onSubmit={handleSubmitAppointment}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flex: 1,
+                      minHeight: 0,
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '20px 24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px',
+                        overflowY: 'auto',
+                        flex: 1,
+                      }}
+                    >
+                      {/* Unassigned Services Excluded Banner */}
+                      {unassignedCount > 0 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            color: '#b45309',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                          }}
+                        >
+                          <Info size={16} style={{ flexShrink: 0 }} />
+                          <span>{t('patientTreatmentPlan.unassignedServicesIgnored', { count: unassignedCount })}</span>
+                        </div>
+                      )}
+
+                      {/* Multi-Doctor Division Tabs (When > 1 Doctor) */}
+                      {isMultiDoctorModal && (
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-heading, #0f172a)', display: 'block', marginBottom: '8px' }}>
+                            {t('patientTreatmentPlan.selectDoctor', 'Doctor Appointments')} ({multiDoctorAppts.length})
+                          </label>
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: '8px',
+                              overflowX: 'auto',
+                              paddingBottom: '4px',
+                            }}
+                          >
+                            {multiDoctorAppts.map((sched, idx) => {
+                              const isTabActive = activeDocTabIdx === idx;
+                              return (
+                                <div
+                                  key={sched.doctorId || idx}
+                                  onClick={() => setActiveDocTabIdx(idx)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '8px 12px',
+                                    borderRadius: '10px',
+                                    border: isTabActive
+                                      ? '2px solid var(--primary-600, #0d9488)'
+                                      : '1px solid var(--border-color, #cbd5e1)',
+                                    backgroundColor: isTabActive
+                                      ? 'rgba(13, 148, 136, 0.08)'
+                                      : 'var(--bg-muted, #f8fafc)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={sched.selected}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdateDoctorApptSchedule(idx, 'selected', e.target.checked);
+                                    }}
+                                    style={{ width: '15px', height: '15px', accentColor: 'var(--primary-600, #0d9488)', cursor: 'pointer' }}
+                                  />
+                                  <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '13px', fontWeight: isTabActive ? 700 : 600, color: isTabActive ? 'var(--primary-800, #115e59)' : 'var(--text-heading, #0f172a)' }}>
+                                        {sched.doctorName}
+                                      </span>
+                                      {sched.status === 'success' && (
+                                        <CheckCircle2 size={14} style={{ color: '#16a34a' }} />
+                                      )}
+                                      {sched.status === 'error' && (
+                                        <AlertCircle size={14} style={{ color: '#dc2626' }} />
+                                      )}
+                                    </div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)' }}>
+                                      {sched.services.length}{' '}
+                                      {sched.services.length === 1
+                                        ? t('patientTreatmentPlan.procedure', 'procedure')
+                                        : t('patientTreatmentPlan.procedures', 'procedures')}
+                                      {sched.startTime ? ` · ${sched.startTime}` : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Multi-Doctor Tab Status Banners */}
+                      {isMultiDoctorModal && currentSched?.status === 'success' && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px 14px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                            border: '1px solid rgba(22, 163, 74, 0.3)',
+                            color: '#15803d',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+                          <div>
+                            <div>{t('patientTreatmentPlan.appointmentCreatedForDoctor', { doctorName: currentSched.doctorName })}</div>
+                            <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#166534', marginTop: '2px' }}>
+                              {currentSched.date} · {currentSched.startTime}–{currentSched.endTime} ({currentSched.durationMinutes} {t('patientTreatmentPlan.minutesShort', 'min')})
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {isMultiDoctorModal && currentSched?.status === 'error' && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px 14px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#b91c1c',
+                            fontSize: '12.5px',
+                            fontWeight: 500,
+                          }}
+                        >
+                          <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                          <span>
+                            {t('patientTreatmentPlan.appointmentFailedForDoctor', {
+                              doctorName: currentSched.doctorName,
+                              error: currentSched.errorMessage || 'Failed to schedule',
+                            })}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Top Read-Only Summary Card: Patient, Doctor & Included Services */}
+                      <div
+                        style={{
+                          padding: '14px 16px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--bg-muted, #f8fafc)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                        }}
+                      >
+                        {/* Patient & Doctor Row (Read-Only) */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                            gap: '12px',
+                          }}
+                        >
+                          {/* Patient Info */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                color: 'var(--text-muted, #64748b)',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {t('patientTreatmentPlan.patientLabel', 'Patient')}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                              <div
                                 style={{
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  padding: '3px 8px',
+                                  width: '26px',
+                                  height: '26px',
                                   borderRadius: '6px',
-                                  backgroundColor: 'rgba(13, 148, 136, 0.08)',
-                                  border: '1px solid rgba(13, 148, 136, 0.25)',
-                                  color: 'var(--primary-700, #0f766e)',
+                                  backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--primary-600, #0d9488)',
+                                  flexShrink: 0,
                                 }}
                               >
-                                {srv.treatmentName || 'Treatment'}{' '}
-                                {srv.otTeethNumber ? `(OT: ${srv.otTeethNumber})` : srv.toothNumbers?.length ? `(#${srv.toothNumbers.join(', #')})` : ''}{' '}
-                                x{srv.quantity}
+                                <User size={14} />
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: '13.5px',
+                                  fontWeight: 700,
+                                  color: 'var(--text-heading, #0f172a)',
+                                }}
+                              >
+                                {patientFullName || t('common.unnamed', 'Unnamed Patient')}
                               </span>
-                            ))}
-                          </div>
-
-                          {/* Date & Start Time */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <div>
-                              <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '3px' }}>
-                                {t('patientTreatmentPlan.appointmentDate', 'Date *')}
-                              </label>
-                              <input
-                                type="date"
-                                required
-                                value={sched.date}
-                                onChange={(e) => handleUpdateDoctorApptSchedule(idx, 'date', e.target.value)}
-                                className="form-control"
-                                style={{
-                                  width: '100%',
-                                  padding: '7px 10px',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--border-color, #cbd5e1)',
-                                  fontSize: '12.5px',
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '3px' }}>
-                                {t('patientTreatmentPlan.appointmentTime', 'Start Time *')}
-                              </label>
-                              <input
-                                type="time"
-                                required
-                                value={sched.startTime}
-                                onChange={(e) => {
-                                  const st = e.target.value;
-                                  const [h, m] = st.split(':').map(Number);
-                                  if (!isNaN(h) && !isNaN(m)) {
-                                    const totalM = h * 60 + m + sched.durationMinutes;
-                                    const endH = String(Math.floor(totalM / 60) % 24).padStart(2, '0');
-                                    const endM = String(totalM % 60).padStart(2, '0');
-                                    handleUpdateDoctorApptSchedule(idx, 'startTime', st);
-                                    handleUpdateDoctorApptSchedule(idx, 'endTime', `${endH}:${endM}`);
-                                  } else {
-                                    handleUpdateDoctorApptSchedule(idx, 'startTime', st);
-                                  }
-                                }}
-                                className="form-control"
-                                style={{
-                                  width: '100%',
-                                  padding: '7px 10px',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--border-color, #cbd5e1)',
-                                  fontSize: '12.5px',
-                                }}
-                              />
                             </div>
                           </div>
 
-                          {/* Reason */}
-                          <div>
-                            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '3px' }}>
-                              {t('patientTreatmentPlan.appointmentReason', 'Reason / Treatment')}
-                            </label>
-                            <input
-                              type="text"
-                              value={sched.reason}
-                              onChange={(e) => handleUpdateDoctorApptSchedule(idx, 'reason', e.target.value)}
-                              className="form-control"
+                          {/* Doctor Info (Read-Only) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <span
                               style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-color, #cbd5e1)',
-                                fontSize: '12px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                color: 'var(--text-muted, #64748b)',
+                                letterSpacing: '0.04em',
                               }}
-                            />
+                            >
+                              {t('patientTreatmentPlan.doctorLabel', 'Doctor')}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                              <div
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--primary-600, #0d9488)',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Stethoscope size={14} />
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: '13.5px',
+                                  fontWeight: 700,
+                                  color: 'var(--text-heading, #0f172a)',
+                                }}
+                              >
+                                {activeDoctorName}
+                              </span>
+                            </div>
                           </div>
-                        </>
+                        </div>
+
+                        {/* Included Services Row (Read-Only) */}
+                        {activeServices && activeServices.length > 0 && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              borderTop: '1px solid var(--border-color)',
+                              paddingTop: '10px',
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                color: 'var(--text-muted, #64748b)',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {t('patientTreatmentPlan.includedServices', 'Included Services')}
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {activeServices.map((srv) => (
+                                <span
+                                  key={srv.id}
+                                  style={{
+                                    fontSize: '11.5px',
+                                    fontWeight: 600,
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                                    border: '1px solid rgba(13, 148, 136, 0.25)',
+                                    color: 'var(--primary-700, #0f766e)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <span>{srv.treatmentName || 'Treatment'}</span>
+                                  {srv.otTeethNumber ? (
+                                    <span style={{ opacity: 0.9 }}>{`(OT: ${srv.otTeethNumber})`}</span>
+                                  ) : srv.toothNumbers?.length ? (
+                                    <span style={{ opacity: 0.9 }}>{`(#${srv.toothNumbers.join(', #')})`}</span>
+                                  ) : null}
+                                  {srv.quantity > 1 && (
+                                    <span style={{ opacity: 0.85, fontWeight: 700 }}>{`x${srv.quantity}`}</span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Date & Duration Row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                        <div>
+                          <label className="form-label" style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-heading, #1e293b)', display: 'block', marginBottom: '4px' }}>
+                            {t('patientTreatmentPlan.appointmentDate', 'Date')} <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            disabled={isMultiDoctorModal && currentSched?.status === 'success'}
+                            min={todayStr}
+                            value={isMultiDoctorModal ? currentSched?.date : apptForm.date}
+                            onChange={(e) => {
+                              const d = e.target.value;
+                              if (isMultiDoctorModal) {
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'date', d);
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'startTime', '');
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'endTime', '');
+                                loadMultiSlots(activeDocTabIdx, currentSched.doctorId, d, currentSched.durationMinutes);
+                              } else {
+                                setApptForm((prev) => ({ ...prev, date: d, startTime: '', endTime: '' }));
+                                if (apptForm.doctorId) {
+                                  loadSingleSlots(apptForm.doctorId, d, apptForm.durationMinutes);
+                                }
+                              }
+                            }}
+                            className="input"
+                            style={{
+                              width: '100%',
+                              height: '40px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border-color)',
+                              fontSize: '13px',
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="form-label" style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-heading, #1e293b)', display: 'block', marginBottom: '4px' }}>
+                            {t('patientTreatmentPlan.duration', 'Duration')}
+                          </label>
+                          <select
+                            disabled={isMultiDoctorModal && currentSched?.status === 'success'}
+                            value={isMultiDoctorModal ? currentSched?.durationMinutes : apptForm.durationMinutes}
+                            onChange={(e) => {
+                              const dur = Number(e.target.value);
+                              if (isMultiDoctorModal) {
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'durationMinutes', dur);
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'startTime', '');
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'endTime', '');
+                                loadMultiSlots(activeDocTabIdx, currentSched.doctorId, currentSched.date, dur);
+                              } else {
+                                setApptForm((prev) => ({ ...prev, durationMinutes: dur, startTime: '', endTime: '' }));
+                                if (apptForm.doctorId) {
+                                  loadSingleSlots(apptForm.doctorId, apptForm.date, dur);
+                                }
+                              }
+                            }}
+                            className="input"
+                            style={{
+                              width: '100%',
+                              height: '40px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border-color)',
+                              fontSize: '13px',
+                            }}
+                          >
+                            <option value={15}>15 {t('patientTreatmentPlan.minutes', 'minutes')}</option>
+                            <option value={30}>30 {t('patientTreatmentPlan.minutes', 'minutes')}</option>
+                            <option value={45}>45 {t('patientTreatmentPlan.minutes', 'minutes')}</option>
+                            <option value={60}>60 {t('patientTreatmentPlan.minutes', 'minutes')}</option>
+                            <option value={90}>90 {t('patientTreatmentPlan.minutes', 'minutes')}</option>
+                            <option value={120}>120 {t('patientTreatmentPlan.minutes', 'minutes')}</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Selected Time Slot Feedback Pill */}
+                      {activeStartTime && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                            border: '1px solid rgba(13, 148, 136, 0.25)',
+                            fontSize: '12.5px',
+                            color: 'var(--primary-700, #0f766e)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                            <span>
+                              <strong>Selected Slot:</strong> {activeStartTime} – {activeEndTime} ({activeDuration} min)
+                            </span>
+                          </div>
+                          {isMobileScreen && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveApptMobileTab('slots')}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--primary-600, #0d9488)',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                              }}
+                            >
+                              Change
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Appointment Notes (Formatted Numbered List) */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-heading, #1e293b)', display: 'block', marginBottom: '6px' }}>
+                          {t('patientTreatmentPlan.appointmentNotes', 'Appointment Notes')}
+                        </label>
+                        <textarea
+                          disabled={isMultiDoctorModal && currentSched?.status === 'success'}
+                          value={isMultiDoctorModal ? (currentSched?.notes || '') : apptForm.notes}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (isMultiDoctorModal) {
+                              handleUpdateDoctorApptSchedule(activeDocTabIdx, 'notes', val);
+                            } else {
+                              setApptForm((prev) => ({ ...prev, notes: val }));
+                            }
+                          }}
+                          rows={4}
+                          placeholder="1. Corona (OT: 18)..."
+                          className="input"
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)',
+                            fontSize: '12.5px',
+                            lineHeight: '1.5',
+                            resize: 'vertical',
+                            boxSizing: 'border-box',
+                            fontFamily: 'inherit',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Left Pane Form Footer */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: '12px',
+                        padding: '16px 24px',
+                        borderTop: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-muted, #f8fafc)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setIsApptModalOpen(false)}
+                        disabled={apptSubmitting}
+                        style={{ fontSize: '13px', minHeight: '40px', padding: '0 18px', borderRadius: '8px' }}
+                      >
+                        {t('patientTreatmentPlan.cancel', 'Cancel')}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={apptSubmitting || (isMultiDoctorModal && pendingMultiCount === 0)}
+                        className="btn btn-primary"
+                        style={{
+                          fontSize: '13.5px',
+                          fontWeight: 700,
+                          minHeight: '40px',
+                          padding: '0 20px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--primary-600, #0d9488)',
+                          color: '#ffffff',
+                          border: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          cursor: (apptSubmitting || (isMultiDoctorModal && pendingMultiCount === 0)) ? 'not-allowed' : 'pointer',
+                          opacity: (apptSubmitting || (isMultiDoctorModal && pendingMultiCount === 0)) ? 0.6 : 1,
+                        }}
+                      >
+                        {apptSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
+                        <span>
+                          {isMultiDoctorModal
+                            ? anyMultiError
+                              ? t('patientTreatmentPlan.retrySchedule', 'Retry')
+                              : `${t('patientTreatmentPlan.scheduleAllDoctorAppointments', 'Schedule All Appointments')} (${pendingMultiCount})`
+                            : t('patientTreatmentPlan.schedule', 'Schedule')}
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* ════════════ RIGHT PANE: AVAILABLE SLOTS GRID ════════════ */}
+              {(!isMobileScreen || activeApptMobileTab === 'slots') && (
+                <div
+                  style={{
+                    width: isMobileScreen ? '100%' : '48%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    backgroundColor: 'var(--bg-muted, #f8fafc)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* Slots Pane Header */}
+                  <div
+                    style={{
+                      padding: '14px 18px',
+                      borderBottom: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Clock size={16} style={{ color: 'var(--primary-600, #0d9488)' }} />
+                        <span style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text-heading, #0f172a)' }}>
+                          {t('patientTreatmentPlan.availableSlots', 'Available Slots')} ({activeDuration} {t('patientTreatmentPlan.minutesShort', 'min')})
+                        </span>
+                      </div>
+                      {freeSlotsCount > 0 && (
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            color: '#047857',
+                          }}
+                        >
+                          {freeSlotsCount} {t('patientTreatmentPlan.slotsFree', 'free')}
+                        </span>
                       )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                /* Single Doctor Mode */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Doctor Select */}
-                  <div>
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                      {t('patientTreatmentPlan.doctorColumn', 'Doctor *')}
-                    </label>
-                    <SearchableSelect
-                      options={doctorOptions}
-                      value={apptForm.doctorId}
-                      onChange={(val) => setApptForm((prev) => ({ ...prev, doctorId: val }))}
-                      placeholder={t('patientTreatmentPlan.selectDoctor', 'Select Doctor...')}
-                      searchPlaceholder={t('patientTreatmentPlan.searchDoctor', 'Search doctor...')}
-                    />
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted, #64748b)' }}>
+                      Click on an available slot below to choose the appointment time.
+                    </span>
                   </div>
 
-                  {/* Date & Time Row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                        {t('patientTreatmentPlan.appointmentDate', 'Date *')}
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={apptForm.date}
-                        onChange={(e) => setApptForm((prev) => ({ ...prev, date: e.target.value }))}
-                        className="form-control"
+                  {/* Slots Pane Body */}
+                  <div
+                    style={{
+                      padding: '18px',
+                      overflowY: 'auto',
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    {!apptForm.doctorId && !isMultiDoctorModal ? (
+                      <div
                         style={{
-                          width: '100%',
-                          padding: '8px 12px',
+                          fontSize: '12.5px',
+                          color: 'var(--text-muted, #64748b)',
+                          padding: '12px 14px',
                           borderRadius: '8px',
-                          border: '1px solid var(--border-color, #cbd5e1)',
+                          backgroundColor: 'var(--card-bg, #ffffff)',
+                          border: '1px dashed var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <Info size={16} style={{ color: 'var(--primary-600, #0d9488)', flexShrink: 0 }} />
+                        <span>{t('patientTreatmentPlan.selectDoctorAndDate', 'Select a doctor and date to view available slots.')}</span>
+                      </div>
+                    ) : activeSlotsLoading ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '10px',
+                          padding: '40px 20px',
+                          color: 'var(--text-muted, #64748b)',
                           fontSize: '13px',
                         }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                        {t('patientTreatmentPlan.appointmentTime', 'Start Time *')}
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={apptForm.startTime}
-                        onChange={(e) => {
-                          const st = e.target.value;
-                          const [h, m] = st.split(':').map(Number);
-                          if (!isNaN(h) && !isNaN(m)) {
-                            const totalM = h * 60 + m + apptForm.durationMinutes;
-                            const endH = String(Math.floor(totalM / 60) % 24).padStart(2, '0');
-                            const endM = String(totalM % 60).padStart(2, '0');
-                            setApptForm((prev) => ({ ...prev, startTime: st, endTime: `${endH}:${endM}` }));
-                          } else {
-                            setApptForm((prev) => ({ ...prev, startTime: st }));
+                      >
+                        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary-600, #0d9488)' }} />
+                        <span>{t('patientTreatmentPlan.checkingSlots', 'Checking availability...')}</span>
+                      </div>
+                    ) : !activeSlots || activeSlots.length === 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div
+                          style={{
+                            fontSize: '12.5px',
+                            color: '#b45309',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                          }}
+                        >
+                          {t('patientTreatmentPlan.noSlotsAvailable', 'No available slots for this doctor on the selected date.')}
+                        </div>
+                        <div>
+                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-heading, #1e293b)', display: 'block', marginBottom: '4px' }}>
+                            {t('patientTreatmentPlan.appointmentTime', 'Start Time')} <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <input
+                            type="time"
+                            required
+                            value={activeStartTime}
+                            onChange={(e) => {
+                              const st = e.target.value;
+                              if (isMultiDoctorModal) {
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'startTime', st);
+                                handleUpdateDoctorApptSchedule(activeDocTabIdx, 'endTime', calculateEndTime(st, activeDuration));
+                              } else {
+                                setApptForm((prev) => ({
+                                  ...prev,
+                                  startTime: st,
+                                  endTime: calculateEndTime(st, prev.durationMinutes),
+                                }));
+                              }
+                            }}
+                            className="input"
+                            style={{
+                              width: '100%',
+                              height: '40px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border-color)',
+                              fontSize: '13px',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                          gap: '10px',
+                          padding: '2px',
+                        }}
+                      >
+                        {activeSlots.map((slot) => {
+                          const isSelected = activeStartTime === slot.startTime;
+                          const isBooked = !slot.available;
+                          const label = `${slot.startTime}–${slot.endTime}`;
+
+                          if (isBooked) {
+                            return (
+                              <div
+                                key={slot.startTime}
+                                title={t('patientTreatmentPlan.slotsBooked', 'Booked')}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  padding: '8px 12px',
+                                  borderRadius: '9999px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.04)',
+                                  color: 'var(--text-muted, #64748b)',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  opacity: 0.5,
+                                  cursor: 'not-allowed',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                <Lock size={12} style={{ flexShrink: 0 }} />
+                                <span>{label}</span>
+                              </div>
+                            );
                           }
-                        }}
-                        className="form-control"
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border-color, #cbd5e1)',
-                          fontSize: '13px',
-                        }}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Reason / Treatment */}
-                  <div>
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                      {t('patientTreatmentPlan.appointmentReason', 'Reason / Treatment')}
-                    </label>
-                    <input
-                      type="text"
-                      value={apptForm.reason}
-                      onChange={(e) => setApptForm((prev) => ({ ...prev, reason: e.target.value }))}
-                      placeholder="e.g. Treatment Plan 1: Corona, Resina"
-                      className="form-control"
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-color, #cbd5e1)',
-                        fontSize: '13px',
-                      }}
-                    />
-                  </div>
-
-                  {/* Notes */}
-                  <div>
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
-                      {t('patientTreatmentPlan.appointmentNotes', 'Appointment Notes')}
-                    </label>
-                    <textarea
-                      value={apptForm.notes}
-                      onChange={(e) => setApptForm((prev) => ({ ...prev, notes: e.target.value }))}
-                      rows={2}
-                      className="form-control"
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-color, #cbd5e1)',
-                        fontSize: '13px',
-                      }}
-                    />
+                          return (
+                            <button
+                              key={slot.startTime}
+                              type="button"
+                              onClick={() => {
+                                if (isMultiDoctorModal) {
+                                  handleUpdateDoctorApptSchedule(activeDocTabIdx, 'startTime', slot.startTime);
+                                  handleUpdateDoctorApptSchedule(activeDocTabIdx, 'endTime', slot.endTime);
+                                } else {
+                                  setApptForm((prev) => ({
+                                    ...prev,
+                                    startTime: slot.startTime,
+                                    endTime: slot.endTime,
+                                  }));
+                                }
+                                if (isMobileScreen) {
+                                  setActiveApptMobileTab('form');
+                                }
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                padding: '8px 12px',
+                                borderRadius: '9999px',
+                                border: isSelected ? '1.5px solid var(--primary-600, #0d9488)' : '1px solid rgba(13, 148, 136, 0.4)',
+                                backgroundColor: isSelected ? 'var(--primary-600, #0d9488)' : 'var(--card-bg, #ffffff)',
+                                color: isSelected ? '#ffffff' : 'var(--primary-700, #0f766e)',
+                                fontSize: '12px',
+                                fontWeight: isSelected ? 700 : 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                boxShadow: isSelected ? '0 2px 6px rgba(13, 148, 136, 0.25)' : 'none',
+                              }}
+                            >
+                              {isSelected && <Check size={13} style={{ flexShrink: 0 }} />}
+                              <span>{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
-
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: '14px 20px',
-                borderTop: '1px solid var(--border-color, #e2e8f0)',
-                backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: '10px',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setIsApptModalOpen(false)}
-                className="btn btn-secondary"
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                }}
-              >
-                {t('patientTreatmentPlan.cancel', 'Cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={apptSubmitting}
-                className="btn btn-primary"
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  backgroundColor: 'var(--primary-600, #0d9488)',
-                  color: '#ffffff',
-                  border: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                {apptSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Calendar size={15} />}
-                <span>
-                  {isMultiDoctorModal
-                    ? t('patientTreatmentPlan.scheduleAllDoctorAppointments', 'Schedule All Appointments')
-                    : t('patientTreatmentPlan.schedule', 'Schedule')}
-                </span>
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
-      </div>
-    )}
+      );
+    })()}
 
     {/* ─── Delete Treatment Plan Confirmation Modal ─── */}
     {planToDelete && (

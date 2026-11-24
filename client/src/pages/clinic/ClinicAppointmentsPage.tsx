@@ -1391,6 +1391,33 @@ export const ClinicAppointmentsPage: React.FC = () => {
                               <span>• {apt.patient?.phoneCountryCode || '+52'} {apt.patient?.phoneNumber}</span>
                             )}
                           </div>
+                          {apt.appointmentServices && apt.appointmentServices.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                              {apt.appointmentServices.map((as) => (
+                                <span
+                                  key={as.id}
+                                  style={{
+                                    fontSize: '11px',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                                    color: '#4f46e5',
+                                    fontWeight: 500,
+                                  }}
+                                  title={`${as.serviceName} - $${Number(as.unitPrice).toFixed(2)}${as.quantity > 1 ? ` x${as.quantity}` : ''}`}
+                                >
+                                  {as.serviceName}
+                                  {as.quantity > 1 ? ` (x${as.quantity})` : ''}
+                                </span>
+                              ))}
+                              {apt.expectedAmount !== undefined && apt.expectedAmount !== null && Number(apt.expectedAmount) > 0 && (
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', marginLeft: '2px' }}>
+                                  ${Number(apt.expectedAmount).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Doctor info */}
