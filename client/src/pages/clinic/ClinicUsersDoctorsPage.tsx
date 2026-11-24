@@ -552,7 +552,8 @@ const COUNTRY_DIALING_CODES: SearchableSelectOption[] = [
 ];
 
 export const ClinicUsersDoctorsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isSpanish = i18n.language?.startsWith('es');
   const { user, isTenantAdmin } = useAuth();
   const { toast } = useToast();
 
