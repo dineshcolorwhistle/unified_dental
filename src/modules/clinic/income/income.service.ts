@@ -298,6 +298,7 @@ export class IncomeService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.IncomeRecordWhereInput = { tenantId };
+    const appointmentWhere: Prisma.AppointmentWhereInput = {};
 
     if (query.branchId) {
       where.branchId = query.branchId;
@@ -309,23 +310,23 @@ export class IncomeService {
 
     if (query.status && query.status !== 'ALL') {
       if (query.status === 'NOT_STARTED') {
-        where.appointment = { ...where.appointment, status: 'SCHEDULED' };
+        appointmentWhere.status = 'SCHEDULED';
       } else if (query.status === 'IN_PROGRESS') {
-        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        appointmentWhere.status = { not: 'SCHEDULED' };
         where.serviceLines = { none: { isCompleted: true } };
         where.productLines = { none: {} };
         where.totalPaid = { equals: 0 };
         where.grandTotal = { equals: 0 };
       } else if (query.status === 'PAID') {
-        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        appointmentWhere.status = { not: 'SCHEDULED' };
         where.totalPaid = { gt: 0 };
         where.balanceDue = { lte: 0 };
       } else if (query.status === 'PARTIAL') {
-        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        appointmentWhere.status = { not: 'SCHEDULED' };
         where.totalPaid = { gt: 0 };
         where.balanceDue = { gt: 0 };
       } else if (query.status === 'PENDING') {
-        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        appointmentWhere.status = { not: 'SCHEDULED' };
         where.totalPaid = { equals: 0 };
         where.OR = [
           { grandTotal: { gt: 0 } },
@@ -338,19 +339,18 @@ export class IncomeService {
     }
 
     if (query.startDate || query.endDate) {
-      where.appointment = { ...where.appointment };
+      const dateFilter: Prisma.DateTimeFilter = {};
       if (query.startDate) {
-        where.appointment.date = {
-          ...(where.appointment.date as any),
-          gte: new Date(query.startDate + 'T00:00:00Z'),
-        };
+        dateFilter.gte = new Date(query.startDate + 'T00:00:00Z');
       }
       if (query.endDate) {
-        where.appointment.date = {
-          ...(where.appointment.date as any),
-          lte: new Date(query.endDate + 'T23:59:59Z'),
-        };
+        dateFilter.lte = new Date(query.endDate + 'T23:59:59Z');
       }
+      appointmentWhere.date = dateFilter;
+    }
+
+    if (Object.keys(appointmentWhere).length > 0) {
+      where.appointment = appointmentWhere;
     }
 
     if (query.search?.trim()) {
