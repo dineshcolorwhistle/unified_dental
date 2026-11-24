@@ -33,6 +33,7 @@ import {
   Stethoscope,
 } from 'lucide-react';
 import api from '../../services/api';
+import { Tooltip } from '../../components/common/Tooltip';
 import { useAuth } from '../../core/context/AuthContext';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import { AddPatientNoteModal, PatientOptionItem } from '../../components/clinic/AddPatientNoteModal';
@@ -1495,28 +1496,30 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            type="button"
-            onClick={() => navigate('/clinic/patients')}
-            className="btn btn-secondary"
-            style={{
-              width: '38px',
-              height: '38px',
-              padding: 0,
-              borderRadius: '8px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid var(--border-color, #cbd5e1)',
-              backgroundColor: 'var(--bg-card, #ffffff)',
-              color: 'var(--text-heading, #0f172a)',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-              cursor: 'pointer',
-            }}
-            title={t('patientTreatmentPlan.backToPatients', 'Back to Patients')}
-          >
-            <ArrowLeft size={18} />
-          </button>
+          <Tooltip content={t('patientTreatmentPlan.backToPatients', 'Back to Patients')}>
+            <button
+              type="button"
+              onClick={() => navigate('/clinic/patients')}
+              className="btn btn-secondary"
+              style={{
+                width: '38px',
+                height: '38px',
+                padding: 0,
+                borderRadius: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid var(--border-color, #cbd5e1)',
+                backgroundColor: 'var(--bg-card, #ffffff)',
+                color: 'var(--text-heading, #0f172a)',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                cursor: 'pointer',
+              }}
+              aria-label={t('patientTreatmentPlan.backToPatients', 'Back to Patients')}
+            >
+              <ArrowLeft size={18} />
+            </button>
+          </Tooltip>
           <div>
             <h1
               style={{
@@ -3433,33 +3436,35 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                           cursor: 'pointer',
                           minHeight: '36px',
                         }}
-                        title={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
+                        aria-label={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
                       >
                         <Calendar size={14} />
                         <span>{t('patientTreatmentPlan.createAppointment', 'Create appointment')}</span>
                       </button>
 
                       {/* Delete Plan Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteGroup(group.id)}
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '1px solid #fecaca',
-                          backgroundColor: '#fee2e2',
-                          color: '#b91c1c',
-                          cursor: 'pointer',
-                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                        }}
-                        title={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <Tooltip content={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGroup(group.id)}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid #fecaca',
+                            backgroundColor: '#fee2e2',
+                            color: '#b91c1c',
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          }}
+                          aria-label={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
 
@@ -3702,12 +3707,14 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 {/* Drag Handle & Selection Checkbox */}
                                 <td style={{ padding: '8px 4px', verticalAlign: 'middle' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
-                                    <span title={t('patientTreatmentPlan.dragToMove', 'Drag to move or reorder')} style={{ display: 'inline-flex', cursor: 'grab' }}>
-                                      <GripVertical
-                                        size={13}
-                                        style={{ color: 'var(--text-muted, #94a3b8)' }}
-                                      />
-                                    </span>
+                                    <Tooltip content={t('patientTreatmentPlan.dragToMove', 'Drag to move or reorder')}>
+                                      <span style={{ display: 'inline-flex', cursor: 'grab' }}>
+                                        <GripVertical
+                                          size={13}
+                                          style={{ color: 'var(--text-muted, #94a3b8)' }}
+                                        />
+                                      </span>
+                                    </Tooltip>
                                     <input
                                       type="checkbox"
                                       checked={Boolean(item.isSelected)}
@@ -3866,48 +3873,52 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 {/* Appointment & Delete Actions */}
                                 <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'center' }}>
                                   <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenApptModalForItem(item, group)}
-                                      style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '6px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        border: '1px solid var(--primary-500, #0d9488)',
-                                        backgroundColor: 'rgba(13, 148, 136, 0.08)',
-                                        color: 'var(--primary-700, #0f766e)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
-                                        padding: 0,
-                                      }}
-                                      title={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
-                                    >
-                                      <Calendar size={13} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveServiceFromGroup(group.id, item.id)}
-                                      style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '6px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        border: '1px solid #fecaca',
-                                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                                        color: '#ef4444',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
-                                        padding: 0,
-                                      }}
-                                      title={t('patientTreatmentPlan.deleteService', 'Delete Service')}
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
+                                    <Tooltip content={t('patientTreatmentPlan.createAppointment', 'Create appointment')}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenApptModalForItem(item, group)}
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          borderRadius: '6px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          border: '1px solid var(--primary-500, #0d9488)',
+                                          backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                                          color: 'var(--primary-700, #0f766e)',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s ease',
+                                          padding: 0,
+                                        }}
+                                        aria-label={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
+                                      >
+                                        <Calendar size={13} />
+                                      </button>
+                                    </Tooltip>
+                                    <Tooltip content={t('patientTreatmentPlan.deleteService', 'Delete Service')}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveServiceFromGroup(group.id, item.id)}
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          borderRadius: '6px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          border: '1px solid #fecaca',
+                                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                          color: '#ef4444',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s ease',
+                                          padding: 0,
+                                        }}
+                                        aria-label={t('patientTreatmentPlan.deleteService', 'Delete Service')}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </Tooltip>
                                   </div>
                                 </td>
                               </tr>
@@ -4148,28 +4159,30 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setIsApptModalOpen(false)}
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  padding: 0,
-                  borderRadius: '8px',
-                  flexShrink: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-muted, #64748b)',
-                  cursor: 'pointer',
-                }}
-                title={t('common.close', 'Close')}
-              >
-                <X size={18} />
-              </button>
+              <Tooltip content={t('common.close', 'Close')}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setIsApptModalOpen(false)}
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    padding: 0,
+                    borderRadius: '8px',
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-muted, #64748b)',
+                    cursor: 'pointer',
+                  }}
+                  aria-label={t('common.close', 'Close')}
+                >
+                  <X size={18} />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Mobile Segmented Switcher (< 768px) */}

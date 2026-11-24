@@ -7,6 +7,7 @@ import { useToast } from '../../core/context/ToastContext';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { Pagination } from '../../components/common/Pagination';
+import { Tooltip } from '../../components/common/Tooltip';
 import { formatDate } from '../../core/utils/dateUtils';
 import {
   Users,
@@ -975,193 +976,209 @@ export const ClinicPatientsPage: React.FC = () => {
                         <td style={{ padding: '14px 18px', textAlign: 'center' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             {/* 1. Odontogram */}
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => navigate(`/clinic/patients/${p.id}/odontogram`)}
-                              title={t('clinicPatients.table.odontogram', 'Odontogram')}
-                              style={{
-                                padding: '6px',
-                                borderRadius: '6px',
-                                color: 'var(--primary-600, #0d9488)',
-                                backgroundColor: 'rgba(20, 184, 166, 0.08)',
-                                border: '1px solid rgba(20, 184, 166, 0.25)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.18)';
-                                e.currentTarget.style.borderColor = 'var(--primary-500, #14b8a6)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.08)';
-                                e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
-                              }}
-                            >
-                              <ToothIcon size={15} />
-                            </button>
+                            <Tooltip content={t('clinicPatients.table.odontogram', 'Odontogram')}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => navigate(`/clinic/patients/${p.id}/odontogram`)}
+                                aria-label={t('clinicPatients.table.odontogram', 'Odontogram')}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  color: 'var(--primary-600, #0d9488)',
+                                  backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                                  border: '1px solid rgba(20, 184, 166, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.18)';
+                                  e.currentTarget.style.borderColor = 'var(--primary-500, #14b8a6)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.08)';
+                                  e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+                                }}
+                              >
+                                <ToothIcon size={15} />
+                              </button>
+                            </Tooltip>
 
                             {/* 2. Treatment Plans */}
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => navigate(`/clinic/patients/${p.id}/treatment-plan`)}
-                              title={t('clinicPatients.table.treatmentPlan', 'Treatment Plans')}
-                              style={{
-                                padding: '6px',
-                                borderRadius: '6px',
-                                color: 'var(--emerald-600, #059669)',
-                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                                border: '1px solid rgba(16, 185, 129, 0.25)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.18)';
-                                e.currentTarget.style.borderColor = 'var(--emerald-500, #10b981)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
-                                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
-                              }}
-                            >
-                              <ClipboardList size={15} />
-                            </button>
+                            <Tooltip content={t('clinicPatients.table.treatmentPlan', 'Treatment Plans')}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => navigate(`/clinic/patients/${p.id}/treatment-plan`)}
+                                aria-label={t('clinicPatients.table.treatmentPlan', 'Treatment Plans')}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  color: 'var(--emerald-600, #059669)',
+                                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.18)';
+                                  e.currentTarget.style.borderColor = 'var(--emerald-500, #10b981)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                                }}
+                              >
+                                <ClipboardList size={15} />
+                              </button>
+                            </Tooltip>
 
                             {/* 3. Add Note */}
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => handleOpenAddNote(p)}
-                              title={t('clinicPatients.table.addNote', 'Add Note')}
-                              style={{
-                                padding: '6px',
-                                borderRadius: '6px',
-                                color: 'var(--primary-600, #0284c7)',
-                                backgroundColor: 'rgba(14, 165, 233, 0.08)',
-                                border: '1px solid rgba(14, 165, 233, 0.25)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.18)';
-                                e.currentTarget.style.borderColor = 'var(--primary-500, #0284c7)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.08)';
-                                e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.25)';
-                              }}
-                            >
-                              <FilePlus size={15} />
-                            </button>
+                            <Tooltip content={t('clinicPatients.table.addNote', 'Add Note')}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => handleOpenAddNote(p)}
+                                aria-label={t('clinicPatients.table.addNote', 'Add Note')}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  color: 'var(--primary-600, #0284c7)',
+                                  backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                                  border: '1px solid rgba(14, 165, 233, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.18)';
+                                  e.currentTarget.style.borderColor = 'var(--primary-500, #0284c7)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.08)';
+                                  e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.25)';
+                                }}
+                              >
+                                <FilePlus size={15} />
+                              </button>
+                            </Tooltip>
 
                             {/* 4. Advance Payment */}
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => handleOpenAdvancePayment(p)}
-                              title={t('clinicPatients.table.advancePayment', 'Advance Payment')}
-                              style={{
-                                padding: '6px',
-                                borderRadius: '6px',
-                                color: 'var(--emerald-600, #059669)',
-                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                                border: '1px solid rgba(16, 185, 129, 0.25)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.18)';
-                                e.currentTarget.style.borderColor = 'var(--emerald-500, #10b981)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
-                                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
-                              }}
-                            >
-                              <Wallet size={15} />
-                            </button>
+                            <Tooltip content={t('clinicPatients.table.advancePayment', 'Advance Payment')}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => handleOpenAdvancePayment(p)}
+                                aria-label={t('clinicPatients.table.advancePayment', 'Advance Payment')}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  color: 'var(--emerald-600, #059669)',
+                                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.18)';
+                                  e.currentTarget.style.borderColor = 'var(--emerald-500, #10b981)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                                }}
+                              >
+                                <Wallet size={15} />
+                              </button>
+                            </Tooltip>
 
                             {/* 5. Clinical History */}
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => handleOpenClinicalHistory(p)}
-                              title={t('clinicPatients.table.clinicalHistory', 'Clinical History')}
-                              style={{
-                                padding: '6px',
-                                borderRadius: '6px',
-                                color: 'var(--indigo-600, #6366f1)',
-                                backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                                border: '1px solid rgba(99, 102, 241, 0.25)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.18)';
-                                e.currentTarget.style.borderColor = 'var(--indigo-500, #6366f1)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
-                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
-                              }}
-                            >
-                              <History size={15} />
-                            </button>
+                            <Tooltip content={t('clinicPatients.table.clinicalHistory', 'Clinical History')}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => handleOpenClinicalHistory(p)}
+                                aria-label={t('clinicPatients.table.clinicalHistory', 'Clinical History')}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  color: 'var(--indigo-600, #6366f1)',
+                                  backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.18)';
+                                  e.currentTarget.style.borderColor = 'var(--indigo-500, #6366f1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
+                                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                                }}
+                              >
+                                <History size={15} />
+                              </button>
+                            </Tooltip>
                           </div>
                         </td>
 
                         {/* Actions (Delete only visible for Tenant Admin) */}
                         <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => {
-                                setViewingPatient(p);
-                                setViewActiveTab('personal');
-                              }}
-                              title={t('clinicPatients.table.viewDetails', 'View Profile')}
-                              style={{ padding: '6px', borderRadius: '6px' }}
-                            >
-                              <Eye size={15} />
-                            </button>
-                            {canEditPatient && (
+                            <Tooltip content={t('clinicPatients.table.viewDetails', 'View Profile')}>
                               <button
                                 type="button"
                                 className="btn btn-ghost"
-                                onClick={() => handleOpenEdit(p)}
-                                title={t('clinicPatients.table.edit', 'Edit Patient')}
+                                onClick={() => {
+                                  setViewingPatient(p);
+                                  setViewActiveTab('personal');
+                                }}
+                                aria-label={t('clinicPatients.table.viewDetails', 'View Profile')}
                                 style={{ padding: '6px', borderRadius: '6px' }}
                               >
-                                <Edit2 size={15} />
+                                <Eye size={15} />
                               </button>
+                            </Tooltip>
+                            {canEditPatient && (
+                              <Tooltip content={t('clinicPatients.table.edit', 'Edit Patient')}>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  onClick={() => handleOpenEdit(p)}
+                                  aria-label={t('clinicPatients.table.edit', 'Edit Patient')}
+                                  style={{ padding: '6px', borderRadius: '6px' }}
+                                >
+                                  <Edit2 size={15} />
+                                </button>
+                              </Tooltip>
                             )}
                             {isTenantAdmin && (
-                              <button
-                                type="button"
-                                className="btn btn-ghost"
-                                onClick={() => setDeletePatientTarget(p)}
-                                title={t('clinicPatients.table.delete', 'Delete Patient')}
-                                style={{ padding: '6px', borderRadius: '6px', color: '#ef4444' }}
-                              >
-                                <Trash2 size={15} />
-                              </button>
+                              <Tooltip content={t('clinicPatients.table.delete', 'Delete Patient')}>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  onClick={() => setDeletePatientTarget(p)}
+                                  aria-label={t('clinicPatients.table.delete', 'Delete Patient')}
+                                  style={{ padding: '6px', borderRadius: '6px', color: '#ef4444' }}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </Tooltip>
                             )}
                           </div>
                         </td>

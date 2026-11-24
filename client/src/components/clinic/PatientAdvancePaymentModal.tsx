@@ -4,6 +4,7 @@ import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { SearchableSelect, SearchableSelectOption } from '../common/SearchableSelect';
 import { Pagination } from '../common/Pagination';
+import { Tooltip } from '../common/Tooltip';
 import { formatDate, getTodayDateString } from '../../core/utils/dateUtils';
 import {
   clinicAdvancePaymentService,
@@ -456,25 +457,27 @@ export const PatientAdvancePaymentModal: React.FC<PatientAdvancePaymentModalProp
             </div>
           </div>
 
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={onClose}
-            style={{
-              width: '34px',
-              height: '34px',
-              padding: 0,
-              borderRadius: '8px',
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-            title={t('common.close', 'Close')}
-          >
-            <X size={18} />
-          </button>
+          <Tooltip content={t('common.close', 'Close')}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onClose}
+              style={{
+                width: '34px',
+                height: '34px',
+                padding: 0,
+                borderRadius: '8px',
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+              aria-label={t('common.close', 'Close')}
+            >
+              <X size={18} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* ─── Mobile Segmented Tab Switcher (< 768px) ─── */}
@@ -1050,19 +1053,21 @@ export const PatientAdvancePaymentModal: React.FC<PatientAdvancePaymentModalProp
                       }}
                     />
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleRefreshPayments}
-                    style={{
-                      height: '36px',
-                      padding: '0 12px',
-                      borderRadius: '8px',
-                    }}
-                    title={t('clinicPatients.addNoteModal.refreshNotes', 'Refresh')}
-                  >
-                    <RefreshCw size={14} className={loadingPayments ? 'animate-spin' : ''} />
-                  </button>
+                  <Tooltip content={t('clinicPatients.addNoteModal.refreshNotes', 'Refresh')}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleRefreshPayments}
+                      style={{
+                        height: '36px',
+                        padding: '0 12px',
+                        borderRadius: '8px',
+                      }}
+                      aria-label={t('clinicPatients.addNoteModal.refreshNotes', 'Refresh')}
+                    >
+                      <RefreshCw size={14} className={loadingPayments ? 'animate-spin' : ''} />
+                    </button>
+                  </Tooltip>
                 </div>
 
                 {/* KPI Summary Cards */}

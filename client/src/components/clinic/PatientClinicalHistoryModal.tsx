@@ -7,6 +7,7 @@ import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
 import { Pagination } from '../common/Pagination';
 import { ToothIcon } from '../common/ToothIcon';
+import { Tooltip } from '../common/Tooltip';
 import { formatDate, formatDateTime } from '../../core/utils/dateUtils';
 import {
   X,
@@ -302,7 +303,7 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
                 padding: '8px 12px',
                 borderRadius: '8px',
               }}
-              title={t('clinicPatients.clinicalHistoryModal.viewOdontogram', 'View Odontogram')}
+              aria-label={t('clinicPatients.clinicalHistoryModal.viewOdontogram', 'View Odontogram')}
             >
               <ToothIcon size={15} />
               <span>{t('clinicPatients.clinicalHistoryModal.viewOdontogram', 'View Odontogram')}</span>
@@ -326,7 +327,7 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
                   padding: '8px 12px',
                   borderRadius: '8px',
                 }}
-                title={t('clinicPatients.clinicalHistoryModal.treatmentPlan', 'Treatment Plan')}
+                aria-label={t('clinicPatients.clinicalHistoryModal.treatmentPlan', 'Treatment Plan')}
               >
                 <ClipboardList size={15} />
                 <span>{t('clinicPatients.clinicalHistoryModal.treatmentPlan', 'Treatment Plan')}</span>
@@ -352,15 +353,17 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
               <span>{t('clinicPatients.clinicalHistoryModal.addNoteBtn', 'Add Note')}</span>
             </button>
 
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={onClose}
-              style={{ width: '34px', height: '34px', padding: 0, borderRadius: '8px' }}
-              title={t('common.close', 'Close')}
-            >
-              <X size={18} />
-            </button>
+            <Tooltip content={t('common.close', 'Close')}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={onClose}
+                style={{ width: '34px', height: '34px', padding: 0, borderRadius: '8px' }}
+                aria-label={t('common.close', 'Close')}
+              >
+                <X size={18} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -424,15 +427,17 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
               {t('clinicPatients.clinicalHistoryModal.totalNotes', 'Total Notes')}:{' '}
               <strong style={{ color: 'var(--text-heading, #0f172a)' }}>{totalCount}</strong>
             </span>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={fetchHistory}
-              title={t('common.refresh', 'Refresh')}
-              style={{ padding: '6px', borderRadius: '6px' }}
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            </button>
+            <Tooltip content={t('common.refresh', 'Refresh')}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={fetchHistory}
+                aria-label={t('common.refresh', 'Refresh')}
+                style={{ padding: '6px', borderRadius: '6px' }}
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -602,22 +607,29 @@ export const PatientClinicalHistoryModal: React.FC<PatientClinicalHistoryModalPr
 
                     {/* Delete action button */}
                     {canDelete && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => setDeleteTargetId(item.id)}
-                        title={t(
+                      <Tooltip
+                        content={t(
                           'clinicPatients.clinicalHistoryModal.deleteNoteTitle',
                           'Delete Clinical Note'
                         )}
-                        style={{
-                          padding: '4px 6px',
-                          borderRadius: '6px',
-                          color: '#ef4444',
-                        }}
                       >
-                        <Trash2 size={14} />
-                      </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => setDeleteTargetId(item.id)}
+                          aria-label={t(
+                            'clinicPatients.clinicalHistoryModal.deleteNoteTitle',
+                            'Delete Clinical Note'
+                          )}
+                          style={{
+                            padding: '4px 6px',
+                            borderRadius: '6px',
+                            color: '#ef4444',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
 

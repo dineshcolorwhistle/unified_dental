@@ -6,6 +6,7 @@ import { useModule } from '../core/context/ModuleContext';
 import { useToast } from '../core/context/ToastContext';
 import { Pagination } from '../components/common/Pagination';
 import { SearchableSelect, SearchableSelectOption } from '../components/common/SearchableSelect';
+import { Tooltip } from '../components/common/Tooltip';
 import {
   Building2,
   Plus,
@@ -535,24 +536,28 @@ export const BranchesPage: React.FC = () => {
                     {/* Actions */}
                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        <button
-                          onClick={() => openEditModal(b)}
-                          className="btn btn-secondary btn-sm"
-                          title={t('branches.editBtn')}
-                          aria-label={t('branches.editBtn')}
-                          style={{ padding: '5px 8px' }}
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => setDeletingBranch(b)}
-                          className="btn btn-secondary btn-sm"
-                          title={t('branches.deleteBtn')}
-                          aria-label={t('branches.deleteBtn')}
-                          style={{ padding: '5px 8px', color: 'var(--rose-500)' }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <Tooltip content={t('branches.editBtn')}>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(b)}
+                            className="btn btn-secondary btn-sm"
+                            aria-label={t('branches.editBtn')}
+                            style={{ padding: '5px 8px' }}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content={t('branches.deleteBtn')}>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingBranch(b)}
+                            className="btn btn-secondary btn-sm"
+                            aria-label={t('branches.deleteBtn')}
+                            style={{ padding: '5px 8px', color: 'var(--rose-500)' }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

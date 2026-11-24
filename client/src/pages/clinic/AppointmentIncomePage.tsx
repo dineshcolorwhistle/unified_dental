@@ -20,6 +20,7 @@ import {
 } from '../../services/clinicAdvancePaymentService';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { Pagination } from '../../components/common/Pagination';
+import { Tooltip } from '../../components/common/Tooltip';
 import {
   ArrowLeft,
   Calendar,
@@ -692,15 +693,17 @@ export const AppointmentIncomePage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <button
-            type="button"
-            onClick={() => navigate('/clinic/appointments')}
-            className="btn btn-secondary btn-icon"
-            style={{ marginTop: '2px', flexShrink: 0 }}
-            title={t('income.backToAppointments', 'Back to Appointments')}
-          >
-            <ArrowLeft size={16} />
-          </button>
+          <Tooltip content={t('income.backToAppointments', 'Back to Appointments')}>
+            <button
+              type="button"
+              onClick={() => navigate('/clinic/appointments')}
+              className="btn btn-secondary btn-icon"
+              style={{ marginTop: '2px', flexShrink: 0 }}
+              aria-label={t('income.backToAppointments', 'Back to Appointments')}
+            >
+              <ArrowLeft size={16} />
+            </button>
+          </Tooltip>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
@@ -1360,72 +1363,78 @@ export const AppointmentIncomePage: React.FC = () => {
                           {/* 1. Complete Action Column: Circular Indicator */}
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                             {line.isCompleted ? (
-                              <div
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  backgroundColor: 'var(--emerald-600)',
-                                  color: '#ffffff',
-                                  margin: '0 auto',
-                                  boxShadow: '0 1px 2px rgba(16, 185, 129, 0.3)',
-                                }}
-                                title={t('income.serviceCompleted', 'Completed')}
-                              >
-                                <Check size={14} strokeWidth={3} />
-                              </div>
+                              <Tooltip content={t('income.serviceCompleted', 'Completed')}>
+                                <div
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'var(--emerald-600)',
+                                    color: '#ffffff',
+                                    margin: '0 auto',
+                                    boxShadow: '0 1px 2px rgba(16, 185, 129, 0.3)',
+                                  }}
+                                >
+                                  <Check size={14} strokeWidth={3} />
+                                </div>
+                              </Tooltip>
                             ) : !canManageServicesAndProducts ? (
-                              <div
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  border: '2px solid var(--border-color)',
-                                  backgroundColor: 'transparent',
-                                  margin: '0 auto',
-                                  opacity: 0.4,
-                                  cursor: 'not-allowed',
-                                }}
-                                title={
+                              <Tooltip
+                                content={
                                   isAppointmentScheduled
                                     ? isSpanish ? 'Cita no iniciada' : 'Appointment not started'
                                     : t('income.appointmentEndedBadge', 'Appointment Ended')
                                 }
-                              />
+                              >
+                                <div
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    border: '2px solid var(--border-color)',
+                                    backgroundColor: 'transparent',
+                                    margin: '0 auto',
+                                    opacity: 0.4,
+                                    cursor: 'not-allowed',
+                                  }}
+                                />
+                              </Tooltip>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => setConfirmCompleteServiceLine(line)}
-                                disabled={togglingLineId === line.id}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  border: '2px solid var(--border-color)',
-                                  backgroundColor: 'transparent',
-                                  cursor: 'pointer',
-                                  margin: '0 auto',
-                                  transition: 'all 0.15s ease',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.borderColor = 'var(--emerald-600)';
-                                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.borderColor = 'var(--border-color)';
-                                  e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
-                                title={t('income.markAsCompleted', 'Mark as Completed')}
-                              />
+                              <Tooltip content={t('income.markAsCompleted', 'Mark as Completed')}>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmCompleteServiceLine(line)}
+                                  disabled={togglingLineId === line.id}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    border: '2px solid var(--border-color)',
+                                    backgroundColor: 'transparent',
+                                    cursor: 'pointer',
+                                    margin: '0 auto',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.borderColor = 'var(--emerald-600)';
+                                    e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                  }}
+                                  aria-label={t('income.markAsCompleted', 'Mark as Completed')}
+                                />
+                              </Tooltip>
                             )}
                           </td>
 
@@ -1511,33 +1520,38 @@ export const AppointmentIncomePage: React.FC = () => {
                           <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                               {canEdit && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditService(line)}
-                                  className="btn-icon"
-                                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)' }}
-                                  title={t('income.editService', 'Edit Service')}
-                                >
-                                  <Edit3 size={15} />
-                                </button>
+                                <Tooltip content={t('income.editService', 'Edit Service')}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditService(line)}
+                                    className="btn-icon"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)' }}
+                                    aria-label={t('income.editService', 'Edit Service')}
+                                  >
+                                    <Edit3 size={15} />
+                                  </button>
+                                </Tooltip>
                               )}
                               {canDelete ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingServiceLine(line)}
-                                  className="btn-icon btn-icon-danger"
-                                  style={{ border: 'none', background: 'none', cursor: 'pointer' }}
-                                  title={isSpanish ? 'Eliminar servicio' : 'Delete service'}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
+                                <Tooltip content={isSpanish ? 'Eliminar servicio' : 'Delete service'}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingServiceLine(line)}
+                                    className="btn-icon btn-icon-danger"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                                    aria-label={isSpanish ? 'Eliminar servicio' : 'Delete service'}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </Tooltip>
                               ) : (
-                                <span
-                                  style={{ color: 'var(--text-muted)', opacity: 0.4, cursor: 'not-allowed' }}
-                                  title={t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')}
-                                >
-                                  <Trash2 size={15} />
-                                </span>
+                                <Tooltip content={t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')}>
+                                  <span
+                                    style={{ color: 'var(--text-muted)', opacity: 0.4, cursor: 'not-allowed', display: 'inline-flex' }}
+                                  >
+                                    <Trash2 size={15} />
+                                  </span>
+                                </Tooltip>
                               )}
                             </div>
                           </td>
@@ -1680,33 +1694,38 @@ export const AppointmentIncomePage: React.FC = () => {
                           <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                               {canEdit && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditProduct(prod)}
-                                  className="btn-icon"
-                                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)' }}
-                                  title={t('income.editProduct', 'Edit Product Quantity')}
-                                >
-                                  <Edit3 size={15} />
-                                </button>
+                                <Tooltip content={t('income.editProduct', 'Edit Product Quantity')}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditProduct(prod)}
+                                    className="btn-icon"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--primary-600)' }}
+                                    aria-label={t('income.editProduct', 'Edit Product Quantity')}
+                                  >
+                                    <Edit3 size={15} />
+                                  </button>
+                                </Tooltip>
                               )}
                               {canDelete ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingProductLine(prod)}
-                                  className="btn-icon btn-icon-danger"
-                                  style={{ border: 'none', background: 'none', cursor: 'pointer' }}
-                                  title={isSpanish ? 'Eliminar producto y restaurar stock' : 'Remove product & restore stock'}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
+                                <Tooltip content={isSpanish ? 'Eliminar producto y restaurar stock' : 'Remove product & restore stock'}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingProductLine(prod)}
+                                    className="btn-icon btn-icon-danger"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                                    aria-label={isSpanish ? 'Eliminar producto y restaurar stock' : 'Remove product & restore stock'}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </Tooltip>
                               ) : (
-                                <span
-                                  style={{ color: 'var(--text-muted)', opacity: 0.4, cursor: 'not-allowed' }}
-                                  title={t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')}
-                                >
-                                  <Trash2 size={15} />
-                                </span>
+                                <Tooltip content={t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')}>
+                                  <span
+                                    style={{ color: 'var(--text-muted)', opacity: 0.4, cursor: 'not-allowed', display: 'inline-flex' }}
+                                  >
+                                    <Trash2 size={15} />
+                                  </span>
+                                </Tooltip>
                               )}
                             </div>
                           </td>

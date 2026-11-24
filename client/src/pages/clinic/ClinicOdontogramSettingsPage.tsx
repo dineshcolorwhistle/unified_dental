@@ -22,6 +22,7 @@ import { useAuth } from '../../core/context/AuthContext';
 import { useToast } from '../../core/context/ToastContext';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import { Pagination } from '../../components/common/Pagination';
+import { Tooltip } from '../../components/common/Tooltip';
 import { formatDate } from '../../core/utils/dateUtils';
 import {
   clinicOdontogramService,
@@ -1043,28 +1044,12 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                             )}
                             <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                                <button
-                                  type="button"
-                                  className="btn-icon"
-                                  onClick={() => setViewingTreatment(item)}
-                                  title={t('common.view', 'View Details')}
-                                  style={{
-                                    border: 'none',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    padding: '6px',
-                                    borderRadius: 'var(--radius-sm)',
-                                  }}
-                                >
-                                  <Eye size={15} />
-                                </button>
-                                {canAddEdit && (
+                                <Tooltip content={t('common.view', 'View Details')}>
                                   <button
                                     type="button"
                                     className="btn-icon"
-                                    onClick={() => openEditTreatment(item)}
-                                    title={t('common.edit', 'Edit')}
+                                    onClick={() => setViewingTreatment(item)}
+                                    aria-label={t('common.view', 'View Details')}
                                     style={{
                                       border: 'none',
                                       background: 'transparent',
@@ -1074,29 +1059,51 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
-                                    <Edit2 size={15} />
+                                    <Eye size={15} />
                                   </button>
+                                </Tooltip>
+                                {canAddEdit && (
+                                  <Tooltip content={t('common.edit', 'Edit')}>
+                                    <button
+                                      type="button"
+                                      className="btn-icon"
+                                      onClick={() => openEditTreatment(item)}
+                                      aria-label={t('common.edit', 'Edit')}
+                                      style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-muted)',
+                                        padding: '6px',
+                                        borderRadius: 'var(--radius-sm)',
+                                      }}
+                                    >
+                                      <Edit2 size={15} />
+                                    </button>
+                                  </Tooltip>
                                 )}
                                 {canDelete && (
-                                  <button
-                                    type="button"
-                                    className="btn-icon btn-icon-danger"
-                                    onClick={() => {
-                                      setTreatmentToDelete(item);
-                                      setShowDeleteTreatmentModal(true);
-                                    }}
-                                    title={t('common.delete', 'Delete')}
-                                    style={{
-                                      border: 'none',
-                                      background: 'transparent',
-                                      cursor: 'pointer',
-                                      color: 'var(--rose-500, #f43f5e)',
-                                      padding: '6px',
-                                      borderRadius: 'var(--radius-sm)',
-                                    }}
-                                  >
-                                    <Trash2 size={15} />
-                                  </button>
+                                  <Tooltip content={t('common.delete', 'Delete')}>
+                                    <button
+                                      type="button"
+                                      className="btn-icon btn-icon-danger"
+                                      onClick={() => {
+                                        setTreatmentToDelete(item);
+                                        setShowDeleteTreatmentModal(true);
+                                      }}
+                                      aria-label={t('common.delete', 'Delete')}
+                                      style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        color: 'var(--rose-500, #f43f5e)',
+                                        padding: '6px',
+                                        borderRadius: 'var(--radius-sm)',
+                                      }}
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </Tooltip>
                                 )}
                               </div>
                             </td>
@@ -1335,28 +1342,12 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                             )}
                             <td style={{ padding: '14px 18px', textAlign: 'right' }}>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                                <button
-                                  type="button"
-                                  className="btn-icon"
-                                  onClick={() => setViewingDiagnostic(item)}
-                                  title={t('common.view', 'View Details')}
-                                  style={{
-                                    border: 'none',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    padding: '6px',
-                                    borderRadius: 'var(--radius-sm)',
-                                  }}
-                                >
-                                  <Eye size={15} />
-                                </button>
-                                {canAddEdit && (
+                                <Tooltip content={t('common.view', 'View Details')}>
                                   <button
                                     type="button"
                                     className="btn-icon"
-                                    onClick={() => openEditDiagnostic(item)}
-                                    title={t('common.edit', 'Edit')}
+                                    onClick={() => setViewingDiagnostic(item)}
+                                    aria-label={t('common.view', 'View Details')}
                                     style={{
                                       border: 'none',
                                       background: 'transparent',
@@ -1366,29 +1357,51 @@ export const ClinicOdontogramSettingsPage: React.FC = () => {
                                       borderRadius: 'var(--radius-sm)',
                                     }}
                                   >
-                                    <Edit2 size={15} />
+                                    <Eye size={15} />
                                   </button>
+                                </Tooltip>
+                                {canAddEdit && (
+                                  <Tooltip content={t('common.edit', 'Edit')}>
+                                    <button
+                                      type="button"
+                                      className="btn-icon"
+                                      onClick={() => openEditDiagnostic(item)}
+                                      aria-label={t('common.edit', 'Edit')}
+                                      style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-muted)',
+                                        padding: '6px',
+                                        borderRadius: 'var(--radius-sm)',
+                                      }}
+                                    >
+                                      <Edit2 size={15} />
+                                    </button>
+                                  </Tooltip>
                                 )}
                                 {canDelete && (
-                                  <button
-                                    type="button"
-                                    className="btn-icon btn-icon-danger"
-                                    onClick={() => {
-                                      setDiagnosticToDelete(item);
-                                      setShowDeleteDiagnosticModal(true);
-                                    }}
-                                    title={t('common.delete', 'Delete')}
-                                    style={{
-                                      border: 'none',
-                                      background: 'transparent',
-                                      cursor: 'pointer',
-                                      color: 'var(--rose-500, #f43f5e)',
-                                      padding: '6px',
-                                      borderRadius: 'var(--radius-sm)',
-                                    }}
-                                  >
-                                    <Trash2 size={15} />
-                                  </button>
+                                  <Tooltip content={t('common.delete', 'Delete')}>
+                                    <button
+                                      type="button"
+                                      className="btn-icon btn-icon-danger"
+                                      onClick={() => {
+                                        setDiagnosticToDelete(item);
+                                        setShowDeleteDiagnosticModal(true);
+                                      }}
+                                      aria-label={t('common.delete', 'Delete')}
+                                      style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        color: 'var(--rose-500, #f43f5e)',
+                                        padding: '6px',
+                                        borderRadius: 'var(--radius-sm)',
+                                      }}
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </Tooltip>
                                 )}
                               </div>
                             </td>

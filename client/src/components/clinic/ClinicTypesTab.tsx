@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../../services/api';
 import { useToast } from '../../core/context/ToastContext';
 import { formatDate } from '../../core/utils/dateUtils';
+import { Tooltip } from '../common/Tooltip';
 import {
   Stethoscope,
   Eye,
@@ -899,18 +900,8 @@ export const ClinicTypesTab: React.FC = () => {
                         </button>
 
                         {/* Safe Delete Button */}
-                        <button
-                          onClick={() => setDeletingType(ct)}
-                          disabled={!canDelete}
-                          className={canDelete ? 'btn btn-danger' : 'btn btn-secondary'}
-                          style={{
-                            fontSize: '12px',
-                            padding: '6px 10px',
-                            borderRadius: '7px',
-                            opacity: canDelete ? 1 : 0.45,
-                            cursor: canDelete ? 'pointer' : 'not-allowed',
-                          }}
-                          title={
+                        <Tooltip
+                          content={
                             ct.isDefault
                               ? t('clinicTypes.cannotDeleteDefaultTooltip', 'Default clinic type cannot be deleted')
                               : hasTenants
@@ -920,8 +911,26 @@ export const ClinicTypesTab: React.FC = () => {
                               : t('clinicTypes.deleteTooltip', 'Delete clinic type')
                           }
                         >
-                          <Trash2 size={13} />
-                        </button>
+                          <span style={{ display: 'inline-flex' }}>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingType(ct)}
+                              disabled={!canDelete}
+                              className={canDelete ? 'btn btn-danger' : 'btn btn-secondary'}
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 10px',
+                                borderRadius: '7px',
+                                opacity: canDelete ? 1 : 0.45,
+                                cursor: canDelete ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDelete ? 'auto' : 'none',
+                              }}
+                              aria-label={t('clinicTypes.deleteTooltip', 'Delete clinic type')}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </span>
+                        </Tooltip>
                       </div>
                     </div>
                   </div>

@@ -7,6 +7,7 @@ import { useToast } from '../../core/context/ToastContext';
 import { Pagination } from '../../components/common/Pagination';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { DateRangePicker, DateRange } from '../../components/common/DateRangePicker';
+import { Tooltip } from '../../components/common/Tooltip';
 import { clinicServiceService, ClinicServiceItem } from '../../services/clinicServiceService';
 import {
   CalendarCheck,
@@ -1241,7 +1242,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 transition: 'all 0.15s ease',
                 whiteSpace: 'nowrap',
               }}
-              title={isSpanish ? 'Restablecer todos los filtros' : 'Reset all filters'}
+              aria-label={isSpanish ? 'Restablecer todos los filtros' : 'Reset all filters'}
             >
               <RotateCcw size={14} />
               <span>{isSpanish ? 'Restablecer' : 'Reset'}</span>
@@ -1284,15 +1285,17 @@ export const ClinicAppointmentsPage: React.FC = () => {
 
             {/* Date Nav Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                type="button"
-                onClick={handlePrevDate}
-                className="btn btn-secondary btn-sm"
-                style={{ padding: '6px 8px' }}
-                title={isSpanish ? 'Anterior' : 'Previous'}
-              >
-                <ChevronLeft size={16} />
-              </button>
+              <Tooltip content={isSpanish ? 'Anterior' : 'Previous'}>
+                <button
+                  type="button"
+                  onClick={handlePrevDate}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '6px 8px' }}
+                  aria-label={isSpanish ? 'Anterior' : 'Previous'}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              </Tooltip>
 
               <button
                 type="button"
@@ -1303,15 +1306,17 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 {isSpanish ? 'Hoy' : 'Today'}
               </button>
 
-              <button
-                type="button"
-                onClick={handleNextDate}
-                className="btn btn-secondary btn-sm"
-                style={{ padding: '6px 8px' }}
-                title={isSpanish ? 'Siguiente' : 'Next'}
-              >
-                <ChevronRight size={16} />
-              </button>
+              <Tooltip content={isSpanish ? 'Siguiente' : 'Next'}>
+                <button
+                  type="button"
+                  onClick={handleNextDate}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '6px 8px' }}
+                  aria-label={isSpanish ? 'Siguiente' : 'Next'}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </Tooltip>
 
               <span
                 style={{
@@ -1562,10 +1567,11 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                           {canAddOrUpdate && apt.status === 'SCHEDULED' && (
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(apt.id, 'IN_PROGRESS')}
-                                className="btn btn-sm"
+                              <Tooltip content={isSpanish ? 'Iniciar cita' : 'Start appointment'}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStatusChange(apt.id, 'IN_PROGRESS')}
+                                  className="btn btn-sm"
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -1580,11 +1586,13 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease',
                                 }}
-                                title={isSpanish ? 'Iniciar cita' : 'Start appointment'}
+                                aria-label={isSpanish ? 'Iniciar cita' : 'Start appointment'}
                               >
                                 <Play size={12} fill="#047857" />
                                 <span>{isSpanish ? 'Iniciar' : 'Start'}</span>
                               </button>
+                            </Tooltip>
+                            <Tooltip content={isSpanish ? 'Cancelar cita' : 'Cancel appointment'}>
                               <button
                                 type="button"
                                 onClick={() => handlePromptCancel(apt)}
@@ -1603,16 +1611,18 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                   cursor: 'pointer',
                                   transition: 'all 0.15s ease',
                                 }}
-                                title={isSpanish ? 'Cancelar cita' : 'Cancel appointment'}
+                                aria-label={isSpanish ? 'Cancelar cita' : 'Cancel appointment'}
                               >
                                 <XCircle size={12} />
                                 <span>{isSpanish ? 'Cancelar' : 'Cancel'}</span>
                               </button>
-                            </div>
-                          )}
+                            </Tooltip>
+                          </div>
+                        )}
 
-                          {canAddOrUpdate && apt.status === 'IN_PROGRESS' && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {canAddOrUpdate && apt.status === 'IN_PROGRESS' && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <Tooltip content={isSpanish ? 'Finalizar cita' : 'End appointment'}>
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(apt.id, 'COMPLETED')}
@@ -1632,12 +1642,13 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                   boxShadow: '0 1px 2px rgba(79, 70, 229, 0.2)',
                                   transition: 'all 0.15s ease',
                                 }}
-                                title={isSpanish ? 'Finalizar cita' : 'End appointment'}
+                                aria-label={isSpanish ? 'Finalizar cita' : 'End appointment'}
                               >
                                 <CheckCircle2 size={12} />
                                 <span>{isSpanish ? 'Finalizar' : 'End'}</span>
                               </button>
-                            </div>
+                            </Tooltip>
+                          </div>
                           )}
 
                           {apt.status === 'COMPLETED' && (
@@ -1668,80 +1679,89 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                 : `Amount variance: Expected $${expectedAmt.toFixed(2)} vs Paid $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`;
 
                               return (
-                                <span
-                                  title={tooltipText}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '6px',
-                                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                                    color: '#d97706',
-                                    border: '1px solid rgba(245, 158, 11, 0.35)',
-                                    cursor: 'help',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <Flag size={14} fill="#d97706" />
-                                </span>
+                                <Tooltip content={tooltipText}>
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                      color: '#d97706',
+                                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                                      cursor: 'help',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Flag size={14} fill="#d97706" />
+                                  </span>
+                                </Tooltip>
                               );
                             })()}
 
                             {/* Income Page Action: accessible only when appointment has started (IN_PROGRESS or COMPLETED) */}
                             {canAddOrUpdate && (apt.status === 'IN_PROGRESS' || apt.status === 'COMPLETED') && (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/clinic/appointments/${apt.id}/income`)}
-                                className="btn btn-secondary btn-sm"
-                                style={{
-                                  padding: '5px 8px',
-                                  color: '#059669',
-                                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                                  borderColor: 'rgba(16, 185, 129, 0.25)',
-                                }}
-                                title={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}
-                              >
-                                <DollarSign size={14} />
-                              </button>
+                              <Tooltip content={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/clinic/appointments/${apt.id}/income`)}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{
+                                    padding: '5px 8px',
+                                    color: '#059669',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                    borderColor: 'rgba(16, 185, 129, 0.25)',
+                                  }}
+                                  aria-label={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}
+                                >
+                                  <DollarSign size={14} />
+                                </button>
+                              </Tooltip>
                             )}
 
                             {/* View Details (All roles) */}
-                            <button
-                              type="button"
-                              onClick={() => setViewingAppointment(apt)}
-                              className="btn btn-secondary btn-sm"
-                              style={{ padding: '5px 8px' }}
-                              title={isSpanish ? 'Ver detalles' : 'View details'}
-                            >
-                              <Eye size={14} />
-                            </button>
+                            <Tooltip content={isSpanish ? 'Ver detalles' : 'View details'}>
+                              <button
+                                type="button"
+                                onClick={() => setViewingAppointment(apt)}
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '5px 8px' }}
+                                aria-label={isSpanish ? 'Ver detalles' : 'View details'}
+                              >
+                                <Eye size={14} />
+                              </button>
+                            </Tooltip>
 
                             {/* Edit (Clinic Admin ONLY) */}
                             {canAddOrUpdate && (
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(apt)}
-                                className="btn btn-secondary btn-sm"
-                                style={{ padding: '5px 8px' }}
-                                title={isSpanish ? 'Editar cita' : 'Edit appointment'}
-                              >
-                                <Edit2 size={14} />
-                              </button>
+                              <Tooltip content={isSpanish ? 'Editar cita' : 'Edit appointment'}>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditModal(apt)}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ padding: '5px 8px' }}
+                                  aria-label={isSpanish ? 'Editar cita' : 'Edit appointment'}
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                              </Tooltip>
                             )}
 
                             {/* Delete (Tenant Admin ONLY - hidden for Clinic Admin) */}
                             {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => setDeletingAppointment(apt)}
-                                className="btn btn-danger btn-sm"
-                                style={{ padding: '5px 8px' }}
-                                title={isSpanish ? 'Eliminar cita' : 'Delete appointment'}
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              <Tooltip content={isSpanish ? 'Eliminar cita' : 'Delete appointment'}>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingAppointment(apt)}
+                                  className="btn btn-danger btn-sm"
+                                  style={{ padding: '5px 8px' }}
+                                  aria-label={isSpanish ? 'Eliminar cita' : 'Delete appointment'}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </Tooltip>
                             )}
                           </div>
                         </td>
@@ -2319,28 +2339,30 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setIsFormModalOpen(false)}
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  padding: 0,
-                  borderRadius: '8px',
-                  flexShrink: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-muted, #64748b)',
-                  cursor: 'pointer',
-                }}
-                title={isSpanish ? 'Cerrar' : 'Close'}
-              >
-                <X size={18} />
-              </button>
+              <Tooltip content={isSpanish ? 'Cerrar' : 'Close'}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setIsFormModalOpen(false)}
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    padding: 0,
+                    borderRadius: '8px',
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-muted, #64748b)',
+                    cursor: 'pointer',
+                  }}
+                  aria-label={isSpanish ? 'Cerrar' : 'Close'}
+                >
+                  <X size={18} />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Mobile Segmented Switcher (< 768px) */}

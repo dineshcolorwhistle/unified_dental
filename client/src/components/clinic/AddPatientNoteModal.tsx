@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { useToast } from '../../core/context/ToastContext';
 import { SearchableSelect, SearchableSelectOption } from '../common/SearchableSelect';
 import { Pagination } from '../common/Pagination';
+import { Tooltip } from '../common/Tooltip';
 import { formatDate, getTodayDateString } from '../../core/utils/dateUtils';
 import {
   X,
@@ -400,21 +401,23 @@ export const AddPatientNoteModal: React.FC<AddPatientNoteModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={onClose}
-            style={{
-              width: '34px',
-              height: '34px',
-              padding: 0,
-              borderRadius: '8px',
-              flexShrink: 0,
-            }}
-            title={t('common.close', 'Close')}
-          >
-            <X size={18} />
-          </button>
+          <Tooltip content={t('common.close', 'Close')}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onClose}
+              style={{
+                width: '34px',
+                height: '34px',
+                padding: 0,
+                borderRadius: '8px',
+                flexShrink: 0,
+              }}
+              aria-label={t('common.close', 'Close')}
+            >
+              <X size={18} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Mobile Segmented Switcher (< 768px) */}
@@ -961,23 +964,25 @@ export const AddPatientNoteModal: React.FC<AddPatientNoteModalProps> = ({
                   </div>
 
                   {patientId && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => fetchNotes(patientId, notesPage, notesLimit, notesSearch)}
-                      title={t('clinicPatients.addNoteModal.refreshNotes', 'Refresh notes')}
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        padding: 0,
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <RefreshCw size={13} className={loadingNotes ? 'animate-spin' : ''} />
-                    </button>
+                    <Tooltip content={t('clinicPatients.addNoteModal.refreshNotes', 'Refresh notes')}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => fetchNotes(patientId, notesPage, notesLimit, notesSearch)}
+                        aria-label={t('clinicPatients.addNoteModal.refreshNotes', 'Refresh notes')}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          padding: 0,
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <RefreshCw size={13} className={loadingNotes ? 'animate-spin' : ''} />
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
 
@@ -1228,7 +1233,7 @@ export const AddPatientNoteModal: React.FC<AddPatientNoteModalProps> = ({
                             type="button"
                             className="btn btn-ghost"
                             onClick={() => handleCopyNote(item)}
-                            title={t(
+                            aria-label={t(
                               'clinicPatients.addNoteModal.copyToNote',
                               'Copy to Note'
                             )}

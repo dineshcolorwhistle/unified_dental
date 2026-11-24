@@ -1096,7 +1096,7 @@ export const ClinicUsersDoctorsPage: React.FC = () => {
             className="btn btn-secondary"
             onClick={handleExportDoctors}
             disabled={loading || filteredDoctors.length === 0}
-            title={t('exportDoctors.exportBtn', 'Export CSV')}
+            aria-label={t('exportDoctors.exportBtn', 'Export CSV')}
             style={{
               display: 'flex',
               alignItems: 'center',

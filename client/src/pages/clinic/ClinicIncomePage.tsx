@@ -5,6 +5,7 @@ import { useToast } from '../../core/context/ToastContext';
 import { Pagination } from '../../components/common/Pagination';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { DateRangePicker, DateRange } from '../../components/common/DateRangePicker';
+import { Tooltip } from '../../components/common/Tooltip';
 import { incomeService, IncomeRecordSummary } from '../../services/incomeService';
 import api from '../../services/api';
 import {
@@ -501,47 +502,56 @@ export const ClinicIncomePage: React.FC = () => {
                       {/* 8. Actions */}
                       <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                         {rec.appointment?.status === 'SCHEDULED' ? (
-                          <button
-                            type="button"
-                            disabled
-                            className="btn btn-secondary btn-sm"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px 12px',
-                              fontSize: '12px',
-                              fontWeight: 500,
-                              opacity: 0.5,
-                              cursor: 'not-allowed',
-                            }}
-                            title={
+                          <Tooltip
+                            content={
                               isSpanish
                                 ? 'La cita no ha comenzado. El cobro estará disponible cuando inicie la cita.'
                                 : 'Appointment has not started yet. Billing is available once started.'
                             }
                           >
-                            <DollarSign size={13} />
-                            <span>{isSpanish ? 'No iniciada' : 'Not Started'}</span>
-                          </button>
+                            <span style={{ display: 'inline-flex' }}>
+                              <button
+                                type="button"
+                                disabled
+                                className="btn btn-secondary btn-sm"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 12px',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  opacity: 0.5,
+                                  cursor: 'not-allowed',
+                                  pointerEvents: 'none',
+                                }}
+                                aria-label={isSpanish ? 'No iniciada' : 'Not Started'}
+                              >
+                                <DollarSign size={13} />
+                                <span>{isSpanish ? 'No iniciada' : 'Not Started'}</span>
+                              </button>
+                            </span>
+                          </Tooltip>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/clinic/appointments/${rec.appointmentId}/income`)}
-                            className="btn btn-primary btn-sm"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px 12px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                            }}
-                            title={isSpanish ? 'Gestionar Ingreso' : 'Manage Income'}
-                          >
-                            <DollarSign size={13} />
-                            <span>{isSpanish ? 'Gestionar' : 'Manage'}</span>
-                          </button>
+                          <Tooltip content={isSpanish ? 'Gestionar Ingreso' : 'Manage Income'}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/clinic/appointments/${rec.appointmentId}/income`)}
+                              className="btn btn-primary btn-sm"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                              }}
+                              aria-label={isSpanish ? 'Gestionar Ingreso' : 'Manage Income'}
+                            >
+                              <DollarSign size={13} />
+                              <span>{isSpanish ? 'Gestionar' : 'Manage'}</span>
+                            </button>
+                          </Tooltip>
                         )}
                       </td>
                     </tr>
