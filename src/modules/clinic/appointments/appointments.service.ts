@@ -362,6 +362,12 @@ export class AppointmentsService {
               balanceDue: true,
               totalServices: true,
               totalProducts: true,
+              serviceLines: {
+                select: { id: true, isCompleted: true },
+              },
+              productLines: {
+                select: { id: true },
+              },
             },
           },
           appointmentServices: {
@@ -439,6 +445,12 @@ export class AppointmentsService {
             balanceDue: true,
             totalServices: true,
             totalProducts: true,
+            serviceLines: {
+              select: { id: true, isCompleted: true },
+            },
+            productLines: {
+              select: { id: true },
+            },
           },
         },
         appointmentServices: {

@@ -41,6 +41,13 @@ const INCOME_STATUS_CONFIG: Record<
     color: '#64748b',
     border: 'rgba(148, 163, 184, 0.3)',
   },
+  IN_PROGRESS: {
+    labelEn: 'In Progress',
+    labelEs: 'En progreso',
+    bg: 'rgba(99, 102, 241, 0.12)',
+    color: '#4f46e5',
+    border: 'rgba(99, 102, 241, 0.3)',
+  },
   PENDING: {
     labelEn: 'Pending',
     labelEs: 'Pendiente',
@@ -167,6 +174,7 @@ export const ClinicIncomePage: React.FC = () => {
     () => [
       { value: 'ALL', label: isSpanish ? 'Todos los Estados' : 'All Statuses' },
       { value: 'NOT_STARTED', label: isSpanish ? 'No iniciada' : 'Not Started' },
+      { value: 'IN_PROGRESS', label: isSpanish ? 'En progreso' : 'In Progress' },
       { value: 'PENDING', label: isSpanish ? 'Pendiente' : 'Pending' },
       { value: 'PARTIAL', label: isSpanish ? 'Pago Parcial' : 'Partially Paid' },
       { value: 'PAID', label: isSpanish ? 'Pagado' : 'Paid' },
@@ -390,26 +398,37 @@ export const ClinicIncomePage: React.FC = () => {
                   const balDue = Number(rec.balanceDue || 0);
                   const paid = Number(rec.totalPaid || 0);
                   const grandTotal = Number(rec.grandTotal || 0);
-                  const isPaid = balDue <= 0 && (paid > 0 || grandTotal === 0);
-                  const isPartial = paid > 0 && balDue > 0;
+                  const hasCompletedService = Boolean(
+                    rec.serviceLines?.some((s) => s.isCompleted) || Number(rec.totalServices || 0) > 0
+                  );
+                  const hasProduct = Boolean(
+                    (rec.productLines && rec.productLines.length > 0) || Number(rec.totalProducts || 0) > 0
+                  );
+                  const hasServiceOrProduct = hasCompletedService || hasProduct || grandTotal > 0;
 
-                  const statusLabel =
-                    isScheduled
-                      ? t('income.statusNotStarted', isSpanish ? 'No iniciada' : 'Not Started')
-                      : isPaid
-                      ? t('income.statusPaid', isSpanish ? 'Pagado' : 'Paid')
-                      : isPartial
-                      ? t('income.statusPartiallyPaid', isSpanish ? 'Pago Parcial' : 'Partially Paid')
-                      : t('income.statusUnpaid', isSpanish ? 'Pendiente' : 'Pending');
+                  const isIncomeInProgress = !isScheduled && !hasServiceOrProduct;
+                  const isPaid = hasServiceOrProduct && balDue <= 0 && (paid > 0 || grandTotal > 0);
+                  const isPartial = hasServiceOrProduct && paid > 0 && balDue > 0;
 
-                  const statusBadgeClass =
-                    isScheduled
-                      ? 'badge-secondary'
-                      : isPaid
-                      ? 'badge-success'
-                      : isPartial
-                      ? 'badge-info'
-                      : 'badge-warning';
+                  const statusLabel = isScheduled
+                    ? t('income.statusNotStarted', isSpanish ? 'No iniciada' : 'Not Started')
+                    : isIncomeInProgress
+                    ? t('income.statusInProgress', isSpanish ? 'En progreso' : 'In Progress')
+                    : isPaid
+                    ? t('income.statusPaid', isSpanish ? 'Pagado' : 'Paid')
+                    : isPartial
+                    ? t('income.statusPartiallyPaid', isSpanish ? 'Pago Parcial' : 'Partially Paid')
+                    : t('income.statusUnpaid', isSpanish ? 'Pendiente' : 'Pending');
+
+                  const statusBadgeClass = isScheduled
+                    ? 'badge-secondary'
+                    : isIncomeInProgress
+                    ? 'badge-info'
+                    : isPaid
+                    ? 'badge-success'
+                    : isPartial
+                    ? 'badge-info'
+                    : 'badge-warning';
 
                   return (
                     <tr

@@ -11,6 +11,8 @@ export interface IncomeRecordSummary {
   totalPaid: number | string;
   balanceDue: number | string;
   createdAt: string;
+  serviceLines?: Array<{ id: string; isCompleted: boolean }>;
+  productLines?: Array<{ id: string }>;
   appointment: {
     id: string;
     appointmentNumber: string;

@@ -101,8 +101,23 @@ export const AppointmentIncomePage: React.FC = () => {
   // Catalogs
   const [availableServices, setAvailableServices] = useState<ClinicServiceItem[]>([]);
   const [availableProducts, setAvailableProducts] = useState<
-    Array<{ id: string; name: string; sku: string; unitPrice: number; quantity: number }>
+    Array<{ id: string; name: string; sku: string; unitPrice: number; quantity: number; minQuantity?: number; unit?: string }>
   >([]);
+
+  // Stock Alerts & Error Dialogs
+  const [stockAlertData, setStockAlertData] = useState<{
+    productName: string;
+    quantityAdded: number;
+    remainingStock: number;
+    minQuantity: number;
+    isOutOfStock: boolean;
+  } | null>(null);
+
+  const [errorAlertData, setErrorAlertData] = useState<{
+    title: string;
+    message: string;
+    details?: Array<{ label: string; value: string | number }>;
+  } | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodItem[]>([]);
   const [advancePayments, setAdvancePayments] = useState<PatientAdvancePaymentItem[]>([]);
 
@@ -234,7 +249,17 @@ export const AppointmentIncomePage: React.FC = () => {
     try {
       const res = await api.get('/inventory/items', { params: { limit: 100 } });
       const items = res.data?.items || [];
-      const activeItems = items.filter((it: any) => it.quantity > 0);
+      const activeItems = items
+        .filter((it: any) => Number(it.quantity) > 0)
+        .map((it: any) => ({
+          id: it.id,
+          name: it.name,
+          sku: it.sku,
+          unitPrice: Number(it.unitPrice || 0),
+          quantity: Number(it.quantity || 0),
+          minQuantity: it.minQuantity !== undefined ? Number(it.minQuantity) : 5,
+          unit: it.unit || '',
+        }));
       setAvailableProducts(activeItems);
       if (activeItems.length > 0) {
         setProductForm({
@@ -244,9 +269,14 @@ export const AppointmentIncomePage: React.FC = () => {
         });
       }
       setShowAddProductModal(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load inventory items', err);
-      toastError(isSpanish ? 'Error al cargar productos de inventario' : 'Failed to load inventory products');
+      setErrorAlertData({
+        title: isSpanish ? 'Error al Cargar Inventario' : 'Failed to Load Inventory',
+        message:
+          err?.response?.data?.message ||
+          (isSpanish ? 'No se pudieron cargar los productos de inventario.' : 'Failed to load inventory products.'),
+      });
     }
   };
 
@@ -386,15 +416,46 @@ export const AppointmentIncomePage: React.FC = () => {
     }
   };
 
+  // Selected Product Helper
+  const selectedProduct = useMemo(
+    () => availableProducts.find((p) => p.id === productForm.inventoryItemId),
+    [availableProducts, productForm.inventoryItemId]
+  );
+
   // Add Product Line Submit
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!record || !productForm.inventoryItemId) return;
+
+    const prod = selectedProduct;
+    const requestedQty = Number(productForm.quantity);
+    const availableStock = prod ? Number(prod.quantity) : 0;
+
+    // Quantity Validation: cannot add greater than available stock
+    if (requestedQty > availableStock) {
+      setErrorAlertData({
+        title: t('income.stockValidationTitle', 'Stock Validation Error'),
+        message: isSpanish
+          ? `La cantidad solicitada (${requestedQty}) supera el stock disponible (${availableStock}). No es posible agregar más unidades de las disponibles.`
+          : `The requested quantity (${requestedQty}) exceeds the available stock (${availableStock}). You cannot add more units than currently available.`,
+        details: [
+          { label: t('income.productLabel', 'Product'), value: prod?.name || 'N/A' },
+          { label: t('income.currentStock', 'Current Stock'), value: availableStock },
+          { label: isSpanish ? 'Cantidad solicitada' : 'Requested Quantity', value: requestedQty },
+        ],
+      });
+      return;
+    }
+
+    const remainingStock = availableStock - requestedQty;
+    const minThreshold = prod?.minQuantity ?? 5;
+    const isAtOrBelowMin = remainingStock <= minThreshold;
+
     try {
       setSubmittingProduct(true);
       await incomeService.addProductLine(record.id, {
         inventoryItemId: productForm.inventoryItemId,
-        quantity: Number(productForm.quantity),
+        quantity: requestedQty,
         unitPrice: Number(productForm.unitPrice),
       });
       success(
@@ -404,9 +465,33 @@ export const AppointmentIncomePage: React.FC = () => {
       );
       setShowAddProductModal(false);
       await loadIncomeDetails();
+
+      // Minimum Stock Alert: If remaining stock falls below or reaches minimum stock level, show alert popup
+      if (isAtOrBelowMin && prod) {
+        setStockAlertData({
+          productName: prod.name,
+          quantityAdded: requestedQty,
+          remainingStock,
+          minQuantity: minThreshold,
+          isOutOfStock: remainingStock <= 0,
+        });
+      }
     } catch (err: any) {
       console.error('Failed to add product', err);
-      toastError(err?.response?.data?.message || (isSpanish ? 'Error al agregar producto' : 'Failed to add product'));
+      const errMsg =
+        err?.response?.data?.message || (isSpanish ? 'Error al agregar producto' : 'Failed to add product');
+      // Stock/validation error popup instead of standard toast notification
+      setErrorAlertData({
+        title: isSpanish ? 'Error al Agregar Producto' : 'Error Adding Product',
+        message: errMsg,
+        details: prod
+          ? [
+              { label: t('income.productLabel', 'Product'), value: prod.name },
+              { label: t('income.currentStock', 'Current Stock'), value: availableStock },
+              { label: isSpanish ? 'Cantidad solicitada' : 'Requested Quantity', value: requestedQty },
+            ]
+          : undefined,
+      });
     } finally {
       setSubmittingProduct(false);
     }
@@ -521,12 +606,21 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Dropdown options for Add Product modal
   const productOptions: SearchableSelectOption[] = useMemo(() => {
-    return availableProducts.map((prod) => ({
-      value: prod.id,
-      label: prod.name,
-      sublabel: `SKU: ${prod.sku} • Stock: ${prod.quantity} • $${Number(prod.unitPrice).toFixed(2)}`,
-    }));
-  }, [availableProducts]);
+    return availableProducts.map((prod) => {
+      const minStock = prod.minQuantity ?? 5;
+      const isLow = prod.quantity <= minStock;
+      const stockBadge = `${isSpanish ? 'Stock' : 'Stock'}: ${prod.quantity}`;
+      return {
+        value: prod.id,
+        label: `${prod.name} (Stock: ${prod.quantity})`,
+        selectedLabel: `${prod.name} (Stock: ${prod.quantity})`,
+        sublabel: `SKU: ${prod.sku || 'N/A'} • ${isSpanish ? 'Stock disponible' : 'Available Stock'}: ${prod.quantity} ${prod.unit || ''} • $${Number(prod.unitPrice).toFixed(2)}`,
+        badge: stockBadge,
+        badgeBg: isLow ? 'var(--badge-warning-bg, #fef3c7)' : 'var(--badge-success-bg, #d1fae5)',
+        badgeColor: isLow ? 'var(--badge-warning-text, #92400e)' : 'var(--badge-success-text, #065f46)',
+      };
+    });
+  }, [availableProducts, isSpanish]);
 
   // Dropdown options for Payment Method modal
   const paymentMethodOptions: SearchableSelectOption[] = useMemo(() => {
@@ -650,12 +744,27 @@ export const AppointmentIncomePage: React.FC = () => {
   const canRecordPayments = (isAppointmentInProgress || isAppointmentEnded) && !isAppointmentCancelled;
 
   // Compute Income Financial Status
-  const isIncomePaid = Number(record.balanceDue || 0) <= 0 && (Number(record.totalPaid || 0) > 0 || Number(record.grandTotal || 0) === 0);
-  const isIncomePartiallyPaid = Number(record.totalPaid || 0) > 0 && Number(record.balanceDue || 0) > 0;
+  const hasCompletedService = Boolean(
+    record.serviceLines?.some((line) => line.isCompleted) || Number(record.totalServices || 0) > 0
+  );
+  const hasProduct = Boolean(
+    (record.productLines && record.productLines.length > 0) || Number(record.totalProducts || 0) > 0
+  );
+  const hasServiceOrProduct = hasCompletedService || hasProduct || Number(record.grandTotal || 0) > 0;
+
+  const balDue = Number(record.balanceDue || 0);
+  const paid = Number(record.totalPaid || 0);
+  const grandTotal = Number(record.grandTotal || 0);
+
+  const isIncomeInProgress = !isAppointmentScheduled && !hasServiceOrProduct;
+  const isIncomePaid = hasServiceOrProduct && balDue <= 0 && (paid > 0 || grandTotal > 0);
+  const isIncomePartiallyPaid = hasServiceOrProduct && paid > 0 && balDue > 0;
 
   const incomeStatusBadgeClass =
     isAppointmentScheduled
       ? 'badge-secondary'
+      : isIncomeInProgress
+      ? 'badge-info'
       : isIncomePaid
       ? 'badge-success'
       : isIncomePartiallyPaid
@@ -665,6 +774,8 @@ export const AppointmentIncomePage: React.FC = () => {
   const incomeStatusLabel =
     isAppointmentScheduled
       ? t('income.statusNotStarted', 'Not Started')
+      : isIncomeInProgress
+      ? t('income.statusInProgress', isSpanish ? 'En progreso' : 'In Progress')
       : isIncomePaid
       ? t('income.statusPaid', 'Paid')
       : isIncomePartiallyPaid
@@ -2276,10 +2387,53 @@ export const AppointmentIncomePage: React.FC = () => {
                         ...prev,
                         inventoryItemId: pid,
                         unitPrice: found ? Number(found.unitPrice || 0) : prev.unitPrice,
+                        quantity: found && prev.quantity > found.quantity ? Math.max(1, found.quantity) : prev.quantity,
                       }));
                     }}
                     placeholder={isSpanish ? 'Seleccione un producto...' : 'Select a product...'}
                   />
+
+                  {/* Current Available Stock & Min Stock Level Indicator */}
+                  {selectedProduct && (
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backgroundColor:
+                          selectedProduct.quantity <= (selectedProduct.minQuantity ?? 5)
+                            ? 'var(--badge-warning-bg, #fef3c7)'
+                            : 'var(--badge-info-bg, #eff6ff)',
+                        border: `1px solid ${
+                          selectedProduct.quantity <= (selectedProduct.minQuantity ?? 5)
+                            ? 'var(--badge-warning-text, #f59e0b)'
+                            : 'var(--primary-color, #3b82f6)'
+                        }`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '12px',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Package size={15} style={{ flexShrink: 0 }} />
+                        <span>
+                          <strong>{t('income.currentStock', 'Current Stock')}:</strong>{' '}
+                          <span style={{ fontWeight: 700 }}>
+                            {selectedProduct.quantity} {selectedProduct.unit || (isSpanish ? 'unidades' : 'units')}
+                          </span>
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span>
+                          <strong>{t('income.minStockThreshold', 'Min. Level')}:</strong>{' '}
+                          {selectedProduct.minQuantity ?? 5}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -2299,16 +2453,49 @@ export const AppointmentIncomePage: React.FC = () => {
                     <input
                       type="number"
                       min="1"
+                      max={selectedProduct ? selectedProduct.quantity : undefined}
                       className="input"
                       value={productForm.quantity}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const maxStock = selectedProduct ? selectedProduct.quantity : undefined;
+                        if (maxStock !== undefined && val > maxStock) {
+                          setProductForm((prev) => ({ ...prev, quantity: maxStock }));
+                          setErrorAlertData({
+                            title: t('income.stockValidationTitle', 'Stock Validation Error'),
+                            message: isSpanish
+                              ? `No puedes agregar una cantidad (${val}) mayor al stock disponible (${maxStock}).`
+                              : `You cannot add a quantity (${val}) greater than available stock (${maxStock}).`,
+                            details: [
+                              { label: t('income.productLabel', 'Product'), value: selectedProduct.name },
+                              { label: t('income.currentStock', 'Current Stock'), value: maxStock },
+                              { label: isSpanish ? 'Cantidad solicitada' : 'Requested Quantity', value: val },
+                            ],
+                          });
+                          return;
+                        }
                         setProductForm((prev) => ({
                           ...prev,
-                          quantity: Math.max(1, parseInt(e.target.value) || 1),
-                        }))
-                      }
+                          quantity: Math.max(1, val),
+                        }));
+                      }}
                       required
                     />
+                    {selectedProduct && (
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          fontSize: '11px',
+                          color:
+                            productForm.quantity >= selectedProduct.quantity
+                              ? 'var(--danger-color, #dc2626)'
+                              : 'var(--text-muted)',
+                          fontWeight: productForm.quantity >= selectedProduct.quantity ? 600 : 400,
+                        }}
+                      >
+                        {t('income.maxAllowedQty', 'Max allowed')}: {selectedProduct.quantity}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label
@@ -3010,6 +3197,194 @@ export const AppointmentIncomePage: React.FC = () => {
                   : isSpanish
                   ? 'Finalizar Cita'
                   : 'End Appointment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP: MINIMUM STOCK ALERT MODAL */}
+      {stockAlertData && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: '460px', width: '95%' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border-color, #e5e7eb)' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: stockAlertData.isOutOfStock ? 'var(--danger-color, #dc2626)' : 'var(--badge-warning-text, #d97706)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <AlertTriangle size={20} />
+                <span>
+                  {stockAlertData.isOutOfStock
+                    ? t('income.outOfStockTitle', 'Product Out of Stock')
+                    : t('income.minStockAlertTitle', 'Low Stock Alert')}
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setStockAlertData(null)}
+                className="btn-icon"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-color)', margin: 0, lineHeight: 1.5 }}>
+                {stockAlertData.isOutOfStock
+                  ? t('income.outOfStockMsg', 'Adding this product has completely exhausted available inventory stock (0 remaining).')
+                  : t('income.minStockAlertMsg', 'Adding this product reduced inventory to or below the configured minimum quantity threshold. Please plan a restock purchase order.')}
+              </p>
+
+              <div
+                style={{
+                  backgroundColor: 'var(--bg-secondary, #f9fafb)',
+                  border: '1px solid var(--border-color, #e5e7eb)',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  fontSize: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color, #f3f4f6)', paddingBottom: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('income.productLabel', 'Product')}:</span>
+                  <span style={{ fontWeight: 600 }}>{stockAlertData.productName}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color, #f3f4f6)', paddingBottom: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('income.quantityAddedLabel', 'Quantity Added')}:</span>
+                  <span style={{ fontWeight: 600 }}>{stockAlertData.quantityAdded}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color, #f3f4f6)', paddingBottom: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('income.remainingStockLabel', 'Remaining Stock')}:</span>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: stockAlertData.isOutOfStock ? 'var(--danger-color, #dc2626)' : 'var(--badge-warning-text, #d97706)',
+                    }}
+                  >
+                    {stockAlertData.remainingStock}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('income.configuredMinStockLabel', 'Configured Min. Stock')}:</span>
+                  <span style={{ fontWeight: 600 }}>{stockAlertData.minQuantity}</span>
+                </div>
+              </div>
+            </div>
+            <div
+              className="modal-footer"
+              style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid var(--border-color, #e5e7eb)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setStockAlertData(null)}
+                className="btn btn-primary btn-sm"
+                style={{
+                  minHeight: '40px',
+                  minWidth: '100px',
+                  backgroundColor: stockAlertData.isOutOfStock ? 'var(--danger-color, #dc2626)' : undefined,
+                }}
+              >
+                {t('income.alertUnderstood', 'Understood')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP: ERROR ALERT MODAL */}
+      {errorAlertData && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: '460px', width: '95%' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border-color, #e5e7eb)' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: 'var(--danger-color, #dc2626)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <AlertCircle size={20} />
+                <span>{errorAlertData.title}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setErrorAlertData(null)}
+                className="btn-icon"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #fca5a5',
+                  color: '#991b1b',
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                }}
+              >
+                {errorAlertData.message}
+              </div>
+
+              {errorAlertData.details && errorAlertData.details.length > 0 && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-secondary, #f9fafb)',
+                    border: '1px solid var(--border-color, #e5e7eb)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '12px',
+                  }}
+                >
+                  {errorAlertData.details.map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        borderBottom:
+                          idx < errorAlertData.details!.length - 1 ? '1px solid var(--border-color, #f3f4f6)' : 'none',
+                        paddingBottom: idx < errorAlertData.details!.length - 1 ? '6px' : '0',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>{item.label}:</span>
+                      <span style={{ fontWeight: 600 }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div
+              className="modal-footer"
+              style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid var(--border-color, #e5e7eb)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setErrorAlertData(null)}
+                className="btn btn-secondary btn-sm"
+                style={{ minHeight: '40px', minWidth: '100px' }}
+              >
+                {t('income.closeAlert', 'Close')}
               </button>
             </div>
           </div>

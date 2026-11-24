@@ -118,6 +118,8 @@ interface AppointmentItem {
     balanceDue: number | string;
     totalServices?: number | string;
     totalProducts?: number | string;
+    serviceLines?: Array<{ id: string; isCompleted: boolean }>;
+    productLines?: Array<{ id: string }>;
   } | null;
   createdAt?: string;
 }
@@ -1525,12 +1527,22 @@ export const ClinicAppointmentsPage: React.FC = () => {
                             const balDue = Number(inc.balanceDue || 0);
                             const totPaid = Number(inc.totalPaid || 0);
                             const grTotal = Number(inc.grandTotal || 0);
+                            const hasCompletedService = Boolean(
+                              inc.serviceLines?.some((s) => s.isCompleted) || Number(inc.totalServices || 0) > 0
+                            );
+                            const hasProduct = Boolean(
+                              (inc.productLines && inc.productLines.length > 0) || Number(inc.totalProducts || 0) > 0
+                            );
+                            const hasServiceOrProduct = hasCompletedService || hasProduct || grTotal > 0;
 
-                            const isPaid = balDue <= 0 && (totPaid > 0 || grTotal === 0);
-                            const isPartial = totPaid > 0 && balDue > 0;
+                            const isIncomeInProgress = !isScheduled && !hasServiceOrProduct;
+                            const isPaid = hasServiceOrProduct && balDue <= 0 && (totPaid > 0 || grTotal > 0);
+                            const isPartial = hasServiceOrProduct && totPaid > 0 && balDue > 0;
 
                             const badgeStyle = isScheduled
                               ? { bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1', label: isSpanish ? 'No iniciada' : 'Not Started' }
+                              : isIncomeInProgress
+                              ? { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', label: isSpanish ? 'En progreso' : 'In Progress' }
                               : isPaid
                               ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', label: isSpanish ? 'Pagado' : 'Paid' }
                               : isPartial

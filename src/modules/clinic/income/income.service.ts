@@ -310,8 +310,15 @@ export class IncomeService {
     if (query.status && query.status !== 'ALL') {
       if (query.status === 'NOT_STARTED') {
         where.appointment = { ...where.appointment, status: 'SCHEDULED' };
+      } else if (query.status === 'IN_PROGRESS') {
+        where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        where.serviceLines = { none: { isCompleted: true } };
+        where.productLines = { none: {} };
+        where.totalPaid = { equals: 0 };
+        where.grandTotal = { equals: 0 };
       } else if (query.status === 'PAID') {
         where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
+        where.totalPaid = { gt: 0 };
         where.balanceDue = { lte: 0 };
       } else if (query.status === 'PARTIAL') {
         where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
@@ -320,7 +327,11 @@ export class IncomeService {
       } else if (query.status === 'PENDING') {
         where.appointment = { ...where.appointment, status: { not: 'SCHEDULED' } };
         where.totalPaid = { equals: 0 };
-        where.balanceDue = { gt: 0 };
+        where.OR = [
+          { grandTotal: { gt: 0 } },
+          { serviceLines: { some: { isCompleted: true } } },
+          { productLines: { some: {} } },
+        ];
       } else {
         where.status = query.status;
       }
@@ -370,6 +381,17 @@ export class IncomeService {
               endTime: true,
               status: true,
               expectedAmount: true,
+            },
+          },
+          serviceLines: {
+            select: {
+              id: true,
+              isCompleted: true,
+            },
+          },
+          productLines: {
+            select: {
+              id: true,
             },
           },
           patient: {
