@@ -147,6 +147,71 @@ export interface PatientOdontogramHeader {
   updatedAt: string;
 }
 
+export interface LinkedPlanAppointment {
+  id: string;
+  appointmentNumber: string;
+  patientId: string;
+  doctorId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  type: string;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  notes?: string | null;
+  expectedAmount?: number | string | null;
+  patientOdontogramId?: string | null;
+  treatmentPlanGroupId?: string | null;
+  treatmentPlanGroupName?: string | null;
+  treatmentPlanItemIds?: string[] | null;
+  treatmentPlanScope?: 'GROUP' | 'ITEM' | null;
+  doctor?: {
+    id: string;
+    name: string;
+    email?: string;
+    colorCode?: string | null;
+  } | null;
+  appointmentServices?: Array<{
+    id: string;
+    serviceId: string;
+    serviceName: string;
+    unitPrice: number | string;
+    quantity: number;
+  }>;
+}
+
+export interface TreatmentPlanAuditItem {
+  id: string;
+  tenantId: string;
+  branchId: string | null;
+  patientId: string;
+  odontogramId: string;
+  treatmentPlanGroupId: string;
+  treatmentPlanName: string | null;
+  userId: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  oldValues: Record<string, any> | null;
+  newValues: Record<string, any> | null;
+  description: string | null;
+  createdAt: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
+export interface TreatmentPlanAuditResponse {
+  audits: TreatmentPlanAuditItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  availablePlans: Array<{ groupId: string; name: string }>;
+}
+
 export interface PatientOdontogramResponse {
   patient: {
     id: string;
@@ -172,6 +237,7 @@ export interface PatientOdontogramResponse {
   diagnostics: PatientOdontogramDiagnosticItem[];
   treatments: PatientOdontogramTreatmentItem[];
   config: OdontogramConfigItem;
+  linkedAppointments?: LinkedPlanAppointment[];
 }
 
 export interface AddPatientDiagnosticPayload {
@@ -400,6 +466,29 @@ export const clinicOdontogramService = {
     const { data } = await api.patch<{ success: boolean; proposedPlan: any }>(
       `/clinic/odontogram/patient/${patientId}/proposed-plan`,
       { proposedPlan },
+    );
+    return data;
+  },
+
+  updateTreatmentPlanGroupStatus: async (
+    patientId: string,
+    groupId: string,
+    payload: { status: string; planName?: string; items?: any[] },
+  ): Promise<{ success: boolean; group: any; proposedPlan: any }> => {
+    const { data } = await api.patch<{ success: boolean; group: any; proposedPlan: any }>(
+      `/clinic/odontogram/patient/${patientId}/proposed-plan/groups/${groupId}/status`,
+      payload,
+    );
+    return data;
+  },
+
+  getTreatmentPlanAuditHistory: async (
+    patientId: string,
+    params?: { groupId?: string; action?: string; page?: number; limit?: number },
+  ): Promise<TreatmentPlanAuditResponse> => {
+    const { data } = await api.get<TreatmentPlanAuditResponse>(
+      `/clinic/odontogram/patient/${patientId}/proposed-plan/audit`,
+      { params },
     );
     return data;
   },

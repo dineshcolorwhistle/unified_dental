@@ -49,6 +49,7 @@ import { ClinicUsersStaffPage } from './pages/clinic/ClinicUsersStaffPage';
 import { ClinicUsersDoctorsPage } from './pages/clinic/ClinicUsersDoctorsPage';
 import { ClinicPatientsPage } from './pages/clinic/ClinicPatientsPage';
 import { ClinicAppointmentsPage } from './pages/clinic/ClinicAppointmentsPage';
+import { ClinicAppointmentEditPage } from './pages/clinic/ClinicAppointmentEditPage';
 import { ClinicWorkingHoursPage } from './pages/clinic/ClinicWorkingHoursPage';
 import { ClinicIncomePage } from './pages/clinic/ClinicIncomePage';
 import { AppointmentIncomePage } from './pages/clinic/AppointmentIncomePage';
@@ -242,6 +243,7 @@ export const App: React.FC = () => {
                     <Route path="clinic/patients/:patientId/odontogram" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><PatientOdontogramPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/patients/:patientId/treatment-plan" element={<ProtectedRoute><FeatureProtectedRoute feature="patients"><PatientTreatmentPlanPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicAppointmentsPage /></FeatureProtectedRoute></ProtectedRoute>} />
+                    <Route path="clinic/appointments/:appointmentId/edit" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicAppointmentEditPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments/:appointmentId/income" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><AppointmentIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/appointments/working-hours" element={<ProtectedRoute><FeatureProtectedRoute feature="appointments"><ClinicWorkingHoursPage /></FeatureProtectedRoute></ProtectedRoute>} />
                     <Route path="clinic/income" element={<ProtectedRoute><FeatureProtectedRoute feature="income"><ClinicIncomePage /></FeatureProtectedRoute></ProtectedRoute>} />

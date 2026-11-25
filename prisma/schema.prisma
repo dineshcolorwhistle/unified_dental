@@ -140,6 +140,7 @@ model Tenant {
   incomeProductLines          IncomeProductLine[]
   incomePayments              IncomePayment[]
   incomeAudits                IncomeAudit[]
+  treatmentPlanAudits         TreatmentPlanAudit[]
 
   @@map("tenants")
 }
@@ -254,6 +255,7 @@ model Branch {
   patientOdontogramTreatments PatientOdontogramTreatment[]
   patientAdvancePayments      PatientAdvancePayment[]
   incomeRecords               IncomeRecord[]
+  treatmentPlanAudits         TreatmentPlanAudit[]
 
   @@index([tenantId])
   @@index([tenantId, moduleKey])
@@ -318,6 +320,7 @@ model User {
   completedIncomeServiceLines IncomeServiceLine[] @relation("IncomeServiceLineCompletedBy")
   createdIncomePayments       IncomePayment[] @relation("IncomePaymentCreatedBy")
   incomeAudits                IncomeAudit[] @relation("IncomeAuditUser")
+  treatmentPlanAudits         TreatmentPlanAudit[] @relation("TreatmentPlanAuditUser")
 
   @@map("users")
 }
@@ -1287,6 +1290,7 @@ model Patient {
   clinicalNotes               PatientNote[]
   advancePayments             PatientAdvancePayment[]
   incomeRecords               IncomeRecord[]
+  treatmentPlanAudits         TreatmentPlanAudit[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1423,6 +1427,11 @@ model Appointment {
   notes              String?  @db.Text
   cancellationReason String?  @map("cancellation_reason")
   expectedAmount     Decimal? @db.Decimal(10, 2) @map("expected_amount")
+  patientOdontogramId    String?  @map("patient_odontogram_id")
+  treatmentPlanGroupId   String?  @map("treatment_plan_group_id")
+  treatmentPlanGroupName String?  @map("treatment_plan_group_name")
+  treatmentPlanItemIds   Json?    @map("treatment_plan_item_ids")
+  treatmentPlanScope     String?  @map("treatment_plan_scope")
   startedById        String?  @map("started_by_id")
   endedById          String?  @map("ended_by_id")
   createdById        String?  @map("created_by_id")
@@ -1436,6 +1445,7 @@ model Appointment {
   createdBy User?    @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   startedBy User?    @relation("AppointmentStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
   endedBy   User?    @relation("AppointmentEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  patientOdontogram   PatientOdontogram? @relation(fields: [patientOdontogramId], references: [id], onDelete: SetNull)
   appointmentServices AppointmentService[]
   incomeRecord        IncomeRecord?
 
@@ -1445,6 +1455,8 @@ model Appointment {
   @@index([tenantId, date])
   @@index([tenantId, status])
   @@index([tenantId, appointmentNumber])
+  @@index([tenantId, patientOdontogramId])
+  @@index([tenantId, treatmentPlanGroupId])
   @@map("appointments")
 }
 
@@ -1603,8 +1615,10 @@ model PatientOdontogram {
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   branch      Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  diagnostics PatientOdontogramDiagnostic[]
-  treatments  PatientOdontogramTreatment[]
+  diagnostics         PatientOdontogramDiagnostic[]
+  treatments          PatientOdontogramTreatment[]
+  appointments        Appointment[]
+  treatmentPlanAudits TreatmentPlanAudit[]
 
   @@index([tenantId])
   @@index([tenantId, branchId])
@@ -1836,4 +1850,34 @@ model IncomeAudit {
   @@index([tenantId, incomeRecordId])
   @@index([createdAt])
   @@map("income_audits")
+}
+
+model TreatmentPlanAudit {
+  id                   String            @id @default(uuid())
+  tenantId             String            @map("tenant_id")
+  branchId             String?           @map("branch_id")
+  patientId            String            @map("patient_id")
+  odontogramId         String            @map("odontogram_id")
+  treatmentPlanGroupId String            @map("treatment_plan_group_id")
+  treatmentPlanName    String?           @map("treatment_plan_name")
+  userId               String?           @map("user_id")
+  action               String
+  resourceType         String            @map("resource_type")
+  resourceId           String?           @map("resource_id")
+  oldValues            Json?             @map("old_values")
+  newValues            Json?             @map("new_values")
+  description          String?           @db.Text
+  createdAt            DateTime          @default(now()) @map("created_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  patient    Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  odontogram PatientOdontogram @relation(fields: [odontogramId], references: [id], onDelete: Cascade)
+  user       User?             @relation("TreatmentPlanAuditUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, patientId])
+  @@index([tenantId, treatmentPlanGroupId])
+  @@index([odontogramId, createdAt])
+  @@index([createdAt])
+  @@map("treatment_plan_audits")
 }

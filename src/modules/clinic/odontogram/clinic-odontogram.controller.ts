@@ -23,6 +23,8 @@ import {
   AddPatientTreatmentDto,
   UpdatePatientTreatmentDto,
   SavePatientOdontogramDto,
+  UpdateTreatmentPlanStatusDto,
+  QueryTreatmentPlanAuditDto,
 } from './dto';
 import { CurrentUser, AuthenticatedUser } from '../../../shared/common/decorators/current-user.decorator';
 
@@ -262,6 +264,38 @@ export class ClinicOdontogramController {
       patientId,
       user,
       body.proposedPlan,
+    );
+  }
+
+  @Patch('patient/:patientId/proposed-plan/groups/:groupId/status')
+  @ApiOperation({ summary: 'Instantly update a treatment plan group status and log audit history' })
+  updateProposedPlanGroupStatus(
+    @Param('patientId') patientId: string,
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateTreatmentPlanStatusDto,
+  ) {
+    return this.odontogramService.updateProposedPlanGroupStatus(
+      user.activeTenantId,
+      patientId,
+      groupId,
+      user,
+      dto,
+    );
+  }
+
+  @Get('patient/:patientId/proposed-plan/audit')
+  @ApiOperation({ summary: 'Get paginated treatment plan audit history for a patient' })
+  getProposedPlanAuditHistory(
+    @Param('patientId') patientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryTreatmentPlanAuditDto,
+  ) {
+    return this.odontogramService.getProposedPlanAuditHistory(
+      user.activeTenantId,
+      patientId,
+      user,
+      query,
     );
   }
 }

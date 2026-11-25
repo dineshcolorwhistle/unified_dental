@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { ToothIcon } from '../common/ToothIcon';
 import { ToothZone, ToothQuadrant, getToothZoneAndQuadrant } from './PatientTeethChart';
-import { ProposedGroup, ProposedItem, DoctorWithServices } from '../../pages/clinic/PatientTreatmentPlanPage';
+import { ProposedGroup, ProposedItem, DoctorWithServices, STATUS_CONFIG, TreatmentPlanStatus } from '../../pages/clinic/PatientTreatmentPlanPage';
 import { ClinicServiceItem } from '../../services/clinicServiceService';
 import { PatientOdontogramTreatmentItem } from '../../services/clinicOdontogramService';
 
@@ -840,23 +840,26 @@ export const TreatmentPlanPrintView: React.FC<TreatmentPlanPrintViewProps> = ({
                               #
                             </span>
                             <span>{group.name}</span>
-                            {group.status && (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '2px 8px',
-                                  borderRadius: '10px',
-                                  backgroundColor: '#f1f5f9',
-                                  border: '1px solid #cbd5e1',
-                                  color: '#334155',
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {group.status}
-                              </span>
-                            )}
+                            {group.status && (() => {
+                              const st = STATUS_CONFIG[group.status as TreatmentPlanStatus] || STATUS_CONFIG.CREATED;
+                              return (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    backgroundColor: st.bg,
+                                    border: `1px solid ${st.border}`,
+                                    color: st.color,
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {t(`patientTreatmentPlan.${st.labelKey}`, st.defaultLabel)}
+                                </span>
+                              );
+                            })()}
                             {group.confirmed && (
                               <span
                                 style={{

@@ -7,6 +7,7 @@ import {
   Max,
   Matches,
   IsArray,
+  IsIn,
   IsNumber,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -80,4 +81,26 @@ export class CreateAppointmentDto {
   @IsNumber()
   @Min(0)
   expectedAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  patientOdontogramId?: string;
+
+  @IsOptional()
+  @IsString()
+  treatmentPlanGroupId?: string;
+
+  @IsOptional()
+  @IsString()
+  treatmentPlanGroupName?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  treatmentPlanItemIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['GROUP', 'ITEM'])
+  treatmentPlanScope?: 'GROUP' | 'ITEM';
 }

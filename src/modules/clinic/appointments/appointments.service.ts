@@ -17,6 +17,7 @@ import {
 } from './dto/working-hours.dto';
 import { Prisma } from '@prisma/client';
 import { IncomeService } from '../income/income.service';
+import { NotificationsGateway } from '../../../core/notifications/notifications.gateway';
 
 const VALID_STATUSES = [
   'SCHEDULED',
@@ -41,7 +42,143 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly incomeService: IncomeService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
+
+  private async logTreatmentPlanAudit(params: {
+    tenantId: string;
+    branchId?: string | null;
+    patientId: string;
+    odontogramId: string;
+    treatmentPlanGroupId: string;
+    treatmentPlanName?: string | null;
+    userId?: string | null;
+    action: string;
+    resourceType: string;
+    resourceId?: string | null;
+    oldValues?: any;
+    newValues?: any;
+    description?: string | null;
+  }) {
+    try {
+      await this.prisma.treatmentPlanAudit.create({
+        data: {
+          tenantId: params.tenantId,
+          branchId: params.branchId || null,
+          patientId: params.patientId,
+          odontogramId: params.odontogramId,
+          treatmentPlanGroupId: params.treatmentPlanGroupId,
+          treatmentPlanName: params.treatmentPlanName || null,
+          userId: params.userId || null,
+          action: params.action,
+          resourceType: params.resourceType,
+          resourceId: params.resourceId || null,
+          oldValues: params.oldValues !== undefined ? (params.oldValues as any) : undefined,
+          newValues: params.newValues !== undefined ? (params.newValues as any) : undefined,
+          description: params.description || null,
+        },
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to write treatment plan audit from appointments: ${err.message}`);
+    }
+  }
+
+  private async syncTreatmentPlanStatusFromAppointments(
+    tenantId: string,
+    patientOdontogramId: string,
+    treatmentPlanGroupId: string,
+    actorId: string,
+    appointmentNumber: string,
+  ) {
+    try {
+      const odontogram = await this.prisma.patientOdontogram.findFirst({
+        where: { id: patientOdontogramId, tenantId },
+      });
+      if (!odontogram) return;
+
+      const proposedPlan: any = (odontogram as any).proposedPlan;
+      if (!proposedPlan || !Array.isArray(proposedPlan.groups)) return;
+
+      const groupIdx = proposedPlan.groups.findIndex((g: any) => g.id === treatmentPlanGroupId);
+      if (groupIdx === -1) return;
+
+      const group = proposedPlan.groups[groupIdx];
+      const currentStatus: string = group.status || (group.confirmed ? 'ACCEPTED' : 'CREATED');
+
+      const groupApts = await this.prisma.appointment.findMany({
+        where: {
+          tenantId,
+          patientOdontogramId,
+          treatmentPlanGroupId,
+        },
+        select: {
+          id: true,
+          status: true,
+          treatmentPlanItemIds: true,
+        },
+      });
+
+      const activeApts = groupApts.filter((a) => a.status !== 'CANCELLED');
+      let targetStatus: string | null = null;
+
+      if (activeApts.some((a) => a.status === 'IN_PROGRESS')) {
+        if (currentStatus === 'ACCEPTED') {
+          targetStatus = 'IN_PROGRESS';
+        }
+      } else if (activeApts.length > 0 && activeApts.every((a) => a.status === 'COMPLETED')) {
+        const coveredIds = new Set<string>();
+        for (const a of activeApts) {
+          const ids = Array.isArray(a.treatmentPlanItemIds)
+            ? (a.treatmentPlanItemIds as string[])
+            : [];
+          ids.forEach((id) => coveredIds.add(String(id)));
+        }
+        const groupItems = Array.isArray(group.items) ? group.items : [];
+        const allItemsCovered =
+          groupItems.length > 0 &&
+          groupItems.every((it: any) => coveredIds.has(String(it.id)));
+
+        if (allItemsCovered && currentStatus !== 'COMPLETED') {
+          targetStatus = 'COMPLETED';
+        }
+      } else if (activeApts.length === 0 && currentStatus === 'IN_PROGRESS') {
+        targetStatus = 'ACCEPTED';
+      }
+
+      if (targetStatus && targetStatus !== currentStatus) {
+        const nextGroups = [...proposedPlan.groups];
+        nextGroups[groupIdx] = {
+          ...group,
+          status: targetStatus,
+          confirmed: ['ACCEPTED', 'IN_PROGRESS', 'COMPLETED'].includes(targetStatus),
+        };
+        const nextPlan = { ...proposedPlan, groups: nextGroups };
+
+        await this.prisma.patientOdontogram.update({
+          where: { id: odontogram.id },
+          data: { proposedPlan: nextPlan as any },
+        });
+
+        await this.logTreatmentPlanAudit({
+          tenantId,
+          branchId: odontogram.branchId,
+          patientId: odontogram.patientId,
+          odontogramId: odontogram.id,
+          treatmentPlanGroupId,
+          treatmentPlanName: group.name || null,
+          userId: actorId,
+          action: 'STATUS_CHANGED',
+          resourceType: 'TREATMENT_PLAN',
+          resourceId: treatmentPlanGroupId,
+          oldValues: { status: currentStatus },
+          newValues: { status: targetStatus },
+          description: `Status updated automatically from ${currentStatus} to ${targetStatus} via appointment ${appointmentNumber}`,
+        });
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to sync treatment plan status: ${err.message}`);
+    }
+  }
 
   // ============================================================================
   // ROLE HELPERS
@@ -462,6 +599,13 @@ export class AppointmentsService {
             quantity: true,
           },
         },
+        patientOdontogram: {
+          select: {
+            id: true,
+            patientId: true,
+            proposedPlan: true,
+          },
+        },
       },
     });
 
@@ -469,7 +613,52 @@ export class AppointmentsService {
       throw new NotFoundException(`Appointment with ID '${id}' not found`);
     }
 
-    return appointment;
+    let siblingPlanAppointments: any[] = [];
+    if (appointment.treatmentPlanGroupId && appointment.patientOdontogramId) {
+      siblingPlanAppointments = await this.prisma.appointment.findMany({
+        where: {
+          tenantId,
+          patientOdontogramId: appointment.patientOdontogramId,
+          treatmentPlanGroupId: appointment.treatmentPlanGroupId,
+          status: { not: 'CANCELLED' },
+        },
+        select: {
+          id: true,
+          appointmentNumber: true,
+          doctorId: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          durationMinutes: true,
+          status: true,
+          treatmentPlanItemIds: true,
+          treatmentPlanScope: true,
+          doctor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              colorCode: true,
+            },
+          },
+          appointmentServices: {
+            select: {
+              id: true,
+              serviceId: true,
+              serviceName: true,
+              unitPrice: true,
+              quantity: true,
+            },
+          },
+        },
+        orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      });
+    }
+
+    return {
+      ...appointment,
+      siblingPlanAppointments,
+    };
   }
 
   /**
@@ -496,6 +685,104 @@ export class AppointmentsService {
     });
     if (!doctorUser) {
       throw new NotFoundException(`Doctor with ID '${dto.doctorId}' not found`);
+    }
+
+    // Treatment plan gating & completeness validation when linked to a treatment plan
+    let resolvedOdontogramId: string | null = dto.patientOdontogramId || null;
+    let resolvedGroupName: string | null = dto.treatmentPlanGroupName || null;
+
+    if (dto.treatmentPlanGroupId) {
+      const odontogram = resolvedOdontogramId
+        ? await this.prisma.patientOdontogram.findFirst({
+            where: { id: resolvedOdontogramId, tenantId, patientId: dto.patientId },
+          })
+        : await this.prisma.patientOdontogram.findUnique({
+            where: { patientId: dto.patientId },
+          });
+
+      if (!odontogram) {
+        throw new BadRequestException(
+          'Patient odontogram and treatment plan must be saved before creating an appointment.',
+        );
+      }
+
+      resolvedOdontogramId = odontogram.id;
+      const proposedPlan: any = (odontogram as any).proposedPlan;
+      const groups: any[] = Array.isArray(proposedPlan?.groups) ? proposedPlan.groups : [];
+      const group = groups.find((g) => g.id === dto.treatmentPlanGroupId);
+
+      if (!group) {
+        throw new BadRequestException('Referenced treatment plan was not found.');
+      }
+
+      resolvedGroupName = resolvedGroupName || group.name || null;
+
+      const planStatus = group.status || (group.confirmed ? 'ACCEPTED' : 'CREATED');
+      if (planStatus !== 'ACCEPTED') {
+        throw new BadRequestException(
+          `Appointments can only be created when the treatment plan status is Accepted (current status: ${planStatus}).`,
+        );
+      }
+
+      const groupItems: any[] = Array.isArray(group.items) ? group.items : [];
+      if (groupItems.length === 0) {
+        throw new BadRequestException(
+          'This treatment plan has no services. Please add and complete at least one service row before creating an appointment.',
+        );
+      }
+
+      const requestedItemIds = Array.isArray(dto.treatmentPlanItemIds)
+        ? dto.treatmentPlanItemIds.map(String)
+        : [];
+      const itemsToValidate =
+        dto.treatmentPlanScope === 'ITEM' && requestedItemIds.length > 0
+          ? groupItems.filter((it) => requestedItemIds.includes(String(it.id)))
+          : groupItems;
+
+      if (itemsToValidate.length === 0) {
+        throw new BadRequestException('Selected treatment plan service was not found.');
+      }
+
+      for (let i = 0; i < itemsToValidate.length; i++) {
+        const it = itemsToValidate[i];
+        const missing: string[] = [];
+        if (!String(it?.treatmentName || '').trim()) missing.push('Treatment');
+        if (!String(it?.doctorId || '').trim()) missing.push('Doctor');
+        if (!String(it?.serviceId || '').trim()) missing.push('Service');
+        if (!it?.quantity || Number(it.quantity) < 1) missing.push('Quantity');
+        if (it?.unitPrice === undefined || it?.unitPrice === null || Number(it.unitPrice) <= 0) {
+          missing.push('Price');
+        }
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            `Service row #${i + 1} is incomplete. Missing fields: ${missing.join(', ')}.`,
+          );
+        }
+      }
+
+      if (requestedItemIds.length > 0) {
+        const existingGroupApts = await this.prisma.appointment.findMany({
+          where: {
+            tenantId,
+            patientOdontogramId: odontogram.id,
+            treatmentPlanGroupId: dto.treatmentPlanGroupId,
+            status: { not: 'CANCELLED' },
+          },
+          select: { appointmentNumber: true, treatmentPlanItemIds: true },
+        });
+        const bookedIds = new Set<string>();
+        for (const apt of existingGroupApts) {
+          const ids = Array.isArray(apt.treatmentPlanItemIds)
+            ? (apt.treatmentPlanItemIds as string[])
+            : [];
+          ids.forEach((itemId) => bookedIds.add(String(itemId)));
+        }
+        if (requestedItemIds.some((reqId) => bookedIds.has(reqId))) {
+          throw new ConflictException(
+            'One or more selected treatment plan services already have an active appointment.',
+          );
+        }
+      }
     }
 
     // Calculate end time and duration
@@ -601,6 +888,13 @@ export class AppointmentsService {
         reason: dto.reason || null,
         notes: dto.notes || null,
         expectedAmount: expectedAmount !== null ? new Prisma.Decimal(expectedAmount.toFixed(2)) : null,
+        patientOdontogramId: resolvedOdontogramId,
+        treatmentPlanGroupId: dto.treatmentPlanGroupId || null,
+        treatmentPlanGroupName: resolvedGroupName,
+        treatmentPlanItemIds: dto.treatmentPlanItemIds
+          ? (dto.treatmentPlanItemIds as any)
+          : undefined,
+        treatmentPlanScope: dto.treatmentPlanScope || null,
         createdById: actor.id,
         appointmentServices: {
           create: resolvedServices.map((rs) => ({
@@ -638,6 +932,36 @@ export class AppointmentsService {
       this.logger.error(`Failed to auto-create IncomeRecord for ${appointmentNumber}: ${err.message}`);
     }
 
+    if (resolvedOdontogramId && dto.treatmentPlanGroupId) {
+      await this.logTreatmentPlanAudit({
+        tenantId,
+        branchId: effectiveBranchId,
+        patientId: dto.patientId,
+        odontogramId: resolvedOdontogramId,
+        treatmentPlanGroupId: dto.treatmentPlanGroupId,
+        treatmentPlanName: resolvedGroupName,
+        userId: actor.id,
+        action: 'APPOINTMENT_CREATED',
+        resourceType: 'APPOINTMENT',
+        resourceId: appointment.id,
+        newValues: {
+          appointmentNumber,
+          doctorName: doctorUser.name,
+          date: dto.date,
+          startTime: dto.startTime,
+          endTime,
+          scope: dto.treatmentPlanScope || 'GROUP',
+          servicesCount: resolvedServices.length,
+        },
+        description: `Created appointment ${appointmentNumber} for Dr. ${doctorUser.name} (${dto.date} ${dto.startTime}–${endTime})`,
+      });
+
+      this.notificationsGateway.sendToTenant(tenantId, 'treatment_plan:updated', {
+        patientId: dto.patientId,
+        groupId: dto.treatmentPlanGroupId,
+      });
+    }
+
     this.logger.log(
       `📅 Appointment ${appointmentNumber} created by ${actor.id} for patient ${dto.patientId} with Dr. ${doctorUser.name}`,
     );
@@ -656,10 +980,19 @@ export class AppointmentsService {
 
     const existing = await this.prisma.appointment.findFirst({
       where: { id, tenantId },
+      include: {
+        doctor: { select: { id: true, name: true } },
+        appointmentServices: {
+          select: { serviceId: true, serviceName: true },
+        },
+      },
     });
     if (!existing) {
       throw new NotFoundException(`Appointment with ID '${id}' not found`);
     }
+
+    const oldDateStr = existing.date ? existing.date.toISOString().substring(0, 10) : '';
+    const oldServiceNames = (existing.appointmentServices || []).map((s) => s.serviceName);
 
     const updateData: any = {};
 
@@ -668,6 +1001,9 @@ export class AppointmentsService {
     if (dto.branchId) updateData.branchId = dto.branchId;
     if (dto.reason !== undefined) updateData.reason = dto.reason;
     if (dto.notes !== undefined) updateData.notes = dto.notes;
+    if (dto.expectedAmount !== undefined && dto.expectedAmount !== null) {
+      updateData.expectedAmount = new Prisma.Decimal(Number(dto.expectedAmount).toFixed(2));
+    }
     if (dto.actualStartTime !== undefined) {
       updateData.actualStartTime = dto.actualStartTime ? new Date(dto.actualStartTime) : null;
     }
@@ -811,7 +1147,10 @@ export class AppointmentsService {
             quantity: rs.quantity,
           })),
         });
-        updateData.expectedAmount = new Prisma.Decimal(sum.toFixed(2));
+        updateData.expectedAmount =
+          dto.expectedAmount !== undefined && dto.expectedAmount !== null
+            ? new Prisma.Decimal(Number(dto.expectedAmount).toFixed(2))
+            : new Prisma.Decimal(sum.toFixed(2));
       } else {
         updateData.expectedAmount = null;
       }
@@ -841,8 +1180,130 @@ export class AppointmentsService {
         endedBy: {
           select: { id: true, name: true },
         },
+        appointmentServices: true,
       },
     });
+
+    if (existing.treatmentPlanGroupId && existing.patientOdontogramId) {
+      // Sync doctor reassignment back to proposedPlan item(s) if doctorId changed
+      if (dto.doctorId && dto.doctorId !== existing.doctorId) {
+        const linkedItemIds = Array.isArray(existing.treatmentPlanItemIds)
+          ? (existing.treatmentPlanItemIds as string[]).map(String)
+          : [];
+        if (linkedItemIds.length > 0) {
+          const odontogram = await this.prisma.patientOdontogram.findFirst({
+            where: { id: existing.patientOdontogramId, tenantId },
+          });
+          const proposedPlan: any = (odontogram as any)?.proposedPlan;
+          if (odontogram && proposedPlan && Array.isArray(proposedPlan.groups)) {
+            const gIdx = proposedPlan.groups.findIndex(
+              (g: any) => g.id === existing.treatmentPlanGroupId,
+            );
+            if (gIdx >= 0 && Array.isArray(proposedPlan.groups[gIdx].items)) {
+              const nextGroups = [...proposedPlan.groups];
+              nextGroups[gIdx] = {
+                ...nextGroups[gIdx],
+                items: nextGroups[gIdx].items.map((it: any) =>
+                  linkedItemIds.includes(String(it.id))
+                    ? { ...it, doctorId: dto.doctorId }
+                    : it,
+                ),
+              };
+              await this.prisma.patientOdontogram.update({
+                where: { id: odontogram.id },
+                data: { proposedPlan: { ...proposedPlan, groups: nextGroups } as any },
+              });
+            }
+          }
+        }
+      }
+
+      const newDateStr = updated.date ? updated.date.toISOString().substring(0, 10) : '';
+      const newServiceNames = (updated.appointmentServices || []).map((s) => s.serviceName);
+      const oldDiff: Record<string, any> = {};
+      const newDiff: Record<string, any> = {};
+
+      if (oldDateStr !== newDateStr) {
+        oldDiff.date = oldDateStr;
+        newDiff.date = newDateStr;
+      }
+      if (existing.startTime !== updated.startTime || existing.endTime !== updated.endTime) {
+        oldDiff.time = `${existing.startTime}–${existing.endTime}`;
+        newDiff.time = `${updated.startTime}–${updated.endTime}`;
+      }
+      if (existing.durationMinutes !== updated.durationMinutes) {
+        oldDiff.durationMinutes = existing.durationMinutes;
+        newDiff.durationMinutes = updated.durationMinutes;
+      }
+      if (existing.doctorId !== updated.doctorId) {
+        oldDiff.doctorName = existing.doctor?.name || existing.doctorId;
+        newDiff.doctorName = updated.doctor?.name || updated.doctorId;
+      }
+      if (existing.type !== updated.type) {
+        oldDiff.type = existing.type;
+        newDiff.type = updated.type;
+      }
+      if ((existing.notes || '') !== (updated.notes || '')) {
+        oldDiff.notes = existing.notes || '';
+        newDiff.notes = updated.notes || '';
+      }
+      if (
+        dto.serviceIds !== undefined &&
+        JSON.stringify(oldServiceNames) !== JSON.stringify(newServiceNames)
+      ) {
+        oldDiff.services = oldServiceNames.join(', ');
+        newDiff.services = newServiceNames.join(', ');
+      }
+
+      if (Object.keys(newDiff).length > 0) {
+        await this.logTreatmentPlanAudit({
+          tenantId,
+          branchId: updated.branchId,
+          patientId: existing.patientId,
+          odontogramId: existing.patientOdontogramId,
+          treatmentPlanGroupId: existing.treatmentPlanGroupId,
+          treatmentPlanName: existing.treatmentPlanGroupName,
+          userId: actor.id,
+          action: 'APPOINTMENT_UPDATED',
+          resourceType: 'APPOINTMENT',
+          resourceId: existing.id,
+          oldValues: { appointmentNumber: existing.appointmentNumber, ...oldDiff },
+          newValues: { appointmentNumber: existing.appointmentNumber, ...newDiff },
+          description: `Updated appointment ${existing.appointmentNumber}`,
+        });
+      }
+
+      if (dto.status && dto.status !== existing.status) {
+        await this.logTreatmentPlanAudit({
+          tenantId,
+          branchId: updated.branchId,
+          patientId: existing.patientId,
+          odontogramId: existing.patientOdontogramId,
+          treatmentPlanGroupId: existing.treatmentPlanGroupId,
+          treatmentPlanName: existing.treatmentPlanGroupName,
+          userId: actor.id,
+          action: 'APPOINTMENT_STATUS_CHANGED',
+          resourceType: 'APPOINTMENT',
+          resourceId: existing.id,
+          oldValues: { appointmentNumber: existing.appointmentNumber, status: existing.status },
+          newValues: { appointmentNumber: existing.appointmentNumber, status: updated.status },
+          description: `Appointment ${existing.appointmentNumber} status changed from ${existing.status} to ${updated.status}`,
+        });
+
+        await this.syncTreatmentPlanStatusFromAppointments(
+          tenantId,
+          existing.patientOdontogramId,
+          existing.treatmentPlanGroupId,
+          actor.id,
+          existing.appointmentNumber,
+        );
+      }
+
+      this.notificationsGateway.sendToTenant(tenantId, 'treatment_plan:updated', {
+        patientId: existing.patientId,
+        groupId: existing.treatmentPlanGroupId,
+      });
+    }
 
     this.logger.log(`📝 Appointment ${existing.appointmentNumber} updated by ${actor.id}`);
     return updated;
@@ -955,6 +1416,41 @@ export class AppointmentsService {
       }
     }
 
+    if (existing.treatmentPlanGroupId && existing.patientOdontogramId && existing.status !== status) {
+      await this.logTreatmentPlanAudit({
+        tenantId,
+        branchId: existing.branchId,
+        patientId: existing.patientId,
+        odontogramId: existing.patientOdontogramId,
+        treatmentPlanGroupId: existing.treatmentPlanGroupId,
+        treatmentPlanName: existing.treatmentPlanGroupName,
+        userId: actor.id,
+        action: 'APPOINTMENT_STATUS_CHANGED',
+        resourceType: 'APPOINTMENT',
+        resourceId: existing.id,
+        oldValues: { appointmentNumber: existing.appointmentNumber, status: existing.status },
+        newValues: {
+          appointmentNumber: existing.appointmentNumber,
+          status,
+          ...(cancellationReason ? { cancellationReason } : {}),
+        },
+        description: `Appointment ${existing.appointmentNumber} status changed from ${existing.status} to ${status}`,
+      });
+
+      await this.syncTreatmentPlanStatusFromAppointments(
+        tenantId,
+        existing.patientOdontogramId,
+        existing.treatmentPlanGroupId,
+        actor.id,
+        existing.appointmentNumber,
+      );
+
+      this.notificationsGateway.sendToTenant(tenantId, 'treatment_plan:updated', {
+        patientId: existing.patientId,
+        groupId: existing.treatmentPlanGroupId,
+      });
+    }
+
     this.logger.log(`🔄 Appointment ${existing.appointmentNumber} status → ${status} by ${actor.id}`);
     return { ...updated, incomeRecordId };
   }
@@ -979,6 +1475,42 @@ export class AppointmentsService {
     }
 
     await this.prisma.appointment.delete({ where: { id } });
+
+    if (existing.treatmentPlanGroupId && existing.patientOdontogramId) {
+      await this.logTreatmentPlanAudit({
+        tenantId,
+        branchId: existing.branchId,
+        patientId: existing.patientId,
+        odontogramId: existing.patientOdontogramId,
+        treatmentPlanGroupId: existing.treatmentPlanGroupId,
+        treatmentPlanName: existing.treatmentPlanGroupName,
+        userId: actor.id,
+        action: 'APPOINTMENT_DELETED',
+        resourceType: 'APPOINTMENT',
+        resourceId: existing.id,
+        oldValues: {
+          appointmentNumber: existing.appointmentNumber,
+          status: existing.status,
+          startTime: existing.startTime,
+          endTime: existing.endTime,
+        },
+        description: `Deleted appointment ${existing.appointmentNumber}`,
+      });
+
+      await this.syncTreatmentPlanStatusFromAppointments(
+        tenantId,
+        existing.patientOdontogramId,
+        existing.treatmentPlanGroupId,
+        actor.id,
+        existing.appointmentNumber,
+      );
+
+      this.notificationsGateway.sendToTenant(tenantId, 'treatment_plan:updated', {
+        patientId: existing.patientId,
+        groupId: existing.treatmentPlanGroupId,
+      });
+    }
+
     this.logger.log(`🗑️ Appointment ${existing.appointmentNumber} deleted by Tenant Admin ${actor.id}`);
 
     return { message: 'Appointment deleted successfully', appointmentNumber: existing.appointmentNumber };
@@ -1253,6 +1785,7 @@ export class AppointmentsService {
     date: string,
     durationMinutes: number = 30,
     branchId?: string,
+    excludeAppointmentId?: string,
   ) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
     if (!doctorId) throw new BadRequestException('Doctor ID is required');
@@ -1317,6 +1850,7 @@ export class AppointmentsService {
         doctorId,
         date: dateObj,
         status: { not: 'CANCELLED' },
+        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
       },
       select: { startTime: true, endTime: true },
     });

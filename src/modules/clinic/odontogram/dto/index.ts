@@ -9,3 +9,5 @@ export * from './update-patient-diagnostic.dto';
 export * from './add-patient-treatment.dto';
 export * from './update-patient-treatment.dto';
 export * from './save-patient-odontogram.dto';
+export * from './update-treatment-plan-status.dto';
+export * from './query-treatment-plan-audit.dto';

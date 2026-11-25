@@ -83,6 +83,7 @@ export class WorkingHoursController {
     @Query('date') date: string,
     @Query('durationMinutes') durationMinutes?: string,
     @Query('branchId') branchId?: string,
+    @Query('excludeAppointmentId') excludeAppointmentId?: string,
   ) {
     return this.appointmentsService.getAvailableSlots(
       user.activeTenantId,
@@ -90,6 +91,7 @@ export class WorkingHoursController {
       date,
       durationMinutes ? parseInt(durationMinutes, 10) : 30,
       branchId,
+      excludeAppointmentId,
     );
   }
 }

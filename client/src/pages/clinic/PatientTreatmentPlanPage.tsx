@@ -31,19 +31,26 @@ import {
   Lock,
   Info,
   Stethoscope,
+  History,
+  CalendarCheck,
+  Edit2,
 } from 'lucide-react';
 import api from '../../services/api';
 import { Tooltip } from '../../components/common/Tooltip';
 import { useAuth } from '../../core/context/AuthContext';
+import { useNotifications } from '../../core/context/NotificationContext';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import { AddPatientNoteModal, PatientOptionItem } from '../../components/clinic/AddPatientNoteModal';
 import { TreatmentPlanPrintView } from '../../components/clinic/TreatmentPlanPrintView';
+import { TreatmentPlanAuditModal } from '../../components/clinic/TreatmentPlanAuditModal';
+import { EditAppointmentDropdown } from '../../components/clinic/EditAppointmentDropdown';
 import { SearchableSelect, SearchableSelectOption } from '../../components/common/SearchableSelect';
 import { useToast } from '../../core/context/ToastContext';
 import {
   clinicOdontogramService,
   PatientOdontogramResponse,
   PatientOdontogramTreatmentItem,
+  LinkedPlanAppointment,
 } from '../../services/clinicOdontogramService';
 import { clinicServiceService, ClinicServiceItem } from '../../services/clinicServiceService';
 import {
@@ -180,6 +187,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   const { t } = useTranslation();
   const { error, success } = useToast();
   const { user, isTenantAdmin, isClinicAdmin, isClinicDoctor } = useAuth();
+  const { socket } = useNotifications();
   const canEditPlan = (isClinicAdmin || isClinicDoctor || Boolean(user?.isSuperAdmin)) && !isTenantAdmin;
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -195,6 +203,36 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   // Proposed Treatment Plan state
   const [planGroups, setPlanGroups] = useState<ProposedGroup[]>([]);
   const [savingPlan, setSavingPlan] = useState<boolean>(false);
+  const [statusSavingGroupIds, setStatusSavingGroupIds] = useState<Record<string, boolean>>({});
+  const [openEditDropdownGroupId, setOpenEditDropdownGroupId] = useState<string | null>(null);
+
+  // Audit History Modal state
+  const [auditModalState, setAuditModalState] = useState<{ isOpen: boolean; groupId: string }>({
+    isOpen: false,
+    groupId: 'ALL',
+  });
+
+  // Pre-appointment Service Completeness Validation Alert Modal state
+  const [validationAlertData, setValidationAlertData] = useState<{
+    title: string;
+    instruction: string;
+    emptyPlan?: boolean;
+    invalidRows: Array<{
+      rowNumber: number;
+      itemId: string;
+      treatmentName: string;
+      isEmptyRow: boolean;
+      missingFields: string[];
+    }>;
+  } | null>(null);
+  const [invalidItemIds, setInvalidItemIds] = useState<Set<string>>(new Set());
+
+  // Context of active booking (group vs single-service) for linkage on appointment creation
+  const [activeBookingContext, setActiveBookingContext] = useState<{
+    groupId: string;
+    groupName: string;
+    scope: 'GROUP' | 'ITEM';
+  } | null>(null);
 
   // Drag and Drop state (Supports single, multi-row, and within-plan reorder)
   const [draggedItems, setDraggedItems] = useState<{ itemIds: string[]; sourceGroupId: string } | null>(null);
@@ -260,22 +298,25 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   // Interactive View Controls
   const [selectedTreatment, setSelectedTreatment] = useState<string>('all');
 
-  const fetchPlanData = useCallback(async () => {
-    if (!patientId) return;
-    setLoading(true);
-    try {
-      const res = await clinicOdontogramService.getPatientOdontogram(patientId);
-      setData(res);
-    } catch (err: any) {
-      console.error('Failed to load treatment plan data:', err);
-      error(
-        err.response?.data?.message ||
-          t('patientTreatmentPlan.loadFailed', 'Failed to load patient treatment plan data.')
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [patientId, t, error]);
+  const fetchPlanData = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!patientId) return;
+      if (!options?.silent) setLoading(true);
+      try {
+        const res = await clinicOdontogramService.getPatientOdontogram(patientId);
+        setData(res);
+      } catch (err: any) {
+        console.error('Failed to load treatment plan data:', err);
+        error(
+          err.response?.data?.message ||
+            t('patientTreatmentPlan.loadFailed', 'Failed to load patient treatment plan data.')
+        );
+      } finally {
+        if (!options?.silent) setLoading(false);
+      }
+    },
+    [patientId, t, error]
+  );
 
   const fetchDoctorsAndServices = useCallback(async () => {
     try {
@@ -295,6 +336,53 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     fetchPlanData();
     fetchDoctorsAndServices();
   }, [fetchPlanData, fetchDoctorsAndServices]);
+
+  // Real-time WebSocket sync when status or appointments update elsewhere
+  useEffect(() => {
+    if (!socket || !patientId) return;
+    const handlePlanUpdated = (payload: any) => {
+      if (!payload?.patientId || payload.patientId === patientId) {
+        fetchPlanData({ silent: true });
+      }
+    };
+    socket.on('treatment_plan:updated', handlePlanUpdated);
+    return () => {
+      socket.off('treatment_plan:updated', handlePlanUpdated);
+    };
+  }, [socket, patientId, fetchPlanData]);
+
+  // Derived active linked appointments lookup maps
+  const linkedAppointments = useMemo<LinkedPlanAppointment[]>(
+    () => data?.linkedAppointments || [],
+    [data?.linkedAppointments]
+  );
+
+  const activeLinkedAppointments = useMemo<LinkedPlanAppointment[]>(
+    () => linkedAppointments.filter((apt) => apt.status !== 'CANCELLED'),
+    [linkedAppointments]
+  );
+
+  const activeGroupAppointmentsMap = useMemo(() => {
+    const map = new Map<string, LinkedPlanAppointment[]>();
+    activeLinkedAppointments.forEach((apt) => {
+      if (!apt.treatmentPlanGroupId) return;
+      const list = map.get(apt.treatmentPlanGroupId) || [];
+      list.push(apt);
+      map.set(apt.treatmentPlanGroupId, list);
+    });
+    return map;
+  }, [activeLinkedAppointments]);
+
+  const activeItemAppointmentMap = useMemo(() => {
+    const map = new Map<string, LinkedPlanAppointment>();
+    activeLinkedAppointments.forEach((apt) => {
+      const ids = Array.isArray(apt.treatmentPlanItemIds) ? apt.treatmentPlanItemIds : [];
+      ids.forEach((id) => {
+        if (id) map.set(String(id), apt);
+      });
+    });
+    return map;
+  }, [activeLinkedAppointments]);
 
   const patient = data?.patient;
   const patientFullName = patient
@@ -336,8 +424,10 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
     const savedPlan = (data.odontogram as any)?.proposedPlan;
     if (savedPlan && Array.isArray(savedPlan.groups) && savedPlan.groups.length > 0) {
-      setPlanGroups(
-        savedPlan.groups.map((g: any, gIdx: number) => ({
+      setPlanGroups((prev) => {
+        const selectedMap = new Map<string, boolean>();
+        prev.forEach((pg) => pg.items.forEach((pi) => selectedMap.set(pi.id, Boolean(pi.isSelected))));
+        return savedPlan.groups.map((g: any, gIdx: number) => ({
           ...g,
           id: g.id || `group-${gIdx + 1}`,
           name: g.name ? g.name.replace(/^Visit\s*/i, 'Plan ') : `Plan ${gIdx + 1}`,
@@ -345,6 +435,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           items: Array.isArray(g.items)
             ? g.items.map((it: any) => ({
                 ...it,
+                isSelected: selectedMap.get(it.id) ?? Boolean(it.isSelected),
                 otTeethNumber:
                   it.otTeethNumber !== undefined
                     ? it.otTeethNumber
@@ -353,8 +444,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                     : '',
               }))
             : [],
-        }))
-      );
+        }));
+      });
       return;
     }
 
@@ -436,6 +527,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleDeleteGroup = (groupId: string) => {
+    if ((activeGroupAppointmentsMap.get(groupId) || []).length > 0) return;
     const groupToDelete = planGroups.find((g) => g.id === groupId);
     if (!groupToDelete) return;
     setPlanToDelete(groupToDelete);
@@ -462,33 +554,91 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleGroupNameChange = (groupId: string, newName: string) => {
+    if ((activeGroupAppointmentsMap.get(groupId) || []).length > 0) return;
     setPlanGroups((prev) =>
       prev.map((g) => (g.id === groupId ? { ...g, name: newName } : g))
     );
   };
 
-  const handlePlanStatusChange = (groupId: string, newStatus: TreatmentPlanStatus) => {
-    setPlanGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, status: newStatus } : g))
-    );
-  };
+  const handlePlanStatusChange = async (groupId: string, newStatus: TreatmentPlanStatus) => {
+    if (!patientId) return;
+    const targetGroup = planGroups.find((g) => g.id === groupId);
+    if (!targetGroup || targetGroup.status === newStatus) return;
 
-  const handleGroupConfirmedToggle = (groupId: string) => {
-    setPlanGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== groupId) return g;
-        const nextConfirmed = !g.confirmed;
-        return {
-          ...g,
-          confirmed: nextConfirmed,
-          status: nextConfirmed && g.status === 'CREATED' ? 'ACCEPTED' : g.status,
-        };
-      })
+    const previousGroups = planGroups;
+    const isConfirmed =
+      newStatus === 'ACCEPTED' || newStatus === 'IN_PROGRESS' || newStatus === 'COMPLETED';
+    const nextGroups = planGroups.map((g) =>
+      g.id === groupId ? { ...g, status: newStatus, confirmed: isConfirmed } : g
     );
+
+    // Optimistically update UI immediately without waiting for Save Plan or page reload
+    setPlanGroups(nextGroups);
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            odontogram: {
+              ...prev.odontogram,
+              proposedPlan: {
+                ...(prev.odontogram?.proposedPlan || {}),
+                groups: nextGroups,
+                grandTotal: nextGroups.reduce(
+                  (gSum, g) => gSum + g.items.reduce((iSum, it) => iSum + (it.subtotal || 0), 0),
+                  0
+                ),
+              },
+            },
+          }
+        : prev
+    );
+
+    setStatusSavingGroupIds((prev) => ({ ...prev, [groupId]: true }));
+    try {
+      const res = await clinicOdontogramService.updateTreatmentPlanGroupStatus(
+        patientId,
+        groupId,
+        {
+          status: newStatus,
+          planName: targetGroup.name,
+          items: targetGroup.items,
+        }
+      );
+      if (res?.proposedPlan) {
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                odontogram: {
+                  ...prev.odontogram,
+                  proposedPlan: res.proposedPlan,
+                },
+              }
+            : prev
+        );
+      }
+      const cfg = STATUS_CONFIG[newStatus];
+      const statusLabel = cfg ? t(`patientTreatmentPlan.${cfg.labelKey}`, cfg.defaultLabel) : newStatus;
+      success(
+        t('patientTreatmentPlan.statusUpdatedSuccess', 'Treatment plan status updated to {{status}}.', {
+          status: statusLabel,
+        })
+      );
+    } catch (err: any) {
+      console.error('Failed to update treatment plan status:', err);
+      setPlanGroups(previousGroups);
+      error(
+        err?.response?.data?.message ||
+          t('patientTreatmentPlan.statusUpdateFailed', 'Failed to update treatment plan status.')
+      );
+    } finally {
+      setStatusSavingGroupIds((prev) => ({ ...prev, [groupId]: false }));
+    }
   };
 
   // Add Service directly to a Group (Services dropdown starts empty until doctor chosen)
   const handleAddServiceToGroup = (groupId: string) => {
+    if ((activeGroupAppointmentsMap.get(groupId) || []).length > 0) return;
     const newItem: ProposedItem = {
       id: `custom-srv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       treatmentName: '',
@@ -508,6 +658,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
   // Remove individual Service from a Group
   const handleRemoveServiceFromGroup = (groupId: string, itemId: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    setInvalidItemIds((prev) => {
+      if (!prev.has(itemId)) return prev;
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
     setPlanGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -604,7 +761,18 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     [treatments, allPlanItems, t]
   );
 
+  const clearInvalidItem = (itemId: string) => {
+    setInvalidItemIds((prev) => {
+      if (!prev.has(itemId)) return prev;
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+  };
+
   const handleItemTreatmentSelect = (groupId: string, itemId: string, val: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    clearInvalidItem(itemId);
     const parts = val.includes('__') ? val.split('__') : val.split('__#');
     const tName = parts[0].replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim();
     const toothNum = parts[1] ? parseInt(parts[1].replace(/#/g, ''), 10) : undefined;
@@ -648,6 +816,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
   // Treatment Item Field Handlers
   const handleItemTreatmentNameChange = (groupId: string, itemId: string, name: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    clearInvalidItem(itemId);
     setPlanGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -660,6 +830,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleItemOtTeethChange = (groupId: string, itemId: string, otVal: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
     const parsed = otVal
       .split(/[\s,]+/)
       .map((s) => parseInt(s.replace(/#/g, ''), 10))
@@ -685,6 +856,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleItemDoctorChange = (groupId: string, itemId: string, doctorId: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    clearInvalidItem(itemId);
     setPlanGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -706,6 +879,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleItemServiceChange = (groupId: string, itemId: string, serviceId: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    clearInvalidItem(itemId);
     setPlanGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -732,6 +907,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleItemQtyChange = (groupId: string, itemId: string, qtyRaw: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    clearInvalidItem(itemId);
     const qty = Math.max(1, parseInt(qtyRaw) || 1);
     setPlanGroups((prev) =>
       prev.map((g) => {
@@ -752,6 +929,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleItemUnitPriceChange = (groupId: string, itemId: string, priceRaw: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
+    clearInvalidItem(itemId);
     const price = Math.max(0, parseFloat(priceRaw) || 0);
     setPlanGroups((prev) =>
       prev.map((g) => {
@@ -772,6 +951,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleItemSelectionToggle = (groupId: string, itemId: string) => {
+    if (activeItemAppointmentMap.has(itemId)) return;
     setPlanGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -784,6 +964,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   };
 
   const handleGroupSelectAllToggle = (groupId: string, selectAll: boolean) => {
+    if ((activeGroupAppointmentsMap.get(groupId) || []).length > 0) return;
     setPlanGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -798,13 +979,16 @@ export const PatientTreatmentPlanPage: React.FC = () => {
   // Move Multiple Items Between Groups (Supports single or batch transfer)
   const handleMoveItems = (itemIds: string[], sourceGroupId: string, targetGroupId: string) => {
     if (sourceGroupId === targetGroupId || !itemIds.length) return;
+    if ((activeGroupAppointmentsMap.get(targetGroupId) || []).length > 0) return;
+    const unlockedIds = itemIds.filter((id) => !activeItemAppointmentMap.has(id));
+    if (!unlockedIds.length) return;
     setPlanGroups((prev) => {
       const itemsToMove: ProposedItem[] = [];
       const updated = prev.map((g) => {
         if (g.id === sourceGroupId) {
           const remaining: ProposedItem[] = [];
           g.items.forEach((it) => {
-            if (itemIds.includes(it.id)) {
+            if (unlockedIds.includes(it.id)) {
               itemsToMove.push({ ...it, isSelected: false });
             } else {
               remaining.push(it);
@@ -843,6 +1027,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         groups: planGroups,
         grandTotal,
       });
+      await fetchPlanData({ silent: true });
       success(t('patientTreatmentPlan.planSavedSuccess', 'Treatment plans saved successfully.'));
     } catch (err: any) {
       console.error('Failed to save proposed plan:', err);
@@ -853,6 +1038,87 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     } finally {
       setSavingPlan(false);
     }
+  };
+
+  // Pre-appointment completeness validation (checks all rows at plan level, or target row at item level)
+  const validateItemsForAppointment = (
+    itemsToCheck: ProposedItem[],
+    scope: 'GROUP' | 'ITEM',
+    allGroupItems: ProposedItem[]
+  ): boolean => {
+    if (scope === 'GROUP' && allGroupItems.length === 0) {
+      setInvalidItemIds(new Set());
+      setValidationAlertData({
+        title: t('patientTreatmentPlan.validationPopupTitle', 'Complete Required Service Fields'),
+        instruction: t(
+          'patientTreatmentPlan.validationNoServices',
+          "This treatment plan has no services yet. Click '+ Add Service' and fill in all required columns before creating an appointment."
+        ),
+        emptyPlan: true,
+        invalidRows: [],
+      });
+      return false;
+    }
+
+    const invalidRows: Array<{
+      rowNumber: number;
+      itemId: string;
+      treatmentName: string;
+      isEmptyRow: boolean;
+      missingFields: string[];
+    }> = [];
+    const badIds = new Set<string>();
+
+    itemsToCheck.forEach((it) => {
+      const rowIdx = allGroupItems.findIndex((gItem) => gItem.id === it.id);
+      const rowNumber = rowIdx >= 0 ? rowIdx + 1 : 1;
+
+      const hasTreatment = Boolean(it.treatmentName && it.treatmentName.trim());
+      const hasDoctor = Boolean(it.doctorId);
+      const hasService = Boolean(it.serviceId);
+      const hasQty = Boolean(it.quantity && Number(it.quantity) >= 1);
+      const hasPrice = it.unitPrice !== undefined && it.unitPrice !== null && Number(it.unitPrice) > 0;
+
+      const missingFields: string[] = [];
+      if (!hasTreatment) missingFields.push(t('patientTreatmentPlan.validationFieldTreatment', 'Treatment'));
+      if (!hasDoctor) missingFields.push(t('patientTreatmentPlan.validationFieldDoctor', 'Doctor'));
+      if (!hasService) missingFields.push(t('patientTreatmentPlan.validationFieldService', 'Service'));
+      if (!hasQty) missingFields.push(t('patientTreatmentPlan.validationFieldQty', 'Qty (min 1)'));
+      if (!hasPrice) missingFields.push(t('patientTreatmentPlan.validationFieldPrice', 'Price (MXN > 0)'));
+
+      if (missingFields.length > 0) {
+        badIds.add(it.id);
+        invalidRows.push({
+          rowNumber,
+          itemId: it.id,
+          treatmentName: it.treatmentName?.trim() || '',
+          isEmptyRow: !hasTreatment && !hasDoctor && !hasService,
+          missingFields,
+        });
+      }
+    });
+
+    if (invalidRows.length > 0) {
+      setInvalidItemIds(badIds);
+      setValidationAlertData({
+        title: t('patientTreatmentPlan.validationPopupTitle', 'Complete Required Service Fields'),
+        instruction:
+          scope === 'GROUP'
+            ? t(
+                'patientTreatmentPlan.validationPopupPlanInstruction',
+                'All service rows in this treatment plan must have every required field filled before creating an appointment. Please complete the missing fields below or remove any empty rows.'
+              )
+            : t(
+                'patientTreatmentPlan.validationPopupRowInstruction',
+                'Please fill in all required fields for this service before scheduling an appointment.'
+              ),
+        invalidRows,
+      });
+      return false;
+    }
+
+    setInvalidItemIds(new Set());
+    return true;
   };
 
   // Helper: Format services as numbered list for appointment notes
@@ -925,14 +1191,23 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
   // Open Appointment Modal for a Group (Auto-divides across multiple doctors)
   const handleOpenApptModalForGroup = (group: ProposedGroup) => {
-    if (!group.items.length) {
-      error(t('patientTreatmentPlan.noServicesForAppt', 'This treatment plan has no services to schedule.'));
+    if ((group.status || 'CREATED') !== 'ACCEPTED') {
       return;
     }
 
-    // Respect selected services if checked; otherwise use all services in group
-    const selectedItems = group.items.filter((it) => it.isSelected);
-    const targetItems = selectedItems.length > 0 ? selectedItems : group.items;
+    // Validate ALL services in the treatment plan have all required fields filled
+    if (!validateItemsForAppointment(group.items, 'GROUP', group.items)) {
+      return;
+    }
+
+    // Filter out already scheduled services so only unscheduled services are booked
+    const unscheduledItems = group.items.filter((it) => !activeItemAppointmentMap.has(it.id));
+    if (unscheduledItems.length === 0) {
+      return;
+    }
+
+    const selectedItems = unscheduledItems.filter((it) => it.isSelected);
+    const targetItems = selectedItems.length > 0 ? selectedItems : unscheduledItems;
 
     // Group items by doctorId — IGNORE services without an assigned doctor
     const doctorMap = new Map<string, ProposedItem[]>();
@@ -970,6 +1245,12 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       );
       return;
     }
+
+    setActiveBookingContext({
+      groupId: group.id,
+      groupName: group.name,
+      scope: 'GROUP',
+    });
 
     const todayStr = new Date().toISOString().split('T')[0];
     const schedules: DoctorApptSchedule[] = [];
@@ -1032,17 +1313,19 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
   // Open Appointment Modal for a single Item
   const handleOpenApptModalForItem = (item: ProposedItem, group: ProposedGroup) => {
-    const docId = item.doctorId || '';
-    if (!docId) {
-      error(
-        t(
-          'patientTreatmentPlan.assignDoctorFirst',
-          'Please assign a doctor to this service before scheduling an appointment.'
-        )
-      );
+    if ((group.status || 'CREATED') !== 'ACCEPTED') {
       return;
     }
-    // Auto-resolve missing serviceId if empty
+    if (activeItemAppointmentMap.has(item.id)) {
+      return;
+    }
+
+    // Validate all required fields on this individual service row
+    if (!validateItemsForAppointment([item], 'ITEM', group.items)) {
+      return;
+    }
+
+    const docId = item.doctorId || '';
     let itemToUse = item;
     if (!item.serviceId && item.treatmentName) {
       const matched = clinicServices.find(
@@ -1052,6 +1335,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         itemToUse = { ...item, serviceId: matched.id };
       }
     }
+
+    setActiveBookingContext({
+      groupId: group.id,
+      groupName: group.name,
+      scope: 'ITEM',
+    });
+
     const todayStr = new Date().toISOString().split('T')[0];
     const appointmentNotes = formatServicesForNotes([itemToUse]);
     const docName = doctors.find((d) => d.id === docId)?.name || t('common.unassignedDoctor', 'Doctor');
@@ -1103,10 +1393,17 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     });
   };
 
-  // Submit Appointment(s) — with Promise.allSettled for resilience
+  // Submit Appointment(s) — with pre-booking plan sync & Promise.allSettled for resilience
   const handleSubmitAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId) return;
+
+    const ensurePlanSynced = async () => {
+      await clinicOdontogramService.saveProposedTreatmentPlan(patientId, {
+        groups: planGroups,
+        grandTotal,
+      });
+    };
 
     if (isMultiDoctorModal) {
       const activeSchedules = multiDoctorAppts.filter(
@@ -1133,7 +1430,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               doctorName: s.doctorName,
             })
           );
-          // Focus that tab
           const tabIdx = multiDoctorAppts.findIndex((x) => x.doctorId === s.doctorId);
           if (tabIdx >= 0) setActiveDocTabIdx(tabIdx);
           return;
@@ -1150,9 +1446,24 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       );
       setApptSubmitting(true);
 
+      try {
+        await ensurePlanSynced();
+      } catch (syncErr: any) {
+        setApptSubmitting(false);
+        setMultiDoctorAppts((prev) =>
+          prev.map((s) => (s.status === 'saving' ? { ...s, status: 'idle' as const } : s))
+        );
+        error(
+          syncErr?.response?.data?.message ||
+            t('patientTreatmentPlan.planSaveFailed', 'Failed to synchronize treatment plan before scheduling.')
+        );
+        return;
+      }
+
       const results = await Promise.allSettled(
         activeSchedules.map((s) => {
           const serviceIds = (s.services || []).map((srv) => srv.serviceId).filter(Boolean);
+          const treatmentPlanItemIds = (s.services || []).map((srv) => srv.id).filter(Boolean);
           const expectedAmount = (s.services || []).reduce(
             (sum, srv) => sum + Number(srv.unitPrice || 0) * (srv.quantity || 1),
             0
@@ -1169,6 +1480,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             notes: s.notes,
             serviceIds,
             expectedAmount: expectedAmount > 0 ? expectedAmount : undefined,
+            patientOdontogramId: data?.odontogram?.id,
+            treatmentPlanGroupId: activeBookingContext?.groupId,
+            treatmentPlanGroupName: activeBookingContext?.groupName,
+            treatmentPlanItemIds,
+            treatmentPlanScope: activeBookingContext?.scope || 'GROUP',
           });
         })
       );
@@ -1205,6 +1521,10 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
       setApptSubmitting(false);
 
+      if (successCount > 0) {
+        await fetchPlanData({ silent: true });
+      }
+
       if (failCount === 0) {
         success(t('clinicAppointments.createSuccess', 'Appointments scheduled successfully.'));
         setIsApptModalOpen(false);
@@ -1215,7 +1535,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
             'Some appointments were scheduled. Please resolve errors below and retry.'
           )
         );
-        // Focus the first errored tab
         const firstErrIdx = multiDoctorAppts.findIndex(
           (s) => s.selected && s.status !== 'success'
         );
@@ -1238,6 +1557,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
     const singleServices = multiDoctorAppts[0]?.services || [];
     const serviceIds = singleServices.map((srv) => srv.serviceId).filter(Boolean);
+    const treatmentPlanItemIds = singleServices.map((srv) => srv.id).filter(Boolean);
     const expectedAmount = singleServices.reduce(
       (sum, srv) => sum + Number(srv.unitPrice || 0) * (srv.quantity || 1),
       0
@@ -1245,6 +1565,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
     setApptSubmitting(true);
     try {
+      await ensurePlanSynced();
       await api.post('/clinic/appointments', {
         patientId,
         doctorId: apptForm.doctorId,
@@ -1257,7 +1578,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         notes: apptForm.notes,
         serviceIds,
         expectedAmount: expectedAmount > 0 ? expectedAmount : undefined,
+        patientOdontogramId: data?.odontogram?.id,
+        treatmentPlanGroupId: activeBookingContext?.groupId,
+        treatmentPlanGroupName: activeBookingContext?.groupName,
+        treatmentPlanItemIds,
+        treatmentPlanScope: activeBookingContext?.scope || 'GROUP',
       });
+      await fetchPlanData({ silent: true });
       success(t('clinicAppointments.createSuccess', 'Appointment scheduled successfully.'));
       setIsApptModalOpen(false);
     } catch (err: any) {
@@ -1548,12 +1875,36 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           <button
             type="button"
             className="btn btn-secondary"
+            onClick={() => setAuditModalState({ isOpen: true, groupId: 'ALL' })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              minHeight: '40px',
+              padding: '0 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 600,
+              border: '1px solid var(--border-color, #cbd5e1)',
+              backgroundColor: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-heading, #0f172a)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <History size={16} style={{ color: 'var(--primary-600, #0d9488)' }} />
+            <span>{t('patientTreatmentPlan.auditHistory', 'Audit History')}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
             onClick={() => setIsAddNoteOpen(true)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              height: '38px',
+              minHeight: '40px',
               padding: '0 14px',
               borderRadius: '8px',
               fontSize: '13px',
@@ -1577,7 +1928,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              height: '38px',
+              minHeight: '40px',
               padding: '0 14px',
               borderRadius: '8px',
               fontSize: '13px',
@@ -1601,7 +1952,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              height: '38px',
+              minHeight: '40px',
               padding: '0 16px',
               borderRadius: '8px',
               fontSize: '13px',
@@ -3255,14 +3606,55 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                 0
               );
               const isDragOver = dragOverGroupId === group.id;
-              const selectedCount = group.items.filter((it) => it.isSelected).length;
+              const groupAppts = activeGroupAppointmentsMap.get(group.id) || [];
+              const hasActiveAppt = groupAppts.length > 0;
+              const unscheduledItems = group.items.filter(
+                (it) => !activeItemAppointmentMap.has(it.id)
+              );
+              const selectedCount = group.items.filter(
+                (it) => it.isSelected && !activeItemAppointmentMap.has(it.id)
+              ).length;
               const currentStatus = group.status || 'CREATED';
               const statusCfg = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.CREATED;
+              const statusLabel = t(
+                `patientTreatmentPlan.${statusCfg.labelKey}`,
+                statusCfg.defaultLabel
+              );
+              const isAccepted = currentStatus === 'ACCEPTED';
+              const isStatusSaving = Boolean(statusSavingGroupIds[group.id]);
+              const createApptDisabledReason = t(
+                'patientTreatmentPlan.createAppointmentDisabledStatus',
+                'Treatment plan must be Accepted before creating an appointment (current status: {{status}}).',
+                { status: statusLabel }
+              );
+              const movableTargetGroups = planGroups.filter(
+                (g) =>
+                  g.id !== group.id &&
+                  (activeGroupAppointmentsMap.get(g.id) || []).length === 0
+              );
+              const allUnbookedSelected =
+                unscheduledItems.length > 0 &&
+                unscheduledItems.every((it) => it.isSelected);
 
               return (
                 <div
                   key={group.id}
                   onDragOver={(e) => {
+                    if (hasActiveAppt) return;
+                    if (
+                      draggedItems &&
+                      (activeGroupAppointmentsMap.get(draggedItems.sourceGroupId) || [])
+                        .length > 0
+                    ) {
+                      return;
+                    }
+                    if (
+                      draggedRow &&
+                      (activeGroupAppointmentsMap.get(draggedRow.groupId) || [])
+                        .length > 0
+                    ) {
+                      return;
+                    }
                     e.preventDefault();
                     if (dragOverGroupId !== group.id) setDragOverGroupId(group.id);
                   }}
@@ -3272,8 +3664,13 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                   onDrop={(e) => {
                     e.preventDefault();
                     setDragOverGroupId(null);
+                    if (hasActiveAppt) return;
                     if (draggedItems) {
-                      handleMoveItems(draggedItems.itemIds, draggedItems.sourceGroupId, group.id);
+                      handleMoveItems(
+                        draggedItems.itemIds,
+                        draggedItems.sourceGroupId,
+                        group.id
+                      );
                       setDraggedItems(null);
                     }
                   }}
@@ -3292,7 +3689,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                   {/* Group Header Bar (Plan Name, Status, Count, Actions) */}
                   <div
                     style={{
-                      padding: '12px 18px',
+                      padding: '12px 16px',
                       backgroundColor: 'var(--bg-surface-muted, #f0f7ff)',
                       borderBottom: '1px solid var(--border-color, #e2e8f0)',
                       borderTopLeftRadius: '11px',
@@ -3304,171 +3701,362 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                       gap: '12px',
                     }}
                   >
-                    {/* Left: Selected Service Count (replaces treatment plan icon) + Clean Border Plan Title + Status SearchableSelect */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    {/* Left: Service Count + Plan Title + Status SearchableSelect + Lock Badge */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                        flex: '1 1 auto',
+                        minWidth: 0,
+                      }}
+                    >
                       <div
                         style={{
                           width: '32px',
                           height: '32px',
                           borderRadius: '8px',
-                          backgroundColor: group.items.length > 0 ? 'var(--primary-600, #0d9488)' : 'var(--bg-card, #ffffff)',
-                          border: group.items.length > 0 ? '1px solid var(--primary-600, #0d9488)' : '1px solid var(--border-color, #cbd5e1)',
+                          backgroundColor:
+                            group.items.length > 0
+                              ? 'var(--primary-600, #0d9488)'
+                              : 'var(--bg-card, #ffffff)',
+                          border:
+                            group.items.length > 0
+                              ? '1px solid var(--primary-600, #0d9488)'
+                              : '1px solid var(--border-color, #cbd5e1)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: group.items.length > 0 ? '#ffffff' : 'var(--text-muted, #64748b)',
+                          color:
+                            group.items.length > 0
+                              ? '#ffffff'
+                              : 'var(--text-muted, #64748b)',
                           fontSize: '13px',
                           fontWeight: 700,
                           flexShrink: 0,
-                          boxShadow: group.items.length > 0 ? '0 1px 3px rgba(13, 148, 136, 0.3)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          boxShadow:
+                            group.items.length > 0
+                              ? '0 1px 3px rgba(13, 148, 136, 0.3)'
+                              : '0 1px 2px rgba(0, 0, 0, 0.04)',
                           transition: 'all 0.15s ease',
                         }}
-                        title={
-                          t('patientTreatmentPlan.serviceCountTooltip', '{{count}} services in this plan', { count: group.items.length })
-                        }
+                        title={t(
+                          'patientTreatmentPlan.serviceCountTooltip',
+                          '{{count}} services in this plan',
+                          { count: group.items.length }
+                        )}
                       >
                         {group.items.length}
                       </div>
 
-                      {/* Editable Group Title Input (Fixed border issue, no black border) */}
+                      {/* Editable Group Title Input (locked once appointment is active) */}
                       <input
                         type="text"
                         value={group.name}
+                        disabled={hasActiveAppt}
                         onChange={(e) => handleGroupNameChange(group.id, e.target.value)}
                         placeholder="Plan 1"
                         style={{
                           fontSize: '14px',
                           fontWeight: 700,
                           padding: '6px 12px',
+                          minHeight: '40px',
                           borderRadius: '8px',
                           border: '1px solid var(--border-color, #cbd5e1)',
                           outline: 'none',
-                          backgroundColor: 'var(--bg-card, #ffffff)',
+                          backgroundColor: hasActiveAppt
+                            ? 'var(--bg-surface-muted, #f1f5f9)'
+                            : 'var(--bg-card, #ffffff)',
                           color: 'var(--text-heading, #0f172a)',
                           boxShadow: 'none',
-                          width: '180px',
+                          width: isMobileScreen ? '145px' : '180px',
+                          cursor: hasActiveAppt ? 'not-allowed' : 'text',
+                          opacity: hasActiveAppt ? 0.78 : 1,
                         }}
-                        onFocus={(e) => (e.target.style.borderColor = '#0d9488')}
-                        onBlur={(e) => (e.target.style.borderColor = 'var(--border-color, #cbd5e1)')}
+                        onFocus={(e) => {
+                          if (!hasActiveAppt) e.target.style.borderColor = '#0d9488';
+                        }}
+                        onBlur={(e) =>
+                          (e.target.style.borderColor = 'var(--border-color, #cbd5e1)')
+                        }
                       />
 
-                      {/* Treatment Plan Status Dropdown Selector (Converted to SearchableSelect) */}
-                      <div style={{ width: '135px' }}>
+                      {/* Treatment Plan Status Dropdown Selector */}
+                      <div style={{ width: '145px' }}>
                         <SearchableSelect
                           options={statusSelectOptions}
                           value={currentStatus}
+                          disabled={isStatusSaving}
                           onChange={(newSt) =>
                             handlePlanStatusChange(group.id, newSt as TreatmentPlanStatus)
                           }
                           placeholder={t('patientTreatmentPlan.planStatus', 'Plan Status')}
                         />
                       </div>
+
+                      {hasActiveAppt && (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '4px 9px',
+                            borderRadius: '999px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            color: '#4338ca',
+                            border: '1px solid rgba(99, 102, 241, 0.25)',
+                          }}
+                        >
+                          <Lock size={11} />
+                          <span>
+                            {groupAppts.length}{' '}
+                            {t('patientTreatmentPlan.linkedAppointments', 'Linked Appointments')}
+                          </span>
+                        </span>
+                      )}
                     </div>
 
-                    {/* Right: Move To (when items selected) + Add Service + Create Appointment + Delete Plan */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      {selectedCount > 0 && planGroups.length > 1 && (
+                    {/* Right: History + Move To + Add Service + Create/Edit Appointment + Delete Plan */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {/* Per-Plan Audit History Icon Button */}
+                      <Tooltip content={t('patientTreatmentPlan.auditHistory', 'Audit History')}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAuditModalState({ isOpen: true, groupId: group.id })
+                          }
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid var(--border-color, #cbd5e1)',
+                            backgroundColor: 'var(--bg-card, #ffffff)',
+                            color: 'var(--text-heading, #0f172a)',
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                          }}
+                          aria-label={t('patientTreatmentPlan.auditHistory', 'Audit History')}
+                        >
+                          <History size={15} />
+                        </button>
+                      </Tooltip>
+
+                      {selectedCount > 0 && movableTargetGroups.length > 0 && !hasActiveAppt && (
                         <div style={{ width: '150px' }}>
                           <SearchableSelect
-                            options={planGroups
-                              .filter((g) => g.id !== group.id)
-                              .map((targetG) => ({
-                                value: targetG.id,
-                                label: targetG.name,
-                              }))}
+                            options={movableTargetGroups.map((targetG) => ({
+                              value: targetG.id,
+                              label: targetG.name,
+                            }))}
                             value=""
                             onChange={(targetGId) => {
                               if (targetGId) {
                                 const selectedIds = group.items
-                                  .filter((it) => it.isSelected)
+                                  .filter(
+                                    (it) =>
+                                      it.isSelected &&
+                                      !activeItemAppointmentMap.has(it.id)
+                                  )
                                   .map((it) => it.id);
                                 handleMoveItems(selectedIds, group.id, targetGId);
                               }
                             }}
                             placeholder={t('patientTreatmentPlan.moveToVisit', 'Move to...')}
-                            searchPlaceholder={t('patientTreatmentPlan.searchVisit', 'Search plan...')}
+                            searchPlaceholder={t(
+                              'patientTreatmentPlan.searchVisit',
+                              'Search plan...'
+                            )}
                           />
                         </div>
                       )}
 
-                      {/* Add Service Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleAddServiceToGroup(group.id)}
-                        className="btn btn-secondary"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '7px 12px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: 'var(--primary-700, #0f766e)',
-                          backgroundColor: 'var(--bg-card, #ffffff)',
-                          border: '1px solid var(--primary-500, #0d9488)',
-                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                          cursor: 'pointer',
-                          minHeight: '36px',
-                        }}
+                      {/* Add Service Button (Disabled after appointment is created) */}
+                      <Tooltip
+                        content={t(
+                          'patientTreatmentPlan.addServiceDisabledLocked',
+                          'Cannot add services after an appointment has been created for this plan.'
+                        )}
+                        disabled={!hasActiveAppt}
                       >
-                        <Plus size={14} />
-                        <span>{t('patientTreatmentPlan.addService', 'Add Service')}</span>
-                      </button>
-
-                      {/* Create Appointment Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenApptModalForGroup(group)}
-                        className="btn btn-secondary"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '7px 12px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: 'var(--indigo-700, #4338ca)',
-                          backgroundColor: 'var(--bg-card, #ffffff)',
-                          border: '1px solid var(--indigo-400, #818cf8)',
-                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                          cursor: 'pointer',
-                          minHeight: '36px',
-                        }}
-                        aria-label={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
-                      >
-                        <Calendar size={14} />
-                        <span>{t('patientTreatmentPlan.createAppointment', 'Create appointment')}</span>
-                      </button>
-
-                      {/* Delete Plan Button */}
-                      <Tooltip content={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteGroup(group.id)}
+                        <span
                           style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: '1px solid #fecaca',
-                            backgroundColor: '#fee2e2',
-                            color: '#b91c1c',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                            display: 'inline-block',
+                            cursor: hasActiveAppt ? 'not-allowed' : 'pointer',
                           }}
-                          aria-label={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}
                         >
-                          <Trash2 size={15} />
-                        </button>
+                          <button
+                            type="button"
+                            disabled={hasActiveAppt}
+                            onClick={() => handleAddServiceToGroup(group.id)}
+                            className="btn btn-secondary"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '7px 12px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: hasActiveAppt
+                                ? 'var(--text-muted, #94a3b8)'
+                                : 'var(--primary-700, #0f766e)',
+                              backgroundColor: hasActiveAppt
+                                ? 'var(--bg-surface-muted, #f1f5f9)'
+                                : 'var(--bg-card, #ffffff)',
+                              border: hasActiveAppt
+                                ? '1px solid var(--border-color, #cbd5e1)'
+                                : '1px solid var(--primary-500, #0d9488)',
+                              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                              cursor: hasActiveAppt ? 'not-allowed' : 'pointer',
+                              opacity: hasActiveAppt ? 0.55 : 1,
+                              pointerEvents: hasActiveAppt ? 'none' : 'auto',
+                              minHeight: '40px',
+                            }}
+                          >
+                            <Plus size={14} />
+                            <span>{t('patientTreatmentPlan.addService', 'Add Service')}</span>
+                          </button>
+                        </span>
+                      </Tooltip>
+
+                      {/* Create Appointment OR Edit Appointment Dropdown */}
+                      {hasActiveAppt ? (
+                        <EditAppointmentDropdown
+                          appointments={groupAppts}
+                          isOpen={openEditDropdownGroupId === group.id}
+                          onToggle={() =>
+                            setOpenEditDropdownGroupId((prev) =>
+                              prev === group.id ? null : group.id
+                            )
+                          }
+                          onClose={() => setOpenEditDropdownGroupId(null)}
+                          onSelectAppointment={(aptId) =>
+                            navigate(
+                              `/clinic/appointments/${aptId}/edit?returnTo=treatment-plan&patientId=${patientId}`
+                            )
+                          }
+                          unscheduledCount={unscheduledItems.length}
+                          canScheduleRemaining={isAccepted}
+                          onScheduleRemaining={() => handleOpenApptModalForGroup(group)}
+                        />
+                      ) : (
+                        <Tooltip content={createApptDisabledReason} disabled={isAccepted}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              cursor: !isAccepted ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              disabled={!isAccepted}
+                              onClick={() => handleOpenApptModalForGroup(group)}
+                              className="btn btn-secondary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '7px 12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                color: !isAccepted
+                                  ? 'var(--text-muted, #94a3b8)'
+                                  : 'var(--indigo-700, #4338ca)',
+                                backgroundColor: !isAccepted
+                                  ? 'var(--bg-surface-muted, #f1f5f9)'
+                                  : 'var(--bg-card, #ffffff)',
+                                border: !isAccepted
+                                  ? '1px solid var(--border-color, #cbd5e1)'
+                                  : '1px solid var(--indigo-400, #818cf8)',
+                                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                                cursor: !isAccepted ? 'not-allowed' : 'pointer',
+                                opacity: !isAccepted ? 0.55 : 1,
+                                pointerEvents: !isAccepted ? 'none' : 'auto',
+                                minHeight: '40px',
+                              }}
+                              aria-label={t(
+                                'patientTreatmentPlan.createAppointment',
+                                'Create appointment'
+                              )}
+                            >
+                              <Calendar size={14} />
+                              <span>
+                                {t(
+                                  'patientTreatmentPlan.createAppointment',
+                                  'Create appointment'
+                                )}
+                              </span>
+                            </button>
+                          </span>
+                        </Tooltip>
+                      )}
+
+                      {/* Delete Plan Button (Disabled after appointment is created) */}
+                      <Tooltip
+                        content={
+                          hasActiveAppt
+                            ? t(
+                                'patientTreatmentPlan.deletePlanDisabledLocked',
+                                'Cannot delete a treatment plan that has active appointments.'
+                              )
+                            : t('patientTreatmentPlan.deletePlan', 'Delete Plan')
+                        }
+                      >
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            cursor: hasActiveAppt ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            disabled={hasActiveAppt}
+                            onClick={() => handleDeleteGroup(group.id)}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: hasActiveAppt
+                                ? '1px solid var(--border-color, #cbd5e1)'
+                                : '1px solid #fecaca',
+                              backgroundColor: hasActiveAppt
+                                ? 'var(--bg-surface-muted, #f1f5f9)'
+                                : '#fee2e2',
+                              color: hasActiveAppt
+                                ? 'var(--text-muted, #94a3b8)'
+                                : '#b91c1c',
+                              cursor: hasActiveAppt ? 'not-allowed' : 'pointer',
+                              opacity: hasActiveAppt ? 0.55 : 1,
+                              pointerEvents: hasActiveAppt ? 'none' : 'auto',
+                              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                            }}
+                            aria-label={t('patientTreatmentPlan.deletePlan', 'Delete Plan')}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </span>
                       </Tooltip>
                     </div>
                   </div>
 
-                  {/* ─── Group Treatment Items Table ─── */}
+                  {/* ─── Group Treatment Items Table / Mobile Stacked Cards ─── */}
                   {group.items.length === 0 ? (
                     <div
                       style={{
@@ -3476,6 +4064,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                         textAlign: 'center',
                         color: 'var(--text-muted, #94a3b8)',
                         backgroundColor: 'var(--bg-card, #ffffff)',
+                        borderBottomLeftRadius: '11px',
+                        borderBottomRightRadius: '11px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
@@ -3485,40 +4075,648 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                     >
                       <Layers size={26} style={{ opacity: 0.35 }} />
                       <div style={{ fontSize: '13px', fontWeight: 500 }}>
-                        {t('patientTreatmentPlan.dropHere', 'Drop treatments here or click "+ Add Service" to add procedures')}
+                        {t(
+                          'patientTreatmentPlan.dropHere',
+                          'Drop treatments here or click "+ Add Service" to add procedures'
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleAddServiceToGroup(group.id)}
-                        className="btn btn-secondary"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 14px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: '#0f766e',
-                          border: '1px solid #0d9488',
-                          backgroundColor: 'rgba(13, 148, 136, 0.08)',
-                          cursor: 'pointer',
-                        }}
+                      <Tooltip
+                        content={t(
+                          'patientTreatmentPlan.addServiceDisabledLocked',
+                          'Cannot add services after an appointment has been created for this plan.'
+                        )}
+                        disabled={!hasActiveAppt}
                       >
-                        <Plus size={14} />
-                        <span>{t('patientTreatmentPlan.addService', 'Add Service')}</span>
-                      </button>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            cursor: hasActiveAppt ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            disabled={hasActiveAppt}
+                            onClick={() => handleAddServiceToGroup(group.id)}
+                            className="btn btn-secondary"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px 14px',
+                              minHeight: '40px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: hasActiveAppt
+                                ? 'var(--text-muted, #94a3b8)'
+                                : '#0f766e',
+                              border: hasActiveAppt
+                                ? '1px solid var(--border-color, #cbd5e1)'
+                                : '1px solid #0d9488',
+                              backgroundColor: hasActiveAppt
+                                ? 'var(--bg-surface-muted, #f1f5f9)'
+                                : 'rgba(13, 148, 136, 0.08)',
+                              cursor: hasActiveAppt ? 'not-allowed' : 'pointer',
+                              opacity: hasActiveAppt ? 0.55 : 1,
+                              pointerEvents: hasActiveAppt ? 'none' : 'auto',
+                            }}
+                          >
+                            <Plus size={14} />
+                            <span>{t('patientTreatmentPlan.addService', 'Add Service')}</span>
+                          </button>
+                        </span>
+                      </Tooltip>
+                    </div>
+                  ) : isMobileScreen ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        padding: '12px',
+                      }}
+                    >
+                      {group.items.map((item, itemIdx) => {
+                        const selectedDoctor = doctors.find((d) => d.id === item.doctorId);
+                        const doctorServices = selectedDoctor?.services || [];
+                        const treatmentOpts = getTreatmentOptionsForItem(
+                          item.id,
+                          item.treatmentName
+                        );
+                        const cleanTreatmentName = item.treatmentName
+                          .replace(/\s*\([#\d\s,]+\)/g, '')
+                          .replace(/#\d+/g, '')
+                          .trim();
+                        const cleanToothStr = (
+                          item.otTeethNumber ||
+                          (item.toothNumbers?.[0] ? String(item.toothNumbers[0]) : '')
+                        )
+                          .replace(/#/g, '')
+                          .trim();
+                        const currentTreatmentVal = cleanToothStr
+                          ? `${cleanTreatmentName}__${cleanToothStr}`
+                          : cleanTreatmentName;
+
+                        const itemAppt = activeItemAppointmentMap.get(item.id);
+                        const isItemBooked = Boolean(itemAppt);
+                        const isSingleServiceAppt = itemAppt?.treatmentPlanScope === 'ITEM';
+                        const isInvalidRow = invalidItemIds.has(item.id);
+                        const isTreatmentInvalid =
+                          isInvalidRow && !(item.treatmentName && item.treatmentName.trim());
+                        const isDoctorInvalid = isInvalidRow && !item.doctorId;
+                        const isServiceInvalid = isInvalidRow && !item.serviceId;
+                        const isQtyInvalid =
+                          isInvalidRow && !(item.quantity && Number(item.quantity) >= 1);
+                        const isPriceInvalid =
+                          isInvalidRow &&
+                          !(
+                            item.unitPrice !== undefined &&
+                            item.unitPrice !== null &&
+                            Number(item.unitPrice) > 0
+                          );
+
+                        return (
+                          <div
+                            key={item.id}
+                            style={{
+                              borderRadius: '10px',
+                              border: isInvalidRow
+                                ? '1.5px solid #ef4444'
+                                : '1px solid var(--border-color, #e2e8f0)',
+                              backgroundColor: isInvalidRow
+                                ? 'rgba(239, 68, 68, 0.03)'
+                                : isItemBooked
+                                ? 'var(--bg-surface-muted, #f8fafc)'
+                                : 'var(--bg-card, #ffffff)',
+                              padding: '12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '10px',
+                            }}
+                          >
+                            {/* Mobile Card Header */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '8px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input
+                                  type="checkbox"
+                                  disabled={isItemBooked}
+                                  checked={Boolean(item.isSelected)}
+                                  onChange={() => handleItemSelectionToggle(group.id, item.id)}
+                                  style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    cursor: isItemBooked ? 'not-allowed' : 'pointer',
+                                    accentColor: 'var(--primary-600, #0d9488)',
+                                    opacity: isItemBooked ? 0.45 : 1,
+                                  }}
+                                />
+                                <span
+                                  style={{
+                                    fontSize: '12px',
+                                    fontWeight: 800,
+                                    color: 'var(--text-heading)',
+                                  }}
+                                >
+                                  #{itemIdx + 1}
+                                </span>
+                                {cleanToothStr && (
+                                  <span
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      fontFamily: 'monospace',
+                                      color: '#0f766e',
+                                      backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                                      border: '1px solid rgba(13, 148, 136, 0.25)',
+                                      padding: '2px 6px',
+                                      borderRadius: '6px',
+                                    }}
+                                  >
+                                    OT {cleanToothStr}
+                                  </span>
+                                )}
+                                {isItemBooked && itemAppt && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '10.5px',
+                                      fontWeight: 700,
+                                      color: '#4338ca',
+                                      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                      padding: '2px 7px',
+                                      borderRadius: '999px',
+                                    }}
+                                  >
+                                    <Lock size={10} />
+                                    #{itemAppt.appointmentNumber}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {isSingleServiceAppt && itemAppt ? (
+                                  <Tooltip
+                                    content={t(
+                                      'patientTreatmentPlan.editServiceAppointment',
+                                      'Edit Appointment ({{aptNumber}})',
+                                      { aptNumber: itemAppt.appointmentNumber }
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        navigate(
+                                          `/clinic/appointments/${itemAppt.id}/edit?returnTo=treatment-plan&patientId=${patientId}`
+                                        )
+                                      }
+                                      style={{
+                                        minWidth: '40px',
+                                        height: '40px',
+                                        padding: '0 10px',
+                                        borderRadius: '8px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '5px',
+                                        border: '1px solid rgba(99, 102, 241, 0.45)',
+                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                        color: '#4338ca',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                      }}
+                                      aria-label={t(
+                                        'patientTreatmentPlan.editAppointment',
+                                        'Edit Appointment'
+                                      )}
+                                    >
+                                      <CalendarCheck size={15} />
+                                    </button>
+                                  </Tooltip>
+                                ) : isItemBooked ? (
+                                  <Tooltip
+                                    content={t(
+                                      'patientTreatmentPlan.calendarDisabledGroupBooked',
+                                      'Appointment already created at the treatment plan level. Use Edit Appointment above.'
+                                    )}
+                                  >
+                                    <span style={{ display: 'inline-block', cursor: 'not-allowed' }}>
+                                      <button
+                                        type="button"
+                                        disabled
+                                        style={{
+                                          width: '40px',
+                                          height: '40px',
+                                          borderRadius: '8px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          border: '1px solid var(--border-color, #cbd5e1)',
+                                          backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
+                                          color: 'var(--text-muted, #94a3b8)',
+                                          opacity: 0.5,
+                                          pointerEvents: 'none',
+                                        }}
+                                        aria-label={t(
+                                          'patientTreatmentPlan.calendarDisabledGroupBooked',
+                                          'Appointment already created at the treatment plan level.'
+                                        )}
+                                      >
+                                        <Calendar size={15} />
+                                      </button>
+                                    </span>
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip
+                                    content={
+                                      !isAccepted
+                                        ? createApptDisabledReason
+                                        : t(
+                                            'patientTreatmentPlan.createAppointment',
+                                            'Create appointment'
+                                          )
+                                    }
+                                  >
+                                    <span
+                                      style={{
+                                        display: 'inline-block',
+                                        cursor: !isAccepted ? 'not-allowed' : 'pointer',
+                                      }}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={!isAccepted}
+                                        onClick={() => handleOpenApptModalForItem(item, group)}
+                                        style={{
+                                          width: '40px',
+                                          height: '40px',
+                                          borderRadius: '8px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          border: !isAccepted
+                                            ? '1px solid var(--border-color, #cbd5e1)'
+                                            : '1px solid var(--primary-500, #0d9488)',
+                                          backgroundColor: !isAccepted
+                                            ? 'var(--bg-surface-muted, #f1f5f9)'
+                                            : 'rgba(13, 148, 136, 0.08)',
+                                          color: !isAccepted
+                                            ? 'var(--text-muted, #94a3b8)'
+                                            : 'var(--primary-700, #0f766e)',
+                                          cursor: !isAccepted ? 'not-allowed' : 'pointer',
+                                          opacity: !isAccepted ? 0.5 : 1,
+                                          pointerEvents: !isAccepted ? 'none' : 'auto',
+                                        }}
+                                        aria-label={t(
+                                          'patientTreatmentPlan.createAppointment',
+                                          'Create appointment'
+                                        )}
+                                      >
+                                        <Calendar size={15} />
+                                      </button>
+                                    </span>
+                                  </Tooltip>
+                                )}
+
+                                <Tooltip
+                                  content={
+                                    isItemBooked
+                                      ? t(
+                                          'patientTreatmentPlan.deleteServiceDisabledLocked',
+                                          'Cannot delete this service because an appointment has already been created for it.'
+                                        )
+                                      : t('patientTreatmentPlan.deleteService', 'Delete Service')
+                                  }
+                                >
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      cursor: isItemBooked ? 'not-allowed' : 'pointer',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      disabled={isItemBooked}
+                                      onClick={() =>
+                                        handleRemoveServiceFromGroup(group.id, item.id)
+                                      }
+                                      style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '8px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: isItemBooked
+                                          ? '1px solid var(--border-color, #cbd5e1)'
+                                          : '1px solid #fecaca',
+                                        backgroundColor: isItemBooked
+                                          ? 'var(--bg-surface-muted, #f1f5f9)'
+                                          : 'rgba(239, 68, 68, 0.08)',
+                                        color: isItemBooked
+                                          ? 'var(--text-muted, #94a3b8)'
+                                          : '#ef4444',
+                                        cursor: isItemBooked ? 'not-allowed' : 'pointer',
+                                        opacity: isItemBooked ? 0.5 : 1,
+                                        pointerEvents: isItemBooked ? 'none' : 'auto',
+                                      }}
+                                      aria-label={t(
+                                        'patientTreatmentPlan.deleteService',
+                                        'Delete Service'
+                                      )}
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </span>
+                                </Tooltip>
+                              </div>
+                            </div>
+
+                            {/* Mobile Fields */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: 'var(--text-muted)',
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  {t('patientTreatmentPlan.treatmentColumn', 'Treatment')}
+                                </div>
+                                <SearchableSelect
+                                  disabled={isItemBooked}
+                                  options={treatmentOpts}
+                                  value={
+                                    treatmentOpts.some((o) => o.value === currentTreatmentVal)
+                                      ? currentTreatmentVal
+                                      : cleanTreatmentName
+                                  }
+                                  onChange={(val) =>
+                                    handleItemTreatmentSelect(group.id, item.id, val)
+                                  }
+                                  placeholder={t(
+                                    'patientTreatmentPlan.treatmentPlaceholder',
+                                    'Select treatment...'
+                                  )}
+                                  triggerStyle={
+                                    isTreatmentInvalid
+                                      ? {
+                                          borderColor: '#ef4444',
+                                          boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.25)',
+                                          minHeight: '40px',
+                                        }
+                                      : { minHeight: '40px' }
+                                  }
+                                />
+                              </div>
+
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: 'var(--text-muted)',
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  {t('patientTreatmentPlan.doctorColumn', 'Doctor *')}
+                                </div>
+                                <SearchableSelect
+                                  disabled={isItemBooked}
+                                  options={doctorOptions}
+                                  value={item.doctorId}
+                                  onChange={(val) =>
+                                    handleItemDoctorChange(group.id, item.id, val)
+                                  }
+                                  placeholder={t(
+                                    'patientTreatmentPlan.selectDoctor',
+                                    'Select Doctor...'
+                                  )}
+                                  triggerStyle={
+                                    isDoctorInvalid
+                                      ? {
+                                          borderColor: '#ef4444',
+                                          boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.25)',
+                                          minHeight: '40px',
+                                        }
+                                      : { minHeight: '40px' }
+                                  }
+                                />
+                              </div>
+
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: 'var(--text-muted)',
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  {t('patientTreatmentPlan.serviceColumn', 'Service *')}
+                                </div>
+                                <SearchableSelect
+                                  disabled={isItemBooked}
+                                  options={
+                                    !item.doctorId
+                                      ? []
+                                      : doctorServices.length > 0
+                                      ? doctorServices.map((srv) => ({
+                                          value: srv.serviceId,
+                                          label: srv.serviceName || srv.serviceId,
+                                          sublabel:
+                                            srv.customPrice !== undefined
+                                              ? `${srv.customPrice} MXN`
+                                              : undefined,
+                                        }))
+                                      : clinicServices.map((srv) => ({
+                                          value: srv.id,
+                                          label: srv.name,
+                                          sublabel: `${srv.price} MXN`,
+                                        }))
+                                  }
+                                  value={item.serviceId}
+                                  onChange={(val) =>
+                                    handleItemServiceChange(group.id, item.id, val)
+                                  }
+                                  placeholder={
+                                    !item.doctorId
+                                      ? t(
+                                          'patientTreatmentPlan.selectDoctorFirst',
+                                          'Select doctor first...'
+                                        )
+                                      : doctorServices.length === 0 &&
+                                        clinicServices.length === 0
+                                      ? t(
+                                          'patientTreatmentPlan.noServicesForDoctor',
+                                          'No services available'
+                                        )
+                                      : t(
+                                          'patientTreatmentPlan.selectService',
+                                          'Select Service...'
+                                        )
+                                  }
+                                  triggerStyle={
+                                    isServiceInvalid
+                                      ? {
+                                          borderColor: '#ef4444',
+                                          boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.25)',
+                                          minHeight: '40px',
+                                        }
+                                      : { minHeight: '40px' }
+                                  }
+                                />
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '80px 1fr 1fr',
+                                  gap: '8px',
+                                  alignItems: 'end',
+                                }}
+                              >
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      color: 'var(--text-muted)',
+                                      marginBottom: '4px',
+                                    }}
+                                  >
+                                    {t('patientTreatmentPlan.qtyColumn', 'Qty')}
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    disabled={isItemBooked}
+                                    value={item.quantity}
+                                    onChange={(e) =>
+                                      handleItemQtyChange(group.id, item.id, e.target.value)
+                                    }
+                                    style={{
+                                      width: '100%',
+                                      minHeight: '40px',
+                                      padding: '6px',
+                                      fontSize: '13px',
+                                      textAlign: 'center',
+                                      fontWeight: 700,
+                                      borderRadius: '8px',
+                                      border: isQtyInvalid
+                                        ? '1.5px solid #ef4444'
+                                        : '1px solid var(--border-color, #cbd5e1)',
+                                      backgroundColor: isItemBooked
+                                        ? 'var(--bg-surface-muted, #f1f5f9)'
+                                        : 'var(--bg-card, #ffffff)',
+                                      color: 'var(--text-heading, #0f172a)',
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      color: 'var(--text-muted)',
+                                      marginBottom: '4px',
+                                    }}
+                                  >
+                                    {t('patientTreatmentPlan.unitPriceColumn', 'Price (MXN)')}
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    disabled={isItemBooked}
+                                    value={item.unitPrice === 0 ? '' : item.unitPrice}
+                                    onChange={(e) =>
+                                      handleItemUnitPriceChange(
+                                        group.id,
+                                        item.id,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="0.00"
+                                    style={{
+                                      width: '100%',
+                                      minHeight: '40px',
+                                      padding: '6px 8px',
+                                      fontSize: '13px',
+                                      textAlign: 'right',
+                                      fontWeight: 600,
+                                      borderRadius: '8px',
+                                      border: isPriceInvalid
+                                        ? '1.5px solid #ef4444'
+                                        : '1px solid var(--border-color, #cbd5e1)',
+                                      backgroundColor: isItemBooked
+                                        ? 'var(--bg-surface-muted, #f1f5f9)'
+                                        : 'var(--bg-card, #ffffff)',
+                                      color: 'var(--text-heading, #0f172a)',
+                                    }}
+                                  />
+                                </div>
+                                <div
+                                  style={{
+                                    minHeight: '40px',
+                                    padding: '6px 8px',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+                                    border: '1px solid var(--border-color, #e2e8f0)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    textAlign: 'right',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      color: 'var(--text-muted)',
+                                      lineHeight: 1.1,
+                                    }}
+                                  >
+                                    {t('patientTreatmentPlan.subtotalColumn', 'Subtotal')}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '13px',
+                                      fontWeight: 800,
+                                      color: 'var(--text-heading)',
+                                    }}
+                                  >
+                                    {item.subtotal.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div
                       style={{
                         width: '100%',
+                        overflowX: 'auto',
                       }}
                     >
                       <table
                         className="table"
                         style={{
                           width: '100%',
+                          minWidth: '820px',
                           tableLayout: 'fixed',
                           borderCollapse: 'collapse',
                           textAlign: 'left',
@@ -3533,8 +4731,8 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                           <col style={{ width: '19%' }} />
                           <col style={{ width: '5%' }} />
                           <col style={{ width: '9%' }} />
-                          <col style={{ width: '10%' }} />
                           <col style={{ width: '9%' }} />
+                          <col style={{ width: '10%' }} />
                         </colgroup>
                         <thead>
                           <tr
@@ -3546,13 +4744,21 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                             <th style={{ padding: '10px 4px', textAlign: 'center' }}>
                               <input
                                 type="checkbox"
-                                checked={group.items.length > 0 && group.items.every((it) => it.isSelected)}
-                                onChange={(e) => handleGroupSelectAllToggle(group.id, e.target.checked)}
+                                disabled={hasActiveAppt || unscheduledItems.length === 0}
+                                checked={allUnbookedSelected}
+                                onChange={(e) =>
+                                  handleGroupSelectAllToggle(group.id, e.target.checked)
+                                }
                                 title={t('patientTreatmentPlan.selectAll', 'Select all')}
                                 style={{
                                   width: '15px',
                                   height: '15px',
-                                  cursor: 'pointer',
+                                  cursor:
+                                    hasActiveAppt || unscheduledItems.length === 0
+                                      ? 'not-allowed'
+                                      : 'pointer',
+                                  opacity:
+                                    hasActiveAppt || unscheduledItems.length === 0 ? 0.45 : 1,
                                   accentColor: 'var(--primary-600, #0d9488)',
                                 }}
                               />
@@ -3595,8 +4801,11 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                               Boolean(draggedItems?.itemIds.includes(item.id)) ||
                               draggedRow?.itemId === item.id;
                             const isDragTarget =
-                              dragOverTarget?.groupId === group.id && dragOverTarget?.index === itemIdx;
-                            const selectedDoctor = doctors.find((d) => d.id === item.doctorId);
+                              dragOverTarget?.groupId === group.id &&
+                              dragOverTarget?.index === itemIdx;
+                            const selectedDoctor = doctors.find(
+                              (d) => d.id === item.doctorId
+                            );
                             const doctorServices = selectedDoctor?.services || [];
                             const treatmentOpts = getTreatmentOptionsForItem(
                               item.id,
@@ -3606,25 +4815,74 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                               .replace(/\s*\([#\d\s,]+\)/g, '')
                               .replace(/#\d+/g, '')
                               .trim();
-                            const cleanToothStr = (item.otTeethNumber || (item.toothNumbers?.[0] ? String(item.toothNumbers[0]) : ''))
+                            const cleanToothStr = (
+                              item.otTeethNumber ||
+                              (item.toothNumbers?.[0] ? String(item.toothNumbers[0]) : '')
+                            )
                               .replace(/#/g, '')
                               .trim();
                             const currentTreatmentVal = cleanToothStr
                               ? `${cleanTreatmentName}__${cleanToothStr}`
                               : cleanTreatmentName;
 
+                            const itemAppt = activeItemAppointmentMap.get(item.id);
+                            const isItemBooked = Boolean(itemAppt);
+                            const isSingleServiceAppt =
+                              itemAppt?.treatmentPlanScope === 'ITEM';
+                            const isInvalidRow = invalidItemIds.has(item.id);
+                            const isTreatmentInvalid =
+                              isInvalidRow &&
+                              !(item.treatmentName && item.treatmentName.trim());
+                            const isDoctorInvalid = isInvalidRow && !item.doctorId;
+                            const isServiceInvalid = isInvalidRow && !item.serviceId;
+                            const isQtyInvalid =
+                              isInvalidRow && !(item.quantity && Number(item.quantity) >= 1);
+                            const isPriceInvalid =
+                              isInvalidRow &&
+                              !(
+                                item.unitPrice !== undefined &&
+                                item.unitPrice !== null &&
+                                Number(item.unitPrice) > 0
+                              );
+
                             return (
                               <tr
                                 key={item.id}
-                                draggable
+                                draggable={!isItemBooked}
                                 onDragStart={(e) => {
-                                  const selectedIds = group.items.filter((it) => it.isSelected).map((it) => it.id);
+                                  if (isItemBooked) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                  const selectedIds = group.items
+                                    .filter(
+                                      (it) =>
+                                        it.isSelected &&
+                                        !activeItemAppointmentMap.has(it.id)
+                                    )
+                                    .map((it) => it.id);
                                   const itemIdsToDrag =
-                                    item.isSelected && selectedIds.length > 1 ? selectedIds : [item.id];
-                                  e.dataTransfer.setData('text/plain', JSON.stringify({ groupId: group.id, itemId: item.id, index: itemIdx }));
+                                    item.isSelected && selectedIds.length > 1
+                                      ? selectedIds
+                                      : [item.id];
+                                  e.dataTransfer.setData(
+                                    'text/plain',
+                                    JSON.stringify({
+                                      groupId: group.id,
+                                      itemId: item.id,
+                                      index: itemIdx,
+                                    })
+                                  );
                                   e.dataTransfer.effectAllowed = 'move';
-                                  setDraggedRow({ groupId: group.id, itemId: item.id, index: itemIdx });
-                                  setDraggedItems({ itemIds: itemIdsToDrag, sourceGroupId: group.id });
+                                  setDraggedRow({
+                                    groupId: group.id,
+                                    itemId: item.id,
+                                    index: itemIdx,
+                                  });
+                                  setDraggedItems({
+                                    itemIds: itemIdsToDrag,
+                                    sourceGroupId: group.id,
+                                  });
                                 }}
                                 onDragEnd={() => {
                                   setDraggedRow(null);
@@ -3633,11 +4891,19 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   setDragOverGroupId(null);
                                 }}
                                 onDragOver={(e) => {
+                                  if (isItemBooked) return;
                                   e.preventDefault();
                                   e.stopPropagation();
                                   e.dataTransfer.dropEffect = 'move';
-                                  if (!dragOverTarget || dragOverTarget.groupId !== group.id || dragOverTarget.index !== itemIdx) {
-                                    setDragOverTarget({ groupId: group.id, index: itemIdx });
+                                  if (
+                                    !dragOverTarget ||
+                                    dragOverTarget.groupId !== group.id ||
+                                    dragOverTarget.index !== itemIdx
+                                  ) {
+                                    setDragOverTarget({
+                                      groupId: group.id,
+                                      index: itemIdx,
+                                    });
                                   }
                                 }}
                                 onDrop={(e) => {
@@ -3650,8 +4916,16 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                   const targetGroupId = group.id;
                                   const targetIndex = itemIdx;
 
+                                  if (activeItemAppointmentMap.has(draggedRow.itemId)) {
+                                    setDraggedRow(null);
+                                    setDraggedItems(null);
+                                    setDragOverTarget(null);
+                                    setDragOverGroupId(null);
+                                    return;
+                                  }
+
                                   if (srcGroupId === targetGroupId) {
-                                    if (srcIndex !== targetIndex) {
+                                    if (!isItemBooked && srcIndex !== targetIndex) {
                                       setPlanGroups((prev) =>
                                         prev.map((g) => {
                                           if (g.id !== srcGroupId) return g;
@@ -3663,27 +4937,34 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                       );
                                     }
                                   } else {
-                                    setPlanGroups((prev) => {
-                                      let movedItem: ProposedItem | null = null;
-                                      const updated = prev.map((g) => {
-                                        if (g.id === srcGroupId) {
-                                          const newItems = [...g.items];
-                                          const [extracted] = newItems.splice(srcIndex, 1);
-                                          movedItem = extracted;
-                                          return { ...g, items: newItems };
-                                        }
-                                        return g;
+                                    const crossLocked =
+                                      (activeGroupAppointmentsMap.get(targetGroupId) || [])
+                                        .length > 0 ||
+                                      (activeGroupAppointmentsMap.get(srcGroupId) || [])
+                                        .length > 0;
+                                    if (!crossLocked) {
+                                      setPlanGroups((prev) => {
+                                        let movedItem: ProposedItem | null = null;
+                                        const updated = prev.map((g) => {
+                                          if (g.id === srcGroupId) {
+                                            const newItems = [...g.items];
+                                            const [extracted] = newItems.splice(srcIndex, 1);
+                                            movedItem = extracted;
+                                            return { ...g, items: newItems };
+                                          }
+                                          return g;
+                                        });
+                                        if (!movedItem) return prev;
+                                        return updated.map((g) => {
+                                          if (g.id === targetGroupId) {
+                                            const newItems = [...g.items];
+                                            newItems.splice(targetIndex, 0, movedItem!);
+                                            return { ...g, items: newItems };
+                                          }
+                                          return g;
+                                        });
                                       });
-                                      if (!movedItem) return prev;
-                                      return updated.map((g) => {
-                                        if (g.id === targetGroupId) {
-                                          const newItems = [...g.items];
-                                          newItems.splice(targetIndex, 0, movedItem!);
-                                          return { ...g, items: newItems };
-                                        }
-                                        return g;
-                                      });
-                                    });
+                                    }
                                   }
 
                                   setDraggedRow(null);
@@ -3693,22 +4974,49 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 }}
                                 style={{
                                   borderBottom: '1px solid var(--border-color, #e2e8f0)',
-                                  backgroundColor: isBeingDragged
+                                  backgroundColor: isInvalidRow
+                                    ? 'rgba(239, 68, 68, 0.04)'
+                                    : isBeingDragged
                                     ? 'rgba(13, 148, 136, 0.08)'
                                     : item.isSelected
                                     ? 'rgba(13, 148, 136, 0.03)'
                                     : 'var(--bg-card, #ffffff)',
                                   boxShadow: isDragTarget ? '0 -2px 0 0 #0d9488' : undefined,
                                   opacity: isBeingDragged ? 0.45 : 1,
-                                  cursor: 'grab',
+                                  cursor: isItemBooked ? 'default' : 'grab',
                                   transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
                                 }}
                               >
                                 {/* Drag Handle & Selection Checkbox */}
                                 <td style={{ padding: '8px 4px', verticalAlign: 'middle' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
-                                    <Tooltip content={t('patientTreatmentPlan.dragToMove', 'Drag to move or reorder')}>
-                                      <span style={{ display: 'inline-flex', cursor: 'grab' }}>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: '2px',
+                                    }}
+                                  >
+                                    <Tooltip
+                                      content={
+                                        isItemBooked
+                                          ? t(
+                                              'patientTreatmentPlan.calendarDisabledGroupBooked',
+                                              'Locked because an appointment is scheduled'
+                                            )
+                                          : t(
+                                              'patientTreatmentPlan.dragToMove',
+                                              'Drag to move or reorder'
+                                            )
+                                      }
+                                    >
+                                      <span
+                                        style={{
+                                          display: 'inline-flex',
+                                          cursor: isItemBooked ? 'not-allowed' : 'grab',
+                                          opacity: isItemBooked ? 0.35 : 1,
+                                        }}
+                                      >
                                         <GripVertical
                                           size={13}
                                           style={{ color: 'var(--text-muted, #94a3b8)' }}
@@ -3717,12 +5025,16 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                     </Tooltip>
                                     <input
                                       type="checkbox"
+                                      disabled={isItemBooked}
                                       checked={Boolean(item.isSelected)}
-                                      onChange={() => handleItemSelectionToggle(group.id, item.id)}
+                                      onChange={() =>
+                                        handleItemSelectionToggle(group.id, item.id)
+                                      }
                                       style={{
                                         width: '14px',
                                         height: '14px',
-                                        cursor: 'pointer',
+                                        cursor: isItemBooked ? 'not-allowed' : 'pointer',
+                                        opacity: isItemBooked ? 0.45 : 1,
                                         accentColor: 'var(--primary-600, #0d9488)',
                                       }}
                                     />
@@ -3733,20 +5045,50 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 <td style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
                                     compact={true}
+                                    disabled={isItemBooked}
                                     options={treatmentOpts}
                                     value={
-                                      treatmentOpts.some((o) => o.value === currentTreatmentVal)
+                                      treatmentOpts.some(
+                                        (o) => o.value === currentTreatmentVal
+                                      )
                                         ? currentTreatmentVal
                                         : cleanTreatmentName
                                     }
-                                    onChange={(val) => handleItemTreatmentSelect(group.id, item.id, val)}
-                                    placeholder={t('patientTreatmentPlan.treatmentPlaceholder', 'Select treatment...')}
-                                    searchPlaceholder={t('patientTreatmentPlan.treatmentPlaceholder', 'Search treatment...')}
+                                    onChange={(val) =>
+                                      handleItemTreatmentSelect(group.id, item.id, val)
+                                    }
+                                    placeholder={t(
+                                      'patientTreatmentPlan.treatmentPlaceholder',
+                                      'Select treatment...'
+                                    )}
+                                    searchPlaceholder={t(
+                                      'patientTreatmentPlan.treatmentPlaceholder',
+                                      'Search treatment...'
+                                    )}
+                                    triggerStyle={
+                                      isTreatmentInvalid
+                                        ? {
+                                            borderColor: '#ef4444',
+                                            boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.25)',
+                                          }
+                                        : isItemBooked
+                                        ? {
+                                            backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+                                            opacity: 0.78,
+                                          }
+                                        : undefined
+                                    }
                                   />
                                 </td>
 
                                 {/* OT (teeth number): Clean read-only text display, no # */}
-                                <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                <td
+                                  style={{
+                                    padding: '6px 4px',
+                                    verticalAlign: 'middle',
+                                    textAlign: 'center',
+                                  }}
+                                >
                                   {cleanToothStr ? (
                                     <span
                                       style={{
@@ -3764,7 +5106,14 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                       {cleanToothStr}
                                     </span>
                                   ) : (
-                                    <span style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '11px' }}>—</span>
+                                    <span
+                                      style={{
+                                        color: 'var(--text-muted, #94a3b8)',
+                                        fontSize: '11px',
+                                      }}
+                                    >
+                                      —
+                                    </span>
                                   )}
                                 </td>
 
@@ -3772,11 +5121,33 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 <td style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
                                     compact={true}
+                                    disabled={isItemBooked}
                                     options={doctorOptions}
                                     value={item.doctorId}
-                                    onChange={(val) => handleItemDoctorChange(group.id, item.id, val)}
-                                    placeholder={t('patientTreatmentPlan.selectDoctor', 'Select Doctor...')}
-                                    searchPlaceholder={t('patientTreatmentPlan.searchDoctor', 'Search doctor...')}
+                                    onChange={(val) =>
+                                      handleItemDoctorChange(group.id, item.id, val)
+                                    }
+                                    placeholder={t(
+                                      'patientTreatmentPlan.selectDoctor',
+                                      'Select Doctor...'
+                                    )}
+                                    searchPlaceholder={t(
+                                      'patientTreatmentPlan.searchDoctor',
+                                      'Search doctor...'
+                                    )}
+                                    triggerStyle={
+                                      isDoctorInvalid
+                                        ? {
+                                            borderColor: '#ef4444',
+                                            boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.25)',
+                                          }
+                                        : isItemBooked
+                                        ? {
+                                            backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+                                            opacity: 0.78,
+                                          }
+                                        : undefined
+                                    }
                                   />
                                 </td>
 
@@ -3784,6 +5155,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                 <td style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
                                   <SearchableSelect
                                     compact={true}
+                                    disabled={isItemBooked}
                                     options={
                                       !item.doctorId
                                         ? []
@@ -3792,7 +5164,9 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                             value: srv.serviceId,
                                             label: srv.serviceName || srv.serviceId,
                                             sublabel:
-                                              srv.customPrice !== undefined ? `${srv.customPrice} MXN` : undefined,
+                                              srv.customPrice !== undefined
+                                                ? `${srv.customPrice} MXN`
+                                                : undefined,
                                           }))
                                         : clinicServices.map((srv) => ({
                                             value: srv.id,
@@ -3801,25 +5175,62 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                           }))
                                     }
                                     value={item.serviceId}
-                                    onChange={(val) => handleItemServiceChange(group.id, item.id, val)}
+                                    onChange={(val) =>
+                                      handleItemServiceChange(group.id, item.id, val)
+                                    }
                                     placeholder={
                                       !item.doctorId
-                                        ? t('patientTreatmentPlan.selectDoctorFirst', 'Select doctor first...')
-                                        : doctorServices.length === 0 && clinicServices.length === 0
-                                        ? t('patientTreatmentPlan.noServicesForDoctor', 'No services available')
-                                        : t('patientTreatmentPlan.selectService', 'Select Service...')
+                                        ? t(
+                                            'patientTreatmentPlan.selectDoctorFirst',
+                                            'Select doctor first...'
+                                          )
+                                        : doctorServices.length === 0 &&
+                                          clinicServices.length === 0
+                                        ? t(
+                                            'patientTreatmentPlan.noServicesForDoctor',
+                                            'No services available'
+                                          )
+                                        : t(
+                                            'patientTreatmentPlan.selectService',
+                                            'Select Service...'
+                                          )
                                     }
-                                    searchPlaceholder={t('patientTreatmentPlan.searchService', 'Search service...')}
+                                    searchPlaceholder={t(
+                                      'patientTreatmentPlan.searchService',
+                                      'Search service...'
+                                    )}
+                                    triggerStyle={
+                                      isServiceInvalid
+                                        ? {
+                                            borderColor: '#ef4444',
+                                            boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.25)',
+                                          }
+                                        : isItemBooked
+                                        ? {
+                                            backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+                                            opacity: 0.78,
+                                          }
+                                        : undefined
+                                    }
                                   />
                                 </td>
 
                                 {/* Qty Input */}
-                                <td style={{ padding: '6px 2px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                <td
+                                  style={{
+                                    padding: '6px 2px',
+                                    verticalAlign: 'middle',
+                                    textAlign: 'center',
+                                  }}
+                                >
                                   <input
                                     type="number"
                                     min={1}
+                                    disabled={isItemBooked}
                                     value={item.quantity}
-                                    onChange={(e) => handleItemQtyChange(group.id, item.id, e.target.value)}
+                                    onChange={(e) =>
+                                      handleItemQtyChange(group.id, item.id, e.target.value)
+                                    }
                                     className="form-control"
                                     style={{
                                       width: '100%',
@@ -3829,23 +5240,42 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                       textAlign: 'center',
                                       fontWeight: 700,
                                       borderRadius: '6px',
-                                      border: '1px solid var(--border-color, #cbd5e1)',
+                                      border: isQtyInvalid
+                                        ? '1.5px solid #ef4444'
+                                        : '1px solid var(--border-color, #cbd5e1)',
                                       margin: '0 auto',
                                       display: 'block',
-                                      backgroundColor: 'var(--bg-card, #ffffff)',
+                                      backgroundColor: isItemBooked
+                                        ? 'var(--bg-surface-muted, #f1f5f9)'
+                                        : 'var(--bg-card, #ffffff)',
                                       color: 'var(--text-heading, #0f172a)',
+                                      cursor: isItemBooked ? 'not-allowed' : 'text',
+                                      opacity: isItemBooked ? 0.78 : 1,
                                     }}
                                   />
                                 </td>
 
                                 {/* Price (MXN): Editable input field */}
-                                <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'right' }}>
+                                <td
+                                  style={{
+                                    padding: '6px 4px',
+                                    verticalAlign: 'middle',
+                                    textAlign: 'right',
+                                  }}
+                                >
                                   <input
                                     type="number"
                                     min={0}
                                     step="0.01"
+                                    disabled={isItemBooked}
                                     value={item.unitPrice === 0 ? '' : item.unitPrice}
-                                    onChange={(e) => handleItemUnitPriceChange(group.id, item.id, e.target.value)}
+                                    onChange={(e) =>
+                                      handleItemUnitPriceChange(
+                                        group.id,
+                                        item.id,
+                                        e.target.value
+                                      )
+                                    }
                                     placeholder="0.00"
                                     className="form-control"
                                     style={{
@@ -3855,69 +5285,241 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                                       textAlign: 'right',
                                       fontWeight: 600,
                                       borderRadius: '6px',
-                                      border: '1px solid var(--border-color, #cbd5e1)',
+                                      border: isPriceInvalid
+                                        ? '1.5px solid #ef4444'
+                                        : '1px solid var(--border-color, #cbd5e1)',
                                       margin: '0 0 0 auto',
                                       display: 'block',
-                                      backgroundColor: 'var(--bg-card, #ffffff)',
+                                      backgroundColor: isItemBooked
+                                        ? 'var(--bg-surface-muted, #f1f5f9)'
+                                        : 'var(--bg-card, #ffffff)',
                                       color: 'var(--text-heading, #0f172a)',
                                       boxSizing: 'border-box',
+                                      cursor: isItemBooked ? 'not-allowed' : 'text',
+                                      opacity: isItemBooked ? 0.78 : 1,
                                     }}
                                   />
                                 </td>
 
                                 {/* Subtotal Display */}
-                                <td style={{ padding: '6px 6px', verticalAlign: 'middle', fontWeight: 700, color: 'var(--text-heading, #0f172a)', whiteSpace: 'nowrap', fontSize: '12px', textAlign: 'right' }}>
+                                <td
+                                  style={{
+                                    padding: '6px 6px',
+                                    verticalAlign: 'middle',
+                                    fontWeight: 700,
+                                    color: 'var(--text-heading, #0f172a)',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: '12px',
+                                    textAlign: 'right',
+                                  }}
+                                >
                                   {item.subtotal.toFixed(2)}
                                 </td>
 
                                 {/* Appointment & Delete Actions */}
-                                <td style={{ padding: '6px 4px', verticalAlign: 'middle', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
-                                    <Tooltip content={t('patientTreatmentPlan.createAppointment', 'Create appointment')}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenApptModalForItem(item, group)}
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          borderRadius: '6px',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          border: '1px solid var(--primary-500, #0d9488)',
-                                          backgroundColor: 'rgba(13, 148, 136, 0.08)',
-                                          color: 'var(--primary-700, #0f766e)',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.15s ease',
-                                          padding: 0,
-                                        }}
-                                        aria-label={t('patientTreatmentPlan.createAppointment', 'Create appointment')}
+                                <td
+                                  style={{
+                                    padding: '6px 4px',
+                                    verticalAlign: 'middle',
+                                    textAlign: 'center',
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    {isSingleServiceAppt && itemAppt ? (
+                                      <Tooltip
+                                        content={t(
+                                          'patientTreatmentPlan.editServiceAppointment',
+                                          'Edit Appointment ({{aptNumber}})',
+                                          { aptNumber: itemAppt.appointmentNumber }
+                                        )}
                                       >
-                                        <Calendar size={13} />
-                                      </button>
-                                    </Tooltip>
-                                    <Tooltip content={t('patientTreatmentPlan.deleteService', 'Delete Service')}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveServiceFromGroup(group.id, item.id)}
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          borderRadius: '6px',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          border: '1px solid #fecaca',
-                                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                                          color: '#ef4444',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.15s ease',
-                                          padding: 0,
-                                        }}
-                                        aria-label={t('patientTreatmentPlan.deleteService', 'Delete Service')}
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            navigate(
+                                              `/clinic/appointments/${itemAppt.id}/edit?returnTo=treatment-plan&patientId=${patientId}`
+                                            )
+                                          }
+                                          style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '6px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            border: '1px solid rgba(99, 102, 241, 0.45)',
+                                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                            color: '#4338ca',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease',
+                                            padding: 0,
+                                          }}
+                                          aria-label={t(
+                                            'patientTreatmentPlan.editAppointment',
+                                            'Edit Appointment'
+                                          )}
+                                        >
+                                          <CalendarCheck size={14} />
+                                        </button>
+                                      </Tooltip>
+                                    ) : isItemBooked ? (
+                                      <Tooltip
+                                        content={t(
+                                          'patientTreatmentPlan.calendarDisabledGroupBooked',
+                                          'Appointment already created at the treatment plan level. Use Edit Appointment above.'
+                                        )}
                                       >
-                                        <Trash2 size={13} />
-                                      </button>
+                                        <span
+                                          style={{
+                                            display: 'inline-block',
+                                            cursor: 'not-allowed',
+                                          }}
+                                        >
+                                          <button
+                                            type="button"
+                                            disabled
+                                            style={{
+                                              width: '32px',
+                                              height: '32px',
+                                              borderRadius: '6px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              border: '1px solid var(--border-color, #cbd5e1)',
+                                              backgroundColor: 'var(--bg-surface-muted, #f1f5f9)',
+                                              color: 'var(--text-muted, #94a3b8)',
+                                              cursor: 'not-allowed',
+                                              opacity: 0.45,
+                                              pointerEvents: 'none',
+                                              padding: 0,
+                                            }}
+                                            aria-label={t(
+                                              'patientTreatmentPlan.calendarDisabledGroupBooked',
+                                              'Appointment already created at the treatment plan level.'
+                                            )}
+                                          >
+                                            <Calendar size={14} />
+                                          </button>
+                                        </span>
+                                      </Tooltip>
+                                    ) : (
+                                      <Tooltip
+                                        content={
+                                          !isAccepted
+                                            ? createApptDisabledReason
+                                            : t(
+                                                'patientTreatmentPlan.createAppointment',
+                                                'Create appointment'
+                                              )
+                                        }
+                                      >
+                                        <span
+                                          style={{
+                                            display: 'inline-block',
+                                            cursor: !isAccepted ? 'not-allowed' : 'pointer',
+                                          }}
+                                        >
+                                          <button
+                                            type="button"
+                                            disabled={!isAccepted}
+                                            onClick={() =>
+                                              handleOpenApptModalForItem(item, group)
+                                            }
+                                            style={{
+                                              width: '32px',
+                                              height: '32px',
+                                              borderRadius: '6px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              border: !isAccepted
+                                                ? '1px solid var(--border-color, #cbd5e1)'
+                                                : '1px solid var(--primary-500, #0d9488)',
+                                              backgroundColor: !isAccepted
+                                                ? 'var(--bg-surface-muted, #f1f5f9)'
+                                                : 'rgba(13, 148, 136, 0.08)',
+                                              color: !isAccepted
+                                                ? 'var(--text-muted, #94a3b8)'
+                                                : 'var(--primary-700, #0f766e)',
+                                              cursor: !isAccepted ? 'not-allowed' : 'pointer',
+                                              opacity: !isAccepted ? 0.45 : 1,
+                                              pointerEvents: !isAccepted ? 'none' : 'auto',
+                                              transition: 'all 0.15s ease',
+                                              padding: 0,
+                                            }}
+                                            aria-label={t(
+                                              'patientTreatmentPlan.createAppointment',
+                                              'Create appointment'
+                                            )}
+                                          >
+                                            <Calendar size={14} />
+                                          </button>
+                                        </span>
+                                      </Tooltip>
+                                    )}
+
+                                    <Tooltip
+                                      content={
+                                        isItemBooked
+                                          ? t(
+                                              'patientTreatmentPlan.deleteServiceDisabledLocked',
+                                              'Cannot delete this service because an appointment has already been created for it.'
+                                            )
+                                          : t(
+                                              'patientTreatmentPlan.deleteService',
+                                              'Delete Service'
+                                            )
+                                      }
+                                    >
+                                      <span
+                                        style={{
+                                          display: 'inline-block',
+                                          cursor: isItemBooked ? 'not-allowed' : 'pointer',
+                                        }}
+                                      >
+                                        <button
+                                          type="button"
+                                          disabled={isItemBooked}
+                                          onClick={() =>
+                                            handleRemoveServiceFromGroup(group.id, item.id)
+                                          }
+                                          style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '6px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            border: isItemBooked
+                                              ? '1px solid var(--border-color, #cbd5e1)'
+                                              : '1px solid #fecaca',
+                                            backgroundColor: isItemBooked
+                                              ? 'var(--bg-surface-muted, #f1f5f9)'
+                                              : 'rgba(239, 68, 68, 0.08)',
+                                            color: isItemBooked
+                                              ? 'var(--text-muted, #94a3b8)'
+                                              : '#ef4444',
+                                            cursor: isItemBooked ? 'not-allowed' : 'pointer',
+                                            opacity: isItemBooked ? 0.45 : 1,
+                                            pointerEvents: isItemBooked ? 'none' : 'auto',
+                                            transition: 'all 0.15s ease',
+                                            padding: 0,
+                                          }}
+                                          aria-label={t(
+                                            'patientTreatmentPlan.deleteService',
+                                            'Delete Service'
+                                          )}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </span>
                                     </Tooltip>
                                   </div>
                                 </td>
@@ -5152,6 +6754,257 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       initialPatientId={patient?.id || null}
       patientsList={patientListForModal}
     />
+
+    {/* ─── Service Completeness Validation Alert Modal ─── */}
+    {validationAlertData && (
+      <div
+        className="modal-backdrop"
+        onClick={() => setValidationAlertData(null)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 10050,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }}
+      >
+        <div
+          className="modal-content"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: 'var(--bg-card, #ffffff)',
+            borderRadius: '16px',
+            maxWidth: '560px',
+            width: '100%',
+            maxHeight: '88vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            boxShadow: '0 24px 48px rgba(15, 23, 42, 0.22)',
+          }}
+        >
+          {/* Alert Header */}
+          <div
+            style={{
+              padding: '16px 20px',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  backgroundColor: '#fef3c7',
+                  color: '#d97706',
+                  border: '1px solid #fcd34d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangle size={20} />
+              </div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: 800,
+                  color: 'var(--text-heading, #0f172a)',
+                }}
+              >
+                {validationAlertData.title}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setValidationAlertData(null)}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                backgroundColor: 'var(--bg-card, #ffffff)',
+                color: 'var(--text-muted, #64748b)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+              aria-label={t('common.close', 'Close')}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Alert Body */}
+          <div
+            style={{
+              padding: '18px 20px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: '13.5px',
+                lineHeight: 1.55,
+                color: 'var(--text-body, #334155)',
+              }}
+            >
+              {validationAlertData.instruction}
+            </p>
+
+            {validationAlertData.invalidRows.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {validationAlertData.invalidRows.map((row) => (
+                  <div
+                    key={row.itemId}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: '#fee2e2',
+                            color: '#b91c1c',
+                            fontSize: '11.5px',
+                            fontWeight: 800,
+                          }}
+                        >
+                          {t('patientTreatmentPlan.validationRowLabel', 'Row #{{row}}', {
+                            row: row.rowNumber,
+                          })}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            color: 'var(--text-heading, #0f172a)',
+                          }}
+                        >
+                          {row.isEmptyRow
+                            ? t(
+                                'patientTreatmentPlan.validationEmptyRow',
+                                'Empty row (all fields blank — fill or remove)'
+                              )
+                            : row.treatmentName || '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          color: '#b91c1c',
+                        }}
+                      >
+                        {t('patientTreatmentPlan.validationMissingLabel', 'Missing')}:
+                      </span>
+                      {row.missingFields.map((field) => (
+                        <span
+                          key={field}
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #fca5a5',
+                            color: '#991b1b',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {field}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Alert Footer */}
+          <div
+            style={{
+              padding: '14px 20px',
+              borderTop: '1px solid var(--border-color, #e2e8f0)',
+              backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setValidationAlertData(null)}
+              className="btn btn-primary"
+              style={{
+                minHeight: '42px',
+                padding: '0 22px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {t('patientTreatmentPlan.validationUnderstood', 'Understood')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ─── Treatment Plan Audit History Modal ─── */}
+    {(patient?.id || patientId) && (
+      <TreatmentPlanAuditModal
+        isOpen={auditModalState.isOpen}
+        onClose={() => setAuditModalState((prev) => ({ ...prev, isOpen: false }))}
+        patientId={patient?.id || patientId || ''}
+        initialGroupId={auditModalState.groupId}
+      />
+    )}
   </div>
 );
 };
