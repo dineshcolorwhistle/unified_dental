@@ -13,9 +13,13 @@ import {
   Trash2,
   X,
   FileSpreadsheet,
+  Lock,
+  Info,
 } from 'lucide-react';
 import { useToast } from '../../core/context/ToastContext';
 import { useAuth } from '../../core/context/AuthContext';
+import { useNotifications } from '../../core/context/NotificationContext';
+import { Tooltip } from '../../components/common/Tooltip';
 import { ToothIcon } from '../../components/common/ToothIcon';
 import {
   PatientTeethChart,
@@ -53,6 +57,64 @@ export interface AppliedTreatmentItem {
   notes?: string | null;
 }
 
+interface LinkedPlanRef {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface BlockedLinkedTreatmentItem {
+  toothNumber: number;
+  surface: string;
+  treatmentName: string;
+  color: string;
+  plans: LinkedPlanRef[];
+}
+
+interface LinkedTreatmentBlockState {
+  actionType: 'clear' | 'replace';
+  isBulkQuadrant: boolean;
+  blockedItems: BlockedLinkedTreatmentItem[];
+}
+
+const PLAN_STATUS_META: Record<string, { labelKey: string; defaultLabel: string; bg: string; color: string; border: string }> = {
+  CREATED: { labelKey: 'statusCreated', defaultLabel: 'Created', bg: 'rgba(59, 130, 246, 0.1)', color: '#1d4ed8', border: 'rgba(59, 130, 246, 0.3)' },
+  PRESENTED: { labelKey: 'statusPresented', defaultLabel: 'Presented', bg: 'rgba(99, 102, 241, 0.1)', color: '#4338ca', border: 'rgba(99, 102, 241, 0.3)' },
+  ACCEPTED: { labelKey: 'statusAccepted', defaultLabel: 'Accepted', bg: 'rgba(16, 185, 129, 0.12)', color: '#047857', border: 'rgba(16, 185, 129, 0.35)' },
+  IN_PROGRESS: { labelKey: 'statusInProgress', defaultLabel: 'In Progress', bg: 'rgba(245, 158, 11, 0.12)', color: '#b45309', border: 'rgba(245, 158, 11, 0.35)' },
+  COMPLETED: { labelKey: 'statusCompleted', defaultLabel: 'Completed', bg: 'rgba(13, 148, 136, 0.12)', color: '#0f766e', border: 'rgba(13, 148, 136, 0.35)' },
+  CANCELLED: { labelKey: 'statusCancelled', defaultLabel: 'Cancelled', bg: 'rgba(100, 116, 139, 0.12)', color: '#475569', border: 'rgba(100, 116, 139, 0.3)' },
+  REJECTED: { labelKey: 'statusRejected', defaultLabel: 'Rejected', bg: 'rgba(239, 68, 68, 0.12)', color: '#b91c1c', border: 'rgba(239, 68, 68, 0.35)' },
+};
+
+const normalizeTreatmentName = (name?: string | null): string =>
+  String(name || '')
+    .replace(/\s*\([#\d\s,]+\)/g, '')
+    .replace(/#\d+/g, '')
+    .trim()
+    .toLowerCase();
+
+const extractPlanItemToothNumbers = (item: any): number[] => {
+  const nums = new Set<number>();
+  if (Array.isArray(item?.toothNumbers)) {
+    item.toothNumbers.forEach((n: any) => {
+      const parsed = Number(n);
+      if (Number.isInteger(parsed) && parsed > 0) nums.add(parsed);
+    });
+  }
+  if (item?.otTeethNumber) {
+    String(item.otTeethNumber)
+      .split(/[\s,;]+/)
+      .forEach((token) => {
+        const cleaned = token.replace(/#/g, '').trim();
+        if (!cleaned) return;
+        const parsed = Number(cleaned);
+        if (Number.isInteger(parsed) && parsed > 0) nums.add(parsed);
+      });
+  }
+  return Array.from(nums);
+};
+
 
 export const PatientOdontogramPage: React.FC = () => {
   const { patientId } = useParams<{ patientId: string }>();
@@ -60,6 +122,7 @@ export const PatientOdontogramPage: React.FC = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { isTenantAdmin, isClinicAdmin, isClinicDoctor, user } = useAuth();
+  const { socket } = useNotifications();
 
   const isSuperAdmin = user?.isSuperAdmin;
   const canModify = (isClinicAdmin || isClinicDoctor || Boolean(isSuperAdmin)) && !isTenantAdmin;
@@ -68,6 +131,7 @@ export const PatientOdontogramPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [savingAll, setSavingAll] = useState<boolean>(false);
   const [data, setData] = useState<PatientOdontogramResponse | null>(null);
+  const [linkedBlockModal, setLinkedBlockModal] = useState<LinkedTreatmentBlockState | null>(null);
 
   // Tabs: 'Diagnostics' vs 'Treatment'
   const [activeTab, setActiveTab] = useState<ActiveTab>('DIAGNOSTICS');
@@ -99,45 +163,43 @@ export const PatientOdontogramPage: React.FC = () => {
     return formatted === '—' ? t('patientOdontogram.notSavedYet', 'Not saved yet') : formatted;
   };
 
+  // Sync local chart & metadata state from API response
+  const syncStateFromResponse = useCallback((res: PatientOdontogramResponse) => {
+    setData(res);
+    setLocalTeethModel(res.odontogram?.teethModel || 'ADULT');
+    setLastSavedTime(res.odontogram?.updatedAt || res.odontogram?.createdAt || null);
+
+    const initialFindings: FindingItem[] = (res.diagnostics || []).map((d) => ({
+      id: d.id,
+      toothNumber: d.toothNumber,
+      surface: d.surface || 'WHOLE',
+      name: d.diagnosticName,
+      diagnosticName: d.diagnosticName,
+      color: d.color || '#EF4444',
+      notes: d.notes,
+      diagnosticId: d.diagnosticId,
+    }));
+    setFindings(initialFindings);
+
+    const initialTreatments: AppliedTreatmentItem[] = (res.treatments || []).map((tr) => ({
+      id: tr.id,
+      toothNumber: tr.toothNumber,
+      surface: tr.surface || 'WHOLE',
+      treatmentName: tr.treatmentName,
+      color: tr.color || '#3B82F6',
+      treatmentId: tr.treatmentId,
+      notes: tr.notes,
+    }));
+    setAppliedTreatments(initialTreatments);
+  }, []);
+
   // Fetch Patient Odontogram & Settings Catalogs
   const fetchData = useCallback(async () => {
     if (!patientId) return;
     try {
       setLoading(true);
       const res = await clinicOdontogramService.getPatientOdontogram(patientId);
-      setData(res);
-
-      // Restore saved model (defaults to ADULT)
-      const savedModel = res.odontogram?.teethModel || 'ADULT';
-      setLocalTeethModel(savedModel);
-
-      // Restore last saved time
-      setLastSavedTime(res.odontogram?.updatedAt || res.odontogram?.createdAt || null);
-
-      // Restore Diagnostics findings
-      const initialFindings: FindingItem[] = (res.diagnostics || []).map((d) => ({
-        id: d.id,
-        toothNumber: d.toothNumber,
-        surface: d.surface || 'WHOLE',
-        name: d.diagnosticName,
-        diagnosticName: d.diagnosticName,
-        color: d.color || '#EF4444',
-        notes: d.notes,
-        diagnosticId: d.diagnosticId,
-      }));
-      setFindings(initialFindings);
-
-      // Restore Treatments
-      const initialTreatments: AppliedTreatmentItem[] = (res.treatments || []).map((tr) => ({
-        id: tr.id,
-        toothNumber: tr.toothNumber,
-        surface: tr.surface || 'WHOLE',
-        treatmentName: tr.treatmentName,
-        color: tr.color || '#3B82F6',
-        treatmentId: tr.treatmentId,
-        notes: tr.notes,
-      }));
-      setAppliedTreatments(initialTreatments);
+      syncStateFromResponse(res);
 
       // Dynamically load branch/tenant catalogs from Odontogram Settings
       const branchId = res.patient.branch?.id;
@@ -174,11 +236,29 @@ export const PatientOdontogramPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [patientId, t, toast]);
+  }, [patientId, syncStateFromResponse, t, toast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Keep proposedPlan linkage metadata in sync when Treatment Plan updates in another tab
+  useEffect(() => {
+    if (!socket || !patientId) return;
+    const handlePlanUpdated = async (payload: any) => {
+      if (payload?.patientId && payload.patientId !== patientId) return;
+      try {
+        const res = await clinicOdontogramService.getPatientOdontogram(patientId);
+        setData(res);
+      } catch {
+        // Silent background refresh
+      }
+    };
+    socket.on('treatment_plan:updated', handlePlanUpdated);
+    return () => {
+      socket.off('treatment_plan:updated', handlePlanUpdated);
+    };
+  }, [socket, patientId]);
 
   // Dynamic Diagnostics Brush List (from Odontogram Settings)
   const dynamicDiagnostics: BrushCondition[] = useMemo(() => {
@@ -329,6 +409,80 @@ export const PatientOdontogramPage: React.FC = () => {
     }
   };
 
+  // Persisted Odontogram treatment IDs & Treatment Plan linkage lookup
+  const savedTreatmentIds = useMemo(() => {
+    return new Set((data?.treatments || []).map((tr) => tr.id).filter(Boolean));
+  }, [data?.treatments]);
+
+  const linkedPlanByTreatmentKey = useMemo(() => {
+    const map = new Map<string, LinkedPlanRef[]>();
+    const plan = (data?.odontogram as any)?.proposedPlan;
+    const groups: any[] = Array.isArray(plan?.groups) ? plan.groups : [];
+
+    groups.forEach((g, idx) => {
+      const groupId = String(g?.id || `group-${idx + 1}`);
+      const groupName = String(g?.name || `Plan ${idx + 1}`);
+      const status = String(g?.status || (g?.confirmed ? 'ACCEPTED' : 'CREATED'));
+      const items: any[] = Array.isArray(g?.items) ? g.items : [];
+
+      items.forEach((it) => {
+        const normalizedName = normalizeTreatmentName(it?.treatmentName);
+        if (!normalizedName) return;
+        const teeth = extractPlanItemToothNumbers(it);
+        teeth.forEach((toothNum) => {
+          const key = `${normalizedName}__${toothNum}`;
+          const list = map.get(key) || [];
+          if (!list.some((p) => p.id === groupId && p.name === groupName)) {
+            list.push({ id: groupId, name: groupName, status });
+          }
+          map.set(key, list);
+        });
+      });
+    });
+
+    return map;
+  }, [data?.odontogram]);
+
+  const getLinkedPlansForTreatment = useCallback(
+    (item: AppliedTreatmentItem): LinkedPlanRef[] => {
+      // Newly brushed unsaved treatments (no persisted DB id yet) can still be undone before saving
+      if (!item.id || !savedTreatmentIds.has(item.id)) return [];
+      const key = `${normalizeTreatmentName(item.treatmentName)}__${item.toothNumber}`;
+      return linkedPlanByTreatmentKey.get(key) || [];
+    },
+    [savedTreatmentIds, linkedPlanByTreatmentKey]
+  );
+
+  const buildBlockedModalData = useCallback(
+    (
+      items: AppliedTreatmentItem[],
+      actionType: 'clear' | 'replace',
+      isBulkQuadrant = false
+    ): LinkedTreatmentBlockState | null => {
+      const seen = new Set<string>();
+      const blockedItems: BlockedLinkedTreatmentItem[] = [];
+
+      items.forEach((tr) => {
+        const plans = getLinkedPlansForTreatment(tr);
+        if (plans.length === 0) return;
+        const dedupeKey = `${tr.toothNumber}-${tr.surface.toUpperCase()}-${normalizeTreatmentName(tr.treatmentName)}`;
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+        blockedItems.push({
+          toothNumber: tr.toothNumber,
+          surface: tr.surface,
+          treatmentName: tr.treatmentName,
+          color: tr.color,
+          plans,
+        });
+      });
+
+      if (blockedItems.length === 0) return null;
+      return { actionType, isBulkQuadrant, blockedItems };
+    },
+    [getLinkedPlansForTreatment]
+  );
+
   // ─── Interaction Handlers: Treatment Tab ────────────────
   const handleTreatmentSurfaceClick = (toothNumber: number, surface: string) => {
     if (!canModify) return;
@@ -336,50 +490,66 @@ export const PatientOdontogramPage: React.FC = () => {
     setSelectedTooth(toothNumber);
     setSelectedSurface(surface);
 
+    const upperSurface = surface.toUpperCase();
+
     if (activeTreatBrush === 'CLEAR') {
-      if (surface.toUpperCase() === 'WHOLE') {
+      const targeted =
+        upperSurface === 'WHOLE'
+          ? appliedTreatments.filter((tr) => tr.toothNumber === toothNumber)
+          : appliedTreatments.filter(
+              (tr) => tr.toothNumber === toothNumber && tr.surface.toUpperCase() === upperSurface
+            );
+      const blocked = buildBlockedModalData(targeted, 'clear');
+      if (blocked) {
+        setLinkedBlockModal(blocked);
+        return;
+      }
+
+      if (upperSurface === 'WHOLE') {
         setAppliedTreatments((prev) => prev.filter((tr) => tr.toothNumber !== toothNumber));
         return;
       }
       setAppliedTreatments((prev) =>
-        prev.filter((tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === surface.toUpperCase()))
+        prev.filter((tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === upperSurface))
       );
       return;
     }
 
     if (!activeTreatBrush) return;
 
-    if (surface.toUpperCase() === 'WHOLE' || activeTreatBrush.appliesToWholeTooth) {
-      setAppliedTreatments((prev) => {
-        const filtered = prev.filter(
-          (tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === 'WHOLE')
-        );
-        return [
-          ...filtered,
-          {
-            toothNumber,
-            surface: 'WHOLE',
-            treatmentName: activeTreatBrush.name,
-            color: activeTreatBrush.color,
-            treatmentId: activeTreatBrush.id,
-          },
-        ];
-      });
+    const targetSurface =
+      upperSurface === 'WHOLE' || activeTreatBrush.appliesToWholeTooth ? 'WHOLE' : upperSurface;
+
+    const existingAtTarget = appliedTreatments.filter(
+      (tr) => tr.toothNumber === toothNumber && tr.surface.toUpperCase() === targetSurface
+    );
+    const toReplace = existingAtTarget.filter(
+      (tr) => normalizeTreatmentName(tr.treatmentName) !== normalizeTreatmentName(activeTreatBrush.name)
+    );
+    const blocked = buildBlockedModalData(toReplace, 'replace');
+    if (blocked) {
+      setLinkedBlockModal(blocked);
       return;
     }
 
+    const preservedSame = existingAtTarget.find(
+      (tr) => normalizeTreatmentName(tr.treatmentName) === normalizeTreatmentName(activeTreatBrush.name)
+    );
+
     setAppliedTreatments((prev) => {
       const filtered = prev.filter(
-        (tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === surface.toUpperCase())
+        (tr) => !(tr.toothNumber === toothNumber && tr.surface.toUpperCase() === targetSurface)
       );
       return [
         ...filtered,
         {
+          id: preservedSame?.id,
           toothNumber,
-          surface: surface.toUpperCase(),
+          surface: targetSurface,
           treatmentName: activeTreatBrush.name,
           color: activeTreatBrush.color,
           treatmentId: activeTreatBrush.id,
+          notes: preservedSame?.notes,
         },
       ];
     });
@@ -390,6 +560,12 @@ export const PatientOdontogramPage: React.FC = () => {
     if (!canModify) return;
 
     if (activeTreatBrush === 'CLEAR') {
+      const targeted = appliedTreatments.filter((tr) => tr.toothNumber === toothNumber);
+      const blocked = buildBlockedModalData(targeted, 'clear');
+      if (blocked) {
+        setLinkedBlockModal(blocked);
+        return;
+      }
       setAppliedTreatments((prev) => prev.filter((tr) => tr.toothNumber !== toothNumber));
       return;
     }
@@ -401,6 +577,11 @@ export const PatientOdontogramPage: React.FC = () => {
 
   const handleRemoveTreatment = (item: AppliedTreatmentItem) => {
     if (!canModify) return;
+    const blocked = buildBlockedModalData([item], 'clear');
+    if (blocked) {
+      setLinkedBlockModal(blocked);
+      return;
+    }
     setAppliedTreatments((prev) =>
       prev.filter(
         (tr) =>
@@ -415,6 +596,15 @@ export const PatientOdontogramPage: React.FC = () => {
 
   const handleClearQuadrantTreatments = (zone: ToothZone, quadrant: ToothQuadrant) => {
     if (!canModify) return;
+    const targeted = appliedTreatments.filter((tr) => {
+      const zq = getToothZoneAndQuadrant(tr.toothNumber);
+      return zq.zone === zone && zq.quadrant === quadrant;
+    });
+    const blocked = buildBlockedModalData(targeted, 'clear', true);
+    if (blocked) {
+      setLinkedBlockModal(blocked);
+      return;
+    }
     setAppliedTreatments((prev) =>
       prev.filter((tr) => {
         const zq = getToothZoneAndQuadrant(tr.toothNumber);
@@ -429,7 +619,7 @@ export const PatientOdontogramPage: React.FC = () => {
 
     try {
       setSavingAll(true);
-      await clinicOdontogramService.savePatientOdontogram(patientId, {
+      const savedRes = await clinicOdontogramService.savePatientOdontogram(patientId, {
         teethModel: localTeethModel,
         diagnostics: findings.map((f) => ({
           toothNumber: f.toothNumber,
@@ -450,8 +640,8 @@ export const PatientOdontogramPage: React.FC = () => {
         })),
       });
 
-      const now = new Date().toISOString();
-      setLastSavedTime(now);
+      syncStateFromResponse(savedRes);
+      setLastSavedTime(savedRes.odontogram?.updatedAt || new Date().toISOString());
       toast.success(
         t('patientOdontogram.saveSuccess', 'Patient odontogram saved successfully')
       );
@@ -460,6 +650,9 @@ export const PatientOdontogramPage: React.FC = () => {
         err?.response?.data?.message ||
           t('patientOdontogram.saveFailed', 'Failed to save patient odontogram')
       );
+      if (err?.response?.status === 400 || err?.response?.status === 409) {
+        fetchData();
+      }
     } finally {
       setSavingAll(false);
     }
@@ -498,6 +691,177 @@ export const PatientOdontogramPage: React.FC = () => {
     }
     return false;
   }, [data?.treatments, appliedTreatments, data?.odontogram]);
+
+  const renderQuadrantBox = (
+    zone: ToothZone,
+    quadrant: ToothQuadrant,
+    accentRightCol: boolean
+  ) => {
+    const isPosterior = zone === 'POSTERIOR';
+    const highlightBorderColor = isPosterior ? '#0284c7' : '#ec4899';
+    const highlightBgColor = isPosterior ? 'rgba(2, 132, 199, 0.03)' : 'rgba(236, 72, 153, 0.03)';
+    const chipBg = isPosterior ? '#f0f9ff' : '#fdf2f8';
+    const chipBorder = isPosterior ? '#bae6fd' : '#fbcfe8';
+    const chipColor = isPosterior ? '#0369a1' : '#9d174d';
+
+    const isHighlighted =
+      selectedZoneQuad?.zone === zone && selectedZoneQuad?.quadrant === quadrant;
+    const items = treatmentsByZoneAndQuad[zone][quadrant];
+
+    return (
+      <div
+        key={`${zone}-${quadrant}`}
+        style={{
+          border: isHighlighted ? `1.5px solid ${highlightBorderColor}` : '1px solid #e2e8f0',
+          borderLeft: accentRightCol
+            ? `2.5px solid ${highlightBorderColor}`
+            : isHighlighted
+            ? `1.5px solid ${highlightBorderColor}`
+            : '1px solid #e2e8f0',
+          borderRadius: '8px',
+          backgroundColor: isHighlighted ? highlightBgColor : '#ffffff',
+          padding: '10px 12px',
+          minHeight: '120px',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '8px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: '#f1f5f9',
+              color: '#475569',
+            }}
+          >
+            {quadrant}
+          </span>
+          {items.length > 0 && canModify && (
+            <button
+              type="button"
+              onClick={() => handleClearQuadrantTreatments(zone, quadrant)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                fontSize: '11px',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                minHeight: '28px',
+              }}
+            >
+              {t('patientOdontogram.clear', 'Clear')}
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {items.map((tr, i) => {
+            const linkedPlans = getLinkedPlansForTreatment(tr);
+            const isLinked = linkedPlans.length > 0;
+            const planNames = linkedPlans.map((p) => p.name).join(', ');
+
+            return (
+              <div
+                key={`${zone.toLowerCase()}-${quadrant.toLowerCase()}-${tr.toothNumber}-${tr.surface}-${i}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: chipBg,
+                  border: isLinked
+                    ? '1px solid rgba(245, 158, 11, 0.55)'
+                    : `1px solid ${chipBorder}`,
+                  borderRadius: '6px',
+                  padding: '3px 8px',
+                  fontSize: '11.5px',
+                  color: chipColor,
+                }}
+              >
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '2px',
+                    backgroundColor: tr.color,
+                    flexShrink: 0,
+                  }}
+                />
+                <span>
+                  <strong>T{tr.toothNumber}</strong> (
+                  {getSurfaceDisplayName(tr.surface, tr.toothNumber)}):{' '}
+                  <strong>{tr.treatmentName}</strong>
+                </span>
+                {isLinked && (
+                  <Tooltip
+                    content={t(
+                      'patientOdontogram.linkedBadgeTooltip',
+                      'Linked to {{plans}} — remove from Treatment Plan first to clear',
+                      { plans: planNames }
+                    )}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        color: '#d97706',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Lock size={11} />
+                    </span>
+                  </Tooltip>
+                )}
+                {canModify && (
+                  <Tooltip
+                    content={
+                      isLinked
+                        ? t(
+                            'patientOdontogram.linkedBadgeTooltip',
+                            'Linked to {{plans}} — remove from Treatment Plan first to clear',
+                            { plans: planNames }
+                          )
+                        : t('patientOdontogram.removeChipTooltip', 'Remove treatment')
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTreatment(tr)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: isLinked ? '#b45309' : chipColor,
+                        cursor: 'pointer',
+                        padding: '2px',
+                        marginLeft: '1px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      aria-label={t('patientOdontogram.removeChipTooltip', 'Remove treatment')}
+                    >
+                      <X size={12} />
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -1338,11 +1702,11 @@ export const PatientOdontogramPage: React.FC = () => {
             />
           </div>
 
-          {/* ─── QUADRANT VIEW: ZONA POSTERIOR & ZONA ANTERIOR (Matches media_1793365021402_79269420.png) ─── */}
+          {/* ─── QUADRANT VIEW: ZONA POSTERIOR & ZONA ANTERIOR ─── */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
               gap: '20px',
             }}
           >
@@ -1357,7 +1721,6 @@ export const PatientOdontogramPage: React.FC = () => {
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
               }}
             >
-              {/* Header Title in Orange Uppercase */}
               <div
                 style={{
                   fontSize: '13px',
@@ -1371,7 +1734,6 @@ export const PatientOdontogramPage: React.FC = () => {
                 {t('patientOdontogram.zonaPosterior', 'ZONA POSTERIOR')}
               </div>
 
-              {/* 2x2 Quadrant Grid */}
               <div
                 style={{
                   display: 'grid',
@@ -1379,435 +1741,10 @@ export const PatientOdontogramPage: React.FC = () => {
                   gap: '10px',
                 }}
               >
-                {/* Q1 Posterior */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'POSTERIOR' && selectedZoneQuad?.quadrant === 'Q1';
-                  const items = treatmentsByZoneAndQuad.POSTERIOR.Q1;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(2, 132, 199, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q1
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('POSTERIOR', 'Q1')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`post-q1-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#f0f9ff',
-                              border: '1px solid #bae6fd',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#0369a1',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#0369a1',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Q2 Posterior (Blue accent left border) */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'POSTERIOR' && selectedZoneQuad?.quadrant === 'Q2';
-                  const items = treatmentsByZoneAndQuad.POSTERIOR.Q2;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
-                        borderLeft: '2.5px solid #0284c7',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(2, 132, 199, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q2
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('POSTERIOR', 'Q2')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`post-q2-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#f0f9ff',
-                              border: '1px solid #bae6fd',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#0369a1',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#0369a1',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Q3 Posterior */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'POSTERIOR' && selectedZoneQuad?.quadrant === 'Q3';
-                  const items = treatmentsByZoneAndQuad.POSTERIOR.Q3;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(2, 132, 199, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q3
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('POSTERIOR', 'Q3')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`post-q3-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#f0f9ff',
-                              border: '1px solid #bae6fd',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#0369a1',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#0369a1',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Q4 Posterior (Blue accent left border) */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'POSTERIOR' && selectedZoneQuad?.quadrant === 'Q4';
-                  const items = treatmentsByZoneAndQuad.POSTERIOR.Q4;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
-                        borderLeft: '2.5px solid #0284c7',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(2, 132, 199, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q4
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('POSTERIOR', 'Q4')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`post-q4-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#f0f9ff',
-                              border: '1px solid #bae6fd',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#0369a1',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#0369a1',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                {renderQuadrantBox('POSTERIOR', 'Q1', false)}
+                {renderQuadrantBox('POSTERIOR', 'Q2', true)}
+                {renderQuadrantBox('POSTERIOR', 'Q3', false)}
+                {renderQuadrantBox('POSTERIOR', 'Q4', true)}
               </div>
             </div>
 
@@ -1822,7 +1759,6 @@ export const PatientOdontogramPage: React.FC = () => {
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
               }}
             >
-              {/* Header Title in Orange Uppercase */}
               <div
                 style={{
                   fontSize: '13px',
@@ -1836,7 +1772,6 @@ export const PatientOdontogramPage: React.FC = () => {
                 {t('patientOdontogram.zonaAnterior', 'ZONA ANTERIOR')}
               </div>
 
-              {/* 2x2 Quadrant Grid */}
               <div
                 style={{
                   display: 'grid',
@@ -1844,435 +1779,10 @@ export const PatientOdontogramPage: React.FC = () => {
                   gap: '10px',
                 }}
               >
-                {/* Q1 Anterior */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'ANTERIOR' && selectedZoneQuad?.quadrant === 'Q1';
-                  const items = treatmentsByZoneAndQuad.ANTERIOR.Q1;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #ec4899' : '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(236, 72, 153, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q1
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('ANTERIOR', 'Q1')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`ant-q1-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#fdf2f8',
-                              border: '1px solid #fbcfe8',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#9d174d',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#9d174d',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Q2 Anterior (Pink accent left border) */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'ANTERIOR' && selectedZoneQuad?.quadrant === 'Q2';
-                  const items = treatmentsByZoneAndQuad.ANTERIOR.Q2;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #ec4899' : '1px solid #e2e8f0',
-                        borderLeft: '2.5px solid #ec4899',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(236, 72, 153, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q2
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('ANTERIOR', 'Q2')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`ant-q2-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#fdf2f8',
-                              border: '1px solid #fbcfe8',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#9d174d',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#9d174d',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Q3 Anterior */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'ANTERIOR' && selectedZoneQuad?.quadrant === 'Q3';
-                  const items = treatmentsByZoneAndQuad.ANTERIOR.Q3;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #ec4899' : '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(236, 72, 153, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q3
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('ANTERIOR', 'Q3')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`ant-q3-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#fdf2f8',
-                              border: '1px solid #fbcfe8',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#9d174d',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#9d174d',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Q4 Anterior (Pink accent left border) */}
-                {(() => {
-                  const isHighlighted =
-                    selectedZoneQuad?.zone === 'ANTERIOR' && selectedZoneQuad?.quadrant === 'Q4';
-                  const items = treatmentsByZoneAndQuad.ANTERIOR.Q4;
-
-                  return (
-                    <div
-                      style={{
-                        border: isHighlighted ? '1.5px solid #ec4899' : '1px solid #e2e8f0',
-                        borderLeft: '2.5px solid #ec4899',
-                        borderRadius: '8px',
-                        backgroundColor: isHighlighted ? 'rgba(236, 72, 153, 0.03)' : '#ffffff',
-                        padding: '10px 12px',
-                        minHeight: '120px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
-                          }}
-                        >
-                          Q4
-                        </span>
-                        {items.length > 0 && canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleClearQuadrantTreatments('ANTERIOR', 'Q4')}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                            }}
-                          >
-                            {t('patientOdontogram.clear', 'Clear')}
-                          </button>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {items.map((tr, i) => (
-                          <div
-                            key={`ant-q4-${tr.toothNumber}-${tr.surface}-${i}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#fdf2f8',
-                              border: '1px solid #fbcfe8',
-                              borderRadius: '6px',
-                              padding: '3px 8px',
-                              fontSize: '11.5px',
-                              color: '#9d174d',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '7px',
-                                height: '7px',
-                                borderRadius: '2px',
-                                backgroundColor: tr.color,
-                              }}
-                            />
-                            <span>
-                              <strong>T{tr.toothNumber}</strong> ({getSurfaceDisplayName(tr.surface, tr.toothNumber)}): <strong>{tr.treatmentName}</strong>
-                            </span>
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTreatment(tr)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#9d174d',
-                                  cursor: 'pointer',
-                                  padding: '1px',
-                                  display: 'inline-flex',
-                                }}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                {renderQuadrantBox('ANTERIOR', 'Q1', false)}
+                {renderQuadrantBox('ANTERIOR', 'Q2', true)}
+                {renderQuadrantBox('ANTERIOR', 'Q3', false)}
+                {renderQuadrantBox('ANTERIOR', 'Q4', true)}
               </div>
             </div>
           </div>
@@ -2365,6 +1875,349 @@ export const PatientOdontogramPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ─── Linked Treatment Protection Popup Modal ─── */}
+      {linkedBlockModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setLinkedBlockModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 10050,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'var(--bg-card, #ffffff)',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              maxHeight: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              border: '1px solid var(--border-color, #e2e8f0)',
+              boxShadow: '0 24px 48px rgba(15, 23, 42, 0.22)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: '#fef3c7',
+                    color: '#d97706',
+                    border: '1px solid #fcd34d',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Lock size={19} />
+                </div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: 800,
+                    color: 'var(--text-heading, #0f172a)',
+                  }}
+                >
+                  {linkedBlockModal.actionType === 'replace'
+                    ? t(
+                        'patientOdontogram.linkedTreatmentModal.titleReplace',
+                        'Cannot Replace Linked Treatment'
+                      )
+                    : t(
+                        'patientOdontogram.linkedTreatmentModal.titleClear',
+                        'Cannot Remove Linked Treatment'
+                      )}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLinkedBlockModal(null)}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  backgroundColor: 'var(--bg-card, #ffffff)',
+                  color: 'var(--text-muted, #64748b)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                aria-label={t('common.close', 'Close')}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div
+              style={{
+                padding: '18px 20px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13.5px',
+                  lineHeight: 1.55,
+                  color: 'var(--text-body, #334155)',
+                }}
+              >
+                {linkedBlockModal.actionType === 'replace'
+                  ? t(
+                      'patientOdontogram.linkedTreatmentModal.descriptionReplace',
+                      'This treatment cannot be replaced directly on the Odontogram because it is linked to an existing Treatment Plan:'
+                    )
+                  : t(
+                      'patientOdontogram.linkedTreatmentModal.descriptionClear',
+                      'This treatment cannot be cleared or removed directly from the Odontogram because it is linked to an existing Treatment Plan:'
+                    )}
+              </p>
+
+              {/* Affected Treatments List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {linkedBlockModal.blockedItems.map((item, idx) => (
+                  <div
+                    key={`${item.toothNumber}-${item.surface}-${idx}`}
+                    style={{
+                      padding: '11px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(245, 158, 11, 0.06)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '7px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span
+                          style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '3px',
+                            backgroundColor: item.color,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: '13.5px',
+                            fontWeight: 700,
+                            color: 'var(--text-heading, #0f172a)',
+                          }}
+                        >
+                          {item.treatmentName}
+                        </span>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          color: '#334155',
+                        }}
+                      >
+                        T{item.toothNumber} · {getSurfaceDisplayName(item.surface, item.toothNumber)}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          color: '#64748b',
+                        }}
+                      >
+                        {t(
+                          'patientOdontogram.linkedTreatmentModal.linkedPlansLabel',
+                          'Linked Treatment Plan'
+                        )}
+                        :
+                      </span>
+                      {item.plans.map((plan) => {
+                        const meta = PLAN_STATUS_META[plan.status] || PLAN_STATUS_META.CREATED;
+                        const statusLabel = t(
+                          `patientTreatmentPlan.${meta.labelKey}`,
+                          meta.defaultLabel
+                        );
+                        return (
+                          <span
+                            key={`${plan.id}-${plan.name}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              backgroundColor: meta.bg,
+                              color: meta.color,
+                              border: `1px solid ${meta.border}`,
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            <span>{plan.name}</span>
+                            <span style={{ opacity: 0.7 }}>·</span>
+                            <span>{statusLabel}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Guidance Banner */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '9px',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  backgroundColor: '#f0fdfa',
+                  border: '1px solid #99f6e4',
+                  color: '#0f766e',
+                  fontSize: '12.5px',
+                  lineHeight: 1.5,
+                }}
+              >
+                <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span>
+                    {t(
+                      'patientOdontogram.linkedTreatmentModal.howToRemoveHint',
+                      'To clear or modify this treatment, open the Treatment Plan page, remove the service from the linked plan and save the plan, then return to the Odontogram.'
+                    )}
+                  </span>
+                  {linkedBlockModal.isBulkQuadrant && (
+                    <span style={{ fontSize: '11.5px', color: '#115e59', fontWeight: 600 }}>
+                      {t(
+                        'patientOdontogram.linkedTreatmentModal.quadrantClearHint',
+                        'Tip: Unlinked treatments in this quadrant can still be removed individually using their remove (×) button.'
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '14px 20px',
+                borderTop: '1px solid var(--border-color, #e2e8f0)',
+                backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setLinkedBlockModal(null);
+                  navigate(`/clinic/patients/${patientId}/treatment-plan`);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  minHeight: '42px',
+                  padding: '0 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  border: '1px solid var(--primary-300, #5eead4)',
+                  backgroundColor: 'var(--badge-primary-bg, #f0fdfa)',
+                  color: 'var(--primary-700, #0f766e)',
+                  cursor: 'pointer',
+                }}
+              >
+                <FileSpreadsheet size={15} />
+                <span>
+                  {t(
+                    'patientOdontogram.linkedTreatmentModal.goToTreatmentPlan',
+                    'Go to Treatment Plan'
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setLinkedBlockModal(null)}
+                style={{
+                  minHeight: '42px',
+                  padding: '0 22px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {t('patientOdontogram.linkedTreatmentModal.understood', 'Understood')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

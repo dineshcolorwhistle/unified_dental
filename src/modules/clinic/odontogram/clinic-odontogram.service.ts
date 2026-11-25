@@ -1697,6 +1697,130 @@ export class ClinicOdontogramService {
   }
 
   /**
+   * Normalize a treatment name for case-insensitive matching between Odontogram and Treatment Plan items.
+   */
+  private normalizeTreatmentName(name?: string | null): string {
+    return String(name || '')
+      .replace(/\s*\([#\d\s,]+\)/g, '')
+      .replace(/#\d+/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  /**
+   * Extract all valid FDI tooth numbers referenced by a proposed treatment plan item.
+   */
+  private extractToothNumbersFromPlanItem(item: any): number[] {
+    const nums = new Set<number>();
+    if (Array.isArray(item?.toothNumbers)) {
+      for (const n of item.toothNumbers) {
+        const parsed = Number(n);
+        if (Number.isInteger(parsed) && parsed > 0) nums.add(parsed);
+      }
+    }
+    if (item?.otTeethNumber) {
+      const tokens = String(item.otTeethNumber).split(/[\s,;]+/);
+      for (const token of tokens) {
+        const cleaned = token.replace(/#/g, '').trim();
+        if (!cleaned) continue;
+        const parsed = Number(cleaned);
+        if (Number.isInteger(parsed) && parsed > 0) nums.add(parsed);
+      }
+    }
+    return Array.from(nums);
+  }
+
+  /**
+   * Build a lookup map of `${normalizedTreatmentName}__${toothNumber}` -> linked Treatment Plan groups.
+   */
+  private getLinkedPlanTreatmentsMap(
+    proposedPlan: any,
+  ): Map<string, Array<{ groupId: string; groupName: string; status: string }>> {
+    const linkedMap = new Map<
+      string,
+      Array<{ groupId: string; groupName: string; status: string }>
+    >();
+    const groups: any[] = Array.isArray(proposedPlan?.groups) ? proposedPlan.groups : [];
+
+    for (const group of groups) {
+      const groupId = String(group?.id || '');
+      const groupName = String(group?.name || 'Treatment Plan');
+      const status = String(group?.status || (group?.confirmed ? 'ACCEPTED' : 'CREATED'));
+      const items: any[] = Array.isArray(group?.items) ? group.items : [];
+
+      for (const item of items) {
+        const normalizedName = this.normalizeTreatmentName(item?.treatmentName);
+        if (!normalizedName) continue;
+        const toothNumbers = this.extractToothNumbersFromPlanItem(item);
+        for (const toothNumber of toothNumbers) {
+          const key = `${normalizedName}__${toothNumber}`;
+          const existingList = linkedMap.get(key) || [];
+          if (!existingList.some((entry) => entry.groupId === groupId && entry.groupName === groupName)) {
+            existingList.push({ groupId, groupName, status });
+          }
+          linkedMap.set(key, existingList);
+        }
+      }
+    }
+
+    return linkedMap;
+  }
+
+  /**
+   * Prevent saving an Odontogram update that drops or replaces any treatment linked to a Treatment Plan.
+   */
+  private assertLinkedTreatmentsPreserved(
+    proposedPlan: any,
+    existingTreatments: Array<{ treatmentName: string; toothNumber: number }>,
+    incomingTreatments: Array<{ treatmentName: string; toothNumber: number }>,
+  ) {
+    const linkedMap = this.getLinkedPlanTreatmentsMap(proposedPlan);
+    if (linkedMap.size === 0 || existingTreatments.length === 0) return;
+
+    const existingCounts = new Map<
+      string,
+      { count: number; displayName: string; toothNumber: number }
+    >();
+    for (const tr of existingTreatments) {
+      const key = `${this.normalizeTreatmentName(tr.treatmentName)}__${Number(tr.toothNumber)}`;
+      if (!linkedMap.has(key)) continue;
+      const current = existingCounts.get(key);
+      if (current) {
+        current.count += 1;
+      } else {
+        existingCounts.set(key, {
+          count: 1,
+          displayName: tr.treatmentName,
+          toothNumber: Number(tr.toothNumber),
+        });
+      }
+    }
+
+    if (existingCounts.size === 0) return;
+
+    const incomingCounts = new Map<string, number>();
+    for (const tr of incomingTreatments) {
+      const key = `${this.normalizeTreatmentName(tr.treatmentName)}__${Number(tr.toothNumber)}`;
+      incomingCounts.set(key, (incomingCounts.get(key) || 0) + 1);
+    }
+
+    const blockedDescriptions: string[] = [];
+    for (const [key, entry] of existingCounts.entries()) {
+      const nextCount = incomingCounts.get(key) || 0;
+      if (nextCount < entry.count) {
+        const plans = (linkedMap.get(key) || []).map((p) => p.groupName).join(', ');
+        blockedDescriptions.push(`${entry.displayName} (Tooth #${entry.toothNumber} → ${plans})`);
+      }
+    }
+
+    if (blockedDescriptions.length > 0) {
+      throw new BadRequestException(
+        `Cannot remove or replace treatment(s) linked to an existing Treatment Plan: ${blockedDescriptions.join('; ')}. Remove them from the Treatment Plan first.`,
+      );
+    }
+  }
+
+  /**
    * Update a patient treatment plan item
    */
   async updatePatientTreatment(
@@ -1714,6 +1838,26 @@ export class ClinicOdontogramService {
 
     if (!existing) {
       throw new NotFoundException(`Treatment plan record with ID "${treatmentId}" was not found.`);
+    }
+
+    if (
+      dto.treatmentName !== undefined &&
+      this.normalizeTreatmentName(dto.treatmentName) !==
+        this.normalizeTreatmentName(existing.treatmentName)
+    ) {
+      const odontogram = await this.prisma.patientOdontogram.findUnique({
+        where: { id: existing.odontogramId },
+        select: { proposedPlan: true },
+      });
+      const linkedMap = this.getLinkedPlanTreatmentsMap((odontogram as any)?.proposedPlan);
+      const key = `${this.normalizeTreatmentName(existing.treatmentName)}__${existing.toothNumber}`;
+      const linkedPlans = linkedMap.get(key);
+      if (linkedPlans && linkedPlans.length > 0) {
+        const planNames = linkedPlans.map((p) => p.groupName).join(', ');
+        throw new BadRequestException(
+          `Cannot rename treatment "${existing.treatmentName}" (Tooth #${existing.toothNumber}) because it is linked to Treatment Plan "${planNames}".`,
+        );
+      }
     }
 
     let completedDate = existing.completedDate;
@@ -1770,6 +1914,20 @@ export class ClinicOdontogramService {
       throw new NotFoundException(`Treatment plan record with ID "${treatmentId}" was not found.`);
     }
 
+    const odontogram = await this.prisma.patientOdontogram.findUnique({
+      where: { id: existing.odontogramId },
+      select: { proposedPlan: true },
+    });
+    const linkedMap = this.getLinkedPlanTreatmentsMap((odontogram as any)?.proposedPlan);
+    const key = `${this.normalizeTreatmentName(existing.treatmentName)}__${existing.toothNumber}`;
+    const linkedPlans = linkedMap.get(key);
+    if (linkedPlans && linkedPlans.length > 0) {
+      const planNames = linkedPlans.map((p) => p.groupName).join(', ');
+      throw new BadRequestException(
+        `Cannot remove treatment "${existing.treatmentName}" (Tooth #${existing.toothNumber}) because it is linked to Treatment Plan "${planNames}". Remove it from the Treatment Plan first.`,
+      );
+    }
+
     await this.prisma.patientOdontogramTreatment.delete({
       where: { id: treatmentId },
     });
@@ -1811,6 +1969,19 @@ export class ClinicOdontogramService {
           ...(dto.notes !== undefined && { notes: dto.notes }),
         },
       });
+    }
+
+    // Validate linked treatments BEFORE modifying diagnostics/treatments so errors leave DB state untouched
+    if (dto.treatments !== undefined) {
+      const existingTreatments = await this.prisma.patientOdontogramTreatment.findMany({
+        where: { odontogramId: odontogram.id, tenantId },
+        select: { treatmentName: true, toothNumber: true },
+      });
+      this.assertLinkedTreatmentsPreserved(
+        (odontogram as any).proposedPlan,
+        existingTreatments,
+        dto.treatments,
+      );
     }
 
     // Atomic update of diagnostics if provided

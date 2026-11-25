@@ -449,64 +449,15 @@ export const PatientTreatmentPlanPage: React.FC = () => {
       return;
     }
 
-    // Initial grouping from odontogram treatments
-    const rawTreatments = data.treatments || [];
-    if (!rawTreatments.length) {
-      setPlanGroups([
-        {
-          id: 'group-1',
-          name: 'Plan 1',
-          status: 'CREATED',
-          confirmed: false,
-          items: [],
-        },
-      ]);
-      return;
-    }
-
-    const aggregatedMap = new Map<string, ProposedItem>();
-
-    rawTreatments.forEach((tr, idx) => {
-      const { zone, quadrant } = getToothZoneAndQuadrant(tr.toothNumber);
-      const name = tr.treatmentName || tr.treatment?.name || 'Treatment';
-      const groupKey = `${name}__${quadrant}__${zone}`;
-
-      if (aggregatedMap.has(groupKey)) {
-        const item = aggregatedMap.get(groupKey)!;
-        if (!item.toothNumbers.includes(tr.toothNumber)) {
-          item.toothNumbers.push(tr.toothNumber);
-          item.quantity += 1;
-          item.otTeethNumber = item.toothNumbers.join(', ');
-          item.subtotal = item.quantity * item.unitPrice;
-        }
-      } else {
-        const zoneStr = zone === 'POSTERIOR' ? 'ZONA POSTERIOR' : 'ZONA ANTERIOR';
-        aggregatedMap.set(groupKey, {
-          id: `item-${Date.now()}-${idx}`,
-          treatmentName: name,
-          otTeethNumber: String(tr.toothNumber),
-          color: tr.color || tr.treatment?.color,
-          zone,
-          quadrant,
-          zoneText: `${zoneStr} ${quadrant}`,
-          toothNumbers: [tr.toothNumber],
-          quantity: 1,
-          doctorId: '',
-          serviceId: '',
-          unitPrice: 0,
-          subtotal: 0,
-          isSelected: false,
-        });
-      }
-    });
-
+    // Initial state: always start with only the first Treatment Plan (Plan 1) without any services.
+    // Admins add treatments explicitly via "+ Add Service" from the Odontogram treatments dropdown.
     setPlanGroups([
       {
         id: 'group-1',
         name: 'Plan 1',
         status: 'CREATED',
         confirmed: false,
-        items: Array.from(aggregatedMap.values()),
+        items: [],
       },
     ]);
   }, [data]);
@@ -704,23 +655,61 @@ export const PatientTreatmentPlanPage: React.FC = () => {
     return planGroups.flatMap((g) => g.items);
   }, [planGroups]);
 
+  const normalizePlanTreatmentName = useCallback((name?: string | null): string => {
+    return String(name || '')
+      .replace(/\s*\([#\d\s,]+\)/g, '')
+      .replace(/#\d+/g, '')
+      .trim()
+      .toLowerCase();
+  }, []);
+
+  const getItemToothNumberSet = useCallback((item: ProposedItem): Set<number> => {
+    const teeth = new Set<number>();
+    if (Array.isArray(item.toothNumbers)) {
+      item.toothNumbers.forEach((n) => {
+        const parsed = Number(n);
+        if (Number.isInteger(parsed) && parsed > 0) teeth.add(parsed);
+      });
+    }
+    if (item.otTeethNumber) {
+      String(item.otTeethNumber)
+        .split(/[\s,;]+/)
+        .forEach((token) => {
+          const cleaned = token.replace(/#/g, '').trim();
+          if (!cleaned) return;
+          const parsed = Number(cleaned);
+          if (Number.isInteger(parsed) && parsed > 0) teeth.add(parsed);
+        });
+    }
+    return teeth;
+  }, []);
+
   // Treatment options for SearchableSelect: display teeth number along with name in dropdown ex: Corona #32, and only treatment name once selected
   const getTreatmentOptionsForItem = useCallback(
     (currentItemId: string, currentTreatmentName: string) => {
       const available: SearchableSelectOption[] = [];
       const alreadyAdded: SearchableSelectOption[] = [];
+      const seenKeys = new Set<string>();
 
       treatments.forEach((tr) => {
         const rawName = tr.treatmentName || tr.treatment?.name || 'Treatment';
         const name = rawName.replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim();
-        const toothNum = tr.toothNumber;
+        const normalizedName = normalizePlanTreatmentName(name);
+        const toothNum = Number(tr.toothNumber);
         const cleanTooth = String(toothNum).replace(/#/g, '').trim();
+        const dedupeKey = `${normalizedName}__${cleanTooth}`;
+        if (seenKeys.has(dedupeKey)) return;
+        seenKeys.add(dedupeKey);
+
         const val = cleanTooth ? `${name}__${cleanTooth}` : name;
         const optionLabel = cleanTooth ? `${name} #${cleanTooth}` : name;
         const selectedTriggerLabel = name;
 
         const isUsedElsewhere = allPlanItems.some(
-          (it) => it.id !== currentItemId && it.treatmentName === name && it.toothNumbers.includes(toothNum)
+          (it) =>
+            it.id !== currentItemId &&
+            normalizePlanTreatmentName(it.treatmentName) === normalizedName &&
+            getItemToothNumberSet(it).has(toothNum)
         );
 
         if (isUsedElsewhere) {
@@ -742,13 +731,26 @@ export const PatientTreatmentPlanPage: React.FC = () => {
         }
       });
 
-      // Custom treatment name if not matching odontogram list
-      const cleanCurrentName = currentTreatmentName.replace(/\s*\([#\d\s,]+\)/g, '').replace(/#\d+/g, '').trim();
-      const currentAlreadyRepresented =
-        available.some((o) => o.value === cleanCurrentName || o.value.startsWith(`${cleanCurrentName}__`)) ||
-        alreadyAdded.some((o) => o.value === cleanCurrentName || o.value.startsWith(`${cleanCurrentName}__`));
+      // Fallback option for custom treatment names or legacy multi-tooth rows
+      const cleanCurrentName = currentTreatmentName
+        .replace(/\s*\([#\d\s,]+\)/g, '')
+        .replace(/#\d+/g, '')
+        .trim();
+      const currentItem = allPlanItems.find((it) => it.id === currentItemId);
+      const currentToothStr = (
+        currentItem?.otTeethNumber ||
+        (currentItem?.toothNumbers?.[0] ? String(currentItem.toothNumbers[0]) : '')
+      )
+        .replace(/#/g, '')
+        .trim();
+      const expectedCurrentVal = currentToothStr
+        ? `${cleanCurrentName}__${currentToothStr}`
+        : cleanCurrentName;
+      const hasExactCurrentMatch = [...available, ...alreadyAdded].some(
+        (o) => o.value === expectedCurrentVal || o.value === cleanCurrentName
+      );
 
-      if (cleanCurrentName && !currentAlreadyRepresented) {
+      if (cleanCurrentName && !hasExactCurrentMatch) {
         available.unshift({
           value: cleanCurrentName,
           label: cleanCurrentName,
@@ -758,7 +760,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
 
       return [...available, ...alreadyAdded];
     },
-    [treatments, allPlanItems, t]
+    [treatments, allPlanItems, normalizePlanTreatmentName, getItemToothNumberSet, t]
   );
 
   const clearInvalidItem = (itemId: string) => {
