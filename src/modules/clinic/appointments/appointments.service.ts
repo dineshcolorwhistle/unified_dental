@@ -969,6 +969,38 @@ export class AppointmentsService {
     return appointment;
   }
 
+  private assertStatusTransition(
+    currentStatus: string,
+    targetStatus: string,
+    context: 'update' | 'status' = 'status',
+  ) {
+    if (!VALID_STATUSES.includes(targetStatus)) {
+      throw new BadRequestException(`Invalid appointment status: ${targetStatus}`);
+    }
+    if (currentStatus === 'COMPLETED') {
+      throw new BadRequestException(
+        'Completed appointments cannot be modified or reopened. Only remaining balance payment collection is permitted.',
+      );
+    }
+    if (targetStatus === 'COMPLETED' && currentStatus !== 'IN_PROGRESS') {
+      throw new BadRequestException(
+        'Only appointments that are currently In Progress can be ended.',
+      );
+    }
+    if (targetStatus === 'CANCELLED' && currentStatus === 'IN_PROGRESS') {
+      throw new BadRequestException(
+        'Cannot cancel an appointment that is already in progress.',
+      );
+    }
+    if (currentStatus === 'CANCELLED' && targetStatus !== 'SCHEDULED') {
+      throw new BadRequestException(
+        context === 'status'
+          ? 'Cancelled appointments must be reopened to Scheduled before starting.'
+          : 'Cancelled appointments must be reopened to Scheduled before editing.',
+      );
+    }
+  }
+
   /**
    * Update appointment — CLINIC ADMIN ONLY.
    */
@@ -989,6 +1021,16 @@ export class AppointmentsService {
     });
     if (!existing) {
       throw new NotFoundException(`Appointment with ID '${id}' not found`);
+    }
+
+    if (existing.status === 'COMPLETED') {
+      throw new BadRequestException(
+        'Completed appointments are locked and cannot be edited. Only remaining balance payment collection is permitted.',
+      );
+    }
+
+    if (dto.status && dto.status !== existing.status) {
+      this.assertStatusTransition(existing.status, dto.status, 'update');
     }
 
     const oldDateStr = existing.date ? existing.date.toISOString().substring(0, 10) : '';
@@ -1337,10 +1379,7 @@ export class AppointmentsService {
       throw new NotFoundException(`Appointment with ID '${id}' not found`);
     }
 
-    // Disallow cancelling an appointment that is already in progress
-    if (status === 'CANCELLED' && existing.status === 'IN_PROGRESS') {
-      throw new BadRequestException('Cannot cancel an appointment that is already in progress.');
-    }
+    this.assertStatusTransition(existing.status, status, 'status');
 
     const updateData: any = { status };
     if (status === 'CANCELLED' && cancellationReason) {

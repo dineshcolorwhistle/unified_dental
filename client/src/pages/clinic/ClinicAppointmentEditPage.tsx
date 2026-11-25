@@ -323,6 +323,10 @@ export const ClinicAppointmentEditPage: React.FC = () => {
   const isSlotLocked = Boolean(
     appointment && (appointment.status === 'IN_PROGRESS' || appointment.status === 'COMPLETED'),
   );
+  const isAppointmentEnded = Boolean(appointment && appointment.status === 'COMPLETED');
+  const isAppointmentCancelled = Boolean(appointment && appointment.status === 'CANCELLED');
+  const isFormLocked = isAppointmentEnded || isAppointmentCancelled;
+  const canSubmitEdit = canEdit && !isFormLocked;
 
   const doctorFormOptions: SearchableSelectOption[] = useMemo(
     () =>
@@ -364,7 +368,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
   };
 
   const handleSelectSlot = (slot: SlotItem) => {
-    if (!slot.available || !canEdit || isSlotLocked) return;
+    if (!slot.available || !canSubmitEdit || isSlotLocked) return;
     setFormData((prev) => ({
       ...prev,
       startTime: slot.startTime,
@@ -377,7 +381,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit || !appointmentId) return;
+    if (!canSubmitEdit || !appointmentId) return;
 
     if (!formData.doctorId) {
       error(isSpanish ? 'Por favor selecciona un doctor' : 'Please select a doctor');
@@ -656,6 +660,30 @@ export const ClinicAppointmentEditPage: React.FC = () => {
         </div>
       )}
 
+      {isAppointmentEnded && (
+        <div
+          style={{
+            padding: '12px 16px',
+            borderRadius: '10px',
+            backgroundColor: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            color: '#4338ca',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <Lock size={16} style={{ flexShrink: 0 }} />
+          <span>
+            {t(
+              'appointments.appointmentLockedCompleted',
+              'This appointment has been ended (Completed). No further modifications are permitted; only remaining balance payment collection is allowed on the Income & Billing page.',
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Main Responsive Split Editor Card */}
       <div
         className="card"
@@ -780,7 +808,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                   <SearchableSelect
                     options={doctorFormOptions}
                     value={formData.doctorId}
-                    disabled={!canEdit || isSlotLocked}
+                    disabled={!canSubmitEdit || isSlotLocked}
                     onChange={(val) => {
                       setFormData((prev) => ({
                         ...prev,
@@ -834,7 +862,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                       className="input"
                       value={formData.date}
                       min={!isSlotLocked && formData.date !== originalDate ? getTodayString() : undefined}
-                      disabled={!canEdit || isSlotLocked}
+                      disabled={!canSubmitEdit || isSlotLocked}
                       onChange={(e) => {
                         const newDate = e.target.value;
                         setFormData((prev) => ({ ...prev, date: newDate, startTime: '', endTime: '' }));
@@ -854,7 +882,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                     <SearchableSelect
                       options={durationOptions}
                       value={String(formData.durationMinutes || 30)}
-                      disabled={!canEdit || isSlotLocked}
+                      disabled={!canSubmitEdit || isSlotLocked}
                       onChange={(val) => handleDurationChange(Number(val))}
                       icon={<Clock size={14} />}
                     />
@@ -913,14 +941,14 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                               borderRadius: '6px',
                               backgroundColor: isSelected ? 'rgba(13, 148, 136, 0.08)' : 'transparent',
                               border: isSelected ? '1px solid rgba(13, 148, 136, 0.3)' : '1px solid transparent',
-                              cursor: canEdit ? 'pointer' : 'default',
+                              cursor: canSubmitEdit ? 'pointer' : 'default',
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                disabled={!canEdit}
+                                disabled={!canSubmitEdit}
                                 onChange={(e) => {
                                   const checked = e.target.checked;
                                   const newIds = checked
@@ -982,7 +1010,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                     <SearchableSelect
                       options={typeOptions}
                       value={formData.type}
-                      disabled={!canEdit}
+                      disabled={!canSubmitEdit}
                       onChange={(val) => setFormData((prev) => ({ ...prev, type: val }))}
                       icon={<FileText size={14} />}
                     />
@@ -995,7 +1023,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                     <textarea
                       rows={3}
                       className="input"
-                      disabled={!canEdit}
+                      disabled={!canSubmitEdit}
                       value={formData.notes}
                       onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                       style={{ width: '100%', padding: '8px 12px', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }}
@@ -1019,7 +1047,7 @@ export const ClinicAppointmentEditPage: React.FC = () => {
                 <button type="button" onClick={handleBack} className="btn btn-secondary" style={{ minHeight: '42px', padding: '0 18px' }}>
                   {t('common.cancel', 'Cancel')}
                 </button>
-                {canEdit && (
+                {canSubmitEdit && (
                   <button
                     type="submit"
                     disabled={submitting}
@@ -1062,10 +1090,14 @@ export const ClinicAppointmentEditPage: React.FC = () => {
               </div>
 
               <div style={{ padding: '18px', flex: 1 }}>
-                {isSlotLocked ? (
-                  <div style={{ padding: '24px', textAlign: 'center', borderRadius: '10px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#b45309', fontSize: '13px' }}>
+                {isSlotLocked || isFormLocked ? (
+                  <div style={{ padding: '24px', textAlign: 'center', borderRadius: '10px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', color: isAppointmentEnded ? '#4338ca' : '#b45309', fontSize: '13px' }}>
                     <Lock size={24} style={{ margin: '0 auto 8px' }} />
-                    <div>{t('appointments.slotLockedNotice', 'This appointment has already started. The date and time slot are locked and cannot be changed.')}</div>
+                    <div>
+                      {isAppointmentEnded
+                        ? t('appointments.appointmentLockedCompleted', 'This appointment has been ended (Completed). No further modifications are permitted; only remaining balance payment collection is allowed on the Income & Billing page.')
+                        : t('appointments.slotLockedNotice', 'This appointment has already started. The date and time slot are locked and cannot be changed.')}
+                    </div>
                   </div>
                 ) : loadingSlots ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '40px 16px', color: 'var(--text-muted)' }}>

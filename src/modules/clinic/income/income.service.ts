@@ -1196,8 +1196,31 @@ export class IncomeService {
       throw new BadRequestException('Selected payment method is not configured for Income');
     }
 
-    const payAmount = Number(dto.amount);
+    const payAmount = Number(dto.amount || 0);
     const advanceUsed = Number(dto.advanceUsed || 0);
+    const totalPayment = payAmount + advanceUsed;
+
+    if (totalPayment <= 0) {
+      throw new BadRequestException('Payment amount or advance applied must be greater than zero.');
+    }
+
+    // Ensure totals are fresh and validate against remaining balance due
+    await this.recalculateTotals(incomeRecordId);
+    const refreshedRecord = await this.prisma.incomeRecord.findFirst({
+      where: { id: incomeRecordId, tenantId },
+      select: { balanceDue: true },
+    });
+    const remainingBalanceDue = Number(refreshedRecord?.balanceDue ?? record.balanceDue ?? 0);
+
+    if (remainingBalanceDue <= 0) {
+      throw new BadRequestException('There is no remaining balance due on this appointment.');
+    }
+
+    if (totalPayment > remainingBalanceDue + 0.01) {
+      throw new BadRequestException(
+        `Total payment ($${totalPayment.toFixed(2)}) cannot exceed the remaining balance due ($${remainingBalanceDue.toFixed(2)}).`,
+      );
+    }
 
     // Validate and deduct advance payment if requested
     if (advanceUsed > 0) {

@@ -1877,30 +1877,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={() => setAuditModalState({ isOpen: true, groupId: 'ALL' })}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              minHeight: '40px',
-              padding: '0 14px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: '1px solid var(--border-color, #cbd5e1)',
-              backgroundColor: 'var(--bg-card, #ffffff)',
-              color: 'var(--text-heading, #0f172a)',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <History size={16} style={{ color: 'var(--primary-600, #0d9488)' }} />
-            <span>{t('patientTreatmentPlan.auditHistory', 'Audit History')}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
             onClick={() => setIsAddNoteOpen(true)}
             style={{
               display: 'inline-flex',
@@ -3533,30 +3509,56 @@ export const PatientTreatmentPlanPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Add Treatment Plan Action Button */}
-        <button
-          type="button"
-          onClick={handleAddPlanGroup}
-          className="btn btn-primary"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '9px 18px',
-            borderRadius: '10px',
-            fontWeight: 700,
-            fontSize: '13px',
-            color: '#ffffff',
-            backgroundColor: '#0d9488',
-            border: 'none',
-            boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)',
-            minHeight: '40px',
-            cursor: 'pointer',
-          }}
-        >
-          <Plus size={16} />
-          <span>{t('patientTreatmentPlan.addTreatmentPlan', 'New Treatment Plan')}</span>
-        </button>
+        {/* Audit History & Add Treatment Plan Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setAuditModalState({ isOpen: true, groupId: 'ALL' })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              minHeight: '40px',
+              padding: '0 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              border: '1px solid var(--border-color, #cbd5e1)',
+              backgroundColor: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-heading, #0f172a)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <History size={16} style={{ color: 'var(--primary-600, #0d9488)' }} />
+            <span>{t('patientTreatmentPlan.auditHistory', 'Audit History')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleAddPlanGroup}
+            className="btn btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 18px',
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '13px',
+              color: '#ffffff',
+              backgroundColor: '#0d9488',
+              border: 'none',
+              boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)',
+              minHeight: '40px',
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={16} />
+            <span>{t('patientTreatmentPlan.addTreatmentPlan', 'New Treatment Plan')}</span>
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3821,7 +3823,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Right: History + Move To + Add Service + Create/Edit Appointment + Delete Plan */}
+                    {/* Right: Move To + Add Service + Create/Edit Appointment + Delete Plan */}
                     <div
                       style={{
                         display: 'flex',
@@ -3830,32 +3832,6 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                         flexWrap: 'wrap',
                       }}
                     >
-                      {/* Per-Plan Audit History Icon Button */}
-                      <Tooltip content={t('patientTreatmentPlan.auditHistory', 'Audit History')}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAuditModalState({ isOpen: true, groupId: group.id })
-                          }
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: '1px solid var(--border-color, #cbd5e1)',
-                            backgroundColor: 'var(--bg-card, #ffffff)',
-                            color: 'var(--text-heading, #0f172a)',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-                          }}
-                          aria-label={t('patientTreatmentPlan.auditHistory', 'Audit History')}
-                        >
-                          <History size={15} />
-                        </button>
-                      </Tooltip>
-
                       {selectedCount > 0 && movableTargetGroups.length > 0 && !hasActiveAppt && (
                         <div style={{ width: '150px' }}>
                           <SearchableSelect

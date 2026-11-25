@@ -9,7 +9,7 @@ export class AddIncomePaymentDto {
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()
-  @Min(0.01)
+  @Min(0)
   amount: number;
 
   @IsOptional()

@@ -25,6 +25,7 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   X,
   Phone,
   FileText,
@@ -294,6 +295,8 @@ export const ClinicAppointmentsPage: React.FC = () => {
   const [viewingAppointment, setViewingAppointment] = useState<AppointmentItem | null>(null);
   const [deletingAppointment, setDeletingAppointment] = useState<AppointmentItem | null>(null);
   const [cancellingAppointment, setCancellingAppointment] = useState<AppointmentItem | null>(null);
+  const [endingAppointment, setEndingAppointment] = useState<AppointmentItem | null>(null);
+  const [isEndingAppointment, setIsEndingAppointment] = useState<boolean>(false);
   const [cancellationReasonInput, setCancellationReasonInput] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -668,7 +671,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
 
   // Open Edit Modal
   const openEditModal = (apt: AppointmentItem) => {
-    if (!canAddOrUpdate) return;
+    if (!canAddOrUpdate || apt.status === 'COMPLETED') return;
     const dStr = apt.date ? apt.date.substring(0, 10) : getTodayString();
     const initialServiceIds = (apt.appointmentServices || []).map((s) => s.serviceId);
     setFormData({
@@ -754,6 +757,10 @@ export const ClinicAppointmentsPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canAddOrUpdate) return;
+    if (formMode === 'edit' && editingAppointment?.status === 'COMPLETED') {
+      error(t('appointments.editDisabledCompleted', 'Completed appointments cannot be edited. Only remaining balance collection is permitted.'));
+      return;
+    }
     if (!formData.patientId) {
       error(isSpanish ? 'Por favor selecciona un paciente' : 'Please select a patient');
       return;
@@ -849,9 +856,24 @@ export const ClinicAppointmentsPage: React.FC = () => {
       if (newStatus === 'IN_PROGRESS') {
         navigate(`/clinic/appointments/${appointmentId}/income`);
       }
+      return true;
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to update status';
       error(msg);
+      return false;
+    }
+  };
+
+  const handleConfirmEndAppointment = async () => {
+    if (!endingAppointment || !canAddOrUpdate) return;
+    try {
+      setIsEndingAppointment(true);
+      const ok = await handleStatusChange(endingAppointment.id, 'COMPLETED');
+      if (ok) {
+        setEndingAppointment(null);
+      }
+    } finally {
+      setIsEndingAppointment(false);
     }
   };
 
@@ -1637,7 +1659,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                             <Tooltip content={isSpanish ? 'Finalizar cita' : 'End appointment'}>
                               <button
                                 type="button"
-                                onClick={() => handleStatusChange(apt.id, 'COMPLETED')}
+                                onClick={() => setEndingAppointment(apt)}
                                 className="btn btn-sm"
                                 style={{
                                   display: 'inline-flex',
@@ -1675,23 +1697,67 @@ export const ClinicAppointmentsPage: React.FC = () => {
                         {/* Actions */}
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            {/* Variance Flag: Display only when Ended (COMPLETED) and actual paid/completed differs from expected */}
+                            {/* Variance Flag: Visible at all times; faded with explanatory tooltip until Completed with variance */}
                             {(() => {
-                              if (apt.status !== 'COMPLETED') return null;
-
                               const expectedAmt = Number(apt.expectedAmount || 0);
                               const paidAmt = Number(apt.incomeRecord?.totalPaid ?? apt.incomeRecord?.totalServices ?? 0);
                               const hasDifference = Math.abs(expectedAmt - paidAmt) > 0.01;
+                              const isFlagActive = apt.status === 'COMPLETED' && hasDifference;
 
-                              if (!hasDifference) return null;
+                              if (isFlagActive) {
+                                const diffVal = paidAmt - expectedAmt;
+                                const tooltipText = isSpanish
+                                  ? `Variación en monto: Inicial $${expectedAmt.toFixed(2)} vs Pagado $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`
+                                  : `Amount variance: Expected $${expectedAmt.toFixed(2)} vs Paid $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`;
 
-                              const diffVal = paidAmt - expectedAmt;
-                              const tooltipText = isSpanish
-                                ? `Variación en monto: Inicial $${expectedAmt.toFixed(2)} vs Pagado $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`
-                                : `Amount variance: Expected $${expectedAmt.toFixed(2)} vs Paid $${paidAmt.toFixed(2)} (${diffVal >= 0 ? '+' : ''}$${diffVal.toFixed(2)})`;
+                                return (
+                                  <Tooltip content={tooltipText}>
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '6px',
+                                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                        color: '#d97706',
+                                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                                        cursor: 'help',
+                                        flexShrink: 0,
+                                      }}
+                                      aria-label={tooltipText}
+                                    >
+                                      <Flag size={14} fill="#d97706" />
+                                    </span>
+                                  </Tooltip>
+                                );
+                              }
+
+                              const unavailableTooltip =
+                                apt.status === 'SCHEDULED'
+                                  ? t(
+                                      'appointments.flagUnavailableScheduled',
+                                      'Amount variance flag is unavailable until the appointment is completed.',
+                                    )
+                                  : apt.status === 'IN_PROGRESS'
+                                  ? t(
+                                      'appointments.flagUnavailableInProgress',
+                                      'Amount variance flag will be evaluated after the appointment is ended (Completed).',
+                                    )
+                                  : apt.status === 'CANCELLED'
+                                  ? t(
+                                      'appointments.flagUnavailableCancelled',
+                                      'Amount variance flag is unavailable for cancelled appointments.',
+                                    )
+                                  : t(
+                                      'appointments.flagNoVariance',
+                                      'No amount variance — paid amount matches the expected amount ({{amount}}).',
+                                      { amount: `$${expectedAmt.toFixed(2)}` },
+                                    );
 
                               return (
-                                <Tooltip content={tooltipText}>
+                                <Tooltip content={unavailableTooltip}>
                                   <span
                                     style={{
                                       display: 'inline-flex',
@@ -1700,38 +1766,79 @@ export const ClinicAppointmentsPage: React.FC = () => {
                                       width: '28px',
                                       height: '28px',
                                       borderRadius: '6px',
-                                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                                      color: '#d97706',
-                                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                                      cursor: 'help',
+                                      backgroundColor: 'var(--bg-secondary, rgba(148, 163, 184, 0.08))',
+                                      color: 'var(--text-muted, #94a3b8)',
+                                      border: '1px solid var(--border-color)',
+                                      opacity: 0.38,
+                                      cursor: 'not-allowed',
                                       flexShrink: 0,
                                     }}
+                                    aria-label={unavailableTooltip}
                                   >
-                                    <Flag size={14} fill="#d97706" />
+                                    <Flag size={14} />
                                   </span>
                                 </Tooltip>
                               );
                             })()}
 
-                            {/* Income Page Action: accessible only when appointment has started (IN_PROGRESS or COMPLETED) */}
-                            {canAddOrUpdate && (apt.status === 'IN_PROGRESS' || apt.status === 'COMPLETED') && (
-                              <Tooltip content={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}>
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/clinic/appointments/${apt.id}/income`)}
-                                  className="btn btn-secondary btn-sm"
-                                  style={{
-                                    padding: '5px 8px',
-                                    color: '#059669',
-                                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                                    borderColor: 'rgba(16, 185, 129, 0.25)',
-                                  }}
-                                  aria-label={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}
-                                >
-                                  <DollarSign size={14} />
-                                </button>
-                              </Tooltip>
-                            )}
+                            {/* Income Page Action: Visible for Clinic Admin; faded with tooltip until started (IN_PROGRESS or COMPLETED) */}
+                            {canAddOrUpdate && (() => {
+                              const isIncomeAvailable = apt.status === 'IN_PROGRESS' || apt.status === 'COMPLETED';
+                              if (isIncomeAvailable) {
+                                return (
+                                  <Tooltip content={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/clinic/appointments/${apt.id}/income`)}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{
+                                        padding: '5px 8px',
+                                        color: '#059669',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                        borderColor: 'rgba(16, 185, 129, 0.25)',
+                                      }}
+                                      aria-label={isSpanish ? 'Ingresos y Facturación' : 'Income & Billing'}
+                                    >
+                                      <DollarSign size={14} />
+                                    </button>
+                                  </Tooltip>
+                                );
+                              }
+
+                              const incomeUnavailableTooltip =
+                                apt.status === 'CANCELLED'
+                                  ? t(
+                                      'appointments.incomeUnavailableCancelled',
+                                      'Income & Billing is unavailable for cancelled appointments.',
+                                    )
+                                  : t(
+                                      'appointments.incomeUnavailableScheduled',
+                                      'Income & Billing is unavailable until the appointment is started.',
+                                    );
+
+                              return (
+                                <Tooltip content={incomeUnavailableTooltip}>
+                                  <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="btn btn-secondary btn-sm"
+                                      style={{
+                                        padding: '5px 8px',
+                                        color: 'var(--text-muted, #94a3b8)',
+                                        backgroundColor: 'var(--bg-secondary, rgba(148, 163, 184, 0.08))',
+                                        borderColor: 'var(--border-color)',
+                                        opacity: 0.38,
+                                        pointerEvents: 'none',
+                                      }}
+                                      aria-label={incomeUnavailableTooltip}
+                                    >
+                                      <DollarSign size={14} />
+                                    </button>
+                                  </span>
+                                </Tooltip>
+                              );
+                            })()}
 
                             {/* View Details (All roles) */}
                             <Tooltip content={isSpanish ? 'Ver detalles' : 'View details'}>
@@ -1746,19 +1853,47 @@ export const ClinicAppointmentsPage: React.FC = () => {
                               </button>
                             </Tooltip>
 
-                            {/* Edit (Clinic Admin ONLY) */}
+                            {/* Edit (Clinic Admin ONLY — locked once COMPLETED) */}
                             {canAddOrUpdate && (
-                              <Tooltip content={isSpanish ? 'Editar cita' : 'Edit appointment'}>
-                                <button
-                                  type="button"
-                                  onClick={() => openEditModal(apt)}
-                                  className="btn btn-secondary btn-sm"
-                                  style={{ padding: '5px 8px' }}
-                                  aria-label={isSpanish ? 'Editar cita' : 'Edit appointment'}
+                              apt.status === 'COMPLETED' ? (
+                                <Tooltip
+                                  content={t(
+                                    'appointments.editDisabledCompleted',
+                                    'Completed appointments cannot be edited. Only remaining balance collection is permitted.',
+                                  )}
                                 >
-                                  <Edit2 size={14} />
-                                </button>
-                              </Tooltip>
+                                  <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="btn btn-secondary btn-sm"
+                                      style={{
+                                        padding: '5px 8px',
+                                        opacity: 0.38,
+                                        pointerEvents: 'none',
+                                      }}
+                                      aria-label={t(
+                                        'appointments.editDisabledCompleted',
+                                        'Completed appointments cannot be edited. Only remaining balance collection is permitted.',
+                                      )}
+                                    >
+                                      <Edit2 size={14} />
+                                    </button>
+                                  </span>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip content={isSpanish ? 'Editar cita' : 'Edit appointment'}>
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditModal(apt)}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ padding: '5px 8px' }}
+                                    aria-label={isSpanish ? 'Editar cita' : 'Edit appointment'}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                </Tooltip>
+                              )
                             )}
 
                             {/* Delete (Tenant Admin ONLY - hidden for Clinic Admin) */}
@@ -3454,7 +3589,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
                       <>
                         <button
                           type="button"
-                          onClick={() => handleStatusChange(viewingAppointment.id, 'COMPLETED')}
+                          onClick={() => setEndingAppointment(viewingAppointment)}
                           className="btn btn-sm"
                           style={{
                             display: 'inline-flex',
@@ -3788,7 +3923,7 @@ export const ClinicAppointmentsPage: React.FC = () => {
               )}
 
               <div style={{ display: 'flex', gap: '8px' }}>
-                {canAddOrUpdate && (
+                {canAddOrUpdate && viewingAppointment.status !== 'COMPLETED' && (
                   <button
                     type="button"
                     onClick={() => {
@@ -4106,6 +4241,175 @@ export const ClinicAppointmentsPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: END APPOINTMENT CONFIRMATION */}
+      {endingAppointment && (
+        <div className="modal-backdrop" style={{ zIndex: 1080 }}>
+          <div className="modal-content" style={{ maxWidth: '480px', width: '95%' }}>
+            <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#4f46e5' }}>
+                <CheckCircle2 size={20} />
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                  {t('appointments.endAppointmentTitle', 'End Appointment')}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isEndingAppointment && setEndingAppointment(null)}
+                className="btn-icon"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                disabled={isEndingAppointment}
+                aria-label={isSpanish ? 'Cerrar' : 'Close'}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Appointment Summary */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  fontSize: '13px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>
+                    {endingAppointment.patient?.firstName} {endingAppointment.patient?.fatherLastName || ''}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                      color: '#4f46e5',
+                    }}
+                  >
+                    #{endingAppointment.appointmentNumber}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Dr. {endingAppointment.doctor?.name || 'Assigned Doctor'} • {endingAppointment.date?.substring(0, 10)} ({endingAppointment.startTime} - {endingAppointment.endTime})
+                </div>
+                {endingAppointment.incomeRecord && Number(endingAppointment.incomeRecord.balanceDue || 0) > 0 && (
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#b45309', marginTop: '4px' }}>
+                    {t('appointments.remainingBalanceSummary', 'Remaining Balance Due')}: $
+                    {Number(endingAppointment.incomeRecord.balanceDue).toFixed(2)}
+                  </div>
+                )}
+              </div>
+
+              {/* Uncompleted services notice if applicable */}
+              {(() => {
+                const pendingCount = (endingAppointment.incomeRecord?.serviceLines || []).filter((s) => !s.isCompleted).length;
+                if (pendingCount === 0) return null;
+                return (
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      color: '#92400e',
+                      fontSize: '12.5px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                    <span>
+                      {t(
+                        'appointments.uncompletedServicesWarning',
+                        '{{count}} planned service(s) are still pending completion and will not be billed once ended.',
+                        { count: pendingCount },
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {/* Consequences Warning */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                }}
+              >
+                <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#b91c1c' }}>
+                    {t('appointments.endAppointmentWarningTitle', 'This action locks the appointment')}
+                  </span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--text-body)', lineHeight: 1.5 }}>
+                    {t(
+                      'appointments.endAppointmentWarningBody',
+                      'Once this appointment is ended, it will be marked as Completed and locked. No further actions can be performed (you cannot reopen it, edit details, or add, modify, complete, or remove services or products), except collecting the remaining balance payment.',
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="modal-footer"
+              style={{
+                padding: '14px 20px',
+                borderTop: '1px solid var(--border-color)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setEndingAppointment(null)}
+                className="btn btn-secondary"
+                disabled={isEndingAppointment}
+                style={{ minHeight: '40px' }}
+              >
+                {t('appointments.keepInProgress', 'Keep In Progress')}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEndAppointment}
+                className="btn btn-primary"
+                disabled={isEndingAppointment}
+                style={{
+                  minHeight: '40px',
+                  backgroundColor: '#4f46e5',
+                  borderColor: '#4f46e5',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <CheckCircle2 size={15} />
+                <span>
+                  {isEndingAppointment
+                    ? t('appointments.endingAppointment', 'Ending appointment...')
+                    : t('appointments.confirmEndAppointment', 'Confirm & End Appointment')}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

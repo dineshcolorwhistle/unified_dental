@@ -42,6 +42,8 @@ import {
   Wallet,
   ShieldAlert,
   Edit3,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export const AppointmentIncomePage: React.FC = () => {
@@ -62,6 +64,7 @@ export const AppointmentIncomePage: React.FC = () => {
   const [auditTotalPages, setAuditTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'income' | 'audit'>('income');
+  const [productsExpanded, setProductsExpanded] = useState<boolean>(true);
   const [patientAdvanceBalance, setPatientAdvanceBalance] = useState<number>(0);
 
   // Modals & Action States
@@ -304,7 +307,8 @@ export const AppointmentIncomePage: React.FC = () => {
       }
       setAdvancePayments(advances);
 
-      const balDue = totalPendingAmount > 0 ? totalPendingAmount : Math.max(0, Number(record.balanceDue || 0));
+      const rawBalanceDue = Math.max(0, Number(record.balanceDue || 0));
+      const balDue = rawBalanceDue > 0 ? rawBalanceDue : totalPendingAmount;
       setPaymentForm({
         paymentDate: new Date().toISOString().split('T')[0],
         paymentMethodId: validMethods[0]?.id || '',
@@ -349,6 +353,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Open Edit Service Modal
   const handleOpenEditService = (line: IncomeServiceLineItem) => {
+    if (!canManageServicesAndProducts) return;
     setEditingServiceLine(line);
     setEditServiceForm({
       quantity: Number(line.quantity || 1),
@@ -361,7 +366,7 @@ export const AppointmentIncomePage: React.FC = () => {
   // Submit Edit Service Line
   const handleEditServiceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!record || !editingServiceLine) return;
+    if (!record || !editingServiceLine || !canManageServicesAndProducts) return;
     try {
       setSubmittingService(true);
       await incomeService.updateServiceLine(record.id, editingServiceLine.id, {
@@ -383,6 +388,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Open Edit Product Modal
   const handleOpenEditProduct = (prod: IncomeProductLineItem) => {
+    if (!canManageServicesAndProducts) return;
     setEditingProductLine(prod);
     setEditProductForm({
       quantity: Number(prod.quantity || 1),
@@ -392,7 +398,7 @@ export const AppointmentIncomePage: React.FC = () => {
   // Submit Edit Product Line
   const handleEditProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!record || !editingProductLine) return;
+    if (!record || !editingProductLine || !canManageServicesAndProducts) return;
     try {
       setSubmittingProduct(true);
       await incomeService.updateProductLine(record.id, editingProductLine.id, {
@@ -464,6 +470,7 @@ export const AppointmentIncomePage: React.FC = () => {
           : 'Product added and inventory stock updated'
       );
       setShowAddProductModal(false);
+      setProductsExpanded(true);
       await loadIncomeDetails();
 
       // Minimum Stock Alert: If remaining stock falls below or reaches minimum stock level, show alert popup
@@ -499,7 +506,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Confirm and Mark Service as Completed (Irreversible)
   const handleConfirmCompleteService = async () => {
-    if (!record || !confirmCompleteServiceLine) return;
+    if (!record || !confirmCompleteServiceLine || !canManageServicesAndProducts) return;
     try {
       setTogglingLineId(confirmCompleteServiceLine.id);
       await incomeService.toggleServiceComplete(record.id, confirmCompleteServiceLine.id);
@@ -519,7 +526,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Delete Service Line
   const handleDeleteServiceConfirm = async () => {
-    if (!record || !deletingServiceLine) return;
+    if (!record || !deletingServiceLine || !canManageServicesAndProducts) return;
     try {
       await incomeService.removeServiceLine(record.id, deletingServiceLine.id);
       success(isSpanish ? 'Servicio eliminado exitosamente' : 'Service deleted successfully');
@@ -533,7 +540,7 @@ export const AppointmentIncomePage: React.FC = () => {
 
   // Delete Product Line
   const handleDeleteProductConfirm = async () => {
-    if (!record || !deletingProductLine) return;
+    if (!record || !deletingProductLine || !canManageServicesAndProducts) return;
     try {
       await incomeService.removeProductLine(record.id, deletingProductLine.id);
       success(
@@ -552,8 +559,38 @@ export const AppointmentIncomePage: React.FC = () => {
   // Submit Payment
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!record || !paymentForm.paymentMethodId) {
+    if (!record || !canRecordPayments) return;
+    if (!paymentForm.paymentMethodId) {
       toastError(isSpanish ? 'Seleccione un método de pago' : 'Please select a payment method');
+      return;
+    }
+
+    const payAmount = Number(paymentForm.amount || 0);
+    const advAmount = paymentForm.useAdvance ? Number(paymentForm.advanceUsed || 0) : 0;
+    const totalPay = payAmount + advAmount;
+    const currentBalanceDue = Math.max(0, Number(record.balanceDue || 0));
+
+    if (currentBalanceDue <= 0) {
+      toastError(t('income.noRemainingBalance', 'There is no remaining balance due on this appointment.'));
+      return;
+    }
+
+    if (totalPay <= 0) {
+      toastError(t('income.paymentAmountRequired', 'Payment amount or advance applied must be greater than zero.'));
+      return;
+    }
+
+    if (totalPay > currentBalanceDue + 0.01) {
+      toastError(
+        t(
+          'income.paymentExceedsBalance',
+          'Total payment ({{paying}}) cannot exceed the remaining balance due ({{balance}}).',
+          {
+            paying: `$${totalPay.toFixed(2)}`,
+            balance: `$${currentBalanceDue.toFixed(2)}`,
+          },
+        ),
+      );
       return;
     }
     try {
@@ -1656,7 +1693,16 @@ export const AppointmentIncomePage: React.FC = () => {
                                   </button>
                                 </Tooltip>
                               ) : (
-                                <Tooltip content={t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')}>
+                                <Tooltip
+                                  content={
+                                    isAppointmentEnded
+                                      ? t(
+                                          'income.appointmentEndedActionDisabled',
+                                          'Appointment ended. Items cannot be modified or deleted.',
+                                        )
+                                      : t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')
+                                  }
+                                >
                                   <span
                                     style={{ color: 'var(--text-muted)', opacity: 0.4, cursor: 'not-allowed', display: 'inline-flex' }}
                                   >
@@ -1675,34 +1721,71 @@ export const AppointmentIncomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Products & Inventory Table */}
+          {/* Section 2: Products & Inventory Table (Collapsible & Expandable) */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div
+              onClick={() => setProductsExpanded((prev) => !prev)}
+              role="button"
+              tabIndex={0}
+              aria-expanded={productsExpanded}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setProductsExpanded((prev) => !prev);
+                }
+              }}
               style={{
                 padding: '16px 20px',
-                borderBottom: '1px solid var(--border-color)',
+                borderBottom: productsExpanded ? '1px solid var(--border-color)' : 'none',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 gap: '12px',
                 flexWrap: 'wrap',
+                cursor: 'pointer',
+                userSelect: 'none',
+                transition: 'background-color 0.15s ease',
               }}
             >
               <div>
-                <h2
-                  style={{
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    color: 'var(--text-heading)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    margin: 0,
-                  }}
-                >
-                  <Package size={18} style={{ color: 'var(--primary-600)' }} />
-                  <span>{t('income.productsSection', 'Products & Inventory')}</span>
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h2
+                    style={{
+                      fontSize: '16px',
+                      fontWeight: 700,
+                      color: 'var(--text-heading)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      margin: 0,
+                    }}
+                  >
+                    <Package size={18} style={{ color: 'var(--primary-600)' }} />
+                    <span>{t('income.productsSection', 'Products & Inventory')}</span>
+                  </h2>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      backgroundColor:
+                        record.productLines.length > 0
+                          ? 'var(--badge-primary-bg, rgba(13, 148, 136, 0.12))'
+                          : 'var(--bg-secondary)',
+                      color:
+                        record.productLines.length > 0
+                          ? 'var(--primary-700, #0f766e)'
+                          : 'var(--text-muted)',
+                    }}
+                  >
+                    {record.productLines.length}{' '}
+                    {record.productLines.length === 1
+                      ? t('income.productItemSingular', 'item')
+                      : t('income.productItemPlural', 'items')}
+                    {Number(record.totalProducts || 0) > 0 && ` • $${Number(record.totalProducts).toFixed(2)}`}
+                  </span>
+                </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
                   {isSpanish
                     ? 'Los productos reducen automáticamente el stock del inventario de la clínica.'
@@ -1710,21 +1793,57 @@ export const AppointmentIncomePage: React.FC = () => {
                 </p>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 {canManageServicesAndProducts && (
                   <button
                     type="button"
-                    onClick={handleOpenAddProduct}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenAddProduct();
+                    }}
                     className="btn btn-primary btn-sm"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '40px' }}
                   >
                     <Plus size={15} />
                     <span>{t('income.addProduct', 'Add Product')}</span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProductsExpanded((prev) => !prev);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    minHeight: '40px',
+                    minWidth: '40px',
+                    padding: '6px 12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                  }}
+                  aria-label={
+                    productsExpanded
+                      ? t('income.collapseProducts', 'Collapse Products & Inventory')
+                      : t('income.expandProducts', 'Expand Products & Inventory')
+                  }
+                  aria-expanded={productsExpanded}
+                >
+                  <span>
+                    {productsExpanded
+                      ? t('income.hideProducts', 'Hide Products')
+                      : t('income.showProducts', 'Show Products')}
+                  </span>
+                  {productsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
               </div>
             </div>
 
+            {productsExpanded && (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                 <thead>
@@ -1830,7 +1949,16 @@ export const AppointmentIncomePage: React.FC = () => {
                                   </button>
                                 </Tooltip>
                               ) : (
-                                <Tooltip content={t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')}>
+                                <Tooltip
+                                  content={
+                                    isAppointmentEnded
+                                      ? t(
+                                          'income.appointmentEndedActionDisabled',
+                                          'Appointment ended. Items cannot be modified or deleted.',
+                                        )
+                                      : t('income.cannotDeleteCompletedOrPaid', 'Completed or paid items cannot be deleted')
+                                  }
+                                >
                                   <span
                                     style={{ color: 'var(--text-muted)', opacity: 0.4, cursor: 'not-allowed', display: 'inline-flex' }}
                                   >
@@ -1847,6 +1975,7 @@ export const AppointmentIncomePage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           {/* Section 3: Financial Summary & Payments */}
@@ -1924,6 +2053,36 @@ export const AppointmentIncomePage: React.FC = () => {
                   <span>{t('income.completedProductAmount', 'Completed Product Amount')}</span>
                   <span style={{ fontFamily: 'monospace' }}>${completedProductsAmount.toFixed(2)}</span>
                 </div>
+
+                {paid > 0 && balDue > 0 && (
+                  <>
+                    <div style={{ borderTop: '1px solid var(--border-color)', margin: '2px 0' }} />
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--emerald-600)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>{t('income.alreadyPaidAmount', 'Total Paid')}</span>
+                      <span style={{ fontFamily: 'monospace' }}>-${paid.toFixed(2)}</span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '13.5px',
+                        color: '#b45309',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>{t('income.remainingBalanceDue', 'Remaining Balance Due')}</span>
+                      <span style={{ fontFamily: 'monospace' }}>${balDue.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <button
@@ -2848,15 +3007,19 @@ export const AppointmentIncomePage: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={paymentForm.useAdvance}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          const remBalance = Math.max(0, Number(record?.balanceDue || 0));
+                          const advToUse = checked ? Math.min(remBalance, selectedAdvanceBalance) : 0;
                           setPaymentForm((prev) => ({
                             ...prev,
-                            useAdvance: e.target.checked,
-                            advanceUsed: e.target.checked
-                              ? Math.min(Number(record?.balanceDue || 0), selectedAdvanceBalance)
-                              : 0,
-                          }))
-                        }
+                            useAdvance: checked,
+                            advanceUsed: advToUse,
+                            amount: checked
+                              ? Math.max(0, Number((remBalance - advToUse).toFixed(2)))
+                              : remBalance,
+                          }));
+                        }}
                       />
                       <Wallet size={15} style={{ color: 'var(--primary-600)' }} />
                       <span>{t('income.useAdvance', 'Apply Patient Advance Balance')}</span>
@@ -2878,7 +3041,18 @@ export const AppointmentIncomePage: React.FC = () => {
                           <SearchableSelect
                             options={advanceReceiptOptions}
                             value={paymentForm.advancePaymentId}
-                            onChange={(aid) => setPaymentForm((prev) => ({ ...prev, advancePaymentId: aid }))}
+                            onChange={(aid) => {
+                              const found = advancePayments.find((a) => a.id === aid);
+                              const advBal = found ? Number(found.balanceRemaining || 0) : 0;
+                              const remBalance = Math.max(0, Number(record?.balanceDue || 0));
+                              const advToUse = Math.min(remBalance, advBal);
+                              setPaymentForm((prev) => ({
+                                ...prev,
+                                advancePaymentId: aid,
+                                advanceUsed: advToUse,
+                                amount: Math.max(0, Number((remBalance - advToUse).toFixed(2))),
+                              }));
+                            }}
                             placeholder={isSpanish ? 'Seleccionar recibo...' : 'Select receipt...'}
                           />
                         </div>
@@ -2897,15 +3071,18 @@ export const AppointmentIncomePage: React.FC = () => {
                             type="number"
                             step="0.01"
                             min="0"
-                            max={selectedAdvanceBalance}
+                            max={Math.min(selectedAdvanceBalance, Math.max(0, Number(record?.balanceDue || 0)))}
                             className="input"
                             style={{ fontSize: '12px', padding: '6px 8px', fontFamily: 'monospace' }}
                             value={paymentForm.advanceUsed}
                             onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
+                              const remBalance = Math.max(0, Number(record?.balanceDue || 0));
+                              const val = Math.max(0, parseFloat(e.target.value) || 0);
+                              const cappedAdv = Math.min(selectedAdvanceBalance, remBalance, val);
                               setPaymentForm((prev) => ({
                                 ...prev,
-                                advanceUsed: Math.min(selectedAdvanceBalance, val),
+                                advanceUsed: cappedAdv,
+                                amount: Math.max(0, Number((remBalance - cappedAdv).toFixed(2))),
                               }));
                             }}
                           />
@@ -3153,8 +3330,8 @@ export const AppointmentIncomePage: React.FC = () => {
       {/* CONFIRM MODAL: END APPOINTMENT */}
       {showEndModal && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '420px', width: '95%' }}>
-            <div className="modal-header">
+          <div className="modal-content" style={{ maxWidth: '480px', width: '95%' }}>
+            <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3
                 style={{
                   margin: 0,
@@ -3169,34 +3346,142 @@ export const AppointmentIncomePage: React.FC = () => {
                 <CheckCircle size={18} />
                 <span>{t('income.endAppointment', 'End Appointment')}</span>
               </h3>
+              <button
+                type="button"
+                onClick={() => !endingAppointment && setShowEndModal(false)}
+                className="btn-icon"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                disabled={endingAppointment}
+                aria-label={t('income.closeAlert', 'Close')}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div className="modal-body" style={{ padding: '16px 20px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-                {t(
-                  'income.endAppointmentConfirm',
-                  'Are you sure you want to end this appointment? This will mark it as Completed.'
+            <div className="modal-body" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Appointment & Balance Summary */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  fontSize: '13px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>{patientFullName}</span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                      color: 'var(--primary-700, #0f766e)',
+                    }}
+                  >
+                    #{record.appointment.appointmentNumber}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {record.doctor.name} • {record.serviceLines.filter((l) => l.isCompleted).length} / {record.serviceLines.length}{' '}
+                  {isSpanish ? 'servicios completados' : 'services completed'}
+                </div>
+                {balDue > 0 && (
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#b45309', marginTop: '4px' }}>
+                    {t('income.remainingBalanceDue', 'Remaining Balance Due')}: ${balDue.toFixed(2)}
+                  </div>
                 )}
-              </p>
+              </div>
+
+              {/* Uncompleted services notice if applicable */}
+              {variance && variance.pendingServicesCount > 0 && (
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    color: '#92400e',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                  <span>
+                    {t(
+                      'appointments.uncompletedServicesWarning',
+                      '{{count}} planned service(s) are still pending completion and will not be billed once ended.',
+                      { count: variance.pendingServicesCount },
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Explicit Consequences Warning */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                }}
+              >
+                <ShieldAlert size={18} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#b91c1c' }}>
+                    {t('income.endAppointmentConsequencesTitle', 'Important: Finalize Appointment Warning')}
+                  </span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--text-body)', lineHeight: 1.5 }}>
+                    {t(
+                      'income.endAppointmentConsequencesDesc',
+                      'Once this appointment is marked as Completed, no further actions can be performed—you will not be able to reopen it or add, edit, complete, or delete services and products. Only collecting the remaining balance payment will be allowed.',
+                    )}
+                  </span>
+                </div>
+              </div>
             </div>
             <div
               className="modal-footer"
-              style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '12px 20px' }}
+              style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '12px 20px', flexWrap: 'wrap' }}
             >
-              <button type="button" onClick={() => setShowEndModal(false)} className="btn btn-secondary btn-sm">
-                {isSpanish ? 'Cancelar' : 'Cancel'}
+              <button
+                type="button"
+                onClick={() => setShowEndModal(false)}
+                className="btn btn-secondary btn-sm"
+                disabled={endingAppointment}
+                style={{ minHeight: '40px' }}
+              >
+                {t('income.keepInProgress', 'Keep In Progress')}
               </button>
               <button
                 type="button"
                 onClick={handleEndAppointment}
                 disabled={endingAppointment}
                 className="btn btn-primary btn-sm"
-                style={{ backgroundColor: 'var(--emerald-600)' }}
+                style={{
+                  backgroundColor: 'var(--emerald-600)',
+                  minHeight: '40px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
               >
-                {endingAppointment
-                  ? t('income.endingAppointment', 'Ending appointment...')
-                  : isSpanish
-                  ? 'Finalizar Cita'
-                  : 'End Appointment'}
+                <CheckCircle size={15} />
+                <span>
+                  {endingAppointment
+                    ? t('income.endingAppointment', 'Ending appointment...')
+                    : t('income.confirmEndAppointment', 'Confirm & End Appointment')}
+                </span>
               </button>
             </div>
           </div>
