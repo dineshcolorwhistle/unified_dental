@@ -3785,7 +3785,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                       />
 
                       {/* Treatment Plan Status Dropdown Selector */}
-                      <div style={{ width: '145px' }}>
+                      <div style={{ minWidth: '150px', width: isMobileScreen ? '100%' : '160px' }}>
                         <SearchableSelect
                           options={statusSelectOptions}
                           value={currentStatus}
@@ -6213,7 +6213,7 @@ export const PatientTreatmentPlanPage: React.FC = () => {
                       </div>
 
                       {/* Date & Duration Row */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobileScreen ? '1fr' : '1fr 1fr', gap: '14px' }}>
                         <div>
                           <label className="form-label" style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-heading, #1e293b)', display: 'block', marginBottom: '4px' }}>
                             {t('patientTreatmentPlan.appointmentDate', 'Date')} <span style={{ color: '#ef4444' }}>*</span>

@@ -722,6 +722,7 @@ export const PatientOdontogramPage: React.FC = () => {
           backgroundColor: isHighlighted ? highlightBgColor : '#ffffff',
           padding: '10px 12px',
           minHeight: '120px',
+          minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
           transition: 'all 0.15s ease',
@@ -1156,7 +1157,7 @@ export const PatientOdontogramPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Navigation Tabs Bar (Renamed to Diagnostics and Treatment) ─── */}
+      {/* ─── Navigation Tabs Bar (Diagnostics and Treatments) ─── */}
       <div
         style={{
           display: 'flex',
@@ -1165,6 +1166,7 @@ export const PatientOdontogramPage: React.FC = () => {
           borderBottom: '1px solid #e2e8f0',
           marginBottom: '20px',
           paddingBottom: '2px',
+          overflowX: 'auto',
         }}
       >
         {/* Tab 1: Diagnostics */}
@@ -1184,6 +1186,8 @@ export const PatientOdontogramPage: React.FC = () => {
             color: activeTab === 'DIAGNOSTICS' ? '#0284c7' : '#64748b',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           <Activity size={17} style={{ color: activeTab === 'DIAGNOSTICS' ? '#0284c7' : '#94a3b8' }} />
@@ -1206,7 +1210,7 @@ export const PatientOdontogramPage: React.FC = () => {
           </span>
         </button>
 
-        {/* Tab 2: Treatment */}
+        {/* Tab 2: Treatments */}
         <button
           type="button"
           onClick={() => setActiveTab('TREATMENT')}
@@ -1223,10 +1227,12 @@ export const PatientOdontogramPage: React.FC = () => {
             color: activeTab === 'TREATMENT' ? '#0284c7' : '#64748b',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           <Layers size={17} style={{ color: activeTab === 'TREATMENT' ? '#0284c7' : '#94a3b8' }} />
-          <span>{t('patientOdontogram.tabs.treatment', 'Treatment Plan')}</span>
+          <span>{t('patientOdontogram.tabs.treatment', 'Treatments')}</span>
           <span
             style={{
               display: 'inline-flex',
@@ -1737,7 +1743,7 @@ export const PatientOdontogramPage: React.FC = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
                   gap: '10px',
                 }}
               >
@@ -1775,7 +1781,7 @@ export const PatientOdontogramPage: React.FC = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
                   gap: '10px',
                 }}
               >

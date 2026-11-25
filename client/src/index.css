@@ -1574,6 +1574,16 @@ button {
   box-shadow: 0 -10px 20px -3px rgba(0, 0, 0, 0.15), 0 -4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
+.searchable-select-dropdown.searchable-select-portal {
+  position: fixed;
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: auto;
+  z-index: 100000;
+  box-shadow: var(--shadow-xl);
+}
+
 .searchable-select-search-box {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-color);

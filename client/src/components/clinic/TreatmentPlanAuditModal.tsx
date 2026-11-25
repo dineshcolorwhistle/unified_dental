@@ -118,7 +118,6 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
   const [audits, setAudits] = useState<TreatmentPlanAuditItem[]>([]);
   const [availablePlans, setAvailablePlans] = useState<Array<{ groupId: string; name: string }>>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(initialGroupId);
-  const [selectedAction, setSelectedAction] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -138,7 +137,6 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
   useEffect(() => {
     if (isOpen) {
       setSelectedGroupId(initialGroupId || 'ALL');
-      setSelectedAction('ALL');
       setPage(1);
     }
   }, [isOpen, initialGroupId]);
@@ -149,7 +147,6 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
       setLoading(true);
       const res = await clinicOdontogramService.getTreatmentPlanAuditHistory(patientId, {
         groupId: selectedGroupId,
-        action: selectedAction,
         page,
         limit: pageSize,
       });
@@ -163,7 +160,7 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
     } finally {
       setLoading(false);
     }
-  }, [isOpen, patientId, selectedGroupId, selectedAction, page, pageSize, error, t]);
+  }, [isOpen, patientId, selectedGroupId, page, pageSize, error, t]);
 
   useEffect(() => {
     fetchAuditHistory();
@@ -175,26 +172,6 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
       ...availablePlans.map((p) => ({ value: p.groupId, label: p.name })),
     ],
     [availablePlans, t],
-  );
-
-  const actionFilterOptions: SearchableSelectOption[] = useMemo(
-    () => [
-      { value: 'ALL', label: t('patientTreatmentPlan.auditAllActions', 'All Actions') },
-      { value: 'STATUS_CHANGED', label: t('patientTreatmentPlan.auditActions.STATUS_CHANGED', 'Status Updated') },
-      { value: 'SERVICE_ADDED', label: t('patientTreatmentPlan.auditActions.SERVICE_ADDED', 'Service Added') },
-      { value: 'SERVICE_UPDATED', label: t('patientTreatmentPlan.auditActions.SERVICE_UPDATED', 'Service Updated') },
-      { value: 'SERVICE_REMOVED', label: t('patientTreatmentPlan.auditActions.SERVICE_REMOVED', 'Service Removed') },
-      { value: 'APPOINTMENT_CREATED', label: t('patientTreatmentPlan.auditActions.APPOINTMENT_CREATED', 'Appointment Created') },
-      {
-        value: 'APPOINTMENT_UPDATED,APPOINTMENT_STATUS_CHANGED,APPOINTMENT_DELETED',
-        label: t('patientTreatmentPlan.auditActions.APPOINTMENT_UPDATED', 'Appointment Edited'),
-      },
-      {
-        value: 'PLAN_CREATED,PLAN_RENAMED,PLAN_DELETED',
-        label: t('patientTreatmentPlan.auditActions.PLAN_CREATED', 'Plan Created / Renamed / Deleted'),
-      },
-    ],
-    [t],
   );
 
   const renderDiffEntries = (oldVals: Record<string, any> | null, newVals: Record<string, any> | null) => {
@@ -340,38 +317,37 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
           </Tooltip>
         </div>
 
-        {/* Filters Bar */}
+        {/* Filters Bar (Treatment Plan filter only) */}
         <div
           style={{
-            padding: '12px 22px',
+            padding: isMobile ? '12px 14px' : '12px 22px',
             borderBottom: '1px solid var(--border-color)',
             backgroundColor: 'var(--bg-surface-muted, #f8fafc)',
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: '10px',
             flexShrink: 0,
           }}
         >
-          <SearchableSelect
-            options={planFilterOptions}
-            value={selectedGroupId}
-            onChange={(val) => {
-              setSelectedGroupId(val);
-              setPage(1);
-            }}
-            placeholder={t('patientTreatmentPlan.auditAllPlans', 'All Treatment Plans')}
-            icon={<FileText size={14} />}
-          />
-          <SearchableSelect
-            options={actionFilterOptions}
-            value={selectedAction}
-            onChange={(val) => {
-              setSelectedAction(val);
-              setPage(1);
-            }}
-            placeholder={t('patientTreatmentPlan.auditAllActions', 'All Actions')}
-            icon={<History size={14} />}
-          />
+          <div style={{ flex: '1 1 240px', maxWidth: isMobile ? '100%' : '380px', minWidth: 0 }}>
+            <SearchableSelect
+              options={planFilterOptions}
+              value={selectedGroupId}
+              onChange={(val) => {
+                setSelectedGroupId(val);
+                setPage(1);
+              }}
+              placeholder={t('patientTreatmentPlan.auditAllPlans', 'All Treatment Plans')}
+              icon={<FileText size={14} />}
+            />
+          </div>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {totalItems === 1
+              ? t('patientTreatmentPlan.auditRecordSingular', '{{count}} record', { count: totalItems })
+              : t('patientTreatmentPlan.auditRecordsPlural', '{{count}} records', { count: totalItems })}
+          </span>
         </div>
 
         {/* Body */}
@@ -388,7 +364,7 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
                 {t('patientTreatmentPlan.auditNoRecords', 'No audit history recorded for this treatment plan yet.')}
               </div>
             </div>
-          ) : isMobile ? (
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {audits.map((audit) => {
                 const badge = ACTION_BADGE_MAP[audit.action] || ACTION_BADGE_MAP.STATUS_CHANGED;
@@ -396,135 +372,118 @@ export const TreatmentPlanAuditModal: React.FC<TreatmentPlanAuditModalProps> = (
                   <div
                     key={audit.id}
                     style={{
-                      padding: '12px 14px',
+                      padding: isMobile ? '12px 14px' : '14px 16px',
                       borderRadius: '10px',
                       border: '1px solid var(--border-color)',
-                      backgroundColor: 'var(--bg-card)',
+                      backgroundColor: 'var(--bg-surface-muted, var(--bg-secondary, #f8fafc))',
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
+                      flexDirection: isMobile ? 'column' : 'row',
+                      justifyContent: 'space-between',
+                      alignItems: isMobile ? 'stretch' : 'flex-start',
+                      gap: isMobile ? '10px' : '16px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                      <span
+                    {/* Left / Main Details */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
+                      {/* Action Type & Treatment Plan Row */}
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 9px',
+                            borderRadius: '999px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            backgroundColor: badge.bg,
+                            color: badge.color,
+                            border: `1px solid ${badge.border}`,
+                          }}
+                        >
+                          {badge.icon}
+                          <span>{t(`patientTreatmentPlan.auditActions.${audit.action}`, audit.action)}</span>
+                        </span>
+                        {audit.treatmentPlanName && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              color: 'var(--text-main)',
+                              backgroundColor: 'var(--bg-card)',
+                              border: '1px solid var(--border-color)',
+                            }}
+                          >
+                            <FileText size={11} style={{ color: 'var(--primary-600)', flexShrink: 0 }} />
+                            <span>{audit.treatmentPlanName}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Description */}
+                      <div
+                        style={{
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: 'var(--text-heading)',
+                          lineHeight: 1.4,
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {audit.description || t(`patientTreatmentPlan.auditActions.${audit.action}`, audit.action)}
+                      </div>
+
+                      {/* Before / After Diff Entries */}
+                      {renderDiffEntries(audit.oldValues, audit.newValues)}
+
+                      {/* Performed By */}
+                      <div
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '5px',
-                          padding: '3px 8px',
-                          borderRadius: '999px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          backgroundColor: badge.bg,
-                          color: badge.color,
-                          border: `1px solid ${badge.border}`,
+                          fontSize: '12px',
+                          color: 'var(--text-muted)',
+                          marginTop: '2px',
                         }}
                       >
-                        {badge.icon}
-                        <span>{t(`patientTreatmentPlan.auditActions.${audit.action}`, audit.action)}</span>
-                      </span>
-                      {audit.treatmentPlanName && (
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                          {audit.treatmentPlanName}
+                        <User size={12} style={{ flexShrink: 0 }} />
+                        <span>
+                          {t('patientTreatmentPlan.auditPerformedBy', 'Performed By')}:{' '}
+                          <strong style={{ color: 'var(--text-main)' }}>
+                            {audit.user?.name || audit.user?.email || t('common.system', 'System')}
+                          </strong>
                         </span>
-                      )}
+                      </div>
                     </div>
 
-                    {audit.description && (
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                        {audit.description}
-                      </div>
-                    )}
-
-                    {renderDiffEntries(audit.oldValues, audit.newValues)}
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', fontSize: '11.5px', color: 'var(--text-muted)', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <User size={12} />
-                        {audit.user?.name || audit.user?.email || 'System'}
-                      </span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={12} />
-                        {formatDateTime(audit.createdAt, { locale: i18n.language, timeZone: tenantTz })}
-                      </span>
+                    {/* Right / Bottom Timestamp */}
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        ...(isMobile
+                          ? { paddingTop: '8px', borderTop: '1px solid var(--border-color)' }
+                          : { paddingTop: '2px' }),
+                      }}
+                    >
+                      <Clock size={12} style={{ flexShrink: 0 }} />
+                      <span>{formatDateTime(audit.createdAt, { locale: i18n.language, timeZone: tenantTz })}</span>
                     </div>
                   </div>
                 );
               })}
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'var(--bg-surface-muted)' }}>
-                    <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                      {t('patientTreatmentPlan.auditAction', 'Action')}
-                    </th>
-                    <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                      {t('patientTreatmentPlan.auditDetails', 'Details')}
-                    </th>
-                    <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                      {t('patientTreatmentPlan.auditPerformedBy', 'Performed By')}
-                    </th>
-                    <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                      {t('patientTreatmentPlan.auditDateTime', 'Date & Time')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {audits.map((audit) => {
-                    const badge = ACTION_BADGE_MAP[audit.action] || ACTION_BADGE_MAP.STATUS_CHANGED;
-                    return (
-                      <tr key={audit.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '12px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '3px 9px',
-                                borderRadius: '999px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                backgroundColor: badge.bg,
-                                color: badge.color,
-                                border: `1px solid ${badge.border}`,
-                              }}
-                            >
-                              {badge.icon}
-                              <span>{t(`patientTreatmentPlan.auditActions.${audit.action}`, audit.action)}</span>
-                            </span>
-                            {audit.treatmentPlanName && (
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                {audit.treatmentPlanName}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px', verticalAlign: 'top' }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                            {audit.description || audit.action}
-                          </div>
-                          {renderDiffEntries(audit.oldValues, audit.newValues)}
-                        </td>
-                        <td style={{ padding: '12px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-main)' }}>
-                            <User size={13} style={{ color: 'var(--text-muted)' }} />
-                            <span>{audit.user?.name || audit.user?.email || 'System'}</span>
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                            <Clock size={12} />
-                            <span>{formatDateTime(audit.createdAt, { locale: i18n.language, timeZone: tenantTz })}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>

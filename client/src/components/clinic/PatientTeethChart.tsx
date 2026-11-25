@@ -162,7 +162,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
       else if (s === 'UPPER_CERVICAL') entry.upperCervical = f;
       else if (s === 'LOWER_CERVICAL') entry.lowerCervical = f;
       else if (s === 'CERVICAL') {
-        entry.upperCervical = f;
+        entry.cervical = f;
       }
     });
 
@@ -245,8 +245,8 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
           width="44"
           height="60"
           style={{
-            overflow: 'visible',
-            filter: hasWhole ? `drop-shadow(0 0 3px ${wholeColor})` : 'none',
+            overflow: 'hidden',
+            display: 'block',
           }}
         >
           {/* Top Outer Curved Arc (Upper Cervical / Apical) */}
@@ -255,6 +255,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
             fill={upperCervicalFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
+            strokeLinejoin="round"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
@@ -274,6 +275,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
             fill={topFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
+            strokeLinejoin="round"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
@@ -293,6 +295,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
             fill={bottomFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
+            strokeLinejoin="round"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
@@ -312,6 +315,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
             fill={leftFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
+            strokeLinejoin="round"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
@@ -331,6 +335,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
             fill={rightFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
+            strokeLinejoin="round"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
@@ -371,6 +376,7 @@ export const PatientTeethChart: React.FC<PatientTeethChartProps> = ({
             fill={lowerCervicalFill}
             stroke="#94a3b8"
             strokeWidth="1.1"
+            strokeLinejoin="round"
             className="tooth-surface-path"
             onClick={(e) => {
               e.stopPropagation();
